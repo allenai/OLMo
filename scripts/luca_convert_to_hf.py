@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import re
 import shutil
 import tempfile
 from contextlib import contextmanager
@@ -121,10 +122,17 @@ def fix_tokenizer(checkpoint_dir: str, tokenizer_name_or_path: Optional[str] = N
     om.save(conf, path)
 
 
-def download_s3_directory(bucket_name: str, prefix: str, local_dir: str):
+def download_s3_directory(
+    bucket_name: str,
+    prefix: str,
+    local_dir: str,
+    ignore: str | None = None
+):
 
     # Create S3 client
     s3_client = boto3.client("s3")
+
+    re_ignore = re.compile(ignore) if ignore else None
 
     # List objects within the given prefix
     paginator = s3_client.get_paginator("list_objects_v2")
@@ -134,6 +142,8 @@ def download_s3_directory(bucket_name: str, prefix: str, local_dir: str):
     files_to_download = []
     for page in pages:
         for obj in page.get("Contents", []):
+            if re_ignore and re_ignore.search(obj["Key"]):
+                continue
             files_to_download.append(obj["Key"])
 
     # Initialize the progress bar
@@ -171,7 +181,11 @@ def make_local_checkpoint(checkpoint_dir: str) -> Generator[str, None, None]:
         return
     try:
         os.makedirs(temp_dir, exist_ok=True)
-        download_s3_directory(bucket_name=parsed_dir.netloc, prefix=parsed_dir.path[1:], local_dir=temp_dir)
+        download_s3_directory(
+            bucket_name=parsed_dir.netloc,
+            prefix=parsed_dir.path[1:],
+            local_dir=temp_dir,
+            ignore=r"/(optim|train)/")
     except Exception as e:
         logger.error(f"Error downloading checkpoint: {e}")
         shutil.rmtree(temp_dir)
@@ -191,7 +205,10 @@ def upload_local_checkpoint(local_checkpoint_dir: str, destination_dir: str) -> 
         s3_prefix = parsed_url.path[1:]
 
         local_paths = [
-            os.path.join(root, post_fn) for root, _, files in os.walk(local_checkpoint_dir) for post_fn in files
+            local_fn
+            for root, _, files in os.walk(local_checkpoint_dir)
+            for post_fn in files
+            if not re.search(r"/(optim|train|model)/", local_fn := os.path.join(root, post_fn))
         ]
         dest_paths = [
             os.path.join(s3_prefix, os.path.relpath(local_path, local_checkpoint_dir))
