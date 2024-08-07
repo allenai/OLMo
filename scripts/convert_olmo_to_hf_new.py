@@ -17,7 +17,7 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Iterable
 
 import torch
 import yaml
@@ -55,6 +55,21 @@ def read_json(path):
 def write_json(text, path):
     with open(path, "w") as f:
         json.dump(text, f)
+
+
+def longest_common_prefix(strs: Iterable[str]) -> str:
+    if not strs:
+        return ""
+
+    # Find the shortest string in the list
+    shortest_str = min(strs, key=len)
+
+    for i, char in enumerate(shortest_str):
+        for other_str in strs:
+            if other_str[i] != char:
+                return shortest_str[:i]
+
+    return shortest_str
 
 
 def write_model(
@@ -97,6 +112,9 @@ def write_model(
     # (The sharded implementation would also work, but this is simpler.)
     loaded = torch.load(os.path.join(input_base_path, "model.pt"), map_location="cpu")
 
+    # sometimes the keys have a prefix, sometimes they don't
+    model_name_prefix = longest_common_prefix(loaded.keys())
+
     param_count = 0
     index_dict: Dict[str, Any] = {"weight_map": {}}
     for layer_i in range(n_layers):
@@ -106,20 +124,22 @@ def write_model(
         # TODO: multi query attention
         fused_dims = [dim, dims_per_head * num_key_value_heads, dims_per_head * num_key_value_heads]
         q_proj_weight, k_proj_weight, v_proj_weight = torch.split(
-            loaded[f"transformer.blocks.{layer_i}.att_proj.weight"], fused_dims, dim=0
+            loaded[f"{model_name_prefix}blocks.{layer_i}.att_proj.weight"], fused_dims, dim=0
         )
         up_proj_weight, gate_proj_weight = torch.chunk(
-            loaded[f"transformer.blocks.{layer_i}.ff_proj.weight"], 2, dim=0
+            loaded[f"{model_name_prefix}blocks.{layer_i}.ff_proj.weight"], 2, dim=0
         )
         state_dict = {
             f"model.layers.{layer_i}.self_attn.q_proj.weight": q_proj_weight,
             f"model.layers.{layer_i}.self_attn.k_proj.weight": k_proj_weight,
             f"model.layers.{layer_i}.self_attn.v_proj.weight": v_proj_weight,
             f"model.layers.{layer_i}.self_attn.o_proj.weight": loaded[
-                f"transformer.blocks.{layer_i}.attn_out.weight"
+                f"{model_name_prefix}blocks.{layer_i}.attn_out.weight"
             ],
             f"model.layers.{layer_i}.mlp.gate_proj.weight": gate_proj_weight,
-            f"model.layers.{layer_i}.mlp.down_proj.weight": loaded[f"transformer.blocks.{layer_i}.ff_out.weight"],
+            f"model.layers.{layer_i}.mlp.down_proj.weight": loaded[
+                f"{model_name_prefix}blocks.{layer_i}.ff_out.weight"
+            ],
             f"model.layers.{layer_i}.mlp.up_proj.weight": up_proj_weight,
         }
 
@@ -135,11 +155,11 @@ def write_model(
     # Unsharded
     # TODO: Deal with weight-tying
     state_dict = {
-        "model.embed_tokens.weight": loaded["transformer.wte.weight"],
+        "model.embed_tokens.weight": loaded["{model_name_prefix}wte.weight"],
         "lm_head.weight": (
-            loaded["transformer.ff_out.weight"]
-            if "transformer.ff_out.weight" in loaded
-            else loaded["transformer.wte.weight"]
+            loaded["{model_name_prefix}ff_out.weight"]
+            if "{model_name_prefix}ff_out.weight" in loaded
+            else loaded["{model_name_prefix}wte.weight"]
         ),
     }
 
