@@ -1007,10 +1007,12 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
         )
     elif sched_cfg.name == SchedulerType.cosine_linear_envelope:
         return CosLinearEnvelope(
-            grad_clip_warmup_steps=None
-            if sched_cfg.grad_clip_warmup_steps is None
-            else int(sched_cfg.grad_clip_warmup_steps),
+            grad_clip_warmup_steps=(
+                None if sched_cfg.grad_clip_warmup_steps is None else int(sched_cfg.grad_clip_warmup_steps)
+            ),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
+            warmup_steps=int(sched_cfg.t_warmup),
+            alpha_f=sched_cfg.alpha_f,
             t_max=None if sched_cfg.t_max is None else int(sched_cfg.t_max),
             warmup_min_lr=sched_cfg.warmup_min_lr,
         )
