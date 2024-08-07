@@ -804,12 +804,15 @@ class WekaClient(SchemeClient):
         return response["Body"].read()
 
 
-def flatten_dict(dictionary, parent_key="", separator="."):
+def flatten_dict(dictionary, parent_key="", separator=".", include_lists=False):
     d: Dict[str, Any] = {}
     for key, value in dictionary.items():
         new_key = parent_key + separator + key if parent_key else key
+        # convert lists to dict with key <int>
+        if isinstance(value, list) and include_lists:
+            value = {f"{i}": v for i, v in enumerate(value)}
         if isinstance(value, MutableMapping):
-            d.update(**flatten_dict(value, new_key, separator=separator))
+            d.update(**flatten_dict(value, new_key, separator=separator, include_lists=include_lists))
         else:
             d[new_key] = value
     return d
