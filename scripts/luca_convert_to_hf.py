@@ -101,8 +101,14 @@ def write_tokenizer(checkpoint_dir: str):
 
 
 def convert_checkpoint(checkpoint_dir: str, ignore_olmo_compatibility: bool = False):
+
+    print("Converting checkpoint to HF format...")
     write_config(checkpoint_dir)
+
+    print("Saving model to checkpoint...")
     write_model(checkpoint_dir, ignore_olmo_compatibility=ignore_olmo_compatibility)
+
+    print("Saving tokenizer to checkpoint...")
     write_tokenizer(checkpoint_dir)
 
     # Cannot remove it before writing the tokenizer
@@ -113,6 +119,8 @@ def convert_checkpoint(checkpoint_dir: str, ignore_olmo_compatibility: bool = Fa
 def fix_tokenizer(checkpoint_dir: str, tokenizer_name_or_path: Optional[str] = None):
     path = os.path.join(checkpoint_dir, "config.yaml")
     conf = om.load(path)
+
+    print("Saving tokenizer to checkpoint...")
 
     tokenizer_name_or_path = str(tokenizer_name_or_path or conf["tokenizer"]["identifier"])  # pyright: ignore
 
@@ -238,6 +246,7 @@ def maybe_unshard(checkpoint_dir: str):
     if os.path.exists(os.path.join(checkpoint_dir, "model.pt")):
         return
 
+    print(f"Unsharding {checkpoint_dir}...")
     train_config = TrainConfig.load(os.path.join(checkpoint_dir, "config.yaml"))
     checkpointer = OlmoCoreCheckpointer(train_config)
     model_state, _, _ = checkpointer.unshard_checkpoint(
@@ -301,11 +310,14 @@ def main():
         convert_checkpoint(args.checkpoint_dir, args.ignore_olmo_compatibility)
 
         if not args.keep_olmo_artifacts:
+            print("Removing non-HF artifacts...")
             os.remove(os.path.join(local_checkpoint_dir, "config.yaml"))
             os.remove(os.path.join(local_checkpoint_dir, "model.pt"))
             shutil.rmtree(os.path.join(local_checkpoint_dir, "optim"), ignore_errors=True)
             shutil.rmtree(os.path.join(local_checkpoint_dir, "model"), ignore_errors=True)
             shutil.rmtree(os.path.join(local_checkpoint_dir, "train"), ignore_errors=True)
+
+    print(f"Converted checkpoint saved to {args.destination_dir}")
 
 
 if __name__ == "__main__":
