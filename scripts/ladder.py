@@ -53,6 +53,7 @@ MODEL_CONFIG_150M = ModelConfig(
     weight_tying=False,
     alibi=False,
     rope=True,
+    rope_theta=10000,
     flash_attention=True,
     attention_dropout=0.0,
     attention_layer_norm=False,
@@ -65,7 +66,7 @@ MODEL_CONFIG_150M = ModelConfig(
     activation_type=ActivationType.swiglu,
     residual_dropout=0.0,
     embedding_dropout=0.0,
-    max_sequence_length=2048,
+    max_sequence_length=4096,  # amberish7 uses 4096
     vocab_size=50280,
     embedding_size=50304,
     eos_token_id=50279,
@@ -79,8 +80,10 @@ MODEL_CONFIG_150M = ModelConfig(
 MODEL_CONFIGS = {
     "150M": MODEL_CONFIG_150M,
     "300M": MODEL_CONFIG_150M.update_with(d_model=1024, n_heads=16, n_layers=16, mlp_ratio=8),
+    "530M": MODEL_CONFIG_150M.update_with(d_model=1344, n_heads=16, n_layers=16, mlp_ratio=8),
     "750M": MODEL_CONFIG_150M.update_with(d_model=1536, n_heads=16, n_layers=16, mlp_ratio=8),
     "1B": MODEL_CONFIG_150M.update_with(d_model=2048, n_heads=16, n_layers=16, mlp_ratio=8),
+    "3B": MODEL_CONFIG_150M.update_with(d_model=3328, n_heads=16, n_layers=16, mlp_ratio=8),
     "7B": MODEL_CONFIG_150M.update_with(
         d_model=4096, n_heads=32, n_layers=32, mlp_ratio=0, mlp_hidden_size=22016, init_device="meta"
     ),
@@ -122,6 +125,24 @@ def parse_length(length: str, model_size: int) -> int:
     return length_in_tokens
 
 
+def get_batch_size(model_config, model_size):
+    # calculate batch size according to
+    # https://www.semanticscholar.org/reader/5585191b1b479346ecf173be3b35c8313b77d457
+    # holds only for a sequence length of 2048 (but could probably be easily adapted)
+    # assert model_config.max_sequence_length == 2048
+    #if model_config.max_sequence_length == 2048:
+    global_batch_size = 160 * (model_size / 108000000) ** (2 / 3)
+    # elif model_config.max_sequence_length == 4096:
+    #     # TODO: confirm back-of-the-napkin calculation
+    #     global_batch_size = 160 * ((model_size + 2048 * model_config.n_layers * model_config.d_model) / 108000000) ** (2 / 3)
+    # else:
+    #     raise RuntimeError("`max_sequence_length needs` to be 2048 or 4096")
+    global_batch_size /= 8 * 4  # 8 GPUs per node, microbatch size 4
+    global_batch_size = round(global_batch_size)
+    global_batch_size *= 8 * 4
+    return global_batch_size
+
+
 def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # Construct a config
     args.model = args.model.strip().upper()
@@ -145,36 +166,45 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     model_size = parse_size(args.model)
     length_in_tokens = parse_length(args.length, model_size)
 
-    # calculate batch size according to
-    # https://www.semanticscholar.org/reader/5585191b1b479346ecf173be3b35c8313b77d457
-    # holds only for a sequence length of 2048 (but could probably be easily adapted)
-    assert model_config.max_sequence_length == 2048
-    global_batch_size = 160 * (model_size / 108000000) ** (2 / 3)
-    global_batch_size /= 8 * 4  # 8 GPUs per node, microbatch size 4
-    global_batch_size = round(global_batch_size)
-    global_batch_size *= 8 * 4
+    assert model_config.max_sequence_length in [2048, 4096]
+
+    if args.batch_size < 0:
+        global_batch_size = get_batch_size(model_config, model_size)
+    else:
+        global_batch_size = args.batch_size  # 128, 256, 512, 1024
+
 
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
-    device_batch_size = {
-        "150M": 32,
-        "300M": 10,
-        "750M": 8,
+    default_device_batch_size = {
+        "150M": 16,
+        "300M": 8,
+        "530M": 8,
+        "750M": 4,
         "1B": 2,
-        "7B": 2,
+        "3B": 2,
+        "7B": 1,
     }.get(args.model, 4)
+
+    device_batch_size = args.device_batch_size if args.device_batch_size > 0 else default_device_batch_size
 
     assert global_batch_size % device_batch_size == 0
 
     # calculate the learning rate according to the same paper
+    #if model_config.max_sequence_length == 2048:
     lr = 0.0047 * (model_size / 108000000) ** (-1 / 3)
+    #else:
+    #    lr = 0.0047 * ((model_size + 2048 * model_config.n_layers * model_config.d_model) / 108000000) ** (-1 / 3)
 
     save_interval = {
-        "1B": 2500,
+        "1B": 500,
         "7B": 1000,
-    }.get(args.model, 5000)
+    }.get(args.model, 500)
 
-    distributed_strategy = {"7B": DistributedStrategy.fsdp}.get(args.model, DistributedStrategy.ddp)
+    distributed_strategy = {
+        "3B": DistributedStrategy.fsdp,
+        "7B": DistributedStrategy.fsdp
+    }.get(args.model, DistributedStrategy.ddp)
 
     return TrainConfig(
         run_name=run_name,
@@ -190,16 +220,16 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         optimizer=OptimizerConfig(
             name=OptimizerType.adamw,
             learning_rate=lr,
-            weight_decay=0.05,
+            weight_decay=0.1,
             eps=1e-8,
             decay_norm_and_bias=True,
-            decay_embeddings=True,
+            decay_embeddings=False,
             betas=(0.9, 0.95),
             metrics_log_interval=10,
         ),
         scheduler=SchedulerConfig(
             name=SchedulerType.cosine_with_warmup,
-            alpha_f=0.01,
+            alpha_f=0.1,
             warmup_min_lr=0.0,
             t_warmup=round(model_size / (global_batch_size * model_config.max_sequence_length)),
         ),
@@ -218,7 +248,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         device_train_microbatch_size=device_batch_size,
         precision="amp_bf16",
         distributed_strategy=distributed_strategy,
-        fused_loss=True,
+        fused_loss=None,
         gen1_gc_interval=2,
         max_grad_norm=1.0,
         speed_monitor=SpeedMonitorConfig(window_size=1),
@@ -354,6 +384,15 @@ def size_cmd(args: argparse.Namespace):
     print(without_embeddings)
 
 
+def flops_cmd(args: argparse.Namespace):
+    cfg = config_from_args(args)
+
+    from olmo import OLMo
+    model = OLMo(cfg.model, init_params=False)
+    length_in_tokens = parse_length(args.length, parse_size(args.model))
+    print("Expected model flops: ", round((model.num_fwd_flops + model.num_bck_flops) * length_in_tokens / 1e18, 3), "x 10^9 GFlops")
+
+
 def dump_cmd(args: argparse.Namespace):
     cfg = config_from_args(args).asdict()
     if not args.dump_evaluators:
@@ -393,6 +432,9 @@ if __name__ == "__main__":
         save_overwrite=False,
         load_path=None,
         eval_on_load=False,
+        read_location=None,
+        batch_size=-1,
+        device_batch_size=-1,
     )
 
     nodecounts_parser = subparsers.add_parser("nodecounts")
@@ -403,6 +445,11 @@ if __name__ == "__main__":
     size_parser = subparsers.add_parser("size")
     size_parser.set_defaults(func=size_cmd, **no_train_defaults)
     size_parser.add_argument("--model", type=str, required=True)
+
+    flops_parser = subparsers.add_parser("flops")
+    flops_parser.set_defaults(func=flops_cmd, **no_train_defaults)
+    flops_parser.add_argument("--model", type=str, required=True)
+    flops_parser.add_argument("--length", type=str, required=True)
 
     dump_parser = subparsers.add_parser("dump")
     dump_parser.set_defaults(func=dump_cmd)
@@ -421,6 +468,8 @@ if __name__ == "__main__":
         subparser.add_argument("--data", type=str, required=True)
         subparser.add_argument("--length", type=str, default="2xC")
         subparser.add_argument("--name", type=str, required=True)
+        subparser.add_argument("--batch_size", type=int, required=False, default=-1)
+        subparser.add_argument("--device_batch_size", type=int, required=False, default=-1)
         subparser.add_argument(
             "--s3",
             action=argparse.BooleanOptionalAction,
