@@ -62,7 +62,7 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/amberish1-weka.yaml \
+    configs/sewonm-amberish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --device_train_microbatch_size=4 \
       --data.generate_doc_lengths=true \
