@@ -145,9 +145,7 @@ def main():
     )
     args = parser.parse_args()
 
-    if args.fix_eos_token_id:
-        fix_tokenizer(checkpoint_dir=args.checkpoint_dir, tokenizer_name_or_path=args.tokenizer_name_or_path)
-
+    fix_tokenizer(checkpoint_dir=args.checkpoint_dir, tokenizer_name_or_path=args.tokenizer_name_or_path)
     convert_checkpoint(
         checkpoint_dir=args.checkpoint_dir,
         ignore_olmo_compatibility=args.ignore_olmo_compatibility,
