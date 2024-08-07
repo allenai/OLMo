@@ -35,7 +35,10 @@ def test_flatten_dict():
     }
     assert util.flatten_dict(test_dict_with_list_of_dicts, include_lists=True) == {
         "a": 0,
-        "b.e": [{"x.z": [222, 333]}, {"y.g": [99, 100]}],  # gets flattened
+        "b.e.0.x.z.0": 222,
+        "b.e.0.x.z.1": 333,
+        "b.e.1.y.g.0": 99,
+        "b.e.1.y.g.1": 100,
         "b.f": 1,
         "c": 2,
     }
