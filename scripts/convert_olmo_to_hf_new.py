@@ -155,11 +155,11 @@ def write_model(
     # Unsharded
     # TODO: Deal with weight-tying
     state_dict = {
-        "model.embed_tokens.weight": loaded["{model_name_prefix}wte.weight"],
+        "model.embed_tokens.weight": loaded[f"{model_name_prefix}wte.weight"],
         "lm_head.weight": (
-            loaded["{model_name_prefix}ff_out.weight"]
-            if "{model_name_prefix}ff_out.weight" in loaded
-            else loaded["{model_name_prefix}wte.weight"]
+            loaded[f"{model_name_prefix}ff_out.weight"]
+            if f"{model_name_prefix}ff_out.weight" in loaded
+            else loaded[f"{model_name_prefix}wte.weight"]
         ),
     }
 
