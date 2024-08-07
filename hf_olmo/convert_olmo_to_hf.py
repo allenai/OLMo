@@ -138,12 +138,7 @@ def fix_tokenizer(checkpoint_dir: str, tokenizer_name_or_path: Optional[str] = N
     om.save(conf, path)
 
 
-def download_s3_directory(
-    bucket_name: str,
-    prefix: str,
-    local_dir: str,
-    ignore: str | None = None
-):
+def download_s3_directory(bucket_name: str, prefix: str, local_dir: str, ignore: str | None = None):
 
     # Create S3 client
     s3_client = boto3.client("s3")
@@ -202,7 +197,8 @@ def make_local_checkpoint(checkpoint_dir: str) -> Generator[str, None, None]:
             bucket_name=parsed_dir.netloc,
             prefix=parsed_dir.path[1:],
             local_dir=temp_dir,
-            ignore=r"/(optim|train)/")
+            ignore=r"/(optim|train)/",
+        )
     except Exception as e:
         logger.error(f"Error downloading checkpoint: {e}")
         shutil.rmtree(temp_dir)
