@@ -52,7 +52,7 @@ srun \
     -B"$FLASH_DIR:$FLASH_DIR" \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
-    $SIF \
+    $SIF_CONTAINER \
     python scripts/train.py configs/peteish13-s3.yaml \
       --run_name=peteish13-lumi_${SLURM_JOB_ID} \
       --wandb.name=peteish13-lumi_${SLURM_JOB_ID} \
