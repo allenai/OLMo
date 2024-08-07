@@ -384,6 +384,15 @@ def size_cmd(args: argparse.Namespace):
     print(without_embeddings)
 
 
+def flops_cmd(args: argparse.Namespace):
+    cfg = config_from_args(args)
+
+    from olmo import OLMo
+    model = OLMo(cfg.model, init_params=False)
+    length_in_tokens = parse_length(args.length, parse_size(args.model))
+    print("Expected model flops: ", round((model.num_fwd_flops + model.num_bck_flops) * length_in_tokens / 1e18, 3), "x 10^9 GFlops")
+
+
 def dump_cmd(args: argparse.Namespace):
     cfg = config_from_args(args).asdict()
     if not args.dump_evaluators:
@@ -436,6 +445,11 @@ if __name__ == "__main__":
     size_parser = subparsers.add_parser("size")
     size_parser.set_defaults(func=size_cmd, **no_train_defaults)
     size_parser.add_argument("--model", type=str, required=True)
+
+    flops_parser = subparsers.add_parser("flops")
+    flops_parser.set_defaults(func=flops_cmd, **no_train_defaults)
+    flops_parser.add_argument("--model", type=str, required=True)
+    flops_parser.add_argument("--length", type=str, required=True)
 
     dump_parser = subparsers.add_parser("dump")
     dump_parser.set_defaults(func=dump_cmd)
