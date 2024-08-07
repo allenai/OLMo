@@ -36,7 +36,7 @@ def write_model(checkpoint_dir: str, ignore_olmo_compatibility: bool = False):
     old_model_path = os.path.join(checkpoint_dir, "model.pt")
     new_model_path = os.path.join(checkpoint_dir, "pytorch_model.bin")
 
-    state_dict = torch.load(old_model_path)
+    state_dict = torch.load(old_model_path, map_location="cpu")
     new_state_dict = {f"{OLMoForCausalLM.base_model_prefix}.{key}": val for key, val in state_dict.items()}
     torch.save(new_state_dict, new_model_path)
 
