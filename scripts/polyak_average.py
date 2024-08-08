@@ -53,9 +53,10 @@ def polyak_average(
             averaged_param = averaged_model.get_parameter(param_name)
             averaged_param.div_(len(checkpoint_paths))
 
+    save_path = save_folder / "model.pt"
     if verbose:
-        logger.info("Saving to %s", save_folder)
-    torch.save(model.state_dict(), str(save_folder))
+        logger.info("Saving to %s", save_path)
+    torch.save(model.state_dict(), str(save_path))
 
 
 def main():
