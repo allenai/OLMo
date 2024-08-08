@@ -17,7 +17,7 @@ gantry run \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
-  --budget ai2/oe-training \
+  --budget ai2/oe-data \
   --no-nfs \
   --weka oe-training-default:/weka/oe-training-default \
   --propagate-failure \
