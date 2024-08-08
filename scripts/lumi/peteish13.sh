@@ -40,7 +40,7 @@ export SINGULARITYENV_TORCH_DIST_INIT_BARRIER=1
 # Try playing with max_split_size_mb if you run into OOM errors.
 #export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
 
-export CHECKPOINTS_PATH=$SCRATCH_DIR/checkpoints
+export CHECKPOINTS_PATH=$SCRATCH_DIR/$USER/checkpoints
 
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
@@ -58,7 +58,7 @@ srun \
       --wandb=null \
       --data.num_workers=$SLURM_CPUS_PER_TASK \
       --data.prefetch_factor=2 \
-      --save_folder=$CHECKPOINTS_PATH/$USER/peteish13/${SLURM_JOB_ID} \
+      --save_folder=$CHECKPOINTS_PATH/peteish13/${SLURM_JOB_ID} \
       --fused_loss=false \
       --model.flash_attention=false \
       --device_train_microbatch_size=2 \
