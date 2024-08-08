@@ -101,7 +101,6 @@ def write_tokenizer(checkpoint_dir: str):
 
 
 def convert_checkpoint(checkpoint_dir: str, ignore_olmo_compatibility: bool = False):
-
     print("Converting checkpoint to HF format...")
     write_config(checkpoint_dir)
 
@@ -139,7 +138,6 @@ def fix_tokenizer(checkpoint_dir: str, tokenizer_name_or_path: Optional[str] = N
 
 
 def download_s3_directory(bucket_name: str, prefix: str, local_dir: str, ignore: str | None = None):
-
     # Create S3 client
     s3_client = boto3.client("s3")
 
@@ -160,7 +158,6 @@ def download_s3_directory(bucket_name: str, prefix: str, local_dir: str, ignore:
     # Initialize the progress bar
     with tqdm(total=len(files_to_download), desc="Downloading files") as pbar:
         for s3_key in files_to_download:
-
             # Construct the full local path
             local_file_path = os.path.join(local_dir, os.path.relpath(s3_key, prefix))
             local_file_dir = os.path.dirname(local_file_path)
