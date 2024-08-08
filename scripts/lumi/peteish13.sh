@@ -55,12 +55,10 @@ srun \
     $SIF_CONTAINER \
     python scripts/train.py configs/peteish13-s3.yaml \
       --run_name=peteish13-lumi_${SLURM_JOB_ID} \
-      --wandb.name=peteish13-lumi_${SLURM_JOB_ID} \
-      --wandb.group=peteish13-lumi \
+      --wandb=null \
       --data.num_workers=$SLURM_CPUS_PER_TASK \
       --data.prefetch_factor=2 \
-      --save_folder=$CHECKPOINTS_PATH/peteish13/${SLURM_JOB_ID} \
-      --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/peteish13-lumi/ \
+      --save_folder=$CHECKPOINTS_PATH/$USER/peteish13/${SLURM_JOB_ID} \
       --fused_loss=false \
       --model.flash_attention=false \
       --device_train_microbatch_size=2 \
