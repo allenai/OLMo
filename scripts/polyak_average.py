@@ -48,9 +48,10 @@ def polyak_average(
                     averaged_param.add_(param)
 
     assert averaged_model is not None
-    for param_name, param in averaged_model.named_parameters():
-        averaged_param = averaged_model.get_parameter(param_name)
-        averaged_param.div_(len(checkpoint_paths))
+    with torch.no_grad():
+        for param_name, param in averaged_model.named_parameters():
+            averaged_param = averaged_model.get_parameter(param_name)
+            averaged_param.div_(len(checkpoint_paths))
 
     if verbose:
         logger.info("Saving to %s", save_folder)
