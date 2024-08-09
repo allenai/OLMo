@@ -36,7 +36,7 @@ class InfinigramEngine:
             self.group = self.group_by_lr[local_rank]
             self.rank_in_group = global_rank // local_world_size
             if os.path.exists(os.path.join(cfg.index_dir, f'{self.rank_in_group}')):
-                cfg.index_dir = os.path.join(cfg.index_dir, f'{self.rank_in_group if self.rank_in_group > 1 else (1 - self.rank_in_group)}')
+                cfg.index_dir = os.path.join(cfg.index_dir, f'{self.rank_in_group}')
 
         fifo_query_path = f'/tmp/infini_gram_query_{local_rank}'
         if os.path.exists(fifo_query_path):

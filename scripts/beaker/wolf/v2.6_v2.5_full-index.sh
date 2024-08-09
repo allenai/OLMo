@@ -59,5 +59,5 @@ gantry run \
         --wandb.project=hb-wolf-olmo-2 --wandb.entity=liujch1998 \
         --save_folder=/weka/oe-training-default/wolf/ckpt/${RUN_NAME} --save_overwrite=true --load_path=\\\${path.last_checkpoint:/weka/oe-training-default/wolf/ckpt/${RUN_NAME}} \
         --device_train_microbatch_size=4 \
-        --infgram.index_dir=/weka/oe-training-default/wolf/index/v4_dolma-v1_7-olmo --infgram.sharded=true --infgram.prefetch=true --infgram.separate_wte=true \
+        --infgram.index_dir=/weka/oe-training-default/wolf/index/v4_dolma-v1_7_olmo --infgram.sharded=true --infgram.prefetch=true --infgram.separate_wte=true \
     "
