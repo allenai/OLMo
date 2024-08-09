@@ -662,8 +662,217 @@ class OLMoBlock(nn.Module):
             return OLMoSequentialBlock(layer_id, config, cache)
         elif config.block_type == BlockType.llama:
             return OLMoLlamaBlock(layer_id, config, cache)
+        elif config.block_type == BlockType.moe:
+            return OLMoEBlock(layer_id, config, cache)
         else:
             raise NotImplementedError(f"Unknown block type: '{config.block_type}'")
+
+
+class OLMoEBlock(OLMoBlock):
+    """
+    This is a a transformer MoE block where the output is computed as ``MoE(LN(x + Attention(LN(x))))``
+    (plus another skip connection).
+    """
+
+    def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
+        try:
+            from megablocks.layers.dmoe import dMoE
+            from megablocks.layers.moe import MoE
+        except ImportError:
+            raise ImportError(
+                "To train MoEs, run `pip install git+https://github.com/Muennighoff/megablocks.git@olmoe`"
+            )
+        from .config import config_to_moe_args
+
+        nn.Module.__init__(self)
+        self.layer_id = layer_id
+        self.config = config
+        self.hidden_size = (
+            config.mlp_hidden_size if config.mlp_hidden_size is not None else config.mlp_ratio * config.d_model
+        )
+        self.__cache = cache
+        assert config.d_model % config.n_heads == 0
+
+        self._activation_checkpoint_fn = None
+
+        # Dropout.
+        self.dropout = Dropout(config.residual_dropout)
+
+        # Layer norms.
+        self.k_norm: Optional[LayerNormBase] = None
+        self.q_norm: Optional[LayerNormBase] = None
+        if config.attention_layer_norm:
+            assert config.effective_n_kv_heads is not None
+            self.k_norm = LayerNormBase.build(
+                config,
+                size=(config.d_model // config.n_heads) * config.effective_n_kv_heads,
+                elementwise_affine=config.attention_layer_norm_with_affine,
+            )
+            self.q_norm = LayerNormBase.build(config, elementwise_affine=config.attention_layer_norm_with_affine)
+
+        # Make sure QKV clip coefficient is positive, otherwise it's not well-defined.
+        if config.clip_qkv is not None:
+            assert config.clip_qkv > 0
+
+        # Activation function.
+        self.act = Activation.build(config)
+        assert (self.act.output_multiplier * self.hidden_size) % 1 == 0
+
+        # Attention output projection.
+        self.attn_out = nn.Linear(
+            config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
+        )
+
+        self.moe_args = config_to_moe_args(config)
+        self.ffn = dMoE(self.moe_args) if self.config.moe_dropless else MoE(self.moe_args)
+
+        # Rotary embeddings.
+        if self.config.rope:
+            self.rotary_emb = RotaryEmbedding(config, self.__cache)
+
+        self.flash_attn_func = None
+        self.flash_attn_varlen_func = None
+        if config.flash_attention:
+            try:
+                from flash_attn import (  # type: ignore
+                    flash_attn_func,
+                    flash_attn_varlen_func,
+                )
+
+                self.flash_attn_func = flash_attn_func
+                self.flash_attn_varlen_func = flash_attn_varlen_func
+            except ModuleNotFoundError:
+                pass
+
+        self.attn_norm = LayerNorm.build(config)
+        self.ff_norm = LayerNorm.build(config)
+
+        # Attention input projection. Projects x -> (q, k, v)
+        head_dim = config.d_model // config.n_heads
+        self.fused_dims = (
+            config.d_model,
+            config.effective_n_kv_heads * head_dim,
+            config.effective_n_kv_heads * head_dim,
+        )
+        self.att_proj = nn.Linear(
+            config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
+        )
+
+    def reset_parameters(self):
+        if self.k_norm is not None:
+            self.k_norm.reset_parameters()
+        if self.q_norm is not None:
+            self.q_norm.reset_parameters()
+
+        if self.config.init_fn == InitFnType.normal:
+            attn_out_std = ff_out_std = in_std = self.config.init_std
+            cutoff_factor = self.config.init_cutoff_factor
+        elif self.config.init_fn == InitFnType.mitchell:
+            in_std = 1 / math.sqrt(self.config.d_model)
+            attn_out_std = 1 / (math.sqrt(2 * self.config.d_model * (self.layer_id + 1)))
+            ff_out_std = 1 / (math.sqrt(2 * self.ff_out.in_features * (self.layer_id + 1)))
+            cutoff_factor = self.config.init_cutoff_factor or 3.0
+        elif self.config.init_fn == InitFnType.full_megatron:
+            in_std = self.config.init_std
+            attn_out_std = ff_out_std = self.config.init_std / math.sqrt(2.0 * self.config.n_layers)
+            cutoff_factor = self.config.init_cutoff_factor or 3.0
+        else:
+            raise NotImplementedError(self.config.init_fn)
+
+        init_normal(self.att_proj, std=in_std, init_cutoff_factor=cutoff_factor)
+        init_normal(self.attn_out, std=attn_out_std, init_cutoff_factor=cutoff_factor)
+        self.attn_norm.reset_parameters()
+        self.ff_norm.reset_parameters()
+        init_normal(self.ffn.experts.mlp.w1, std=in_std, init_cutoff_factor=cutoff_factor)
+        init_normal(self.ffn.experts.mlp.w2, std=ff_out_std, init_cutoff_factor=cutoff_factor)
+        if hasattr(self.ffn.experts.mlp, "v1"):
+            init_normal(self.ffn.experts.mlp.v1, std=in_std, init_cutoff_factor=cutoff_factor)
+        if self.ffn.experts.bias is not None:
+            torch.nn.init.zeros_(self.ffn.experts.bias)
+        init_normal(self.ffn.router.layer, std=in_std, init_cutoff_factor=cutoff_factor)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        attention_bias: Optional[torch.Tensor] = None,
+        layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        use_cache: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
+        # Get query, key, value projections.
+        # shape:
+        #  - for regular attn q, k, v: (batch_size, seq_len, d_model)
+        #  - for multi-query attn q: (batch_size, seq_len, d_model)
+        #                      k, v: (batch_size, seq_len, d_model // n_heads)
+        #  - for group query attn q: (batch_size, seq_len, d_model)
+        #                      k, v: (batch_size, seq_len, d_model // n_kv_heads)
+        if not self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
+            else:
+                qkv = self.att_proj(self.attn_norm(x))
+        else:
+            qkv = self.att_proj(x)
+
+        if self.config.clip_qkv is not None:
+            qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
+
+        q, k, v = qkv.split(self.fused_dims, dim=-1)
+
+        # Get attention scores.
+        if self._activation_checkpoint_fn is not None:
+            att, cache = self._activation_checkpoint_fn(  # type: ignore
+                self.attention,
+                q,
+                k,
+                v,
+                attention_bias,
+                layer_past=layer_past,
+                use_cache=use_cache,
+                max_doc_len=max_doc_len,
+                cu_doc_lens=cu_doc_lens,
+            )
+        else:
+            att, cache = self.attention(
+                q,
+                k,
+                v,
+                attention_bias,
+                layer_past=layer_past,
+                use_cache=use_cache,
+                max_doc_len=max_doc_len,
+                cu_doc_lens=cu_doc_lens,
+            )
+
+        if self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                att = self._activation_checkpoint_fn(self.attn_norm, att)
+            else:
+                att = self.attn_norm(att)
+
+        # Add attention scores.
+        # shape: (B, T, C)
+        x = x + self.dropout(att)
+
+        # Add feed-forward projection.
+        # shape: (batch_size, seq_len, d_model)
+        og_x = x
+
+        if self.config.norm_after:
+            x = self.ffn(x)
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+            else:
+                x = self.ff_norm(x)
+            return og_x + self.dropout(x), cache
+        else:
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+            else:
+                x = self.ff_norm(x)
+            # Activation checkpointing for the MoE FFN is not supported
+            return og_x + self.dropout(self.ffn(x)), cache
 
 
 class OLMoSequentialBlock(OLMoBlock):
@@ -1098,8 +1307,15 @@ class OLMo(nn.Module):
                 ln_f=LayerNorm.build(config),
             )
         )
-
-        blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
+        if self.config.moe_interleave:
+            blocks = []
+            for i in range(config.n_layers):
+                if i % 2 == 0:
+                    blocks.append(OLMoSequentialBlock(i, config, self.__cache))
+                else:
+                    blocks.append(OLMoEBlock(i, config, self.__cache))
+        else:
+            blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
         if self.config.block_group_size > 1:
             block_groups = [
                 OLMoBlockGroup(config, i, blocks[i : i + config.block_group_size])
@@ -1540,7 +1756,7 @@ class OLMo(nn.Module):
         else:
             raise NotImplementedError(wrap_strategy)
 
-    def num_params(self, include_embedding: bool = True) -> int:
+    def num_params(self, include_embedding: bool = True, include_inactive_params: bool = True) -> int:
         """
         Get the total number of parameters.
         """
@@ -1550,6 +1766,15 @@ class OLMo(nn.Module):
                 lambda np: ".wte." not in np[0] and ".wpe." not in np[0],
                 params,
             )
+        if not include_inactive_params:
+            # Need to reduce blocks to the number of experts that are selected
+            # If not dropless 'transformer.blocks.0.ffn.experts.mlp.w1' has shape (total_experts, in_dim, out_dim)
+            # change to 'transformer.blocks.0.ffn.experts.mlp.w1' with shape (selected_experts, in_dim, out_dim)
+            # If dropless, the total_experts & out_dim are combined into one dimension
+            idx = self.config.moe_top_k
+            if self.config.moe_dropless:
+                idx *= self.transformer.blocks[1].moe_args.ffn_hidden_size
+            params = [(np[0], np[1][:idx]) if "experts.mlp" in np[0] else np for np in params]  # type: ignore
         return sum(p.numel() for _, p in params)
 
     @property
