@@ -48,6 +48,8 @@ The core models in the OLMo family released so far are (all trained on the [Dolm
 | [OLMo 1B](https://huggingface.co/allenai/OLMo-1B) | 3 Trillion | 2048 | [configs/official/OLMo-1B.yaml](https://github.com/allenai/OLMo/blob/main/configs/official/OLMo-1B.yaml) | [wandb.ai/…/OLMo-1B](https://wandb.ai/ai2-llm/OLMo-1B/reports/OLMo-1B--Vmlldzo2NzY1Njk1) | [epoch 1](https://olmo-checkpoints.org/ai2-llm/olmo-small/46zc5fly/train_data/global_indices.npy) |
 | [OLMo 7B](https://huggingface.co/allenai/OLMo-7B) | 2.5 Trillion | 2048 | [configs/official/OLMo-7B.yaml](https://github.com/allenai/OLMo/blob/main/configs/official/OLMo-7B.yaml) | [wandb.ai/…/OLMo-7B](https://wandb.ai/ai2-llm/OLMo-7B/reports/OLMo-7B--Vmlldzo2NzQyMzk5) | [epoch 1](https://olmo-checkpoints.org/ai2-llm/olmo-medium/wvc30anm/train_data/global_indices.npy), [epoch 2](https://olmo-checkpoints.org/ai2-llm/olmo-medium/wd2gxrza/train_data/global_indices.npy) |
 | [OLMo 7B Twin 2T](https://huggingface.co/allenai/OLMo-7B-Twin-2T) | 2 Trillion  | 2048 | [configs/official/OLMo-7B.yaml](https://github.com/allenai/OLMo/blob/main/configs/official/OLMo-7B.yaml) | [wandb.ai/…/OLMo-7B-Twin-2T](https://wandb.ai/ai2-llm/OLMo-7B/reports/OLMo-7B-Twin-2T--Vmlldzo2NzU0NTIz) | [epoch 1](https://olmo-checkpoints.org/ai2-llm/olmo-medium/wvc30anm/train_data/global_indices.npy) |
+| [OLMo 7B April 2024](https://huggingface.co/allenai/OLMo-7B-0424-hf) | 2.05 Trillion  | 4096 | [configs/official/OLMo-7B-0424.yaml](https://github.com/allenai/OLMo/blob/main/configs/official/OLMo-7B-0424.yaml) | *Coming soon* | *Coming soon* |
+| [OLMo 7B July 2024](https://huggingface.co/allenai/OLMo-7B-0724-hf) | 2.75 Trillion  | 4096 | [configs/official/OLMo-7B-0724.yaml](https://github.com/allenai/OLMo/blob/main/configs/official/OLMo-7B-0724.yaml) | *Coming soon* | *Coming soon* |
 
 > ☨ *See [Inspecting training data](#inspecting-training-data) below for usage.*
 
@@ -67,8 +69,8 @@ You can utilize our Hugging Face integration to run inference on the OLMo Transf
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-1.7-7B-hf")
-tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-1.7-7B-hf")
+olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-7B-0724-hf")
+tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-7B-0724-hf")
 
 message = ["Language modeling is "]
 inputs = tokenizer(message, return_tensors='pt', return_token_type_ids=False)
@@ -80,7 +82,7 @@ Alternatively, with the Hugging Face pipeline abstraction:
 
 ```python
 from transformers import pipeline
-olmo_pipe = pipeline("text-generation", model="allenai/OLMo-1.7-7B-hf")
+olmo_pipe = pipeline("text-generation", model="allenai/OLMo-7B-0724-hf")
 print(olmo_pipe("Language modeling is"))
 ```
 
@@ -95,7 +97,7 @@ python scripts/convert_olmo_to_hf_new.py --input_dir /path/to/olmo/checkpoint --
 ### Quantization
 
 ```python
-olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-1.7-7B-hf", torch_dtype=torch.float16, load_in_8bit=True)  # requires bitsandbytes
+olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-7B-0724-hf", torch_dtype=torch.float16, load_in_8bit=True)  # requires bitsandbytes
 ```
 
 The quantized model is more sensitive to typing / cuda, so it is recommended to pass the inputs as inputs.input_ids.to('cuda') to avoid potential issues.
