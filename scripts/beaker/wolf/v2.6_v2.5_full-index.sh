@@ -20,6 +20,8 @@ gantry run \
   --no-nfs \
   --weka oe-training-default:/weka/oe-training-default \
   --gpus 8 \
+  --cpus 186 \
+  --memory 1912GiB \
   --shared-memory 10GiB \
   --replicas "${NUM_NODES}" \
   --host-networking \
@@ -55,7 +57,7 @@ gantry run \
         scripts/train.py ${CONFIG_PATH} \
         --run_name=${RUN_NAME} \
         --wandb.project=hb-wolf-olmo-2 --wandb.entity=liujch1998 \
-        --save_folder=/weka/oe-training-default/wolf/ckpt/${RUN_NAME} --save_overwrite=true \
+        --save_folder=/weka/oe-training-default/wolf/ckpt/${RUN_NAME} --save_overwrite=true --load_path=\\\${path.last_checkpoint:/weka/oe-training-default/wolf/ckpt/${RUN_NAME}} \
         --device_train_microbatch_size=4 \
         --infgram.index_dir=/weka/oe-training-default/wolf/index/v4_dolma-v1_7-olmo --infgram.sharded=true --infgram.prefetch=true --infgram.separate_wte=true \
     "
