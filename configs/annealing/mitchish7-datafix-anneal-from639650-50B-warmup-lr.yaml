@@ -71,12 +71,20 @@ sharded_checkpointer: olmo_core
 
 
 # Final checkpoint for new 7B model.
-load_path: s3://ai2-llm/checkpoints/OLMo-medium/mitchish7-datafix/step639650
+# load_path: s3://ai2-llm/checkpoints/OLMo-medium/mitchish7-datafix/step639650
 
-restore_dataloader: false
+# NOTE(davidw) resume training.
+load_path: s3://ai2-llm/checkpoints/davidw/annealing/mitchish7-datafix-anneal-from639650-50B-warmup-lr/step1000
+
+# restore_dataloader: false
+# no_pre_train_checkpoint: true
+# reset_optimizer_state: false
+# reset_trainer_state: true
+
+restore_dataloader: true
 no_pre_train_checkpoint: true
 reset_optimizer_state: false
-reset_trainer_state: true
+reset_trainer_state: false
 
 max_duration: 50e9T
 stop_at: 11931                  # round(50e9 / (1024 * 4096)) + 10
