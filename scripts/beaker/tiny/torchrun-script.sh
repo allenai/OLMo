@@ -25,12 +25,14 @@ torchrun \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   scripts/train.py \
-    configs/tiny/OLMo-300M.yaml \
+    configs/tiny/OLMo-20M.yaml \
       --run_name=$TASK_NAME \
       --wandb.name=$TASK_NAME \
       --wandb.group=$TASK_NAME \
       --wandb.project=olmo-tiny \
       --optimizer.learning_rate=6e-4 \
       --optimizer.decay_embeddings=true \
-      --load_path=s3://ai2-llm/checkpoints/olmo-tiny/tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd/step145000-unsharded \
+      --scheduler.t_warmup=2000 \
+      --stop_at=25000 \
+      --eval_interval=500 \
       --save_overwrite

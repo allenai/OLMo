@@ -2,8 +2,8 @@
 
 set -ex
 
-NUM_NODES=8
-TASK_NAME=tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd
+NUM_NODES=4
+TASK_NAME=tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-warmup2000
 
 gantry run \
   --allow-dirty \
