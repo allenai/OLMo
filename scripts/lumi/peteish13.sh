@@ -59,6 +59,7 @@ srun \
       --data.num_workers=$SLURM_CPUS_PER_TASK \
       --data.prefetch_factor=2 \
       --save_folder=$CHECKPOINTS_PATH/peteish13/${SLURM_JOB_ID} \
+      --remote_save_folder=null \
       --fused_loss=false \
       --model.flash_attention=false \
       --device_train_microbatch_size=2 \
