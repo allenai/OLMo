@@ -67,7 +67,7 @@ srun \
       --activation_checkpointing=whole_layer \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas=$SLURM_NNODES \
-      --sharded_checkpointer=local \
+      --sharded_checkpointer=olmo_core \
       --save_overwrite \
       --time_limit=$((47 * 60 * 60)) \
       "${@}"
