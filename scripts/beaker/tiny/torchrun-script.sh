@@ -35,7 +35,5 @@ torchrun \
       --wandb.project=olmo-tiny \
       --optimizer.learning_rate=6e-4 \
       --optimizer.decay_embeddings=true \
-      --scheduler.t_warmup=2000 \
-      --stop_at=25000 \
-      --eval_interval=500 \
+      '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/olmo-tiny/tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd}' \
       --save_overwrite

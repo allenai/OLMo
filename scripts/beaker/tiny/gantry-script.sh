@@ -2,9 +2,9 @@
 
 set -ex
 
-NUM_NODES=4
-TASK_NAME=tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-warmup2000
-CONFIG_PATH=configs/tiny/OLMo-60M.yaml
+NUM_NODES=8
+TASK_NAME=tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd
+CONFIG_PATH=configs/tiny/OLMo-300M.yaml
 
 gantry run \
   --allow-dirty \
