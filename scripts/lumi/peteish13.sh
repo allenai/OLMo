@@ -7,7 +7,7 @@
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
 #SBATCH --cpus-per-task=6
 #SBATCH --time=48:00:00
-#SBATCH --time-min=8:00:00
+#SBATCH --time-min=48:00:00
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
@@ -69,6 +69,7 @@ srun \
       --fsdp.hybrid_sharding_num_model_replicas=$SLURM_NNODES \
       --sharded_checkpointer=local \
       --save_overwrite \
+      --time_limit=$((47 * 60 * 60)) \
       "${@}"
 
 # '--load_path=${path.last_checkpoint:${save_folder}}' \
