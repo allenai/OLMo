@@ -60,5 +60,7 @@ srun \
       --optimizer.learning_rate=2.2e-4 \
       --scheduler.alpha_f=1.0 \
       --data.num_workers=$SLURM_CPUS_PER_TASK \
+      --data.prefetch_factor=2 \
+      --fsdp.sharding_strategy=HYBRID_SHARD \
       --save_overwrite \
       "${@}"
