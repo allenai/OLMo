@@ -70,6 +70,5 @@ srun \
       --sharded_checkpointer=olmo_core \
       --save_overwrite \
       --time_limit=$((47 * 60 * 60)) \
+      '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
       "${@}"
-
-# '--load_path=${path.last_checkpoint:${save_folder}}' \
