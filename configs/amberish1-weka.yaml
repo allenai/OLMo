@@ -135,6 +135,24 @@ evaluators:
   ##########################
   # Downstream evaluations #
   ##########################
+  - label: vera_arc_easy
+    type: downstream
+
+  - label: vera_arc_hard
+    type: downstream
+
+  - label: vera_commonsenseqa
+    type: downstream
+
+  - label: vera_physical_iqa
+    type: downstream
+
+  - label: vera_social_iqa
+    type: downstream
+
+  - label: vera_sciq
+    type: downstream
+
   - label: piqa
     type: downstream
 
@@ -149,7 +167,7 @@ evaluators:
 
   - label: boolq
     type: downstream
- 
+
   - label: sciq
     type: downstream
 

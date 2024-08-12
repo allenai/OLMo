@@ -1424,7 +1424,39 @@ class NaturalQuestionsCELoss(ICLMultiChoiceTaskDataset):
         return "Answer:"
 
 
+class Vera(ICLMultiChoiceTaskDataset):
+
+    metric_type = "len_norm"
+
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="vera",
+        dataset_name=None,
+    ):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+    )
+
+    def doc_to_text(self, doc):
+        return ""
+
+    def doc_to_continuations(self, doc) -> List[str]:
+        return doc['golds'] + doc['distractors']
+
+    def doc_to_label(self, doc) -> int:
+        return 0
+
+
 label_to_task_map = {
+    "vera_arc_easy": (Vera, {"dataset_name": "arc_easy"}),
+    "vera_arc_hard": (Vera, {"dataset_name": "arc_hard"}),
+    "vera_commonsenseqa": (Vera, {"dataset_name": "commonsenseqa"}),
+    "vera_physical_iqa": (Vera, {"dataset_name": "physical_iqa"}),
+    "vera_social_iqa": (Vera, {"dataset_name": "social_iqa"}),
+    "vera_sciq": (Vera, {"dataset_name": "sciq"}),
     "piqa": PIQA,
     "hellaswag": HellaSwag,
     "winogrande": WinoGrande,
