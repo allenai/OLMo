@@ -118,7 +118,7 @@ def main():
         "--include_non_tensor_outputs",
         action="store_true",
         dest="include_non_tensor_outputs",
-        help="If set, do not compare module outputs that are not tensors",
+        help="If set, compare module outputs that are not tensors",
     )
     parser.add_argument(
         "--verbose",
