@@ -115,8 +115,8 @@ def main():
         help="Path where output traces of the compare (a.k.a new, different) model are stored",
     )
     parser.add_argument(
-        "--skip_non_tensor_outputs",
-        action="store_false",
+        "--include_non_tensor_outputs",
+        action="store_true",
         dest="include_non_tensor_outputs",
         help="If set, do not compare module outputs that are not tensors",
     )
