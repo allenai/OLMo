@@ -1219,7 +1219,8 @@ class TrainConfig(BaseConfig):
 
     module_outputs_save_steps: Optional[List[int]] = None
     """
-    Outputs of model submodules are saved during the provided steps.
+    Outputs of model submodules are saved during the provided steps. Submodule outputs
+    can be compared using `scripts/compare_module_outputs.py`.
     """
 
     @property
