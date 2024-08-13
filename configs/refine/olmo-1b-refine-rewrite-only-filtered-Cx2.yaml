@@ -78,7 +78,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 52e9 # Match total token count
+max_duration: 52e9T # Match total token count
 stop_at: 24795 # 52e9 / (2048 * 1024) = 24_795
 global_train_batch_size: 1024
 device_train_microbatch_size: 4
