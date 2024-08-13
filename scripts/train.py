@@ -2,6 +2,7 @@
 
 import gzip
 import logging
+import os
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -49,7 +50,8 @@ log = logging.getLogger("train")
 
 
 def main(cfg: TrainConfig) -> None:
-    if not Path(cfg.save_folder).exists():
+    log.info(f'cfg.load_path = {cfg.load_path}')
+    if not os.path.exists(cfg.save_folder):
         cfg.load_path = None
     log.info(f'cfg.load_path = {cfg.load_path}')
 
