@@ -51,6 +51,7 @@ log = logging.getLogger("train")
 def main(cfg: TrainConfig) -> None:
     if not Path(cfg.save_folder).exists():
         cfg.load_path = None
+    log.info(f'cfg.load_path = {cfg.load_path}')
 
     # Ensure run name set.
     if cfg.run_name is None:
