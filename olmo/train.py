@@ -1168,6 +1168,8 @@ class Trainer:
                     next_batch = next(train_loader_next, None)
                     next_result = None
                     executor = ThreadPoolExecutor(max_workers=1)
+                else:
+                    train_loader = self.train_loader
 
                 for batch in train_loader:
 
