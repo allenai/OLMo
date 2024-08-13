@@ -1441,7 +1441,7 @@ class Vera(ICLMultiChoiceTaskDataset):
     )
 
     def doc_to_text(self, doc):
-        return ""
+        return "<|endoftext|>"
 
     def doc_to_continuations(self, doc) -> List[str]:
         return doc['golds'] + doc['distractors']
