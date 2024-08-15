@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import logging
 import os
 import re
@@ -629,6 +630,7 @@ class MoveRunConfig(StorageCleanerConfig):
     keep_src: bool
     store_archived: bool
     entry: Optional[str]
+    min_wandb_run_duration: datetime.timedelta
 
 
 def _get_storage_adapter_for_path(path: str) -> StorageAdapter:
@@ -1071,7 +1073,7 @@ def _get_matching_wandb_runs(wandb_runs, checkpoint_dir: str) -> List:
     ]
 
 
-def _get_wandb_path(checkpoint_dir: str, run_dir: str) -> str:
+def _get_wandb_path(checkpoint_dir: str, run_dir: str, min_duration: Optional[datetime.timedelta] = None) -> str:
     run_dir_storage = _get_storage_adapter_for_path(run_dir)
 
     config_path = os.path.join(checkpoint_dir, CONFIG_YAML)
@@ -1094,6 +1096,15 @@ def _get_wandb_path(checkpoint_dir: str, run_dir: str) -> str:
     # Remove duplicate wandb runs based on run path, and wandb runs that do not match our checkpoint.
     wandb_runs = list({_get_wandb_path_from_run(wandb_run): wandb_run for wandb_run in wandb_runs}.values())
     wandb_matching_runs = _get_matching_wandb_runs(wandb_runs, checkpoint_dir)
+
+    # Remove runs that are not sufficiently long.
+    if min_duration is not None:
+        wandb_matching_runs = [
+            run
+            for run in wandb_matching_runs
+            if datetime.datetime.fromisoformat(run.heartbeatAt) - datetime.datetime.fromisoformat(run.createdAt)
+            >= min_duration
+        ]
 
     if len(wandb_matching_runs) == 0:
         raise RuntimeError(f"Failed to find any wandb runs for {checkpoint_dir}. Run might no longer exist")
@@ -1200,11 +1211,14 @@ def _get_src_dest_pairs_for_copy(
     # No need to consider other checkpoints if we are filtering for a specific checkpoint
     if config.entry is not None and _is_checkpoint_dir(entry_path := os.path.join(run_dir, config.entry)):
         # No need to consider other checkpoints if we are filtering for a specific checkpoint
-        checkpoint_to_wandb_path = {entry_path: _get_wandb_path(entry_path, run_dir)}
+        checkpoint_to_wandb_path = {
+            entry_path: _get_wandb_path(entry_path, run_dir, min_duration=config.min_wandb_run_duration)
+        }
     else:
         checkpoint_dirs = _get_checkpoint_dirs(run_dir, run_dir_storage)
         checkpoint_to_wandb_path = {
-            checkpoint_dir: _get_wandb_path(checkpoint_dir, run_dir) for checkpoint_dir in checkpoint_dirs
+            checkpoint_dir: _get_wandb_path(checkpoint_dir, run_dir, min_duration=config.min_wandb_run_duration)
+            for checkpoint_dir in checkpoint_dirs
         }
 
     src_dest_pairs: List[Tuple[str, str]] = []
@@ -1359,6 +1373,7 @@ def perform_operation(args: argparse.Namespace):
                 keep_src=args.keep_src,
                 store_archived=args.store_archived,
                 entry=args.entry,
+                min_wandb_run_duration=args.min_wandb_run_duration,
             )
             if args.run_path is not None and args.dest_dir is not None:
                 move_run(args.run_path, args.dest_dir, move_run_config)
@@ -1470,6 +1485,12 @@ def _add_move_subparser(subparsers: _SubParsersAction):
         "--entry",
         default=None,
         help="If provided, only the directory/file with this name within the run is moved. Example: 'step0-unsharded'.",
+    )
+    move_parser.add_argument(
+        "--min_wandb_run_duration",
+        type=lambda duration: datetime.timedelta(seconds=duration),
+        default=datetime.timedelta(seconds=60),
+        help="If provided and `append_wandb_path` is set, wandb runs that ran less than the provided number of seconds are ignored.",
     )
 
 
