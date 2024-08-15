@@ -35,6 +35,8 @@ from .config import (
     CheckpointType,
     DDPGradSyncMode,
     DistributedStrategy,
+    OutlierDetectorConfig,
+    OutlierMeasure,
     SchedulerUnits,
     ShardedCheckpointerType,
     SpeedMonitorConfig,
@@ -118,6 +120,32 @@ class LRMonitor:
     def check(self) -> Dict[str, float]:
         lrs = [group["lr"] for group in self.optim.param_groups]
         return {f"optim/learning_rate_group{idx}": lr for idx, lr in enumerate(lrs)}
+
+
+@dataclass
+class OutlierDetector:
+    cfg: OutlierDetectorConfig
+    data_points: Deque[float] = field(default_factory=lambda: deque([]))
+
+    def add_data_point(self, data_point: float):
+        if len(self.data_points) >= self.cfg.max_num_data_points:
+            self.data_points.popleft()
+
+        self.data_points.append(data_point)
+
+    def is_outlier(self, data_point: float) -> Optional[bool]:
+        if len(self.data_points) < self.cfg.min_num_data_points:
+            return None
+
+        if self.cfg.outlier_measure == OutlierMeasure.z_score:
+            std_dev = np.std(self.data_points)
+            z_score = float((data_point - np.mean(self.data_points)) / std_dev) if std_dev > 0 else 0.0
+
+            return (self.cfg.upper_bound is not None and z_score > self.cfg.upper_bound) or (
+                self.cfg.lower_bound is not None and z_score < self.cfg.lower_bound
+            )
+
+        raise NotImplementedError(f"Outlier detection of type {self.cfg.outlier_measure} not implemented")
 
 
 def cross_entropy_loss(
@@ -232,6 +260,8 @@ class Trainer:
     loss_fn: Callable[..., torch.Tensor] = field(default_factory=lambda: cross_entropy_loss)  # type: ignore
     last_sharded_checkpoint_step: Optional[int] = None
     last_unsharded_checkpoint_step: Optional[int] = None
+    ce_loss_outlier_detector: Optional[OutlierDetector] = None
+    grad_norm_outlier_detector: Optional[OutlierDetector] = None
 
     def __post_init__(self):
         if self.cfg.fused_loss:
@@ -870,8 +900,25 @@ class Trainer:
                 self.cfg.max_grad_norm_ratio, self.scheduler_current, self.scheduler_max
             )
 
+        # Decide if optimizer step should be skipped
+        should_step = True
+        if self.ce_loss_outlier_detector is not None:
+            self.ce_loss_outlier_detector.add_data_point(ce_batch_loss.item())
+            is_outlier = self.ce_loss_outlier_detector.is_outlier(ce_batch_loss.item())
+
+            should_step = should_step and is_outlier
+            metrics["train/outlier_ce_loss"] = float(is_outlier is True)
+        if self.grad_norm_outlier_detector is not None and "total_grad_norm" in optim_metrics:
+            total_grad_norm = optim_metrics["total_grad_norm"].item()
+            self.grad_norm_outlier_detector.add_data_point(total_grad_norm)
+            is_outlier = self.grad_norm_outlier_detector.is_outlier(total_grad_norm)
+
+            should_step = should_step and is_outlier
+            metrics["train/outlier_total_grad_norm"] = float(is_outlier is True)
+
         # Optimizer step.
-        self.optim.step()
+        if should_step:
+            self.optim.step()
 
         # Collect metrics and check for NaN loss.
         # NOTE: this involves a bunch of host-device syncs so we wait until the last moment to do this.
@@ -1117,6 +1164,12 @@ class Trainer:
         assert self.cfg.device_train_batch_size is not None
         speed_monitor = SpeedMonitor(self.cfg.speed_monitor)
         lr_monitor = LRMonitor(self.optim)
+
+        # Initialize outlier detectors.
+        if self.cfg.ce_loss_outlier_detector_cfg:
+            self.ce_loss_outlier_detector = OutlierDetector(self.cfg.ce_loss_outlier_detector_cfg)
+        if self.cfg.grad_norm_outlier_detector_cfg:
+            self.grad_norm_outlier_detector = OutlierDetector(self.cfg.grad_norm_outlier_detector_cfg)
 
         # Log system metrics at the start of training.
         sys_metrics = self.system_metrics()

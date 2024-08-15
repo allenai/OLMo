@@ -675,6 +675,25 @@ class SpeedMonitorConfig(BaseConfig):
     gpu_flops_available: Optional[Union[float, int]] = None
 
 
+class OutlierMeasure(StrEnum):
+    z_score = "z-score"
+    """
+    Outliers are detected based on their z-score: (signed) number of standard deviations
+    they are away from the mean.
+    """
+
+
+@dataclass
+class OutlierDetectorConfig(BaseConfig):
+    min_num_data_points: int = 128
+    """Number of data points that must be collected before detector will check for outliers"""
+    max_num_data_points: int = 128
+    """Max number of data points that can be stored in the outlier detector"""
+    outlier_measure: OutlierMeasure = OutlierMeasure.z_score
+    lower_bound: Optional[float] = None
+    upper_bound: Optional[float] = 7.0
+
+
 @dataclass
 class CompilerConfig(BaseConfig):
     mode: Optional[str] = None
@@ -1222,6 +1241,18 @@ class TrainConfig(BaseConfig):
     """
     Outputs of model submodules are saved during the provided steps. Submodule outputs
     can be compared using `scripts/compare_module_outputs.py`.
+    """
+
+    ce_loss_outlier_detector_cfg: Optional[OutlierDetectorConfig] = None
+    """
+    Determines whether the cross entropy loss of a step is an outlier, and
+    skips the optimizer step if it is an outlier.
+    """
+
+    grad_norm_outlier_detector_cfg: Optional[OutlierDetectorConfig] = None
+    """
+    Determines whether the gradient norm of a step is an outlier, and
+    skips the optimizer step if it is an outlier.
     """
 
     @property
