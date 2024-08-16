@@ -544,12 +544,13 @@ class WinoGrande(ICLMultiChoiceTaskDataset):
             ctxs = self.doc_to_text(doc)
             dcs = self.doc_to_domain_conditional(doc)
 
-            continuation = self.doc_to_continuations(doc)
+            continuation_str = self.doc_to_continuations(doc)
             label_id = self.doc_to_label(doc)
-            cont_str_len = len(continuation) - 1  # continuations contain leading blank space
+            cont_str_len = len(continuation_str) - 1  # continuations contain leading blank space
+            cont_byte_len = len(continuation_str[1:].encode("utf-8"))
 
             # tokenize
-            continuation = self.token_encode(continuation)
+            continuation = self.token_encode(continuation_str)
 
             for cont_id, (ctx, dc) in enumerate(zip(ctxs, dcs)):
                 ctx = self.token_encode(ctx)
@@ -576,6 +577,7 @@ class WinoGrande(ICLMultiChoiceTaskDataset):
                             continuation
                         ),  # even if query has last token removed, LM will output same cont len
                         "cont_str_len": cont_str_len,
+                        "cont_byte_len": cont_byte_len,
                         "query": query,  # remove last token from continuation
                         "dc_query": dc_query,
                         "label_id": label_id,
@@ -1548,6 +1550,7 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
                         + f"\ndoc_text: {doc_text}\ncontinuation: {continuation_str}"
                     )
                 cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
+                cont_byte_len = len(continuation_str[1:].encode("utf-8"))
                 continuation = self.token_encode(continuation_str)
 
                 # query, remove last token from continuation, truncate from left is longer than model ctx length
@@ -1573,6 +1576,7 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
                             continuation
                         ),  # even if query has last token removed, LM will output same cont len
                         "cont_str_len": cont_str_len,
+                        "cont_byte_len": cont_byte_len,
                         "query": query,  # remove last token from continuation
                         "dc_query": dc_query,
                         "label_id": label_id,
