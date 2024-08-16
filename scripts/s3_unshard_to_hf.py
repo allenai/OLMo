@@ -53,7 +53,18 @@ def make_parser():
         help="If given, remove the local directory if everything runs successfully to free up space on NFS.",
     )
     parser.add_argument(
-        "--old_style_hf", action="store_true", help="If given, convert to 'old-style' HF checkpoint."
+        "--checkpoint_style",
+        default="hf_olmo",
+        choices=["hf_olmo", "transformers"],
+        help="""Checkpoint style. The `transformers` style works with HF transformers as-is, while
+             `hf_olmo` relies on the `hf_olmo` package for conversion. In general, use
+             `transformers` for external releases and `hf_olmo` for internal model
+             development.""",
+    )
+    parser.add_argument(
+        "--hf_olmo",
+        action="store_true",
+        help="If given, convert to 'hf-olmo' style checkpoints.",
     )
     parser.add_argument(
         "--quiet",
@@ -81,10 +92,12 @@ def s3_unshard_to_hf(args):
     # Set directories
     sharded_dir = args.local_dir / "sharded"
     unsharded_dir = args.local_dir / "unsharded"
-    if args.old_style_hf:
+    if args.checkpoint_style == "hf_olmo":
         hf_dir = args.local_dir / "hf-olmo"
+    elif args.checkpoint_style == "transformers":
+        hf_dir = args.local_dir / "transformers"
     else:
-        hf_dir = args.local_dir / "hf"
+        raise ValueError(f"Unknown checkpoint style: {args.checkpoint_style}.")
     hf_dir.mkdir(exist_ok=True)
 
     # Either download the unsharded checkpoint, or download sharded and unshard.
@@ -111,7 +124,7 @@ def s3_unshard_to_hf(args):
 
     # Convert to HF.
     print("Converting to HF.")
-    if args.old_style_hf:
+    if args.checkpoint_style == "hf_olmo":
         # Convert to old-style checkpoint.
         hf_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir {unsharded_dir}"
         subprocess.run(hf_cmd, shell=True, check=True)
