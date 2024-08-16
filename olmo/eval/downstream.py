@@ -79,8 +79,11 @@ class ICLMetric(Metric):
                     log_likelihood = -log_likelihood
             elif self.metric_type == "bpb":
                 # bits per byte
-                log_likelihood = -torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum() / batch["cont_byte_len"][
-                    idx] * LOG_2_OF_E
+                log_likelihood = (
+                    -torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
+                    / batch["cont_byte_len"][idx]
+                    * LOG_2_OF_E
+                )
             else:
                 raise ValueError(self.metric_type)
 
@@ -169,7 +172,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         dataset_name: Union[str, Sequence[str], None] = None,
         model_ctx_len: int = 2048,
         split="validation",
-        metric_type=None, # Override default metric type
+        metric_type=None,  # Override default metric type
         prompts=[None],  # List of prompt variants to use
     ):
         super().__init__()
@@ -338,7 +341,6 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
             cont_lens.append(sample["cont_len"])
             cont_str_lens.append(sample["cont_str_len"])
             cont_byte_lens.append(sample["cont_byte_len"])
-
 
             queries.append(torch.LongTensor(self.pad_tokens_until_max(sample["query"], max_len=max_query_len)))
             dc_queries.append(
@@ -1351,7 +1353,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
     def doc_to_continuations(self, doc):
         # add spaces in front of continuation
         if self.mc_labels:
-            choices =  [" A", " B", " C", " D"]
+            choices = [" A", " B", " C", " D"]
         else:
             choices = [" " + choice for choice in doc["choices"]]
         if self.metric_type in ["ce_loss", "bpb"]:
@@ -1530,7 +1532,7 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
                 continuation_str = request_dict["continuation"]
                 label_id = request["label"]
                 cont_id = request["idx"]
-                if self.metric in ["ce_loss", "bpb"] and label_id != cont_id:
+                if self.metric_type in ["ce_loss", "bpb"] and label_id != cont_id:
                     # Skip non-target continuations for ce_loss and bpb
                     continue
                 doc_text = request_dict["context"]
