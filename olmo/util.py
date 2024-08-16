@@ -693,7 +693,7 @@ def load_hf_dataset(path: str, name: Optional[str], split: str):
         return datasets.load_from_disk(str(dataset_path))
 
 
-def load_oe_eval_requests(path: str, name: Optional[str], split: Optional[str]):
+def load_oe_eval_requests(path: str, name: Optional[str] = None, split: Optional[str] = None):
     """
     Loads an oe-eval request file from `olmo_data/oe_eval_tasks`.
     TODO: Add support from loading from S3 instead?
