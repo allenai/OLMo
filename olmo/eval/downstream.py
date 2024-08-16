@@ -1644,7 +1644,72 @@ label_to_task_map = {
         MMLU,
         {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
     ),
-    "copycolors_10way": (OEEvalTask, {"dataset_path": "copycolors_10way", "metric_type": "acc"}),
-    "copycolors_xl_10way": (OEEvalTask, {"dataset_path": "copycolors_xl_10way", "metric_type": "acc"}),
-    "arc_challenge_rc_0shot": (OEEvalTask, {"dataset_path": "arc_challenge_rc_0shot", "metric_type": "len_norm"}),
+    # Paste in all oe-eval tasks from output of scripts/list_evals_from_oe_eval.py
+    "arc_challenge_rc_0shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "rc_0shot", "metric_type": "len_norm"},
+    ),
+    "arc_challenge_rc_0shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "arc_easy_rc_0shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "rc_0shot", "metric_type": "acc"},
+    ),
+    "arc_easy_rc_0shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "boolq_rc_0shot": (OEEvalTask, {"dataset_path": "boolq", "dataset_name": "rc_0shot", "metric_type": "acc"}),
+    "boolq_rc_0shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "boolq", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "copa_rc_0shot": (OEEvalTask, {"dataset_path": "copa", "dataset_name": "rc_0shot", "metric_type": "acc"}),
+    "copa_rc_0shot_bpb": (OEEvalTask, {"dataset_path": "copa", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
+    "copycolors_10way": (
+        OEEvalTask,
+        {"dataset_path": "copycolors", "dataset_name": "10way", "metric_type": "acc"},
+    ),
+    "copycolors_10way_bpb": (
+        OEEvalTask,
+        {"dataset_path": "copycolors", "dataset_name": "10way", "metric_type": "bpb"},
+    ),
+    "copycolors_xl_10way": (
+        OEEvalTask,
+        {"dataset_path": "copycolors", "dataset_name": "xl_10way", "metric_type": "acc"},
+    ),
+    "copycolors_xl_10way_bpb": (
+        OEEvalTask,
+        {"dataset_path": "copycolors", "dataset_name": "xl_10way", "metric_type": "bpb"},
+    ),
+    "hellaswag_rc_0shot": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "rc_0shot", "metric_type": "len_norm"},
+    ),
+    "hellaswag_rc_0shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "openbookqa_rc_0shot": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"},
+    ),
+    "openbookqa_rc_0shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "piqa_rc_0shot": (OEEvalTask, {"dataset_path": "piqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"}),
+    "piqa_rc_0shot_bpb": (OEEvalTask, {"dataset_path": "piqa", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
+    "sciq_rc_0shot": (OEEvalTask, {"dataset_path": "sciq", "dataset_name": "rc_0shot", "metric_type": "acc"}),
+    "sciq_rc_0shot_bpb": (OEEvalTask, {"dataset_path": "sciq", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
+    "winogrande_rc_0shot": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "rc_0shot", "metric_type": "acc"},
+    ),
+    "winogrande_rc_0shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
 }
