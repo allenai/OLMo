@@ -15,13 +15,17 @@ from ..tokenizer import Tokenizer
 
 log = logging.getLogger(__name__)
 
+# Map from oe-eval metrics to metrics used here
+METRIC_FROM_OE_EVAL = {"acc_raw": "acc", "acc_per_char": "len_norm", "acc_uncond": "pmi_dc"}
+LOG_2_OF_E = 1.44269504089
+
 
 class ICLMetric(Metric):
     # update method does not require access to global metric state
     full_state_update: bool = False
 
     def __init__(self, metric_type="acc") -> None:
-        """metric_type: f1, acc, len_norm, pmi_dc, ce_loss"""
+        """metric_type: f1, acc, len_norm, pmi_dc, ce_loss, bpb"""
         super().__init__(sync_on_compute=True)
 
         self.metric_type = metric_type
@@ -73,6 +77,10 @@ class ICLMetric(Metric):
                 )
                 if self.metric_type == "ce_loss":
                     log_likelihood = -log_likelihood
+            elif self.metric_type == "bpb":
+                # bits per byte
+                log_likelihood = -torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum() / batch["cont_byte_len"][
+                    idx] * LOG_2_OF_E
             else:
                 raise ValueError(self.metric_type)
 
@@ -127,7 +135,7 @@ class ICLMetric(Metric):
 
             if skip_document:
                 continue
-            if self.metric_type == "ce_loss":
+            if self.metric_type in ["ce_loss", "bpb"]:
                 correct.append(loglikelihoods[0])  # Only one answer is scored
             else:
                 correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
@@ -161,6 +169,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         dataset_name: Union[str, Sequence[str], None] = None,
         model_ctx_len: int = 2048,
         split="validation",
+        metric_type=None, # Override default metric type
         prompts=[None],  # List of prompt variants to use
     ):
         super().__init__()
@@ -171,6 +180,8 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         self.model_ctx_len = model_ctx_len
         self.prompts = prompts
         self.current_prompt = None
+        if metric_type is not None:
+            self.metric_type = metric_type
         self.log_instances = 0  # Set to > 0 to log the first few instances as a sanity check
 
         self.samples: List[Dict[str, Any]] = []
@@ -226,6 +237,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
 
                 for cont_id, continuation_str in enumerate(continuations):
                     cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
+                    cont_byte_len = len(continuation_str[1:].encode("utf-8"))
                     continuation = self.token_encode(continuation_str)
 
                     # query, remove last token from continuation, truncate from left is longer than model ctx length
@@ -251,6 +263,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
                                 continuation
                             ),  # even if query has last token removed, LM will output same cont len
                             "cont_str_len": cont_str_len,
+                            "cont_byte_len": cont_byte_len,
                             "query": query,  # remove last token from continuation
                             "dc_query": dc_query,
                             "label_id": label_id,
@@ -305,6 +318,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         dc_lens = []
         cont_lens = []
         cont_str_lens = []
+        cont_byte_lens = []
         queries = []
         dc_queries = []
         label_ids = []
@@ -323,6 +337,8 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
             dc_lens.append(sample["dc_len"])
             cont_lens.append(sample["cont_len"])
             cont_str_lens.append(sample["cont_str_len"])
+            cont_byte_lens.append(sample["cont_byte_len"])
+
 
             queries.append(torch.LongTensor(self.pad_tokens_until_max(sample["query"], max_len=max_query_len)))
             dc_queries.append(
@@ -340,6 +356,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
             "dc_len": torch.LongTensor(dc_lens),
             "cont_len": torch.LongTensor(cont_lens),  # since query has last token removed from continuation
             "cont_str_len": torch.LongTensor(cont_str_lens),
+            "cont_byte_len": torch.LongTensor(cont_byte_lens),
             "input_ids": torch.stack(queries),
             "dc_input_ids": torch.stack(dc_queries),
             "label_id": torch.LongTensor(label_ids),
@@ -1258,6 +1275,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
         split="validation",
         prompt_variations=None,
         mc_labels=False,
+        metric_type=None,
     ):
         dataset_names = []
         # Collect the relevant categories
@@ -1292,6 +1310,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
             dataset_name=dataset_names,
             split=split,
             prompts=prompts,
+            metric_type=None,
         )
 
     def doc_to_text(self, doc):
@@ -1332,8 +1351,14 @@ class MMLU(ICLMultiChoiceTaskDataset):
     def doc_to_continuations(self, doc):
         # add spaces in front of continuation
         if self.mc_labels:
-            return [" A", " B", " C", " D"]
-        return [" " + choice for choice in doc["choices"]]
+            choices =  [" A", " B", " C", " D"]
+        else:
+            choices = [" " + choice for choice in doc["choices"]]
+        if self.metric_type in ["ce_loss", "bpb"]:
+            # Only need correct answer for these metrics
+            return [choices[doc["answer"]]]
+        else:
+            return choices
 
     def doc_to_label(self, doc):
         return doc["answer"]
@@ -1465,9 +1490,7 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
                     metric_type_raw = config["task_config"].get("primary_metric")
                     if metric_type_raw is not None:
                         # acc, len_norm, pmi_dc
-                        metric_type = {"acc_raw": "acc", "acc_per_char": "len_norm", "acc_uncond": "pmi_dc"}[
-                            metric_type_raw
-                        ]
+                        metric_type = METRIC_FROM_OE_EVAL[metric_type_raw]
                         if self.metric_type is not None and self.metric_type != metric_type:
                             raise ValueError(f"Conflicting metric types: {self.metric_type} and {metric_type}")
                         self.metric_type = metric_type
@@ -1506,6 +1529,10 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
                 request_dict = request["request"]
                 continuation_str = request_dict["continuation"]
                 label_id = request["label"]
+                cont_id = request["idx"]
+                if self.metric in ["ce_loss", "bpb"] and label_id != cont_id:
+                    # Skip non-target continuations for ce_loss and bpb
+                    continue
                 doc_text = request_dict["context"]
                 ctx = self.token_encode(doc_text)
                 dc = self.token_encode(self.doc_to_domain_conditional(doc))
@@ -1518,7 +1545,6 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
                         f"Sample doc from ({self.dataset_path}, {ds_name}):"
                         + f"\ndoc_text: {doc_text}\ncontinuation: {continuation_str}"
                     )
-                cont_id = request["idx"]
                 cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
                 continuation = self.token_encode(continuation_str)
 
