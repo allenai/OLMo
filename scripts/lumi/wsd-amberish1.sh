@@ -60,10 +60,11 @@ srun \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $SIF_CONTAINER \
-    python scripts/train.py configs/wsd-amberish1-s3.yaml ${@} \
+    python scripts/train.py configs/wsd-amberish1-s3.yaml \
       --run_name=wsd-amberish1_${SLURM_JOB_ID} \
       --wandb.name=wsd-amberish1_${SLURM_JOB_ID} \
       '--load_path=${path.last_checkpoint:${save_folder}}' \
       --data.num_workers=$SLURM_CPUS_PER_TASK \
       --data.prefetch_factor=2 \
-      --save_overwrite
+      --save_overwrite \
+      ${@}
