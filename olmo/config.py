@@ -1218,6 +1218,12 @@ class TrainConfig(BaseConfig):
     Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
     """
 
+    module_outputs_save_steps: Optional[List[int]] = None
+    """
+    Outputs of model submodules are saved during the provided steps. Submodule outputs
+    can be compared using `scripts/compare_module_outputs.py`.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":

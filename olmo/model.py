@@ -77,7 +77,7 @@ log = logging.getLogger(__name__)
 
 
 def activation_checkpoint_function(cfg: ModelConfig):
-    preserve_rng_state = (
+    preserve_rng_state = not (
         (cfg.attention_dropout == 0.0) and (cfg.embedding_dropout == 0.0) and (cfg.residual_dropout == 0.0)
     )
     from torch.utils.checkpoint import checkpoint
