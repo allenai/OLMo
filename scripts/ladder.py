@@ -172,10 +172,12 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     total_steps = length_in_tokens / (global_batch_size * 2048)
     save_interval = int(total_steps // num_checkpoints) + 10
 
-    # save_interval = {
-    #     "1B": 2500,
-    #     "7B": 1000,
-    # }.get(args.model, 5000)
+    min_save_interval = {
+        "1B": 2500,
+        "7B": 1000,
+    }.get(args.model, 5000)
+
+    save_interval = min(save_interval, min_save_interval)
 
     distributed_strategy = {"7B": DistributedStrategy.fsdp}.get(args.model, DistributedStrategy.ddp)
 
