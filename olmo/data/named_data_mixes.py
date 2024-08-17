@@ -1066,10 +1066,14 @@ DATA_SOURCES = {
         "preprocessed/olmo-mix/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001/cc_en_tail/gpt-neox-olmo-dolma-v1_5/part-091-00000.npy",
         "preprocessed/olmo-mix/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001/cc_en_tail/gpt-neox-olmo-dolma-v1_5/part-092-00000.npy",
     ],
+}
+
+EXTRA_DATA_SOURCES = {
     "web_instruct": [
         "preprocessed/WebInstructSub/v0_decontaminated/gpt-neox-olmo-dolma-v1_5/part-0-00000.npy",
     ]
 }
+
 
 DATA_PATHS = {}
 
@@ -1077,7 +1081,15 @@ DATA_PATHS = {}
 def build_collection_include(corpora: List[str]):
     collection = []
     for corpus in corpora:
-        collection.extend(DATA_SOURCES[corpus])
+        if corpus in DATA_SOURCES.keys():
+            paths = DATA_SOURCES[corpus]
+            if corpus in EXTRA_DATA_SOURCES.keys():
+                raise ValueError(f"Corpus {corpus} should be defined in either DATA_SOURCES or EXTRA_DATA_SOURCES, not both.")
+        elif corpus in EXTRA_DATA_SOURCES.keys():
+            paths = EXTRA_DATA_SOURCES[corpus]
+        else:
+            raise ValueError(f"Unknown corpus: {corpus}")
+        collection.extend(paths)
     return collection
 
 
