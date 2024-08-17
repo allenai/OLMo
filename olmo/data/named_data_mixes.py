@@ -1096,3 +1096,9 @@ DATA_PATHS["dolma17"] = build_collection_include(['gutenberg_books', 'pes20_stem
 
 # web_instruct instead of openwebmath
 DATA_PATHS["web_instruct"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'web_instruct', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
+
+# web_instruct instead of openwebmath, 10x sampled
+DATA_PATHS["web_instruct_10x"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'web_instruct', 'web_instruct', 'web_instruct', 'web_instruct', 'web_instruct', 'web_instruct', 'web_instruct', 'web_instruct', 'web_instruct', 'web_instruct', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
+
+# openwebmath, 10x sampled
+DATA_PATHS["openwebmath_10x"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'openwebmath', 'openwebmath', 'openwebmath', 'openwebmath', 'openwebmath', 'openwebmath', 'openwebmath', 'openwebmath', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
