@@ -1094,11 +1094,11 @@ DATA_PATHS["no_code"] = build_collection_exclude(["stackexchange", "starcoder"])
 DATA_PATHS["no_math_no_code"] = build_collection_exclude(["pes20_stem_papers", "algebraic_stack", "openwebmath", "stackexchange", "starcoder"])
 DATA_PATHS["dolma17"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
 
-# web_instruct instead of openwebmath
-DATA_PATHS["web_instruct"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'web_instruct', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
+# web_instruct instead of openwebmath, 2x sampled (openwebmath is roughly 2.4x larger than web_instruct)
+DATA_PATHS["web_instruct_2x"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'web_instruct', 'web_instruct', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
 
-# web_instruct instead of openwebmath, 10x sampled
-DATA_PATHS["web_instruct_10x"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'web_instruct', 'web_instruct', 'web_instruct', 'web_instruct', 'web_instruct', 'web_instruct', 'web_instruct', 'web_instruct', 'web_instruct', 'web_instruct', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
+# web_instruct instead of openwebmath, 24x sampled
+DATA_PATHS["web_instruct_24x"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack'] + ['web_instruct'] * 24 + ['tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
 
 # openwebmath, 10x sampled
-DATA_PATHS["openwebmath_10x"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'openwebmath', 'openwebmath', 'openwebmath', 'openwebmath', 'openwebmath', 'openwebmath', 'openwebmath', 'openwebmath', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
+DATA_PATHS["openwebmath_10x"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack'] + ['openwebmath'] * 10 + ['tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
