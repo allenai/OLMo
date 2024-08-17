@@ -1629,6 +1629,16 @@ label_to_task_map = {
     "mmlu_humanities_var": (MMLU, {"dataset_name": "humanities", "prompt_variations": 1}),
     "mmlu_social_sciences_var": (MMLU, {"dataset_name": "social_sciences", "prompt_variations": 1}),
     "mmlu_other_var": (MMLU, {"dataset_name": "other", "prompt_variations": 1}),
+    "mmlu_stem_var_bpb": (MMLU, {"dataset_name": "stem", "prompt_variations": 1, "metric_type": "bpb"}),
+    "mmlu_humanities_var_bpb": (
+        MMLU,
+        {"dataset_name": "humanities", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_social_sciences_var_bpb": (
+        MMLU,
+        {"dataset_name": "social_sciences", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_other_var_bpb": (MMLU, {"dataset_name": "other", "prompt_variations": 1, "metric_type": "bpb"}),
     "mmlu_stem_mc_5shot": (MMLU, {"dataset_name": "stem", "prompt_variations": 2, "mc_labels": True}),
     "mmlu_humanities_mc_5shot": (MMLU, {"dataset_name": "humanities", "prompt_variations": 2, "mc_labels": True}),
     "mmlu_social_sciences_mc_5shot": (
