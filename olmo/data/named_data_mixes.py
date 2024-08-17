@@ -1093,6 +1093,7 @@ DATA_PATHS["no_math"] = build_collection_exclude(["pes20_stem_papers", "algebrai
 DATA_PATHS["no_code"] = build_collection_exclude(["stackexchange", "starcoder"])
 DATA_PATHS["no_math_no_code"] = build_collection_exclude(["pes20_stem_papers", "algebraic_stack", "openwebmath", "stackexchange", "starcoder"])
 DATA_PATHS["no_reddit"] = build_collection_exclude(["reddit"])
+DATA_PATHS["no_flan"] = build_collection_exclude(["tulu"])
 DATA_PATHS["dolma17"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
 
 # web_instruct instead of openwebmath, 2x sampled (openwebmath is roughly 2.4x larger than web_instruct)
