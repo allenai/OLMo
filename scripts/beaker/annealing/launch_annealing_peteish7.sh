@@ -29,7 +29,6 @@ gantry run \
   --propagate-failure \
   --propagate-preemption \
   --synchronized-start-timeout 90m \
-  --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
@@ -43,5 +42,4 @@ gantry run \
   --env-secret WANDB_API_KEY=PETEW_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
-  --timeout=-1 \
   -- /bin/bash -c "scripts/beaker/peteish/peteish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
