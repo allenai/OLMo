@@ -117,4 +117,14 @@ if __name__ == "__main__":
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/baseline-300M-1xC' -y eval/all-validation/CrossEntropyLoss -o wandb/baseline-300M-1xC_val-all.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/baseline-750M-1xC' -y eval/all-validation/CrossEntropyLoss -o wandb/baseline-750M-1xC_val-all.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/baseline-1B-1xC' -y eval/all-validation/CrossEntropyLoss -o wandb/baseline-1B-1xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-150M-1xC' -y eval/all-validation/CrossEntropyLoss -o wandb/amberish-150M-1xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-300M-1xC' -y eval/all-validation/CrossEntropyLoss -o wandb/amberish-300M-1xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-750M-1xC' -y eval/all-validation/CrossEntropyLoss -o wandb/amberish-750M-1xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-1B-1xC' -y eval/all-validation/CrossEntropyLoss -o wandb/amberish-1B-1xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-3B-1xC' -y eval/all-validation/CrossEntropyLoss -o wandb/amberish-3B-1xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-tiny/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-warmup2000' -y eval/all-validation/CrossEntropyLoss -o wandb/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-warmup2000_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-tiny/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-warmup2000' -y eval/all-validation/CrossEntropyLoss -o wandb/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-warmup2000_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-tiny/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-warmup2000' -y eval/all-validation/CrossEntropyLoss -o wandb/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-warmup2000_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-tiny/tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-warmup2000' -y eval/all-validation/CrossEntropyLoss -o wandb/tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-warmup2000_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-tiny/tiny-olmo-700M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-warmup2000' -y eval/all-validation/CrossEntropyLoss -o wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-warmup2000_val-all.csv
     main()

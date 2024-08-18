@@ -15,14 +15,14 @@ from olmo.scaling.scaling_laws.utils import validation, chinchilla_n_d_fit, grad
 VAL_KEYS = [f'eval/{val}/CrossEntropyLoss' for val in validation]
 
 CONFIGS = {
-    '20m': {
-        'path': 'wandb/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
-        'keys': VAL_KEYS,
-        'mode': 'train',
-        'n': 21266432,
-        'label': '20m',
-        'color': 'darkred',
-    },
+    # '20m': {
+    #     'path': 'wandb/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
+    #     'keys': VAL_KEYS,
+    #     'mode': 'train',
+    #     'n': 21266432,
+    #     'label': '20m',
+    #     'color': 'darkred',
+    # },
     '60m': {
         'path': 'wandb/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
         'keys': VAL_KEYS,
@@ -39,14 +39,14 @@ CONFIGS = {
         'label': '150m',
         'color': 'gold',
     },
-    # '300m': {
-    #     'path': '../hc-law/wandb/ananya-300m-lr6e-4_val-all.csv',
-    #     'keys': VAL_KEYS,
-    #     'mode': 'eval',
-    #     'n': 319980544,
-    #     'label': '300m',
-    #     'color': 'darkgreen',
-    # },
+    '300m': {
+        'path': 'wandb/tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
+        'keys': VAL_KEYS,
+        'mode': 'train',
+        'n': 319980544,
+        'label': '300m',
+        'color': 'darkgreen',
+    },
     '700m': {
         'path': 'wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd_val-all.csv',
         'keys': VAL_KEYS,
@@ -55,22 +55,22 @@ CONFIGS = {
         'label': '700m',
         'color': 'teal',
     },
-    '1b': {
-        'path': 'wandb/amberish1.csv',
-        'keys': VAL_KEYS,
-        'mode': 'eval',
-        'n': 1176832000,
-        'label': '1b',
-        'color': 'darkblue',
-    },
-    '7b': {
-        'path': 'wandb/amberish7.csv',
-        'keys': VAL_KEYS,
-        'mode': 'eval',
-        'n': 6682316800,
-        'label': '7b',
-        'color': 'darkviolet',
-    },
+    # '1b': {
+    #     'path': 'wandb/amberish1.csv',
+    #     'keys': VAL_KEYS,
+    #     'mode': 'eval',
+    #     'n': 1176832000,
+    #     'label': '1b',
+    #     'color': 'darkblue',
+    # },
+    # '7b': {
+    #     'path': 'wandb/amberish7.csv',
+    #     'keys': VAL_KEYS,
+    #     'mode': 'eval',
+    #     'n': 6682316800,
+    #     'label': '7b',
+    #     'color': 'darkviolet',
+    # },
 }
 # CONFIGS = {
 #     '150m': {
@@ -106,6 +106,40 @@ CONFIGS = {
 #         'color': 'darkblue',
 #     },
 # }
+# CONFIGS = {
+#     '150m': {
+#         'path': 'wandb/amberish-150M-1xC_val-all.csv',
+#         'keys': VAL_KEYS,
+#         'mode': 'train',
+#         'n': 151898880,
+#         'label': '150m',
+#         'color': 'gold',
+#     },
+#     '300m': {
+#         'path': 'wandb/amberish-300M-1xC_val-all.csv',
+#         'keys': VAL_KEYS,
+#         'mode': 'train',
+#         'n': 319980544,
+#         'label': '300m',
+#         'color': 'darkgreen',
+#     },
+#     '700m': {
+#         'path': 'wandb/amberish-750M-1xC_val-all.csv',
+#         'keys': VAL_KEYS,
+#         'mode': 'train',
+#         'n': 681297408,
+#         'label': '750m',
+#         'color': 'teal',
+#     },
+#     '1b': {
+#         'path': 'wandb/amberish-1B-1xC_val-all.csv',
+#         'keys': VAL_KEYS,
+#         'mode': 'train',
+#         'n': 1176832000,
+#         'label': '1b',
+#         'color': 'darkblue',
+#     },
+# }
 
 
 def fit_curves(
@@ -127,8 +161,8 @@ def fit_curves(
 
     plt.xlabel("Tokens (d)")
     plt.ylabel("CE Loss")
-    plt.title(f"Jointly fitting N and D")
-    plt.savefig(f"{output_path}/joint.png", dpi=300)
+    plt.title(f"Residue of Jointly fitting N and D")
+    plt.savefig(f"{output_path}/joint_residue.png", dpi=300)
 
 
 def parse_args():
