@@ -1,5 +1,5 @@
 run_name: peteish7-anneal-from-892000-50B-no-warmup
-seed: 6198
+seed: 8901
 dry_run: false
 
 wandb:
@@ -80,7 +80,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step892000
 
-restore_dataloader: true
+restore_dataloader: false
 no_pre_train_checkpoint: true
 reset_optimizer_state: false
 reset_trainer_state: true
