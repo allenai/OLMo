@@ -64,7 +64,7 @@ scheduler:
   alpha_f: 0
 
 tokenizer:
-  identifier: allenai/dolma2-tokenizer
+  identifier: tokenizers/allenai_dolma2.json
   truncate_direction: right
 
 save_folder: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium-annealing/${run_name}
@@ -96,7 +96,7 @@ fsdp:
   wrapping_strategy: by_block_and_size
   precision: mixed
 
-# activation_checkpointing: whole_layer
+activation_checkpointing: one_in_four
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: null
