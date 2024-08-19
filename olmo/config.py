@@ -556,6 +556,7 @@ class SchedulerType(StrEnum):
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
     max_scheduler = "max_scheduler"
     constant = "constant"
+    cosine_linear_envelope = "cosine_linear_envelope"
 
 
 class SchedulerUnits(StrEnum):
@@ -1215,6 +1216,12 @@ class TrainConfig(BaseConfig):
     Deprecated, HF datasets are now stored in `olmo_data.hf_datasets`.
 
     Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
+    """
+
+    module_outputs_save_steps: Optional[List[int]] = None
+    """
+    Outputs of model submodules are saved during the provided steps. Submodule outputs
+    can be compared using `scripts/compare_module_outputs.py`.
     """
 
     @property
