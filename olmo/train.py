@@ -370,6 +370,7 @@ class Trainer:
 
         if not self.cfg.restore_dataloader:
             self.epoch = 0
+            self.global_step = 0
             self.global_train_tokens_seen = 0
             self.global_train_examples_seen_this_epoch = 0
         elif self.epoch is None:
