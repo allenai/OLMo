@@ -25,6 +25,7 @@ def compare_model_param(
     compare_model: Any,
     param_name: str,
     *,
+    norm_order: int = 1,
     include_non_tensor_state: bool = False,
     verbose: bool = False,
 ):
@@ -36,7 +37,9 @@ def compare_model_param(
             logger.info("%s param dtypes: %s %s", param_name, base_value.dtype, compare_value.dtype)
         if verbose or base_value.shape != compare_value.shape:
             logger.info("%s param shapes: %s %s", param_name, base_value.shape, compare_value.shape)
-        if (norm_diff := torch.linalg.vector_norm((compare_value - base_value).float()).item()) != 0.0 or verbose:
+        if (
+            norm_diff := torch.linalg.vector_norm((compare_value - base_value).float(), ord=norm_order).item()
+        ) != 0.0 or verbose:
             logger.info("%s param norm diff: %.6f", param_name, norm_diff)
     elif include_non_tensor_state:
         logger.info("%s params: %s %s", param_name, base_value, compare_value)
@@ -48,6 +51,7 @@ def compare_model_state(
     base_model_folder: Path,
     compare_model_folder: Path,
     *,
+    norm_order: int = 1,
     include_non_tensor_state: bool = False,
     verbose: bool = False,
 ):
@@ -76,6 +80,7 @@ def compare_model_state(
             base_model,
             compare_model,
             param_key,
+            norm_order=norm_order,
             include_non_tensor_state=include_non_tensor_state,
             verbose=verbose,
         )
@@ -96,6 +101,12 @@ def main():
         help="Path where the compare (a.k.a new, different) model is stored",
     )
     parser.add_argument(
+        "--norm_order",
+        type=int,
+        default=1,
+        help="Order of the norm used for comparing model states",
+    )
+    parser.add_argument(
         "--skip_non_tensor_state",
         action="store_false",
         dest="include_non_tensor_state",
@@ -111,6 +122,7 @@ def main():
     compare_model_state(
         args.base_model_path,
         args.compare_model_path,
+        norm_order=args.norm_order,
         include_non_tensor_state=args.include_non_tensor_state,
         verbose=args.verbose,
     )
