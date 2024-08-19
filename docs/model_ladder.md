@@ -13,3 +13,29 @@ scripts/beaker/ladder-launch.sh 1 --model 150M --data dolma17 --length 1xC --nam
 
 ## data mixes
 Data mixes are defined in [named_data_mixes.py](olmo/data/named_data_mixes.py).
+
+## detailed usage
+
+### train command
+```
+usage: ladder.py train [-h] --model MODEL --data DATA [--length LENGTH] --name
+                       NAME [--s3 | --no-s3] [--wandb | --no-wandb]
+                       [--read_location READ_LOCATION]
+                       [--write_location WRITE_LOCATION] [--save_overwrite]
+                       [--load_path LOAD_PATH] [--eval_on_load]
+
+options:
+  -h, --help            show this help message and exit
+  --model MODEL
+  --data DATA
+  --length LENGTH
+  --name NAME
+  --s3, --no-s3         read data from S3, write checkpoints to S3 (default:
+                        False)
+  --wandb, --no-wandb   create a run in wandb (default: True)
+  --read_location READ_LOCATION
+  --write_location WRITE_LOCATION
+  --save_overwrite
+  --load_path LOAD_PATH
+  --eval_on_load
+```
