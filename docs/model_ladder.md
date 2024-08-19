@@ -10,3 +10,6 @@ For example this will train you a 150M model on the dolma17 data mix with a toke
 ```
 scripts/beaker/ladder-launch.sh 1 --model 150M --data dolma17 --length 1xC --name testing-out-model-ladder --s3
 ```
+
+## data mixes
+Data mixes are defined in [named_data_mixes.py](olmo/data/named_data_mixes.py).
