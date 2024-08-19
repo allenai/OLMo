@@ -1,3 +1,15 @@
+"""
+Convenience script to compare the model state of 2 unsharded OLMo checkpoints.
+
+The intended main usage of this script is to find which parameters of 2 models
+are identical.
+
+Example usage (Aug 2024):
+python scripts/compare_model_state.py \
+    --base_model_path test_model/step0-unsharded \
+    --compare_model_path test_model/step0-unsharded
+"""
+
 import logging
 from argparse import ArgumentParser
 from pathlib import Path
