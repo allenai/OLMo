@@ -55,6 +55,7 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas="${NUM_NODES}" \
+      --activation_checkpointing=whole_layer \
       --load_path=/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646 \
       --data.seed=23250 \
       --restore_dataloader=false \
