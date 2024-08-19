@@ -1,5 +1,5 @@
 run_name: peteish7-anneal-from-892000-50B-warmup-2T
-seed: 6198
+seed: 7201
 dry_run: false
 
 wandb:
@@ -78,12 +78,10 @@ sharded_checkpointer: olmo_core
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
-load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step892000
+load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646
 
-restore_dataloader: true
+restore_dataloader: false
 no_pre_train_checkpoint: true
-reset_optimizer_state: false
-reset_trainer_state: true
 
 max_duration: 50e9T
 stop_at: 11931                  # round(50e9 / (1024 * 4096)) + 10
