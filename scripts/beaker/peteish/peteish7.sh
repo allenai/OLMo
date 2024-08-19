@@ -52,7 +52,7 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    ${CONFIG_PATH}
+    ${CONFIG_PATH} \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=null \
       '--load_path=${path.last_checkpoint:${save_folder}}' \
