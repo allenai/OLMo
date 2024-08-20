@@ -31,8 +31,8 @@ class Evaluator:
             assert isinstance(self.eval_metric, ICLMetric)
             value = self.eval_metric.compute().item()
             key = f"eval/downstream/{self.label}_{self.eval_metric.metric_type}"
-            if self.eval_metric.metric_type == "ce_loss":
-                key = key.replace("/downstream/", "/downstream_ce_loss/")
+            if self.eval_metric.metric_type in ["ce_loss", "bpb"]:
+                key = key.replace("/downstream/", f"/downstream_{self.eval_metric.metric_type}/")
             return {key: value}
         elif self.type == EvaluatorType.lm:
             # Metric(s) = cross entropy loss
