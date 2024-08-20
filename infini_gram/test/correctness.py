@@ -7,9 +7,8 @@ from transformers import AutoTokenizer
 from olmo.config import InfgramConfig
 from infini_gram import InfinigramEngine
 
-cfg = InfgramConfig(
-    index_dir='../hb-wolf/index/v4_dolma-v1_6-sample_olmo',
-)
+index_dir = '../hb-wolf/index/v5_dolma-v1_7-wiki_olmo'
+cfg = InfgramConfig(index_dir=index_dir)
 max_batch_size = 1024
 max_seq_len = 4096
 

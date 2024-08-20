@@ -86,7 +86,7 @@ public:
         assert_little_endian();
         assert (fs::exists(index_dir));
 
-        _version = 4;
+        _version = (index_dir.find("v5") == string::npos) ? 4 : 5;
         vector<string> ds_paths, sa_paths;
         for (const auto & entry : fs::directory_iterator(index_dir)) {
             if (entry.path().string().find("tokenized") != string::npos) {
@@ -142,7 +142,15 @@ public:
                 }
             }
             assert (hint_segment_by_shard.size() == _num_shards);
-            const U8* input_buf = reinterpret_cast<const U8*>(input_ids.data() + start);
+            vector<U16> reversed_input_ids;
+            const U8* input_buf;
+            if (_version == 4) {
+                input_buf = reinterpret_cast<const U8*>(input_ids.data() + start);
+            } else if (_version == 5) {
+                reversed_input_ids = vector<U16>(input_ids.begin() + start, input_ids.begin() + end);
+                reverse(reversed_input_ids.begin(), reversed_input_ids.end());
+                input_buf = reinterpret_cast<const U8*>(reversed_input_ids.data());
+            }
             U64 num_bytes = (end - start) * sizeof(U16);
 
             for (auto s = 0; s < _num_shards; s++) {
@@ -219,19 +227,60 @@ public:
             return DistResult{{}};
         }
 
-        vector<U16> tokens(_num_shards * support);
-        for (auto s = 0; s < _num_shards; s++) {
-            U64 num_bytes = (end - start) * sizeof(U16);
-            const auto& shard = _shards[s];
-            auto [start, end] = prompt_find_result.segment_by_shard[s];
-
-            for (U64 i = 0; i < support; i++) {
-                U64 rank = start + ((end - start) * i + (end - start) / 2) / support;
-                U64 ptr = _convert_rank_to_ptr(shard, rank);
-                U64 offset = ptr + num_bytes;
-                U16 token_id = _convert_offset_to_token_id(shard, offset);
-                tokens[s * support + i] = token_id;
+        U64 num_bytes = (end - start) * sizeof(U16);
+        vector<U16> tokens(support);
+        for (U64 i = 0; i < support; i++) {
+            U64 ix = (prompt_find_result.cnt * i + prompt_find_result.cnt / 2) / support;
+            size_t s = 0;
+            while (true) {
+                const auto& shard = _shards[s];
+                auto [l, r] = prompt_find_result.segment_by_shard[s];
+                if (ix < r - l) break;
+                ix -= r - l;
+                s++;
             }
+            const auto& shard = _shards[s];
+            auto [l, r] = prompt_find_result.segment_by_shard[s];
+            U64 rank = l + ix;
+            U64 ptr = _convert_rank_to_ptr(shard, rank);
+            U64 offset = ptr + num_bytes;
+            U16 token_id = _convert_offset_to_token_id(shard, offset);
+            tokens[i] = token_id;
+        }
+
+        return DistResult{tokens};
+    }
+
+    virtual DistResult ntd_v5(const size_t support, const FindResult &find_result, const FindResult &find_result_exclude) const {
+
+        if (find_result.cnt == 0) {
+            return DistResult{{}};
+        }
+
+        U64 cnt = find_result.cnt - find_result_exclude.cnt;
+        vector<U16> tokens(support);
+        for (U64 i = 0; i < support; i++) {
+            U64 ix = (cnt * i + cnt / 2) / support;
+            size_t s = 0;
+            while (true) {
+                const auto& shard = _shards[s];
+                auto [l, r] = find_result.segment_by_shard[s];
+                auto [l_exclude, r_exclude] = find_result_exclude.segment_by_shard[s];
+                assert (l <= l_exclude && r_exclude <= r);
+                U64 cnt_segment = (r - l) - (r_exclude - l_exclude);
+                if (ix < cnt_segment) break;
+                ix -= cnt_segment;
+                s++;
+            }
+            const auto& shard = _shards[s];
+            auto [l, r] = find_result.segment_by_shard[s];
+            auto [l_exclude, r_exclude] = find_result_exclude.segment_by_shard[s];
+            U64 rank = (ix < l_exclude - l) ? (l + ix) : (r_exclude + (ix - (l_exclude - l)));
+            U64 ptr = _convert_rank_to_ptr(shard, rank);
+            assert (ptr > 0); // because the first token is always \xff\xff and ptr cannot land there
+            U64 offset = ptr - sizeof(U16);
+            U16 token_id = _convert_offset_to_token_id(shard, offset);
+            tokens[i] = token_id;
         }
 
         return DistResult{tokens};
@@ -257,29 +306,59 @@ public:
     }
 
     virtual void ntd_dense(const vector<U16> input_ids, const U64 min_cnt, const size_t support, const bool debug, vector<DistResult>* results, vector<U16>* lfns) const {
+        auto thread_start_time = chrono::high_resolution_clock::now();
+        auto tot_duration_us = 0;
         results->resize(input_ids.size());
         if (lfns) lfns->resize(input_ids.size());
-        auto tot_duration_us = 0;
-        size_t j = 0;
-        FindResult find_result;
-        auto thread_start_time = chrono::high_resolution_clock::now();
-        for (size_t i = 1; i <= input_ids.size(); i++) {
-            auto start_time = chrono::high_resolution_clock::now();
-            if (i == 1) {
-                find_result = find(input_ids, j, i);
-            } else {
-                find_result = find(input_ids, j, i, find_result.segment_by_shard);
+
+        if (_version == 4) {
+            size_t j = 0;
+            FindResult find_result;
+            for (size_t i = 1; i <= input_ids.size(); i++) {
+                auto start_time = chrono::high_resolution_clock::now();
+                if (i == 1) {
+                    find_result = find(input_ids, j, i);
+                } else {
+                    find_result = find(input_ids, j, i, find_result.segment_by_shard);
+                }
+                while (find_result.cnt < min_cnt && j < i) {
+                    j++;
+                    find_result = find(input_ids, j, i);
+                }
+                (*results)[i-1] = ntd(input_ids, j, i, support, find_result);
+                if (lfns) (*lfns)[i-1] = i - j;
+                auto end_time = chrono::high_resolution_clock::now();
+                auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
+                tot_duration_us += duration;
             }
-            while (find_result.cnt < min_cnt && j < i) {
-                j++;
-                find_result = find(input_ids, j, i);
+        } else if (_version == 5) {
+            size_t j = 0;
+            for (size_t i = 1; i <= input_ids.size(); i++) {
+                auto start_time = chrono::high_resolution_clock::now();
+                FindResult find_result = find(input_ids, j, i);
+                while (find_result.cnt < min_cnt && j < i) {
+                    j++;
+                    find_result = find(input_ids, j, i);
+                }
+                FindResult find_result_exclude;
+                if (j > 0) {
+                    find_result_exclude = find(input_ids, j-1, i, find_result.segment_by_shard);
+                } else {
+                    find_result_exclude.cnt = 0;
+                    auto segment_by_shard = find_result.segment_by_shard;
+                    for (auto &segment : segment_by_shard) {
+                        segment.first = segment.second;
+                    }
+                    find_result_exclude.segment_by_shard = segment_by_shard;
+                }
+                (*results)[i-1] = ntd_v5(support, find_result, find_result_exclude);
+                if (lfns) (*lfns)[i-1] = i - j;
+                auto end_time = chrono::high_resolution_clock::now();
+                auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
+                tot_duration_us += duration;
             }
-            (*results)[i-1] = ntd(input_ids, j, i, support, find_result);
-            if (lfns) (*lfns)[i-1] = i - j;
-            auto end_time = chrono::high_resolution_clock::now();
-            auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
-            tot_duration_us += duration;
         }
+
         auto avg_duration_us = tot_duration_us / input_ids.size();
         auto tot_duration_ms = tot_duration_us / 1000;
         auto thread_end_time = chrono::high_resolution_clock::now();

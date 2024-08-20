@@ -35,7 +35,7 @@ gantry run \
         '/weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v2-decontaminated-60M-shots_all-upweight_1-dialog_false-sep_newline/train/gpt-neox-olmo-dolma-v1_5/*.npy' \
         '/weka/oe-training-default/ai2-llm/preprocessed/cc-news/v3/gpt-neox-olmo-dolma-v1_5/*.npy' \
       --save_dir /weka/oe-training-default/wolf/index/v5_dolma-v1_7_olmo/0 ; \
-    python indexing_for_wolf.py --cpus 186 --mem 1912 \
+    python reversed_indexing_for_wolf.py --cpus 186 --mem 1912 \
       --data_paths \
         '/weka/oe-training-default/ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/gpt-neox-olmo-dolma-v1_5/part-0*.npy' \
         '/weka/oe-training-default/ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/gpt-neox-olmo-dolma-v1_5/part-1*.npy' \
@@ -48,7 +48,7 @@ gantry run \
         '/weka/oe-training-default/ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/gpt-neox-olmo-dolma-v1_5/part-44*.npy' \
         '/weka/oe-training-default/ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/gpt-neox-olmo-dolma-v1_5/part-45*.npy' \
       --save_dir /weka/oe-training-default/wolf/index/v5_dolma-v1_7_olmo/1 ; \
-    python indexing_for_wolf.py --cpus 186 --mem 1912 \
+    python reversed_indexing_for_wolf.py --cpus 186 --mem 1912 \
       --data_paths \
         '/weka/oe-training-default/ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/gpt-neox-olmo-dolma-v1_5/part-46*.npy' \
         '/weka/oe-training-default/ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/gpt-neox-olmo-dolma-v1_5/part-47*.npy' \
@@ -56,7 +56,7 @@ gantry run \
         '/weka/oe-training-default/ai2-llm/preprocessed/c4/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001-fix/gpt-neox-olmo-dolma-v1_5/*.npy' \
         '/weka/oe-training-default/ai2-llm/preprocessed/reddit/v5-dedupe-pii-nsfw-toxic-fuzzydd-length/gpt-neox-olmo-dolma-v1_5/*.npy' \
       --save_dir /weka/oe-training-default/wolf/index/v5_dolma-v1_7_olmo/2 ; \
-    python indexing_for_wolf.py --cpus 186 --mem 1912 \
+    python reversed_indexing_for_wolf.py --cpus 186 --mem 1912 \
       --data_paths \
         '/weka/oe-training-default/ai2-llm/preprocessed/falcon-refinedweb/v2-frac_005_100-qc_cc_multi_bin-paloma-rep-pii/gpt-neox-olmo-dolma-v1_5/part-00*.npy' \
         '/weka/oe-training-default/ai2-llm/preprocessed/falcon-refinedweb/v2-frac_005_100-qc_cc_multi_bin-paloma-rep-pii/gpt-neox-olmo-dolma-v1_5/part-01*.npy' \
@@ -72,7 +72,7 @@ gantry run \
         '/weka/oe-training-default/ai2-llm/preprocessed/falcon-refinedweb/v2-frac_005_100-qc_cc_multi_bin-paloma-rep-pii/gpt-neox-olmo-dolma-v1_5/part-092*.npy' \
         '/weka/oe-training-default/ai2-llm/preprocessed/falcon-refinedweb/v2-frac_005_100-qc_cc_multi_bin-paloma-rep-pii/gpt-neox-olmo-dolma-v1_5/part-093*.npy' \
       --save_dir /weka/oe-training-default/wolf/index/v5_dolma-v1_7_olmo/3 ; \
-    python indexing_for_wolf.py --cpus 186 --mem 1912 \
+    python reversed_indexing_for_wolf.py --cpus 186 --mem 1912 \
       --data_paths \
         '/weka/oe-training-default/ai2-llm/preprocessed/falcon-refinedweb/v2-frac_005_100-qc_cc_multi_bin-paloma-rep-pii/gpt-neox-olmo-dolma-v1_5/part-094*.npy' \
         '/weka/oe-training-default/ai2-llm/preprocessed/falcon-refinedweb/v2-frac_005_100-qc_cc_multi_bin-paloma-rep-pii/gpt-neox-olmo-dolma-v1_5/part-095*.npy' \
@@ -82,15 +82,15 @@ gantry run \
         '/weka/oe-training-default/ai2-llm/preprocessed/falcon-refinedweb/v2-frac_005_100-qc_cc_multi_bin-paloma-rep-pii/gpt-neox-olmo-dolma-v1_5/part-099*.npy' \
         '/weka/oe-training-default/ai2-llm/preprocessed/falcon-refinedweb/v2-frac_005_100-qc_cc_multi_bin-paloma-rep-pii/gpt-neox-olmo-dolma-v1_5/part-1*.npy' \
       --save_dir /weka/oe-training-default/wolf/index/v5_dolma-v1_7_olmo/4 ; \
-    python indexing_for_wolf.py --cpus 186 --mem 1912 \
+    python reversed_indexing_for_wolf.py --cpus 186 --mem 1912 \
       --data_paths \
         '/weka/oe-training-default/ai2-llm/preprocessed/olmo-mix/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001/cc_en_head/gpt-neox-olmo-dolma-v1_5/*.npy' \
       --save_dir /weka/oe-training-default/wolf/index/v5_dolma-v1_7_olmo/5 ; \
-    python indexing_for_wolf.py --cpus 186 --mem 1912 \
+    python reversed_indexing_for_wolf.py --cpus 186 --mem 1912 \
       --data_paths \
         '/weka/oe-training-default/ai2-llm/preprocessed/olmo-mix/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001/cc_en_middle/gpt-neox-olmo-dolma-v1_5/*.npy' \
       --save_dir /weka/oe-training-default/wolf/index/v5_dolma-v1_7_olmo/6 ; \
-    python indexing_for_wolf.py --cpus 186 --mem 1912 \
+    python reversed_indexing_for_wolf.py --cpus 186 --mem 1912 \
       --data_paths \
         '/weka/oe-training-default/ai2-llm/preprocessed/olmo-mix/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001/cc_en_tail/gpt-neox-olmo-dolma-v1_5/*.npy' \
       --save_dir /weka/oe-training-default/wolf/index/v5_dolma-v1_7_olmo/7 ; \
