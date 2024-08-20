@@ -4,12 +4,10 @@ import os
 import re
 import shutil
 import tempfile
-from contextlib import contextmanager
 from hashlib import md5
-from typing import Generator, Iterable, Optional
+from typing import Iterable, Optional
 from urllib.parse import urlparse
 
-import boto3
 import torch
 from omegaconf import OmegaConf as om
 from tqdm import tqdm
@@ -18,7 +16,8 @@ from hf_olmo.configuration_olmo import OLMoConfig
 from hf_olmo.modeling_olmo import OLMoForCausalLM
 from hf_olmo.tokenization_olmo_fast import OLMoTokenizerFast
 from olmo import ModelConfig, Tokenizer, TrainConfig
-from olmo.checkpoint import OlmoCoreCheckpointer
+from olmo.checkpoint import build_sharded_checkpointer
+from olmo.util import _get_s3_client
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +75,10 @@ def write_model(checkpoint_dir: str, ignore_olmo_compatibility: bool = False):
     # this takes care of the case where the model was saved with a different prefix,
     # typically due to unsharding.
     common_prefix = longest_common_prefix(state_dict.keys())
-    state_dict = {key.replace(common_prefix, "transformer."): val for key, val in state_dict.items()}
-
-    new_state_dict = {f"{OLMoForCausalLM.base_model_prefix}.{key}": val for key, val in state_dict.items()}
+    new_state_dict = {
+        key.replace(common_prefix, f"{OLMoForCausalLM.base_model_prefix}.transformer."): val
+        for key, val in state_dict.items()
+    }
     torch.save(new_state_dict, new_model_path)
 
     if ignore_olmo_compatibility:
@@ -124,14 +124,20 @@ def fix_tokenizer(checkpoint_dir: str, tokenizer_name_or_path: Optional[str] = N
     tokenizer_name_or_path = str(tokenizer_name_or_path or conf["tokenizer"]["identifier"])  # pyright: ignore
 
     try:
-        Tokenizer.from_pretrained(tokenizer_name_or_path)
+        if os.path.exists(tokenizer_name_or_path):
+            Tokenizer.from_file(tokenizer_name_or_path)
+        else:
+            Tokenizer.from_pretrained(tokenizer_name_or_path)
     except Exception as e:
-        logger.error(f"Error loading tokenizer: {e}")
+        # the tokenizer is not valid
+        logger.error(f"Invalid tokenizer: {tokenizer_name_or_path}. Error: {e}")
         raise e
 
     conf["tokenizer"]["identifier"] = tokenizer_name_or_path  # pyright: ignore
 
-    if tokenizer_name_or_path == "allenai/gpt-neox-olmo-dolma-v1_5":
+    if tokenizer_name_or_path == "allenai/gpt-neox-olmo-dolma-v1_5" or tokenizer_name_or_path.endswith(
+        "allenai_eleuther-ai-gpt-neox-20b-pii-special.json"
+    ):
         conf["model"]["eos_token_id"] = 50279  # pyright: ignore
 
     om.save(conf, path)
@@ -139,7 +145,7 @@ def fix_tokenizer(checkpoint_dir: str, tokenizer_name_or_path: Optional[str] = N
 
 def download_s3_directory(bucket_name: str, prefix: str, local_dir: str, ignore: str | None = None):
     # Create S3 client
-    s3_client = boto3.client("s3")
+    s3_client = _get_s3_client("s3")
 
     re_ignore = re.compile(ignore) if ignore else None
 
@@ -156,43 +162,36 @@ def download_s3_directory(bucket_name: str, prefix: str, local_dir: str, ignore:
             files_to_download.append(obj["Key"])
 
     # Initialize the progress bar
-    with tqdm(total=len(files_to_download), desc="Downloading files") as pbar:
-        for s3_key in files_to_download:
-            # Construct the full local path
-            local_file_path = os.path.join(local_dir, os.path.relpath(s3_key, prefix))
-            local_file_dir = os.path.dirname(local_file_path)
+    for s3_key in tqdm(files_to_download, desc="Downloading files"):
+        # Construct the full local path
+        local_file_path = os.path.join(local_dir, os.path.relpath(s3_key, prefix))
+        local_file_dir = os.path.dirname(local_file_path)
 
-            # Ensure local directory exists
-            if not os.path.exists(local_file_dir):
-                os.makedirs(local_file_dir)
+        # Ensure local directory exists
+        if not os.path.exists(local_file_dir):
+            os.makedirs(local_file_dir)
 
-            # Download the file
-            s3_client.download_file(bucket_name, s3_key, local_file_path)
-
-            # Update the progress bar
-            pbar.update(1)
+        # Download the file
+        s3_client.download_file(bucket_name, s3_key, local_file_path)
 
 
-@contextmanager
-def make_local_checkpoint(checkpoint_dir: str) -> Generator[str, None, None]:
+def make_local_checkpoint(checkpoint_dir: str) -> str:
     parsed_dir = urlparse(checkpoint_dir)
 
     assert parsed_dir.scheme in ["s3", ""], "Only s3 and local paths are supported."
 
     if os.path.exists(checkpoint_dir):
-        yield checkpoint_dir
-        return
+        return checkpoint_dir
 
     temp_dir = os.path.join(tempfile.gettempdir(), md5(checkpoint_dir.encode()).hexdigest())
     if os.path.exists(temp_dir):
-        yield temp_dir
-        return
+        return temp_dir
     try:
         os.makedirs(temp_dir, exist_ok=True)
         print(f"Downloading checkpoint to {temp_dir}...")
         download_s3_directory(
             bucket_name=parsed_dir.netloc,
-            prefix=parsed_dir.path[1:],
+            prefix=parsed_dir.path.lstrip("/"),
             local_dir=temp_dir,
             ignore=r"/(optim|train)/",
         )
@@ -201,13 +200,10 @@ def make_local_checkpoint(checkpoint_dir: str) -> Generator[str, None, None]:
         shutil.rmtree(temp_dir)
         raise e
 
-    yield temp_dir
+    return temp_dir
 
 
-@contextmanager
-def upload_local_checkpoint(local_checkpoint_dir: str, destination_dir: str) -> Generator[None, None, None]:
-    yield
-
+def upload_local_checkpoint(local_checkpoint_dir: str, destination_dir: str):
     if destination_dir == local_checkpoint_dir:
         return
     elif (parsed_url := urlparse(destination_dir)).scheme == "s3":
@@ -225,7 +221,7 @@ def upload_local_checkpoint(local_checkpoint_dir: str, destination_dir: str) -> 
             for local_path in local_paths
         ]
 
-        s3_client = boto3.client("s3")
+        s3_client = _get_s3_client("s3")
         for local_path, dest_path in tqdm(
             zip(local_paths, dest_paths), desc="Uploading files", total=len(local_paths)
         ):
@@ -242,7 +238,7 @@ def maybe_unshard(checkpoint_dir: str):
 
     print(f"Unsharding {checkpoint_dir}...")
     train_config = TrainConfig.load(os.path.join(checkpoint_dir, "config.yaml"))
-    checkpointer = OlmoCoreCheckpointer(train_config)
+    checkpointer = build_sharded_checkpointer(train_config)
     model_state, _, _ = checkpointer.unshard_checkpoint(
         load_path=checkpoint_dir, load_optimizer_state=False, load_trainer_state=False
     )
@@ -294,22 +290,22 @@ def main():
     logging.basicConfig()
     logger.setLevel(logging.getLevelName(args.logger_level.upper()))
 
-    with make_local_checkpoint(args.checkpoint_dir) as local_checkpoint_dir, upload_local_checkpoint(
-        local_checkpoint_dir, args.destination_dir
-    ):
-        args.checkpoint_dir = local_checkpoint_dir
-        maybe_unshard(local_checkpoint_dir)
+    local_checkpoint_dir = make_local_checkpoint(args.checkpoint_dir)
+    args.checkpoint_dir = local_checkpoint_dir
+    maybe_unshard(local_checkpoint_dir)
 
-        fix_tokenizer(checkpoint_dir=local_checkpoint_dir, tokenizer_name_or_path=args.tokenizer)
-        convert_checkpoint(args.checkpoint_dir, args.ignore_olmo_compatibility)
+    fix_tokenizer(checkpoint_dir=local_checkpoint_dir, tokenizer_name_or_path=args.tokenizer)
+    convert_checkpoint(args.checkpoint_dir, args.ignore_olmo_compatibility)
 
-        if not args.keep_olmo_artifacts:
-            print("Removing non-HF artifacts...")
-            os.remove(os.path.join(local_checkpoint_dir, "config.yaml"))
-            os.remove(os.path.join(local_checkpoint_dir, "model.pt"))
-            shutil.rmtree(os.path.join(local_checkpoint_dir, "optim"), ignore_errors=True)
-            shutil.rmtree(os.path.join(local_checkpoint_dir, "model"), ignore_errors=True)
-            shutil.rmtree(os.path.join(local_checkpoint_dir, "train"), ignore_errors=True)
+    if not args.keep_olmo_artifacts:
+        print("Removing non-HF artifacts...")
+        os.remove(os.path.join(local_checkpoint_dir, "config.yaml"))
+        os.remove(os.path.join(local_checkpoint_dir, "model.pt"))
+        shutil.rmtree(os.path.join(local_checkpoint_dir, "optim"), ignore_errors=True)
+        shutil.rmtree(os.path.join(local_checkpoint_dir, "model"), ignore_errors=True)
+        shutil.rmtree(os.path.join(local_checkpoint_dir, "train"), ignore_errors=True)
+
+    upload_local_checkpoint(local_checkpoint_dir, args.destination_dir)
 
     print(f"Converted checkpoint saved to {args.destination_dir}")
 
