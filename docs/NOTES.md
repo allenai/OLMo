@@ -111,13 +111,13 @@ Hangs in distributed training can be due to several different causes, including
 bad user code, AMD/Nvidia memory-allocation issues, or issues in hardware setup.
 These issues can be difficult to root-cause and even harder to fix.
 
-One approach we use to find the cause of a hang in distributed is to first identify which processes/nodes are hanging. The [scripts/pyspy_all_processes.sh](https://github.com/allenai/OLMo/blob/main/scripts/pyspy_all_processes.sh) script retrieves the python state of relevant python processes using `pyspy`. A process/node with different state may be experiencing a hang.
+One approach we use to find the cause of a hang in distributed training is to first identify which processes/nodes are hanging. The [scripts/pyspy_all_processes.sh](https://github.com/allenai/OLMo/blob/main/scripts/pyspy_all_processes.sh) script retrieves the python state of relevant python processes using `pyspy`. A process/node with different state may be experiencing a hang.
 
 If a hang is suspected to be in GPU code, then you can run `gcore <pid>` on a hanging process to get core dumps. Then you can run `gdb <corefile>` and check where the code is hanging from a C++ perspective. Code being stuck on a GPU memory allocation (malloc) may be indicative of a hardware/setup issue rather than a problem in training code.
 
 ### Comparing two models that should be identical
 
-There are some scenarios when one might want to investigate why two models/setups that should be identical but yield different results. A naive solution is to run both setups side-by-side and compare results manually (and this might not be possible if you have just 1 GPU).
+There are some scenarios when one might want to investigate why two models/setups that should be identical are yielding different results. A naive solution is to run both setups side-by-side and compare results manually (and this might not be possible if you have just 1 GPU).
 
 An alternative for comparing OLMo models is to run the training of both models with the `--module_outputs_save_steps=[<list of steps]` config option. This causes OLMo to save a portion of the inputs & outputs of each OLMo submodule into a `traces/` folder at the model step's save location. Then [script/compare_module_outputs.py](https://github.com/allenai/OLMo/blob/main/scripts/compare_module_outputs.py) can be used to compare these portions of inputs & outputs, thus hopefully isolating the issue to a subset of model modules. See [script/compare_module_outputs.py](https://github.com/allenai/OLMo/blob/main/scripts/compare_module_outputs.py) for more details on its usage.
 
