@@ -40,7 +40,6 @@ def show_oe_eval_task(config_file, dir, num_examples, sub_dir=None):
         f'    "{task_name}": (OEEvalTask, {{"dataset_path": "{dir}", {ds_name_str}"metric_type": "{default_metric}"}}),',
         f'    "{task_name}_bpb": (OEEvalTask, {{"dataset_path": "{dir}", {ds_name_str}"metric_type": "bpb"}}),',
     ]
-    f"  - label: natural_qs_open_ppl\n    type: downstream"
     return res
 
 

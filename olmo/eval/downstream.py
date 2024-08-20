@@ -1314,7 +1314,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
             dataset_name=dataset_names,
             split=split,
             prompts=prompts,
-            metric_type=None,
+            metric_type=metric_type,
         )
 
     def doc_to_text(self, doc):
