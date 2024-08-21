@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Fixed conversion to HuggingFace model for DDP-trained models.
+- Added support for remote source and destination for HuggingFace model conversion.
+
 ### Added
 
 - Added support for document masking via flash-attn during training with `--data.generate_doc_lengths`.
