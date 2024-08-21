@@ -242,6 +242,8 @@ class InfgramConfig(BaseConfig):
     sharded: Optional[bool] = False
     prefetch: Optional[bool] = False
     separate_wte: Optional[bool] = False
+    method_train: Optional[int] = 2
+    method_eval: Optional[int] = 2
 
 
 @dataclass

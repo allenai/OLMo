@@ -17,14 +17,15 @@ engine = InfinigramEngine(cfg, max_batch_size_per_device=max_batch_size, max_seq
 tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-7B", add_bos_token=False, add_eos_token=False, trust_remote_code=True)
 
 input_texts = [
-    'Paul G. Allen School of Computer Science and Engineering',
-    'I really love natural language processing.',
+    # 'Paul G. Allen School of Computer Science and Engineering',
+    # 'I really love natural language processing.',
+    'describe it as an opportunistic data structure as it allows compression of the',
 ]
 input_idss = tokenizer(input_texts, padding='longest', truncation=False, return_tensors='pt')['input_ids']
 print(input_idss)
 print()
 
-infgram_ntd = engine.get_infgram_ntd(input_idss)['infgram_ntd']
+infgram_ntd = engine.get_infgram_ntd(input_idss, method=5)['infgram_ntd']
 for input_ids, output_idss in zip(input_idss, infgram_ntd):
     for input_id, output_ids in zip(input_ids, output_idss):
         print(tokenizer._convert_id_to_token(input_id), tokenizer.convert_ids_to_tokens(output_ids))

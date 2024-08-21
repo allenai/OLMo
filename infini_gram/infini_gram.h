@@ -305,13 +305,14 @@ public:
         cerr << "thread duration = " << thread_duration_ms << " ms" << endl;
     }
 
-    virtual void ntd_dense(const vector<U16> input_ids, const U64 min_cnt, const size_t support, const bool debug, vector<DistResult>* results, vector<U16>* lfns) const {
+    virtual void ntd_dense(const vector<U16> input_ids, const U64 method, const U64 min_cnt, const size_t support, const bool debug, vector<DistResult>* results, vector<U16>* lfns) const {
         auto thread_start_time = chrono::high_resolution_clock::now();
         auto tot_duration_us = 0;
         results->resize(input_ids.size());
         if (lfns) lfns->resize(input_ids.size());
 
         if (_version == 4) {
+            assert (method == 2);
             size_t j = 0;
             FindResult find_result;
             for (size_t i = 1; i <= input_ids.size(); i++) {
@@ -341,7 +342,7 @@ public:
                     find_result = find(input_ids, j, i);
                 }
                 FindResult find_result_exclude;
-                if (j > 0) {
+                if (method == 5 && j > 0) {
                     find_result_exclude = find(input_ids, j-1, i, find_result.segment_by_shard);
                 } else {
                     find_result_exclude.cnt = 0;
@@ -369,12 +370,12 @@ public:
         }
     }
 
-    virtual vector<vector<DistResult>> ntd_dense_batch(const vector<vector<U16>> &input_idss, const U64 min_cnt, const size_t support, const bool debug = false, vector<vector<U16>>* lfnss = nullptr) const {
+    virtual vector<vector<DistResult>> ntd_dense_batch(const vector<vector<U16>> &input_idss, const U64 method, const U64 min_cnt, const size_t support, const bool debug = false, vector<vector<U16>>* lfnss = nullptr) const {
         size_t B = input_idss.size();
         vector<vector<DistResult>> resultss(B);
         vector<thread> threads;
         for (size_t b = 0; b < B; b++) {
-            threads.emplace_back(&NGramLanguageModeling::ntd_dense, this, input_idss[b], min_cnt, support, debug, &resultss[b], lfnss ? &(*lfnss)[b] : nullptr);
+            threads.emplace_back(&NGramLanguageModeling::ntd_dense, this, input_idss[b], method, min_cnt, support, debug, &resultss[b], lfnss ? &(*lfnss)[b] : nullptr);
         }
         for (auto &thread : threads) {
             thread.join();

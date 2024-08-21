@@ -9,7 +9,7 @@ void rank_processor(const size_t rank, const U64 MAX_BATCH_SIZE, const U64 MAX_S
     ifstream fifo_query("/tmp/infini_gram_query_" + to_string(rank), ios::binary);
     ofstream fifo_response("/tmp/infini_gram_response_" + to_string(rank), ios::binary);
 
-    U64 batch_size, seq_len, support, min_cnt;
+    U64 batch_size, seq_len, support, method, min_cnt;
     vector<U16> input_ids(MAX_BATCH_SIZE * MAX_SEQ_LEN);
     vector<U16> output_ids(MAX_BATCH_SIZE * MAX_SEQ_LEN * MAX_SUPPORT);
 
@@ -20,6 +20,7 @@ void rank_processor(const size_t rank, const U64 MAX_BATCH_SIZE, const U64 MAX_S
         fifo_query.read(reinterpret_cast<char*>(&batch_size), sizeof(U64));
         fifo_query.read(reinterpret_cast<char*>(&seq_len), sizeof(U64));
         fifo_query.read(reinterpret_cast<char*>(&support), sizeof(U64));
+        fifo_query.read(reinterpret_cast<char*>(&method), sizeof(U64));
         fifo_query.read(reinterpret_cast<char*>(&min_cnt), sizeof(U64));
         if (batch_size > MAX_BATCH_SIZE) {
             cerr << "Error: batch_size = " << batch_size << " > " << MAX_BATCH_SIZE << endl;
@@ -52,7 +53,7 @@ void rank_processor(const size_t rank, const U64 MAX_BATCH_SIZE, const U64 MAX_S
         auto latency_us_decode = chrono::duration_cast<chrono::microseconds>(end_time_decode - start_time_decode).count();
 
         auto start_time_compute = chrono::high_resolution_clock::now();
-        vector<vector<DistResult>> rrr = lm->ntd_dense_batch(input_idss, min_cnt, support);
+        vector<vector<DistResult>> rrr = lm->ntd_dense_batch(input_idss, method, min_cnt, support);
         auto end_time_compute = chrono::high_resolution_clock::now();
         auto latency_us_compute = chrono::duration_cast<chrono::microseconds>(end_time_compute - start_time_compute).count();
 
