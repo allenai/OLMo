@@ -42,7 +42,7 @@ export HF_DATASETS_OFFLINE=1
 export TORCH_DIST_INIT_BARRIER=1
 
 # Tell OLMo all ranks share the same filesystem for checkpoints.
-export OLMO_SHARED_FS=1
+# export OLMO_SHARED_FS=1
 
 export NCCL_DEBUG=INFO
 export NCCL_IB_HCA="^=mlx5_bond_0"
