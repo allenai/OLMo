@@ -69,7 +69,7 @@ remote_save_folder: s3://ai2-llm/checkpoints/refine-1b/${run_name}
 save_overwrite: false
 
 save_interval: 5000
-save_num_checkpoints_to_keep: 12
+save_num_checkpoints_to_keep: -1
 sharded_checkpointer: olmo_core
 
 save_interval_unsharded: null
