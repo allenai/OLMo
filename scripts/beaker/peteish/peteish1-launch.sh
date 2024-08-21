@@ -2,13 +2,13 @@
 
 set -ex
 
-NUM_NODES=16
+NUM_NODES=2
 
 gantry run \
-  --workspace ai2/OLMo-pretraining-stability \
-  --task-name peteish1 \
+  --workspace ai2/sewonm \
+  --task-name peteish1-baseline \
   --description "Pete-ish 1B" \
-  --priority urgent \
+  --priority normal \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
@@ -29,12 +29,11 @@ gantry run \
   --env R2_PROFILE=R2 \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
-  --env-secret AWS_CONFIG=PETEW_AWS_CONFIG \
-  --env-secret AWS_CREDENTIALS=PETEW_AWS_CREDENTIALS \
-  --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
-  --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
-  --env-secret WANDB_API_KEY=PETEW_WANDB_API_KEY \
+  --env-secret AWS_CONFIG=SEWONM_AWS_CONFIG \
+  --env-secret AWS_CREDENTIALS=SEWONM_AWS_CREDENTIALS \
+  --env-secret WANDB_API_KEY=SEWONM_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
+  --allow-dirty \
   --timeout=-1 \
   -- /bin/bash -c "scripts/beaker/peteish/peteish1.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"

@@ -53,5 +53,6 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=null \
       --save_overwrite
+  
 
-     # '--load_path=${path.last_checkpoint:${save_folder}}' \
+#'--load_path=${path.last_checkpoint:${save_folder}}'

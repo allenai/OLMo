@@ -1,10 +1,10 @@
-run_name: peteish1-run001
+run_name: peteish1-baseline
 seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
-  project: olmo-small
+  project: spicy-olmo-small
   group: ${run_name}
 
 model:
@@ -67,10 +67,11 @@ scheduler:
   warmup_min_lr: 0.0
 
 tokenizer:
-  identifier: tokenizers/allenai_dolma2.json
+  identifier: allenai/dolma2-tokenizer
   truncate_direction: right
 
-save_folder: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/${run_name}
+save_folder: /weka/oe-training-default/ai2-llm/checkpoints/Spicy-OLMo/${run_name}
+remote_save_folder: s3://ai2-lucas-archival/checkpoints/Spicy-OLMo/${run_name}
 save_overwrite: false
 
 save_interval: 1000
@@ -83,7 +84,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 1ep
+max_duration: 130e9T
 global_train_batch_size: 1024
 device_train_microbatch_size: 4
 
