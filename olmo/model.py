@@ -670,7 +670,7 @@ class OLMoBlock(nn.Module):
 
 class OLMoEBlock(OLMoBlock):
     """
-    This is a a transformer MoE block where the output is computed as ``MoE(LN(x + Attention(LN(x))))``
+    This is a transformer MoE block where the output is computed as ``MoE(LN(x + Attention(LN(x))))``
     (plus another skip connection).
     """
 
