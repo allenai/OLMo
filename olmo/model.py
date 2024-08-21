@@ -448,14 +448,15 @@ class OLMoBlock(nn.Module):
             config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
         )
 
-        # Feed-forward output projection.
-        self.ff_out = nn.Linear(
-            int(self.act.output_multiplier * self.hidden_size),
-            config.d_model,
-            bias=config.include_bias,
-            device=config.init_device,
-        )
-        self.ff_out._is_residual = True  # type: ignore
+        if self.config.block_type != BlockType.moe:
+            # Feed-forward output projection.
+            self.ff_out = nn.Linear(
+                int(self.act.output_multiplier * self.hidden_size),
+                config.d_model,
+                bias=config.include_bias,
+                device=config.init_device,
+            )
+            self.ff_out._is_residual = True  # type: ignore
 
         # Rotary embeddings.
         if self.config.rope:
@@ -683,66 +684,10 @@ class OLMoEBlock(OLMoBlock):
                 "To train MoEs, run `pip install git+https://github.com/Muennighoff/megablocks.git@olmoe`"
             )
         from .config import config_to_moe_args
-
-        nn.Module.__init__(self)
-        self.layer_id = layer_id
-        self.config = config
-        self.hidden_size = (
-            config.mlp_hidden_size if config.mlp_hidden_size is not None else config.mlp_ratio * config.d_model
-        )
-        self.__cache = cache
-        assert config.d_model % config.n_heads == 0
-
-        self._activation_checkpoint_fn = None
-
-        # Dropout.
-        self.dropout = Dropout(config.residual_dropout)
-
-        # Layer norms.
-        self.k_norm: Optional[LayerNormBase] = None
-        self.q_norm: Optional[LayerNormBase] = None
-        if config.attention_layer_norm:
-            assert config.effective_n_kv_heads is not None
-            self.k_norm = LayerNormBase.build(
-                config,
-                size=(config.d_model // config.n_heads) * config.effective_n_kv_heads,
-                elementwise_affine=config.attention_layer_norm_with_affine,
-            )
-            self.q_norm = LayerNormBase.build(config, elementwise_affine=config.attention_layer_norm_with_affine)
-
-        # Make sure QKV clip coefficient is positive, otherwise it's not well-defined.
-        if config.clip_qkv is not None:
-            assert config.clip_qkv > 0
-
-        # Activation function.
-        self.act = Activation.build(config)
-        assert (self.act.output_multiplier * self.hidden_size) % 1 == 0
-
-        # Attention output projection.
-        self.attn_out = nn.Linear(
-            config.d_model, config.d_model, bias=config.include_bias, device=config.init_device
-        )
+        super().__init__(layer_id, config, cache)
 
         self.moe_args = config_to_moe_args(config)
         self.ffn = dMoE(self.moe_args) if self.config.moe_dropless else MoE(self.moe_args)
-
-        # Rotary embeddings.
-        if self.config.rope:
-            self.rotary_emb = RotaryEmbedding(config, self.__cache)
-
-        self.flash_attn_func = None
-        self.flash_attn_varlen_func = None
-        if config.flash_attention:
-            try:
-                from flash_attn import (  # type: ignore
-                    flash_attn_func,
-                    flash_attn_varlen_func,
-                )
-
-                self.flash_attn_func = flash_attn_func
-                self.flash_attn_varlen_func = flash_attn_varlen_func
-            except ModuleNotFoundError:
-                pass
 
         self.attn_norm = LayerNorm.build(config)
         self.ff_norm = LayerNorm.build(config)

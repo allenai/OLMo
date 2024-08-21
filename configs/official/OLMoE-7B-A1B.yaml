@@ -1,4 +1,4 @@
-run_name: ${oc.env:SLURM_JOB_ID}
+run_name: olmoe
 seed: 6198
 dry_run: false
 no_pre_train_checkpoint: true
@@ -70,7 +70,6 @@ tokenizer:
   truncate_direction: right
 
 save_folder: runs/${run_name}
-remote_save_folder: s3://ai2-llm/checkpoints/OLMoE/${run_name}
 save_overwrite: false
 
 save_interval: 5000
