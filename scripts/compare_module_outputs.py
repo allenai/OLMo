@@ -1,3 +1,31 @@
+"""
+Script for comparing collected outputs of OLMo submodules from 2
+different training run steps (of the same or different runs).
+
+This script is useful for identifying where model activations start to differ
+within 2 forward passes that should yield identical results. In turn, detecting
+regressions can be a lot quicker/easier. 
+
+This script requires that traces containing submodule outputs have been collected
+during training. The traces can be saved using
+`--module_outputs_save_steps=[<list of step>]`. Be mindful that the saving takes
+a lot of storage and is very slow, so collect traces sparingly. If comparing 2
+training runs starting from the same checkpoint, a viable approach is to collect
+the 2 steps after training resumes. The first step can be used to detect issues
+in the forward pass, while if only the second step shows discrepancies then the
+backward pass may be the cause of any issues.
+
+Example usage (Aug 2024):
+```
+python scripts/compare_module_outputs.py test_model/traces/step10 test_model_2/traces/step10
+```
+
+If this model produces no output stating diffs (without `--verbose`), then the
+outputs between the 2 models are identical. If `mis-matching wte elements: ...`
+shows a non-zero value, then the input data of the 2 forward passes being compared
+is likely different.
+"""
+
 import logging
 from argparse import ArgumentParser
 from pathlib import Path
