@@ -71,7 +71,7 @@ tokenizer:
   truncate_direction: right
 
 save_folder: /weka/oe-training-default/ai2-llm/checkpoints/Spicy-OLMo/${run_name}
-remote_save_folder: s3://ai2-lucas-archival/checkpoints/Spicy-OLMo/${run_name}
+# remote_save_folder: s3://ai2-lucas-archival/checkpoints/Spicy-OLMo/${run_name}
 save_overwrite: false
 
 save_interval: 1000
