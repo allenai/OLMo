@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
 
+# Launcher for peteish7 annealing runs on Jupiter.
+
 set -ex
 
+CONFIG_NAME="peteish7-anneal-baseline"
 NUM_NODES=2
+
+CONFIG_DIR=configs/annealing
+CONFIG_PATH=${CONFIG_DIR}/${CONFIG_NAME}.yaml
 
 gantry run \
   --workspace ai2/sewonm \
-  --task-name peteish1-baseline \
-  --description "Pete-ish 1B" \
+  --task-name ${CONFIG_NAME} \
+  --description ${CONFIG_NAME} \
   --priority normal \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
@@ -34,6 +40,5 @@ gantry run \
   --env-secret WANDB_API_KEY=SEWONM_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
-  --allow-dirty \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/peteish/peteish1.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "sewon-scripts/peteish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${CONFIG_PATH}"

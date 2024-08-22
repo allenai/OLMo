@@ -49,10 +49,8 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/peteish7-weka.yaml \
+    sewon-configs/peteish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --save_interval_ephemeral=500 \
-      '--load_path=${path.last_checkpoint:${save_folder}}' \
-      --save_overwrite
-
-     # '--load_path=${path.last_checkpoint:${save_folder}}' \
+      --save_interval_ephemeral=null \
+      --save_overwrite \
+      '--load_path=${path.last_checkpoint:${save_folder}}'
