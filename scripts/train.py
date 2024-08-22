@@ -6,6 +6,7 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 from typing import Optional, TextIO
+import os
 
 import torch
 import torch.distributed as dist
@@ -49,7 +50,7 @@ log = logging.getLogger("train")
 
 
 def main(cfg: TrainConfig) -> None:
-    if Path(cfg.save_folder).exists():
+    if Path(os.path.join(cfg.save_folder, "latest")).exists():
         cfg.load_path = cfg.save_folder
 
     # Ensure run name set.
