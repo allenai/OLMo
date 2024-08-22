@@ -67,13 +67,12 @@ tokenizer:
   identifier: tokenizers/allenai_dolma2.json
   truncate_direction: right
 
-# save_folder: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/${run_name}
 save_folder: /weka/oe-training-default/ai2-llm/checkpoints/Spicy-OLMo/${run_name}
-remote_save_folder: s3://ai2-lucas-archival/checkpoints/Spicy-OLMo/${run_name}
+# remote_save_folder: s3://ai2-lucas-archival/checkpoints/Spicy-OLMo/${run_name}
 save_overwrite: false
 
 save_interval: 1000
-save_interval_ephemeral: 250
+save_interval_ephemeral: 500
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: olmo_core
 
