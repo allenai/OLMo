@@ -1,14 +1,9 @@
 #!/usr/bin/env bash
 
-# Launcher for peteish7 annealing runs on Jupiter.
-
 set -ex
 
 CONFIG_NAME="peteish7-anneal-baseline"
 NUM_NODES=2
-
-CONFIG_DIR=configs/annealing
-CONFIG_PATH=${CONFIG_DIR}/${CONFIG_NAME}.yaml
 
 gantry run \
   --workspace ai2/sewonm \
