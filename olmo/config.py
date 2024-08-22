@@ -84,6 +84,7 @@ class BaseConfig:
                 if is_url(path) or Path(path).exists():
                     return path
             if validate_paths:
+                return ""
                 raise FileNotFoundError(", ".join(paths))
             else:
                 return ""
