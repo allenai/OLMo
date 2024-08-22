@@ -3,7 +3,7 @@
 set -ex
 
 CONFIG_NAME="peteish7-anneal-baseline"
-NUM_NODES=2
+NUM_NODES=4
 
 gantry run \
   --workspace ai2/sewonm \
