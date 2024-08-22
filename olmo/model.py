@@ -736,13 +736,13 @@ class OLMoSequentialBlock(OLMoBlock):
         # apply norm before
         if not self.config.norm_after:
             if self._activation_checkpoint_fn is not None:
-                qkv = self._activation_checkpoint_fn(self.attn_norm, x)
+                h = self._activation_checkpoint_fn(self.attn_norm, x)
             else:
-                qkv = self.attn_norm(x)
+                h = self.attn_norm(x)
         else:
-            qkv = x
+            h = x
 
-        qkv = self.att_proj(qkv)
+        qkv = self.att_proj(h)
 
         if self.config.clip_qkv is not None:
             qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
