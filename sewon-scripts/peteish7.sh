@@ -52,5 +52,7 @@ torchrun \
     sewon-configs/peteish7-anneal-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=500 \
-      '--load_path=${path.last_checkpoint:${save_folder}}' \
       --save_overwrite
+
+
+      '--load_path=${path.last_checkpoint:${save_folder}}' \
