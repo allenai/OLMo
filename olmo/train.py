@@ -1176,7 +1176,7 @@ class Trainer:
                     if self.cfg.infgram is not None:
                         if self.cfg.infgram.prefetch:
                             if next_result is None: # first batch
-                                result = self.infinigram_engine.get_infgram_ntd(input_idss=batch['input_ids'], method=self.cfg.infgram.method_eval)
+                                result = self.infinigram_engine.get_infgram_ntd(input_idss=batch['input_ids'], method=self.cfg.infgram.method_train)
                                 batch['infgram_ntd'] = result['infgram_ntd']
                                 infgram_metrics = {'infgram/latency_ms': result['latency_ms']}
                             else: # use pre-fetched result
@@ -1187,11 +1187,11 @@ class Trainer:
                             # Start pre-fetching infgram_ntd for next batch
                             next_batch = next(train_loader_next, None)
                             if next_batch is not None:
-                                future = executor.submit(self.infinigram_engine.get_infgram_ntd, input_idss=next_batch['input_ids'], method=self.cfg.infgram.method_eval)
+                                future = executor.submit(self.infinigram_engine.get_infgram_ntd, input_idss=next_batch['input_ids'], method=self.cfg.infgram.method_train)
                             else:
                                 future = None
                         else:
-                            result = self.infinigram_engine.get_infgram_ntd(input_idss=batch['input_ids'], method=self.cfg.infgram.method_eval)
+                            result = self.infinigram_engine.get_infgram_ntd(input_idss=batch['input_ids'], method=self.cfg.infgram.method_train)
                             batch['infgram_ntd'] = result['infgram_ntd']
                             infgram_metrics = {'infgram/latency_ms': result['latency_ms']}
 

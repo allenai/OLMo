@@ -4,7 +4,7 @@ set -ex
 
 CONFIG_PATH=configs/amberish1-weka.yaml
 NUM_NODES=1
-RUN_NAME="v2.9.3_v2.9_train5_eval5"
+RUN_NAME="v2.9.3_v2.9_train2_eval2"
 
 gantry run \
   --allow-dirty \
@@ -51,5 +51,5 @@ gantry run \
         --save_folder=/weka/oe-training-default/wolf/ckpt/${RUN_NAME} --save_overwrite=true --load_path=\\\${path.last_checkpoint:/weka/oe-training-default/wolf/ckpt/${RUN_NAME}} \
         --device_train_microbatch_size=4 \
         --max_duration=11224 \
-        --infgram.index_dir=/weka/oe-training-default/wolf/index/v5_dolma-v1_7_olmo/0 --infgram.prefetch=true --infgram.separate_wte=true --infgram.method_train=5 --infgram.method_eval=5 \
+        --infgram.index_dir=/weka/oe-training-default/wolf/index/v5_dolma-v1_7_olmo/0 --infgram.prefetch=true --infgram.separate_wte=true --infgram.method_train=2 --infgram.method_eval=2 \
     "
