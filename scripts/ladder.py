@@ -331,7 +331,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             EvaluatorConfig(label="winogrande_rc_0shot_bpb", type=EvaluatorType.downstream),
             EvaluatorConfig(label="openbookqa_rc_0shot_bpb", type=EvaluatorType.downstream),
             EvaluatorConfig(label="boolq_rc_0shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="sciq_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="sciq_rc_0shot_bpb", type=EvaluatorType.downstream),
             EvaluatorConfig(label="arc_easy_rc_0shot_bpb", type=EvaluatorType.downstream),
             EvaluatorConfig(label="arc_challenge_rc_0shot_bpb", type=EvaluatorType.downstream),
             EvaluatorConfig(label="copa_rc_0shot_bpb", type=EvaluatorType.downstream),
