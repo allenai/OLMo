@@ -7,7 +7,7 @@ NUM_NODES=2
 gantry run \
   --workspace ai2/oe-data-model-based-cleanup \
   --allow-dirty \
-  --task-name refine1-rewrite-unfiltered-cx5-20240822 \
+  --task-name refine1-rewrite-only-cx2-20240823 \
   --description "OLMo refine 1B" \
   --priority urgent \
   --preemptible \
