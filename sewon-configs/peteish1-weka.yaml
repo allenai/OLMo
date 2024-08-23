@@ -75,7 +75,7 @@ save_folder: /weka/oe-training-default/ai2-llm/checkpoints/Spicy-OLMo/${run_name
 save_overwrite: false
 
 save_interval: 1000
-save_interval_ephemeral: 500
+save_interval_ephemeral: 200
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: olmo_core
 
