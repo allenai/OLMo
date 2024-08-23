@@ -2,14 +2,14 @@
 
 set -ex
 
-NUM_NODES=2
+NUM_NODES=1
 
 gantry run \
   --workspace ai2/oe-data-model-based-cleanup \
   --allow-dirty \
   --task-name refine1-mixed-cx2-20240823 \
   --description "OLMo refine 1B" \
-  --priority urgent \
+  --priority high \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
