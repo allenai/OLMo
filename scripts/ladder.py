@@ -201,6 +201,8 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         "7B": 1000,
     }.get(args.model, 500)
 
+    eval_interval = 100
+
     distributed_strategy = {
         "3B": DistributedStrategy.fsdp,
         "7B": DistributedStrategy.fsdp
@@ -252,7 +254,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         gen1_gc_interval=2,
         max_grad_norm=1.0,
         speed_monitor=SpeedMonitorConfig(window_size=1),
-        eval_interval=save_interval,
+        eval_interval=eval_interval,
         device_eval_batch_size=device_batch_size,
         evaluators=[
             EvaluatorConfig(
@@ -323,6 +325,26 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             EvaluatorConfig(label="trivia_qa_wiki_ppl", type=EvaluatorType.downstream),
             EvaluatorConfig(label="natural_qs_open_ppl", type=EvaluatorType.downstream),
             EvaluatorConfig(label="arc_easy_ppl", type=EvaluatorType.downstream),
+
+            EvaluatorConfig(label="piqa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="hellaswag_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="winogrande_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="openbookqa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="boolq_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="sciq_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_easy_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_challenge_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="copa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="csqa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="socialiqa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_stem_var_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_humanities_var_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_social_sciences_var_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_other_var_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_stem_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_humanities_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_social_sciences_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_other_bpb", type=EvaluatorType.downstream),
         ],
         data=DataConfig(
             num_workers=32,
