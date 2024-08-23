@@ -2,7 +2,7 @@
 
 set -ex
 
-CONFIG_NAME="peteish7-anneal-baseline"
+CONFIG_NAME="peteish1-dclm-baseline"
 NUM_NODES=2
 
 gantry run \
@@ -36,4 +36,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "sewon-scripts/peteish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${CONFIG_PATH}"
+  -- /bin/bash -c "sewon-scripts/peteish1-dclm-only.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"

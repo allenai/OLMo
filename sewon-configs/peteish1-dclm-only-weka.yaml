@@ -1,17 +1,17 @@
-run_name: peteish7-anneal-from-2T-50B-no-warmup
-seed: 7201
+run_name: peteish1-dclm-baseline
+seed: 6198
 dry_run: false
 
 wandb:
   name: ${run_name}
-  project: spicy-olmo-medium
+  project: spicy-olmo-small
   group: ${run_name}
 
 model:
-  d_model: 4096
-  n_heads: 32
-  n_layers: 32
-  mlp_hidden_size: 22016
+  d_model: 2048
+  n_heads: 16
+  n_layers: 16
+  mlp_ratio: 8
   weight_tying: false
   alibi: false
   rope: true
@@ -48,7 +48,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 0.00020709 # learning rate at 2T
+  learning_rate: 4.0e-4
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
@@ -59,12 +59,15 @@ optimizer:
   metrics_log_interval: 1
 
 scheduler:
-  name: linear_with_warmup
-  t_warmup: 0
-  alpha_f: 0
+  name: cosine_with_warmup
+  units: tokens
+  t_warmup: 8388608000
+  t_max: 3e12
+  alpha_f: 0.1
+  warmup_min_lr: 0.0
 
 tokenizer:
-  identifier: tokenizers/allenai_dolma2.json
+  identifier: allenai/dolma2-tokenizer
   truncate_direction: right
 
 save_folder: /weka/oe-training-default/ai2-llm/checkpoints/Spicy-OLMo/${run_name}
@@ -79,23 +82,20 @@ sharded_checkpointer: olmo_core
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
-load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step477000
+load_path: null
 
-restore_dataloader: false
-no_pre_train_checkpoint: true
-
-max_duration: 50e9T
-stop_at: 11931                  # round(50e9 / (1024 * 4096)) + 10
+max_duration: 130e9T
 global_train_batch_size: 1024
-device_train_microbatch_size: 2
+device_train_microbatch_size: 4
 
 precision: amp_bf16
 
 fsdp:
-  wrapping_strategy: by_block_and_size
+  wrapping_strategy: null
+  sharding_strategy: SHARD_GRAD_OP
   precision: mixed
 
-activation_checkpointing: one_in_four
+# activation_checkpointing: whole_layer
 
 max_grad_norm: 1.0
 max_grad_norm_ratio: null
@@ -103,7 +103,7 @@ max_grad_norm_ratio: null
 speed_monitor:
   window_size: 1
 
-gen1_gc_interval: 1
+gen1_gc_interval: 10
 
 eval_interval: 1000
 eval_subset_num_batches: -1
@@ -156,7 +156,7 @@ evaluators:
 
   - label: boolq
     type: downstream
-
+ 
   - label: sciq
     type: downstream
 
@@ -301,34 +301,6 @@ data:
     - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-10-00000.npy
     - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-11-00000.npy
     - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-12-00000.npy
-
-    # Pes2o Data
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-09-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-10-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-11-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-12-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-13-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-14-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-15-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-16-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-17-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-18-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-19-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-20-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-21-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-22-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-23-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-24-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-25-00000.npy
 
     # Starcoder Data (fixed!)
     - /weka/oe-training-default/ai2-llm/preprocessed/starcoder/v1-decon-100_to_20k-2star-top_token_030/allenai/dolma2-tokenizer/part-000-00000.npy
@@ -1379,6 +1351,4 @@ data:
     - /weka/oe-training-default/ai2-llm/preprocessed/dclm/text_openhermes_reddit_eli5_vs_rw_v2_bigram_200k_train/allenai/dolma2-tokenizer/part-187-00003.npy
     - /weka/oe-training-default/ai2-llm/preprocessed/dclm/text_openhermes_reddit_eli5_vs_rw_v2_bigram_200k_train/allenai/dolma2-tokenizer/part-187-00004.npy
 
-    # Wikipedia
-    - /weka/oe-training-default/ai2-llm/preprocessed/olmo-mix/danyh-compiled-v1_7/documents/wiki/allenai/dolma2-tokenizer/part-0-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/olmo-mix/danyh-compiled-v1_7/documents/wiki/allenai/dolma2-tokenizer/part-1-00000.npy
+    
