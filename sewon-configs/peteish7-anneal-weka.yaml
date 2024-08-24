@@ -81,7 +81,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step477000
 
-restore_dataloader: true
+restore_dataloader: false
 no_pre_train_checkpoint: true
 
 max_duration: 50e9T
