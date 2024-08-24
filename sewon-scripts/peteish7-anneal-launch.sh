@@ -2,8 +2,10 @@
 
 set -ex
 
-# CONFIG_NAME="peteish7-anneal-baseline"
-CONFIG_NAME="peteish7-anneal-B34v0x10"
+# CONFIG_NAME="peteish7-anneal"
+# CONFIG_NAME="peteish7-anneal-B34v0x10"
+
+CONFIG_NAME=$1
 NUM_NODES=4
 
 gantry run \
