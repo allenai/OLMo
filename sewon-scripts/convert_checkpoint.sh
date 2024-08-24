@@ -2,7 +2,7 @@
 
 $CHECKPOINT="s3://lucas-archival/checkpoints/peteish1-baseline/step19000"
 
-command="python hf_olmo/convert_olmo_to_hf.py \
+command="pip install awscli && pip install -e '.[all]' && python hf_olmo/convert_olmo_to_hf.py \
 --checkpoint-dir '$CHECKPOINT' \
 --destination-dir '${CHECKPOINT}-hf' \
 --keep-olmo-artifact"
