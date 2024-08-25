@@ -11,12 +11,12 @@ NUM_NODES=1
 gantry run \
   --workspace ai2/sewonm \
   --task-name ${CONFIG_NAME} \
-  --description ${CONFIG_NAME} \
+  --description "${CONFIG_NAME} debug" \
   --priority normal \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
-  --gpus 2 \
+  --gpus 1 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
