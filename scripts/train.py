@@ -48,7 +48,6 @@ from olmo.util import (
 
 log = logging.getLogger("train")
 
-
 def main(cfg: TrainConfig) -> None:
     if len(cfg.load_path)==0 or not Path(cfg.load_path).exists():
         cfg.load_path = None
