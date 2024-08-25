@@ -25,7 +25,6 @@ gantry run \
   --weka oe-training-default:/weka/oe-training-default \
   --propagate-failure \
   --propagate-preemption \
-  --synchronized-start-timeout 90m \
   --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
@@ -39,4 +38,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "sewon-scripts/peteish1-debug.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "sewon-scripts/peteish1.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
