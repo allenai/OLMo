@@ -50,11 +50,9 @@ log = logging.getLogger("train")
 
 
 def main(cfg: TrainConfig) -> None:
-    print ("cfg.load_path:", cfg.load_path)
-    if not Path(cfg.load_path).exists():
+    if len(cfg.load_path)==0 or not Path(cfg.load_path).exists():
         cfg.load_path = None
-    print ("cfg.load_path:", cfg.load_path)
-
+    
     # Ensure run name set.
     if cfg.run_name is None:
         raise OLMoConfigurationError("--run_name is required")
