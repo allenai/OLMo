@@ -16,7 +16,7 @@ gantry run \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
-  --gpus 2 \
+  --gpus 1 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
@@ -39,4 +39,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "sewon-scripts/peteish1.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "sewon-scripts/peteish1-debug.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
