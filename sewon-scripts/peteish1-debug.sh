@@ -40,9 +40,6 @@ export NCCL_IB_HCA="^=mlx5_bond_0"
 export NCCL_SOCKET_IFNAME=ib
 # export NCCL_IB_GID_INDEX=0
 
-echo "BEAKER_LEADER_REPLICA_HOSTNAME"
-echo $BEAKER_LEADER_REPLICA_HOSTNAME
-
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
   --nproc-per-node 1 \
