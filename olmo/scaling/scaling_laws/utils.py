@@ -15,6 +15,28 @@ validation = [
     "wikitext_103-validation",
 ]
 
+downstream_bpb = [
+    "piqa_rc_0shot_bpb",
+    "hellaswag_rc_0shot_bpb",
+    "winogrande_rc_0shot_bpb",
+    "openbookqa_rc_0shot_bpb",
+    "boolq_rc_0shot_bpb",
+    # "sciq_rc_0shot_bpb",
+    "arc_easy_rc_0shot_bpb",
+    "arc_challenge_rc_0shot_bpb",
+    "copa_rc_0shot_bpb",
+    # "csqa_rc_0shot_bpb",
+    # "socialiqa_rc_0shot_bpb",
+    "mmlu_stem_var_bpb",
+    "mmlu_humanities_var_bpb",
+    "mmlu_social_sciences_var_bpb",
+    "mmlu_other_var_bpb",
+    "mmlu_stem_bpb",
+    "mmlu_humanities_bpb",
+    "mmlu_social_sciences_bpb",
+    "mmlu_other_bpb",
+]
+
 v3_validation = [
     "v3-small-c4_en-validation",
     "v3-small-dolma_books-validation",
@@ -121,42 +143,6 @@ def grad_chinchilla_n_d_lr_fit(x, p):
     grad_F = x[2]
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F]
 
-# def chinchilla_n_d_lr_fit(x, p):
-#     # return 100**a / x[0]**alpha + 100**b / x[1]**beta + E + F * x[2] * x[0]**0.25
-#     return 100**p[0] / x[0]**p[2] + 100**p[1] / x[1]**p[3] + p[4] + p[5] * x[2] * (x[0])**0.3
-# def grad_chinchilla_n_d_lr_fit(x, p):
-#     grad_a = (1 / x[0]**p[2]) * (100**p[0] * np.log(100))
-#     grad_b = (1 / x[1]**p[3]) * (100**p[1] * np.log(100))
-#     grad_alpha = - (100**p[0]) * np.log(x[0]) / x[0]**p[2]
-#     grad_beta = - (100**p[1]) * np.log(x[1]) / x[1]**p[3]
-#     grad_E = 1
-#     grad_F = x[2] * (x[0])**0.3
-#     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F]
-
-# def chinchilla_n_d_lr_fit(x, p):
-#     # return 100**a / x[0]**alpha + 100**b / x[1]**beta + E + F * x[2] * x[0]**p[2]
-#     return 100**p[0] / x[0]**p[2] + 100**p[1] / x[1]**p[3] + p[4] + p[5] * x[2] * (x[0] / 1e7)**p[2]
-# def grad_chinchilla_n_d_lr_fit(x, p):
-#     grad_a = (1 / x[0]**p[2]) * (100**p[0] * np.log(100))
-#     grad_b = (1 / x[1]**p[3]) * (100**p[1] * np.log(100))
-#     grad_alpha = - (100**p[0]) * np.log(x[0]) / x[0]**p[2] + p[5] * x[2] * np.log(x[0] / 1e7) * (x[0] / 1e7)**p[2]
-#     grad_beta = - (100**p[1]) * np.log(x[1]) / x[1]**p[3]
-#     grad_E = 1
-#     grad_F = x[2] * (x[0] / 1e7)**p[2]
-#     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F]
-
-# def chinchilla_n_d_lr_fit(x, p):
-#     # return 100**a / x[0]**alpha + 100**b / x[1]**beta + E + F * x[2] * np.log(x[0])
-#     return 100**p[0] / x[0]**p[2] + 100**p[1] / x[1]**p[3] + p[4] + p[5] * x[2] * np.log(x[0] / 1e7)
-# def grad_chinchilla_n_d_lr_fit(x, p):
-#     grad_a = (1 / x[0]**p[2]) * (100**p[0] * np.log(100))
-#     grad_b = (1 / x[1]**p[3]) * (100**p[1] * np.log(100))
-#     grad_alpha = - (100**p[0]) * np.log(x[0]) / x[0]**p[2]
-#     grad_beta = - (100**p[1]) * np.log(x[1]) / x[1]**p[3]
-#     grad_E = 1
-#     grad_F = x[2] * np.log(x[0] / 1e7)
-#     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F]
-
 def chinchilla_n_d_lr_log_fit(x, p):
     # return 100**a / x[0]**alpha + 100**b / x[1]**beta + E + F * x[2] * np.log(x[0] / 100**r + s)
     return np.exp(p[0]) / x[0]**p[2] + np.exp(p[1]) / x[1]**p[3] + p[4] + p[5] * x[2] * np.log(x[0] / np.exp(p[6]) + p[7])
@@ -171,21 +157,22 @@ def grad_chinchilla_n_d_lr_log_fit(x, p):
     grad_s = p[5] * x[2] * (1 / (x[0] / np.exp(p[6]) + p[7]))
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r, grad_s]
 
-# def chinchilla_n_d_lr_fit(x, p):
-#     # return (a / x[0]**c + b / x[1]**d + e) * (1 + f * x[2])
-#     return (100**p[0] / x[0]**p[2] + 100**p[1] / x[1]**p[3] + p[4]) * (1 + p[5] * x[2])
-# def grad_chinchilla_n_d_lr_fit(x, p):
-#     grad_a = (1 + p[5] * x[2]) * (1 / x[0]**p[2]) * (100**p[0] * np.log(100))
-#     grad_b = (1 + p[5] * x[2]) * (1 / x[1]**p[3]) * (100**p[1] * np.log(100))
-#     grad_alpha = - (1 + p[5] * x[2]) * (100**p[0]) * np.log(x[0]) / x[0]**p[2]
-#     grad_beta = - (1 + p[5] * x[2]) * (100**p[1]) * np.log(x[1]) / x[1]**p[3]
-#     grad_E = (1 + p[5] * x[2])
-#     grad_F = (100**p[0] / x[0]**p[2] + 100**p[1] / x[1]**p[3] + p[4]) * x[2]
-#     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F]
+def chinchilla_n_d_lr_power_fit(x, p):
+    # return 100**a / x[0]**alpha + 100**b / x[1]**beta + E + F * x[2] * x[0]**r
+    return np.exp(p[0]) / x[0]**p[2] + np.exp(p[1]) / x[1]**p[3] + p[4] + p[5] * x[2] * x[0]**p[6]
+def grad_chinchilla_n_d_lr_power_fit(x, p):
+    grad_a = np.exp(p[0]) / x[0]**p[2]
+    grad_b = np.exp(p[1]) / x[1]**p[3]
+    grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0]**p[2]
+    grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1]**p[3]
+    grad_E = 1
+    grad_F = x[2] * x[0]**p[6]
+    grad_r = p[5] * x[2] * x[0]**p[6] * np.log(x[0])
+    return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r]
 
 
 # Scipy minimize w/ Huber loss
-def get_coefficients_huber(train_xs, train_ys, fitting_func, grad_func, p0):
+def get_coefficients_huber(train_xs, train_ys, fitting_func, grad_func, p0, bounds):
 
     def huber_loss(x, delta):
         if np.abs(x) < delta:
@@ -213,7 +200,7 @@ def get_coefficients_huber(train_xs, train_ys, fitting_func, grad_func, p0):
 
     assert len(train_xs) == len(train_ys)
     delta = 1e-3
-    res = scipy.optimize.minimize(loss_fn, p0, args=(train_xs, train_ys, delta), jac=jac_fn, tol=0.0, method='L-BFGS-B', options={'ftol': 0.0, 'gtol': 1e-10, 'maxiter': 10000, 'disp': True})
+    res = scipy.optimize.minimize(loss_fn, p0, args=(train_xs, train_ys, delta), jac=jac_fn, bounds=bounds, tol=0.0, method='L-BFGS-B', options={'ftol': 0.0, 'gtol': 1e-10, 'maxiter': 10000, 'disp': True})
     # res = scipy.optimize.minimize(loss_fn, p0, args=(train_xs, train_ys, delta), jac=jac_fn, tol=0.0, method='BFGS', options={'gtol': 1e-10, 'maxiter': 10000, 'disp': True})
     # print(res.message)
     coeffs = res.x

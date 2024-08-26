@@ -10,7 +10,7 @@ from olmo.scaling.scaling_laws.joint_lr_correction import (
     get_data_forall_n,
     plot_n_d_lr_scaling,
 )
-from olmo.scaling.scaling_laws.utils import validation, chinchilla_n_d_lr_log_fit, grad_chinchilla_n_d_lr_log_fit
+from olmo.scaling.scaling_laws.utils import validation, chinchilla_n_d_lr_power_fit, grad_chinchilla_n_d_lr_power_fit
 
 VAL_KEYS = [f'eval/{val}/CrossEntropyLoss' for val in validation]
 
@@ -56,7 +56,7 @@ CONFIGS = {
         'color': 'teal',
     },
     '1b': {
-        'path': 'wandb/amberish1.csv',
+        'path': 'wandb/subsample_amberish1.csv',
         'keys': VAL_KEYS,
         'mode': 'train',
         'n': 1176832000,
@@ -152,18 +152,18 @@ def fit_curves(
     plot_n_d_lr_scaling(
         data_by_n,
         configs,
-        chinchilla_n_d_lr_log_fit,
-        grad_chinchilla_n_d_lr_log_fit,
-        p0=[4.0, 15.0, 0.25, 0.7, 1.5, 0.05, 15.0, 4.0],
-        bounds=[(None, None), (None, None), (0, None), (0, None), (0, None), (0, None), (None, None), (None, None)],
+        chinchilla_n_d_lr_power_fit,
+        grad_chinchilla_n_d_lr_power_fit,
+        p0=[4.0, 10.0, 0.5, 0.5, 2.0, 0.0, 0.5],
+        bounds=[(None, None), (None, None), (0, None), (0, None), (0, None), (0, None), (0, None)],
     )
 
     plt.legend(loc="upper right", ncols=2)
 
     plt.xlabel("Tokens (d)")
     plt.ylabel("CE Loss")
-    plt.title(f"Jointly fitting N and D, with LR logn correction")
-    plt.savefig(f"{output_path}/joint_lr_logn_1xC_amberish.png", dpi=300)
+    plt.title(f"Jointly fitting N and D, with LR correction")
+    plt.savefig(f"{output_path}/joint_lr_power.png", dpi=300)
 
 
 def parse_args():

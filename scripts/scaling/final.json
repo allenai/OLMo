@@ -1,0 +1,37 @@
+{
+    "150m": {
+        "path": "wandb/amberish-150M-nxC_val-all.csv",
+        "mode": "train",
+        "n": 151898880,
+        "label": "150m",
+        "color": "darkred"
+    },
+    "300m": {
+        "path": "wandb/amberish-300M-nxC_val-all.csv",
+        "mode": "train",
+        "n": 319980544,
+        "label": "300m",
+        "color": "darkorange"
+    },
+    "530m": {
+        "path": "wandb/amberish-530M-nxC_val-all.csv",
+        "mode": "train",
+        "n": 530074944,
+        "label": "530m",
+        "color": "gold"
+    },
+    "700m": {
+        "path": "wandb/amberish-750M-nxC_val-all.csv",
+        "mode": "train",
+        "n": 681297408,
+        "label": "750m",
+        "color": "darkgreen"
+    },
+    "1b": {
+        "path": "wandb/amberish-1B-nxC_val-all.csv",
+        "mode": "eval",
+        "n": 1176832000,
+        "label": "1b",
+        "color": "teal"
+    }
+}

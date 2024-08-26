@@ -155,14 +155,15 @@ def fit_curves(
         chinchilla_n_d_fit,
         grad_chinchilla_n_d_fit,
         p0=[1.5, 2.5, 0.5, 0.5, 2.0],
+        bounds=[(0, None), (0, None), (0, None), (0, None), (0, None)],
     )
 
     plt.legend(loc="upper right", ncols=2)
 
     plt.xlabel("Tokens (d)")
     plt.ylabel("CE Loss")
-    plt.title(f"Residue of Jointly fitting N and D")
-    plt.savefig(f"{output_path}/joint_residue.png", dpi=300)
+    plt.title(f"Jointly fitting N and D")
+    plt.savefig(f"{output_path}/joint.png", dpi=300)
 
 
 def parse_args():
