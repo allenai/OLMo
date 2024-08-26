@@ -13,7 +13,7 @@ gantry run \
   --weka oe-training-default:/weka/oe-training-default \
   --allow-dirty \
   --preemptible \
-  --priority urgent \
+  --priority normal \
   --workspace ai2/sewonm \
   --task-name ${CONFIG_NAME} \
   --description ${CONFIG_NAME} \
