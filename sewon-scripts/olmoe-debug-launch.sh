@@ -6,7 +6,7 @@ CONFIG_PATH=sewon-configs/${CONFIG_NAME}.yaml
 ARGS="--run_name=${CONFIG_NAME} --save-overwrite --fsdp.sharding_strategy=FULL_SHARD --canceled_check_interval=9999999 '--load_path=\${path.last_checkpoint:\${save_folder}}'"
 
 NUM_NODES=1
-NUM_PROCS=1
+NUM_PROCS=8
 BEAKER_REPLICA_RANK=0
 
 gantry run \
@@ -19,7 +19,7 @@ gantry run \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --budget ai2/oe-training \
   --cluster ai2/jupiter-cirrascale-2 \
-  --gpus 1 \
+  --gpus 8 \
   --replicas "${NUM_NODES}" \
   --env-secret AWS_CONFIG=SEWONM_AWS_CONFIG \
   --env-secret AWS_CREDENTIALS=SEWONM_AWS_CREDENTIALS \
