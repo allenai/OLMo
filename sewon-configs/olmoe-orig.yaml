@@ -241,7 +241,7 @@ data:
   pin_memory: true
   prefetch_factor: 8
   persistent_workers: true
-  memmap_dtype: uint32
+  # memmap_dtype: uint32
   timeout: 0
   instance_filter:
     repetition_max_period: 13
