@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
 c=peteish1-baseline
-python sewon-scripts/download_s3_checkpoint.py --checkpoint-dir "s3://ai2-lucas-archival/checkpoints/$c/latest"
-
+python sewon-scripts/download_s3_checkpoint.py --checkpoint-dir "s3://ai2-lucas-archival/checkpoints/$c/latest-hf"
 exit
 
 for c in peteish1-baseline peteish1-dclm-only peteish7-anneal-baseline ; do \
