@@ -3,7 +3,7 @@ from hf_olmo.tokenization_olmo_fast import OLMoTokenizerFast
 from transformers import AutoTokenizer
 import torch
 
-model_dir = "/var/folders/mv/3m5sv5tx7lnb_0b9yr4xyjnw0000gp/T/8e7d0d51b7d94e520d67684e6ff2fa0f"
+model_dir = "local_checkpoints/peteish1-baseline/latest-hf"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 model = OLMoForCausalLM.from_pretrained(model_dir).to(DEVICE)

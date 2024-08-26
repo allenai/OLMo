@@ -175,7 +175,8 @@ def download_s3_directory(bucket_name, prefix, local_dir, ignore):
         s3_client.download_file(bucket_name, s3_key, local_file_path)
 
 
-def make_local_checkpoint(checkpoint_dir: str) -> str:
+def main():
+    checkpoint_dir = args.checkpoint_dir
     parsed_dir = urlparse(checkpoint_dir)
 
     assert parsed_dir.scheme in ["s3", ""], "Only s3 and local paths are supported."
@@ -183,72 +184,24 @@ def make_local_checkpoint(checkpoint_dir: str) -> str:
     if os.path.exists(checkpoint_dir):
         return checkpoint_dir
 
-    # temp_dir = os.path.join(tempfile.gettempdir(), md5(checkpoint_dir.encode()).hexdigest())
-    temp_dir = os.path.join("local_checkpoints", "/".join(checkpoint_dir.split("/")[-2:]))
-    print ("Saving to", temp_dir)
+    local_dir = os.path.join("local_checkpoints", "/".join(checkpoint_dir.split("/")[-2:]))
+    print ("Saving to", local_dir)
     
-    if os.path.exists(temp_dir):
-        return temp_dir
-    try:
-        os.makedirs(temp_dir, exist_ok=True)
-        print(f"Downloading checkpoint to {temp_dir}...")
-        download_s3_directory(
-            bucket_name=parsed_dir.netloc,
-            prefix=parsed_dir.path.lstrip("/"),
-            local_dir=temp_dir,
-            ignore=r"/(optim|train)/",
-        )
-    except Exception as e:
-        logger.error(f"Error downloading checkpoint: {e}")
-        shutil.rmtree(temp_dir)
-        raise e
+    if not os.path.exists(local_dir):
+        try:
+            os.makedirs(local_dir, exist_ok=True)
+            print(f"Downloading checkpoint to {local_dir}...")
+            download_s3_directory(
+                bucket_name=parsed_dir.netloc,
+                prefix=parsed_dir.path.lstrip("/"),
+                local_dir=local_dir,
+            )
+        except Exception as e:
+            logger.error(f"Error downloading checkpoint: {e}")
+            shutil.rmtree(local_dir)
+            raise e
 
-    return temp_dir
-
-
-def upload_local_checkpoint(local_checkpoint_dir: str, destination_dir: str):
-    if destination_dir == local_checkpoint_dir:
-        return
-    elif (parsed_url := urlparse(destination_dir)).scheme == "s3":
-        s3_bucket_name = parsed_url.netloc
-        s3_prefix = parsed_url.path[1:]
-
-        local_paths = [
-            os.path.join(root, post_fn)
-            for root, _, files in os.walk(local_checkpoint_dir)
-            for post_fn in files
-            if os.path.basename(post_fn) in HF_FILENAMES
-        ]
-        dest_paths = [
-            os.path.join(s3_prefix, os.path.relpath(local_path, local_checkpoint_dir))
-            for local_path in local_paths
-        ]
-
-        s3_client = _get_s3_client("s3")
-        for local_path, dest_path in tqdm(
-            zip(local_paths, dest_paths), desc="Uploading files", total=len(local_paths)
-        ):
-            s3_client.upload_file(local_path, s3_bucket_name, dest_path)
-    elif parsed_url.scheme == "":
-        shutil.copytree(local_checkpoint_dir, destination_dir)
-    else:
-        raise ValueError(f"Unsupported destination: {destination_dir}. Only s3 and local paths are supported.")
-
-
-def maybe_unshard(checkpoint_dir: str):
-    if os.path.exists(os.path.join(checkpoint_dir, "model.pt")):
-        return
-
-    print(f"Unsharding {checkpoint_dir}...")
-    train_config = TrainConfig.load(os.path.join(checkpoint_dir, "config.yaml"))
-    checkpointer = build_sharded_checkpointer(train_config)
-    model_state, _, _ = checkpointer.unshard_checkpoint(
-        load_path=checkpoint_dir, load_optimizer_state=False, load_trainer_state=False
-    )
-    torch.save(model_state, os.path.join(checkpoint_dir, "model.pt"))
-
-
-def main():
+if __name__=='__main__':
     parser = argparse.ArgumentParser(
         description="Adds a config.json to the checkpoint directory, and creates pytorch_model.bin, "
         "making it easier to load weights as HF models."
@@ -258,60 +211,5 @@ def main():
         help="Location of OLMo checkpoint.",
         required=True,
     )
-
-    parser.add_argument(
-        "--destination-dir",
-        help="Location to save the converted checkpoint; default is the same as the checkpoint-dir.",
-        default=None,
-    )
-
-    parser.add_argument(
-        "--ignore-olmo-compatibility",
-        action="store_true",
-        help="Ignore compatibility with the olmo codebase. "
-        "This will remove files that are needed specifically for olmo codebase, eg. config.yaml, etc.",
-    )
-    parser.add_argument(
-        "--logger-level",
-        default="warning",
-        help="Set the logger level.",
-    )
-
-    parser.add_argument(
-        "--tokenizer",
-        help="Override the tokenizer to use for the checkpoint.",
-    )
-    parser.add_argument(
-        "--keep-olmo-artifacts",
-        action="store_true",
-        help="Keep olmo-specific artifacts in the checkpoint.",
-    )
-
     args = parser.parse_args()
-
-    args.destination_dir = args.destination_dir or args.checkpoint_dir
-    logging.basicConfig()
-    logger.setLevel(logging.getLevelName(args.logger_level.upper()))
-
-    local_checkpoint_dir = make_local_checkpoint(args.checkpoint_dir)
-    args.checkpoint_dir = local_checkpoint_dir
-    maybe_unshard(local_checkpoint_dir)
-
-    fix_tokenizer(checkpoint_dir=local_checkpoint_dir, tokenizer_name_or_path=args.tokenizer)
-    convert_checkpoint(args.checkpoint_dir, args.ignore_olmo_compatibility)
-
-    if not args.keep_olmo_artifacts:
-        print("Removing non-HF artifacts...")
-        os.remove(os.path.join(local_checkpoint_dir, "config.yaml"))
-        os.remove(os.path.join(local_checkpoint_dir, "model.pt"))
-        shutil.rmtree(os.path.join(local_checkpoint_dir, "optim"), ignore_errors=True)
-        shutil.rmtree(os.path.join(local_checkpoint_dir, "model"), ignore_errors=True)
-        shutil.rmtree(os.path.join(local_checkpoint_dir, "train"), ignore_errors=True)
-
-    upload_local_checkpoint(local_checkpoint_dir, args.destination_dir)
-
-    print(f"Converted checkpoint saved to {args.destination_dir}")
-
-
-if __name__ == "__main__":
-    main()
+    main(args)
