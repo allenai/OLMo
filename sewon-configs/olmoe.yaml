@@ -91,6 +91,8 @@ max_duration: 130e9T
 global_train_batch_size: 1024
 device_train_microbatch_size: 4
 
+activation_checkpointing: whole_layer
+
 precision: amp_bf16
 distributed_strategy: fsdp
 
