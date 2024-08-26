@@ -2,16 +2,15 @@
 set -ex
 
 CONFIG_NAME=olmoe
+
 CONFIG_PATH=sewon-configs/${CONFIG_NAME}.yaml
-ARGS="--run_name=olmoe-8x1b-newhp-newds-final --save-overwrite --fsdp.sharding_strategy=FULL_SHARD --device_train_microbatch_size=4 --canceled_check_interval=9999999 '--load_path=${path.last_checkpoint:${save_folder}}'"
+ARGS="--run_name=${CONFIG_NAME} --save-overwrite --fsdp.sharding_strategy=FULL_SHARD --device_train_microbatch_size=4 --canceled_check_interval=9999999 '--load_path=\${path.last_checkpoint:\${save_folder}}'"
 
-NUM_NODES=1
-NUM_PROCS=1
+NUM_NODES=4
+NUM_PROCS=8
 BEAKER_REPLICA_RANK=0
-
 gantry run \
   --weka oe-training-default:/weka/oe-training-default \
-  --allow-dirty \
   --preemptible \
   --priority normal \
   --workspace ai2/sewonm \
@@ -33,6 +32,8 @@ gantry run \
   --shared-memory 10GiB \
   --venv base \
   --yes \
+  --propagate-failure \
+  --propagate-preemption \
   --synchronized-start-timeout 60m \
   -- /bin/bash -c "pip install --upgrade torch==2.3.0; pip install --upgrade flash-attn --no-build-isolation; pip install git+https://github.com/Muennighoff/megablocks.git@zloss; mkdir -p /root/.cache; pushd /root/.cache; curl "https://storage.googleapis.com/dirkgr-public/huggingface_cache_v3.tar.gz" | tar --keep-newer-files -xzf -; popd; export HF_DATASETS_OFFLINE=1; export NCCL_IB_HCA=^=mlx5_bond_0; SLURM_JOB_ID=${BEAKER_JOB_ID} torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --node_rank ${BEAKER_REPLICA_RANK} --nproc-per-node ${NUM_PROCS} --rdzv_id=12347 --rdzv_backend=c10d --rdzv_conf='read_timeout=420' --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 scripts/train.py ${CONFIG_PATH} ${ARGS}"
 

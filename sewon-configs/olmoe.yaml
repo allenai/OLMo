@@ -5,7 +5,7 @@ no_pre_train_checkpoint: true
 
 wandb:
   name: ${run_name}
-  project: spicy-olmo-small
+  project: peteish-olmoe
   group: ${run_name}
 
 model:

@@ -50,7 +50,7 @@ log = logging.getLogger("train")
 
 
 def main(cfg: TrainConfig) -> None:
-    if cfg.load_path and (len(cfg.load_path)==0 or not Path(cfg.load_path).exists()):
+    if cfg.load_path is not None and (len(cfg.load_path)==0 or not Path(cfg.load_path).exists()):
         cfg.load_path = None
 
     # Ensure run name set.

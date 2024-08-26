@@ -11,7 +11,6 @@ BEAKER_REPLICA_RANK=0
 
 gantry run \
   --weka oe-training-default:/weka/oe-training-default \
-  --allow-dirty \
   --preemptible \
   --priority normal \
   --workspace ai2/sewonm \
@@ -20,7 +19,7 @@ gantry run \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --budget ai2/oe-training \
   --cluster ai2/jupiter-cirrascale-2 \
-  --gpus 8 \
+  --gpus 1 \
   --replicas "${NUM_NODES}" \
   --env-secret AWS_CONFIG=SEWONM_AWS_CONFIG \
   --env-secret AWS_CREDENTIALS=SEWONM_AWS_CREDENTIALS \
