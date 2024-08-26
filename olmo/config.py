@@ -96,6 +96,7 @@ class BaseConfig:
             latest_checkpoint = find_latest_checkpoint(path)
             if latest_checkpoint is None:
                 if validate_paths:
+                    return ""
                     raise FileNotFoundError(f"Could not find a latest checkpoint at {path}")
                 else:
                     return ""

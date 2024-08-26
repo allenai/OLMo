@@ -50,6 +50,9 @@ log = logging.getLogger("train")
 
 
 def main(cfg: TrainConfig) -> None:
+    if len(cfg.load_path)==0 or not Path(cfg.load_path).exists():
+        cfg.load_path = None
+
     # Ensure run name set.
     if cfg.run_name is None:
         raise OLMoConfigurationError("--run_name is required")
@@ -62,7 +65,8 @@ def main(cfg: TrainConfig) -> None:
             "setting has no effect."
         )
 
-    barrier()
+    if get_world_size() > 1:
+        barrier()
 
     # Set CUDA device.
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
@@ -99,7 +103,8 @@ def main(cfg: TrainConfig) -> None:
                 cfg.save(save_path)
             del save_path
 
-    barrier()
+    if get_world_size() > 1:
+        barrier()
 
     # Maybe start W&B run.
     if cfg.wandb is not None and (get_global_rank() == 0 or not cfg.wandb.rank_zero_only):
@@ -115,7 +120,8 @@ def main(cfg: TrainConfig) -> None:
             config=cfg.asdict(exclude=["wandb"]),
         )
 
-    barrier()
+    if get_world_size() > 1:
+        barrier()
 
     # Set seed.
     seed_all(cfg.seed)
@@ -125,7 +131,8 @@ def main(cfg: TrainConfig) -> None:
 
     # Construct evaluators.
     evaluators = build_evaluators(cfg, device)
-    barrier()
+    if get_world_size() > 1:
+        barrier()
 
     # Initialize the model.
     log.info("Building model...")
