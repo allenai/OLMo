@@ -241,7 +241,6 @@ class InfgramConfig(BaseConfig):
     mode: Optional[str] = 'prod'
     sharded: Optional[bool] = False
     prefetch: Optional[bool] = False
-    separate_wte: Optional[bool] = False
     method_train: Optional[int] = 2
     method_eval: Optional[int] = 2
 
@@ -488,6 +487,8 @@ class ModelConfig(BaseConfig):
     """
     Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
     """
+
+    separate_infgram_wte: bool = False
 
     @property
     def effective_n_kv_heads(self) -> int:

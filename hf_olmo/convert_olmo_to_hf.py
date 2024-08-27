@@ -9,7 +9,7 @@ from omegaconf import OmegaConf as om
 from hf_olmo.configuration_olmo import OLMoConfig
 from hf_olmo.modeling_olmo import OLMoForCausalLM
 from hf_olmo.tokenization_olmo_fast import OLMoTokenizerFast
-from olmo import ModelConfig, Tokenizer
+from olmo import ModelConfig, Tokenizer, InfgramConfig
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,9 @@ def write_config(checkpoint_dir: str):
     config_path = os.path.join(checkpoint_dir, "config.yaml")
     model_config = ModelConfig.load(config_path, key="model")
     config_kwargs = model_config.asdict()
+    infgram_config = InfgramConfig.load(config_path, key="infgram")
+    config_kwargs["infgram"] = infgram_config.asdict()
+    config_kwargs['infgram']['model_type'] = ''
     config_kwargs["use_cache"] = True
     config = OLMoConfig(**config_kwargs)
 

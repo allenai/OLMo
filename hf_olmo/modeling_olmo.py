@@ -1,5 +1,7 @@
 import logging
 from dataclasses import fields
+import os
+import sys
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -8,10 +10,13 @@ from transformers.cache_utils import Cache
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.auto import AutoModelForCausalLM
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from olmo.config import ModelConfig
 from olmo.model import OLMo
 
 from .configuration_olmo import OLMoConfig
+
+from infini_gram import InfinigramEngine
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +43,8 @@ class OLMoForCausalLM(PreTrainedModel):
     base_model_prefix = "model"
     _no_split_modules = ["OLMoBlock"]
 
-    def __init__(self, config: OLMoConfig, model: Optional[OLMo] = None, init_params: bool = False):
+    def __init__(self, config: OLMoConfig, model: Optional[OLMo] = None, init_params: bool = False,
+                 max_batch_size_per_device: int = 1024, local_rank: int = 0, global_rank: int = 0, local_world_size: int = 1, world_size: int = 1):
         super().__init__(config)
 
         if not model:
@@ -48,6 +54,17 @@ class OLMoForCausalLM(PreTrainedModel):
             self.model = OLMo(model_config, init_params=init_params)
         else:
             self.model = model
+
+        if config.infgram:
+            self.infinigram_engine = InfinigramEngine(
+                cfg=config.infgram,
+                max_batch_size_per_device=max_batch_size_per_device,
+                max_seq_len=config.max_sequence_length,
+                local_rank=local_rank,
+                global_rank=global_rank,
+                local_world_size=local_world_size,
+                world_size=world_size,
+            )
 
     def forward(
         self,
@@ -73,9 +90,17 @@ class OLMoForCausalLM(PreTrainedModel):
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
+        infgram_ntd = None
+        if self.config.infgram:
+            infgram_ntd = self.infinigram_engine.get_infgram_ntd(
+                input_idss=input_ids,
+                method=self.config.infgram.method_train if self.training else self.config.infgram.method_eval,
+            )['infgram_ntd']
+
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
         outputs = self.model.forward(
             input_ids=input_ids,
+            infgram_ntd=infgram_ntd,
             input_embeddings=inputs_embeds,
             attention_mask=attention_mask,
             attention_bias=attention_bias,

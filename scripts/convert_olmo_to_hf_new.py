@@ -70,7 +70,9 @@ def write_model(
     os.makedirs(tmp_model_path, exist_ok=True)
 
     config_path = Path(input_base_path) / "config.yaml"
-    olmo_config = yaml.safe_load(config_path.read_text())["model"]
+    config = yaml.safe_load(config_path.read_text())
+    olmo_config = config["model"]
+    infgram_config = config["infgram"] if "infgram" in config else None
 
     n_layers = olmo_config["n_layers"]
     n_heads = olmo_config["n_heads"]
@@ -138,6 +140,8 @@ def write_model(
         if "transformer.ff_out.weight" in loaded
         else loaded["transformer.wte.weight"],
     }
+    if "transformer.infgram_wte.weight" in loaded:
+        state_dict["model.infgram_embed_tokens.weight"] = loaded["transformer.infgram_wte.weight"]
 
     for k, v in state_dict.items():
         index_dict["weight_map"][k] = filename
@@ -173,6 +177,7 @@ def write_model(
         rope_theta=base,
         clip_qkv=olmo_config.get("clip_qkv"),
     )
+    config.infgram = infgram_config
     config.save_pretrained(tmp_model_path)
 
     # Make space so we can load the model properly now.

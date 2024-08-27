@@ -10,6 +10,31 @@ from olmo.config import ModelConfig
 logger = logging.get_logger(__name__)
 
 
+class InfgramConfig(PretrainedConfig):
+    def __init__(
+        self,
+        model_type, # dummy field
+        index_dir,
+        min_cnt=2,
+        support=20,
+        cpp_log_path='/tmp/cpp_engine.log',
+        mode='prod',
+        sharded=False, # sharded index is not supported
+        prefetch=False, # prefetch is not supported
+        method_train=2,
+        method_eval=2,
+    ):
+        self.index_dir = index_dir
+        self.min_cnt = min_cnt
+        self.support = support
+        self.cpp_log_path = cpp_log_path
+        self.mode = mode
+        self.sharded = sharded
+        self.prefetch = prefetch
+        self.method_train = method_train
+        self.method_eval = method_eval
+
+
 class OLMoConfig(PretrainedConfig):
     model_type = "hf_olmo"
     keys_to_ignore_at_inference = ["past_key_values"]  # TODO: confirm
@@ -22,6 +47,8 @@ class OLMoConfig(PretrainedConfig):
         all_kwargs.update(
             {"architectures": all_kwargs.get("architectures", ["OLMoForCausalLM"]) or ["OLMoForCausalLM"]}
         )
+        if 'infgram' in all_kwargs:
+            all_kwargs['infgram'] = InfgramConfig(**all_kwargs['infgram'])
         super().__init__(**all_kwargs)
 
     @property
