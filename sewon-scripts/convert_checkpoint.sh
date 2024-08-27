@@ -1,14 +1,8 @@
 #!/usr/bin/env bash
 
-c=peteish1-baseline
-python sewon-scripts/download_s3_checkpoint.py --checkpoint-dir "s3://ai2-lucas-archival/checkpoints/$c/latest"
+CHECKPOINT="s3://ai2-lucas-archival/checkpoints/peteish1-B34v0/step19000"
 
-exit
-
-for c in peteish1-baseline peteish1-dclm-only peteish7-anneal-baseline ; do \
-    CHECKPOINT="s3://ai2-lucas-archival/checkpoints/$c/latest" ; \
-    python hf_olmo/convert_olmo_to_hf.py \
+python hf_olmo/convert_olmo_to_hf.py \
     --checkpoint-dir $CHECKPOINT \
     --destination-dir ${CHECKPOINT}-hf \
-    --keep-olmo-artifact ; \
-done
+    --keep-olmo-artifact
