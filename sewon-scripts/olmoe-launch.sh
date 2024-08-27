@@ -6,7 +6,7 @@ CONFIG_NAME=$1
 CONFIG_PATH=sewon-configs/${CONFIG_NAME}.yaml
 ARGS="--run_name=${CONFIG_NAME} --save-overwrite --fsdp.sharding_strategy=FULL_SHARD --canceled_check_interval=9999999 '--load_path=\${path.last_checkpoint:\${save_folder}}'"
 
-NUM_NODES=8
+NUM_NODES=4
 NUM_PROCS=8
 BEAKER_REPLICA_RANK=0
 gantry run \
