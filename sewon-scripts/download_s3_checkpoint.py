@@ -175,7 +175,7 @@ def download_s3_directory(bucket_name, prefix, local_dir, ignore):
         s3_client.download_file(bucket_name, s3_key, local_file_path)
 
 
-def main():
+def main(args):
     checkpoint_dir = args.checkpoint_dir
     parsed_dir = urlparse(checkpoint_dir)
 
@@ -195,6 +195,7 @@ def main():
                 bucket_name=parsed_dir.netloc,
                 prefix=parsed_dir.path.lstrip("/"),
                 local_dir=local_dir,
+                ignore=r"/(optim|train)/",
             )
         except Exception as e:
             logger.error(f"Error downloading checkpoint: {e}")
