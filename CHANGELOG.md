@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added downstream eval task for requests dumped from oe-eval tasks
 - Added `CosLinearEnvelope` scheduler, which is a pointwise product of a cosine schedule and a linear decay.
 - Added ability to save outputs of submodules for debugging purposes.
+- Added a number of tasks from oe-eval to the downstream eval tasks.
 - Version dolma flan change in named_data_mix.py
 
 ### Changed
