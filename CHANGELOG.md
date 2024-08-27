@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [v0.5.0](https://github.com/allenai/OLMo/releases/tag/v0.5.0) - 2024-08-26
+
 - Fixed conversion to HuggingFace model for DDP-trained models.
 - Added support for remote source and destination for HuggingFace model conversion.
 
@@ -22,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `CosLinearEnvelope` scheduler, which is a pointwise product of a cosine schedule and a linear decay.
 - Added ability to save outputs of submodules for debugging purposes.
 - Added a number of tasks from oe-eval to the downstream eval tasks.
+- Version dolma flan change in named_data_mix.py
 
 ### Changed
 
