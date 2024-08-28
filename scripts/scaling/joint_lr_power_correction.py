@@ -5,22 +5,18 @@ from typing import Dict
 import matplotlib.pyplot as plt
 
 from olmo.aliases import PathOrStr
-from olmo.scaling.scaling_laws.joint import (
+from olmo.scaling.scaling_laws.joint_lr_correction import (
     ExtrapolateNConfig,
     get_data_forall_n,
-    plot_n_d_scaling,
+    plot_n_d_lr_scaling,
 )
-from olmo.scaling.scaling_laws.utils import (
-    chinchilla_n_d_fit,
-    grad_chinchilla_n_d_fit,
-    validation,
-)
+from olmo.scaling.scaling_laws.utils import validation, chinchilla_n_d_lr_power_fit, grad_chinchilla_n_d_lr_power_fit
 
 VAL_KEYS = [f'eval/{val}/CrossEntropyLoss' for val in validation]
 
 CONFIGS = {
     # '20m': {
-    #     'path': 'wandb/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
+    #     'path': 'wandb/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-merged_val-all.csv',
     #     'keys': VAL_KEYS,
     #     'mode': 'train',
     #     'n': 21266432,
@@ -28,7 +24,7 @@ CONFIGS = {
     #     'color': 'darkred',
     # },
     '60m': {
-        'path': 'wandb/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
+        'path': 'wandb/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-merged_val-all.csv',
         'keys': VAL_KEYS,
         'mode': 'train',
         'n': 59310080,
@@ -36,7 +32,7 @@ CONFIGS = {
         'color': 'darkorange',
     },
     '150m': {
-        'path': 'wandb/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
+        'path': 'wandb/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-merged_val-all.csv',
         'keys': VAL_KEYS,
         'mode': 'train',
         'n': 151879680,
@@ -44,7 +40,7 @@ CONFIGS = {
         'color': 'gold',
     },
     '300m': {
-        'path': 'wandb/tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
+        'path': 'wandb/tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-merged_val-all.csv',
         'keys': VAL_KEYS,
         'mode': 'train',
         'n': 319980544,
@@ -52,29 +48,29 @@ CONFIGS = {
         'color': 'darkgreen',
     },
     '700m': {
-        'path': 'wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd_val-all.csv',
+        'path': 'wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd-merged_val-all.csv',
         'keys': VAL_KEYS,
         'mode': 'train',
         'n': 681297408,
         'label': '700m',
         'color': 'teal',
     },
-    # '1b': {
-    #     'path': 'wandb/amberish1.csv',
-    #     'keys': VAL_KEYS,
-    #     'mode': 'eval',
-    #     'n': 1176832000,
-    #     'label': '1b',
-    #     'color': 'darkblue',
-    # },
-    # '7b': {
-    #     'path': 'wandb/amberish7.csv',
-    #     'keys': VAL_KEYS,
-    #     'mode': 'eval',
-    #     'n': 6682316800,
-    #     'label': '7b',
-    #     'color': 'darkviolet',
-    # },
+    '1b': {
+        'path': 'wandb/subsample_amberish1.csv',
+        'keys': VAL_KEYS,
+        'mode': 'train',
+        'n': 1176832000,
+        'label': '1b',
+        'color': 'darkblue',
+    },
+    '7b': {
+        'path': 'wandb/amberish7.csv',
+        'keys': VAL_KEYS,
+        'mode': 'eval',
+        'n': 6682316800,
+        'label': '7b',
+        'color': 'darkviolet',
+    },
 }
 # CONFIGS = {
 #     '150m': {
@@ -153,21 +149,21 @@ def fit_curves(
 
     plt.figure()
 
-    plot_n_d_scaling(
+    plot_n_d_lr_scaling(
         data_by_n,
         configs,
-        chinchilla_n_d_fit,
-        grad_chinchilla_n_d_fit,
-        p0=[1.5, 2.5, 0.5, 0.5, 2.0],
-        bounds=[(0, None), (0, None), (0, None), (0, None), (0, None)],
+        chinchilla_n_d_lr_power_fit,
+        grad_chinchilla_n_d_lr_power_fit,
+        p0=[4.0, 10.0, 0.5, 0.5, 2.0, 0.0, 0.5],
+        bounds=[(None, None), (None, None), (0, None), (0, None), (0, None), (0, None), (0, None)],
     )
 
     plt.legend(loc="upper right", ncols=2)
 
     plt.xlabel("Tokens (d)")
     plt.ylabel("CE Loss")
-    plt.title(f"Jointly fitting N and D")
-    plt.savefig(f"{output_path}/joint.png", dpi=300)
+    plt.title(f"Jointly fitting N and D, with LR correction")
+    plt.savefig(f"{output_path}/joint_lr_power.png", dpi=300)
 
 
 def parse_args():

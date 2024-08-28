@@ -67,7 +67,7 @@ def get_data_forall_n(configs: Dict[str, ExtrapolateNConfig]):
     return data_by_n
 
 
-def plot_n_d_lr_scaling(data_by_n, configs, fitting_func, grad_func, p0, **plot_kwargs):
+def plot_n_d_lr_scaling(data_by_n, configs, fitting_func, grad_func, p0, bounds, **plot_kwargs):
     # fit the parameters
     train_ndhs, train_ys = [], []
     for n, data in data_by_n.items():
@@ -75,7 +75,7 @@ def plot_n_d_lr_scaling(data_by_n, configs, fitting_func, grad_func, p0, **plot_
         if config.mode == 'train':
             train_ndhs += [[n, d, h] for d, h in zip(data['ds'], data['hs'])]
             train_ys += data['ys']
-    coefficients = get_coefficients_huber(train_ndhs, train_ys, fitting_func, grad_func, p0=p0)
+    coefficients = get_coefficients_huber(train_ndhs, train_ys, fitting_func, grad_func, p0=p0, bounds=bounds)
     predicted_data_by_n = {}
     for n, data in data_by_n.items():
         config = get_config_by_n(configs, n)
