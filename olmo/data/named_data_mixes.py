@@ -2589,7 +2589,7 @@ def build_collection_exclude(corpora: List[str]):
     return collection
 
 def build_collection_include_all(path_dict):
-    collection = path_dict.values()
+    collection = [path for paths in path_dict.values() for path in paths]
     return collection
 
 DATA_PATHS["no_math"] = build_collection_exclude(["pes20_stem_papers", "algebraic_stack", "openwebmath"])
