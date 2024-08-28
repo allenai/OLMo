@@ -1,3 +1,8 @@
+import argparse
+from collections import defaultdict
+import csv
+from dataclasses import dataclass
+import scipy
 import numpy as np
 import scipy
 
@@ -78,6 +83,118 @@ downstream = [
 ]
 
 
+@dataclass
+class ExtrapolateNConfig:
+    path: str
+    """
+    Path containing the W&B downloaded data and metadata.
+    """
+
+    mode: str
+    """
+    Whether this model is used for fitting the curve ('train') or evaluating the fit ('eval').
+    """
+
+    n: int
+    """
+    The model size (non-embedding parameter count).
+    """
+
+    label: str
+    """
+    A short label for this curve.
+    """
+
+    color: str
+    """
+    The color for this curve.
+    """
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-k", "--key", type=str, default="", help="For avg metrics. Use one of [all-val-lm, all-bpb]")
+    parser.add_argument("--keys", nargs='+', type=str, help="For individual metrics")
+    parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
+    parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
+    args = parser.parse_args()
+
+    if args.key == 'all-val-lm':
+        args.keys = [f'eval/{val}/CrossEntropyLoss' for val in validation]
+    elif args.key == 'all-bpb':
+        args.keys = [f'eval/downstream_bpb/{task}_bpb' for task in downstream_bpb]
+    elif args.key == 'mmlu-var-bpb':
+        print("YAY")
+        args.keys = [f'eval/downstream_bpb/{task}_bpb' for task in ['mmlu_stem_var_bpb', 'mmlu_humanities_var_bpb', 'mmlu_social_sciences_var_bpb', 'mmlu_other_var_bpb']]
+
+    return args
+
+
+def get_config_by_n(configs, n):
+    for config in configs.values():
+        if config.n == n:
+            return config
+    raise ValueError(f"Could not find config for n={n}")
+
+
+def get_data_forall_n(configs, keys, min_step=None):
+    data_by_n = defaultdict(lambda: {'ds': [], 'hs': [], 'ys': []})
+    for name, config in configs.items():
+        n = config.n
+        with open(config.path) as file_ref:
+            reader = csv.DictReader(file_ref)
+            for row in reader:
+                d = int(float(row['throughput/total_tokens']))
+                h = float(row["optim/learning_rate_group0"]) / float(row["learning_rate_peak"])
+                y = np.mean([float(row[key]) for key in keys])
+                if min_step is not None and d < min_step * int(row['batch_size_in_tokens']):
+                    continue
+                data_by_n[n]['ds'].append(d)
+                data_by_n[n]['hs'].append(h)
+                data_by_n[n]['ys'].append(y)
+    return data_by_n
+
+
+def get_data_by_name(configs, keys, min_step=None):
+    data_by_name = defaultdict(lambda: {'ns': [], 'ds': [], 'hs': [], 's1s': [], 's2s': [], 'ys': []})
+    for name, config in configs.items():
+        n = config.n
+        with open(config.path) as file_ref:
+            reader = csv.DictReader(file_ref)
+            lam = 0.999
+            s1 = 0
+            s2 = 0
+            s2_momentum = 0
+            last_lr = 0
+            last_d = 0
+            for row in reader:
+                d = int(float(row['throughput/total_tokens']))
+                if d == last_d:
+                    continue
+                batch_size = int(row['batch_size_in_tokens'])
+                steps = (d - last_d) / batch_size
+                lr = float(row["optim/learning_rate_group0"])
+                if min_step is not None and d < min_step * batch_size:
+                    lr = float(row["learning_rate_peak"])
+                    last_lr = lr
+                h = lr / float(row["learning_rate_peak"])
+                s1 += lr * steps
+                s2_momentum = lam**steps * s2_momentum + (last_lr - lr) * steps
+                s2 += s2_momentum
+                last_lr = lr
+                last_d = d
+                y = np.mean([float(row[key]) for key in keys])
+                if min_step is not None and d < min_step * batch_size:
+                    continue
+                data_by_name[name]['ns'].append(n)
+                data_by_name[name]['ds'].append(d)
+                data_by_name[name]['hs'].append(h)
+                data_by_name[name]['s1s'].append(s1)
+                data_by_name[name]['s2s'].append(s2)
+                data_by_name[name]['ys'].append(y)
+    return data_by_name
+
+
 # Power Law functions
 
 
@@ -116,35 +233,35 @@ def grad_chinchilla_d_lr_fit(x, p):
 
 
 # x[0] = n, x[1] = d
-# p[0] = a = log100(A), p[1] = b = log100(B), p[2] = alpha, p[3] = beta, p[4] = E
+# p[0] = a = log(A), p[1] = b = log(B), p[2] = alpha, p[3] = beta, p[4] = E
 def chinchilla_n_d_fit(x, p):
-    # return 100**a / x[0]**alpha + 100**b / x[1]**beta + E
-    return 100**p[0] / x[0]**p[2] + 100**p[1] / x[1]**p[3] + p[4]
+    # return e**a / x[0]**alpha + e**b / x[1]**beta + E
+    return np.exp(p[0]) / x[0]**p[2] + np.exp(p[1]) / x[1]**p[3] + p[4]
 def grad_chinchilla_n_d_fit(x, p):
-    grad_a = (1 / x[0]**p[2]) * (100**p[0] * np.log(100))
-    grad_b = (1 / x[1]**p[3]) * (100**p[1] * np.log(100))
-    grad_alpha = - (100**p[0]) * np.log(x[0]) / x[0]**p[2]
-    grad_beta = - (100**p[1]) * np.log(x[1]) / x[1]**p[3]
+    grad_a = np.exp(p[0]) / x[0]**p[2]
+    grad_b = np.exp(p[1]) / x[1]**p[3]
+    grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0]**p[2]
+    grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1]**p[3]
     grad_E = 1
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E]
 
 
 # x[0] = n, x[1] = d, x[2] = h
-# p[0] = a = log100(A), p[1] = b = log100(B), p[2] = alpha, p[3] = beta, p[4] = E, p[5] = F
+# p[0] = a = log(A), p[1] = b = log(B), p[2] = alpha, p[3] = beta, p[4] = E, p[5] = F
 def chinchilla_n_d_lr_fit(x, p):
-    # return 100**a / x[0]**alpha + 100**b / x[1]**beta + E + F * x[2]
-    return 100**p[0] / x[0]**p[2] + 100**p[1] / x[1]**p[3] + p[4] + p[5] * x[2]
+    # return e**a / x[0]**alpha + e**b / x[1]**beta + E + F * x[2]
+    return np.exp(p[0]) / x[0]**p[2] + np.exp(p[1]) / x[1]**p[3] + p[4] + p[5] * x[2]
 def grad_chinchilla_n_d_lr_fit(x, p):
-    grad_a = (1 / x[0]**p[2]) * (100**p[0] * np.log(100))
-    grad_b = (1 / x[1]**p[3]) * (100**p[1] * np.log(100))
-    grad_alpha = - (100**p[0]) * np.log(x[0]) / x[0]**p[2]
-    grad_beta = - (100**p[1]) * np.log(x[1]) / x[1]**p[3]
+    grad_a = np.exp(p[0]) / x[0]**p[2]
+    grad_b = np.exp(p[1]) / x[1]**p[3]
+    grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0]**p[2]
+    grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1]**p[3]
     grad_E = 1
     grad_F = x[2]
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F]
 
 def chinchilla_n_d_lr_log_fit(x, p):
-    # return 100**a / x[0]**alpha + 100**b / x[1]**beta + E + F * x[2] * np.log(x[0] / 100**r + s)
+    # return e**a / x[0]**alpha + e**b / x[1]**beta + E + F * x[2] * np.log(x[0] / e**r + s)
     return np.exp(p[0]) / x[0]**p[2] + np.exp(p[1]) / x[1]**p[3] + p[4] + p[5] * x[2] * np.log(x[0] / np.exp(p[6]) + p[7])
 def grad_chinchilla_n_d_lr_log_fit(x, p):
     grad_a = np.exp(p[0]) / x[0]**p[2]
@@ -158,7 +275,7 @@ def grad_chinchilla_n_d_lr_log_fit(x, p):
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r, grad_s]
 
 def chinchilla_n_d_lr_power_fit(x, p):
-    # return 100**a / x[0]**alpha + 100**b / x[1]**beta + E + F * x[2] * x[0]**r
+    # return e**a / x[0]**alpha + e**b / x[1]**beta + E + F * x[2] * x[0]**r
     return np.exp(p[0]) / x[0]**p[2] + np.exp(p[1]) / x[1]**p[3] + p[4] + p[5] * x[2] * x[0]**p[6]
 def grad_chinchilla_n_d_lr_power_fit(x, p):
     grad_a = np.exp(p[0]) / x[0]**p[2]
@@ -168,6 +285,20 @@ def grad_chinchilla_n_d_lr_power_fit(x, p):
     grad_E = 1
     grad_F = x[2] * x[0]**p[6]
     grad_r = p[5] * x[2] * x[0]**p[6] * np.log(x[0])
+    return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r]
+
+
+def tissue_fit(x, p):
+    # return e**a / x[0]**alpha + e**b / x[1]**beta + E - F * x[2] * x[0]**r
+    return np.exp(p[0]) / x[0]**p[2] + np.exp(p[1]) / x[1]**p[3] + p[4] - p[5] * x[2] * x[0]**p[6]
+def grad_tissue_fit(x, p):
+    grad_a = np.exp(p[0]) / x[0]**p[2]
+    grad_b = np.exp(p[1]) / x[1]**p[3]
+    grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0]**p[2]
+    grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1]**p[3]
+    grad_E = 1
+    grad_F = - x[2] * x[0]**p[6]
+    grad_r = - p[5] * x[2] * x[0]**p[6] * np.log(x[0])
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r]
 
 
