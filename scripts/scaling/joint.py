@@ -1,184 +1,76 @@
-import argparse
-import os
-from typing import Dict
-
+import json
 import matplotlib.pyplot as plt
-
-from olmo.aliases import PathOrStr
-from olmo.scaling.scaling_laws.joint import (
-    ExtrapolateNConfig,
-    get_data_forall_n,
-    plot_n_d_scaling,
+import numpy as np
+from olmo.scaling.scaling_laws.utils import (
+    parse_args,
+    ExtrapolateNConfig, get_data_by_name,
+    chinchilla_n_d_fit, grad_chinchilla_n_d_fit,
+    get_coefficients_huber,
 )
-from olmo.scaling.scaling_laws.utils import validation, chinchilla_n_d_fit, grad_chinchilla_n_d_fit
-
-VAL_KEYS = [f'eval/{val}/CrossEntropyLoss' for val in validation]
-
-CONFIGS = {
-    # '20m': {
-    #     'path': 'wandb/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
-    #     'keys': VAL_KEYS,
-    #     'mode': 'train',
-    #     'n': 21266432,
-    #     'label': '20m',
-    #     'color': 'darkred',
-    # },
-    '60m': {
-        'path': 'wandb/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
-        'keys': VAL_KEYS,
-        'mode': 'train',
-        'n': 59310080,
-        'label': '60m',
-        'color': 'darkorange',
-    },
-    '150m': {
-        'path': 'wandb/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
-        'keys': VAL_KEYS,
-        'mode': 'train',
-        'n': 151879680,
-        'label': '150m',
-        'color': 'gold',
-    },
-    '300m': {
-        'path': 'wandb/tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
-        'keys': VAL_KEYS,
-        'mode': 'train',
-        'n': 319980544,
-        'label': '300m',
-        'color': 'darkgreen',
-    },
-    '700m': {
-        'path': 'wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd_val-all.csv',
-        'keys': VAL_KEYS,
-        'mode': 'train',
-        'n': 681297408,
-        'label': '700m',
-        'color': 'teal',
-    },
-    # '1b': {
-    #     'path': 'wandb/amberish1.csv',
-    #     'keys': VAL_KEYS,
-    #     'mode': 'eval',
-    #     'n': 1176832000,
-    #     'label': '1b',
-    #     'color': 'darkblue',
-    # },
-    # '7b': {
-    #     'path': 'wandb/amberish7.csv',
-    #     'keys': VAL_KEYS,
-    #     'mode': 'eval',
-    #     'n': 6682316800,
-    #     'label': '7b',
-    #     'color': 'darkviolet',
-    # },
-}
-# CONFIGS = {
-#     '150m': {
-#         'path': 'wandb/baseline-150M-1xC_val-all.csv',
-#         'keys': VAL_KEYS,
-#         'mode': 'train',
-#         'n': 151898880,
-#         'label': '150m',
-#         'color': 'gold',
-#     },
-#     '300m': {
-#         'path': 'wandb/baseline-300M-1xC_val-all.csv',
-#         'keys': VAL_KEYS,
-#         'mode': 'train',
-#         'n': 319980544,
-#         'label': '300m',
-#         'color': 'darkgreen',
-#     },
-#     '700m': {
-#         'path': 'wandb/baseline-750M-1xC_val-all.csv',
-#         'keys': VAL_KEYS,
-#         'mode': 'train',
-#         'n': 681297408,
-#         'label': '750m',
-#         'color': 'teal',
-#     },
-#     '1b': {
-#         'path': 'wandb/baseline-1B-1xC_val-all.csv',
-#         'keys': VAL_KEYS,
-#         'mode': 'eval',
-#         'n': 1176832000,
-#         'label': '1b',
-#         'color': 'darkblue',
-#     },
-# }
-# CONFIGS = {
-#     '150m': {
-#         'path': 'wandb/amberish-150M-1xC_val-all.csv',
-#         'keys': VAL_KEYS,
-#         'mode': 'train',
-#         'n': 151898880,
-#         'label': '150m',
-#         'color': 'gold',
-#     },
-#     '300m': {
-#         'path': 'wandb/amberish-300M-1xC_val-all.csv',
-#         'keys': VAL_KEYS,
-#         'mode': 'train',
-#         'n': 319980544,
-#         'label': '300m',
-#         'color': 'darkgreen',
-#     },
-#     '700m': {
-#         'path': 'wandb/amberish-750M-1xC_val-all.csv',
-#         'keys': VAL_KEYS,
-#         'mode': 'train',
-#         'n': 681297408,
-#         'label': '750m',
-#         'color': 'teal',
-#     },
-#     '1b': {
-#         'path': 'wandb/amberish-1B-1xC_val-all.csv',
-#         'keys': VAL_KEYS,
-#         'mode': 'train',
-#         'n': 1176832000,
-#         'label': '1b',
-#         'color': 'darkblue',
-#     },
-# }
-
-
-def fit_curves(
-    configs: Dict[str, ExtrapolateNConfig], output_path: PathOrStr,
-):
-    data_by_n = get_data_forall_n(configs)
-
-    plt.figure()
-
-    plot_n_d_scaling(
-        data_by_n,
-        configs,
-        chinchilla_n_d_fit,
-        grad_chinchilla_n_d_fit,
-        p0=[1.5, 2.5, 0.5, 0.5, 2.0],
-        bounds=[(0, None), (0, None), (0, None), (0, None), (0, None)],
-    )
-
-    plt.legend(loc="upper right", ncols=2)
-
-    plt.xlabel("Tokens (d)")
-    plt.ylabel("CE Loss")
-    plt.title(f"Jointly fitting N and D")
-    plt.savefig(f"{output_path}/joint.png", dpi=300)
-
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-o", "--output-path", type=str, required=True, help="Output folder")
-
-    return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    configs = {name: ExtrapolateNConfig(**config) for name, config in CONFIGS.items()}
 
-    os.makedirs(args.output_path, exist_ok=True)
-    fit_curves(configs, args.output_path)
+    with open(args.config_path) as f:
+        configs = json.load(f)
+        configs = {name: ExtrapolateNConfig(**config) for name, config in configs.items()}
+
+    data_by_name = get_data_by_name(configs, args.keys, min_step=500)
+
+    plt.figure(figsize=(8, 6))
+
+    train_ndhs, train_ys = [], []
+    for name, data in data_by_name.items():
+        config = configs[name]
+        if config.mode == 'train':
+            train_ndhs += [[n, d, h] for n, d, h in zip(data['ns'], data['ds'], data['hs'])]
+            train_ys += data['ys']
+
+    # fit the parameters
+    coefficients = get_coefficients_huber(
+        train_ndhs, train_ys,
+        chinchilla_n_d_fit, grad_chinchilla_n_d_fit,
+        p0=[4.0, 15.0, 0.25, 0.7, 1.5],
+        bounds=[(0, None), (0, None), (0, None), (0, None), (0, None)],
+    )
+    a, b, alpha, beta, E = coefficients
+    A, B = np.exp(a), np.exp(b)
+
+    # make predictions
+    predicted_data_by_name = {}
+    for name, data in data_by_name.items():
+        config = configs[name]
+        predicted_data_by_name[name] = {
+            'ns': data['ns'],
+            'ds': data['ds'],
+            'ys': [chinchilla_n_d_fit([n, d], coefficients) for n, d in zip(data['ns'], data['ds'])],
+        }
+
+    # plot the actual data
+    for name, data in data_by_name.items():
+        config = configs[name]
+        plt.scatter(data['ds'], data['ys'], color='white', edgecolors=config.color, label=config.label, s=5.0)
+
+    # plot the fitted curve
+    for name, data in predicted_data_by_name.items():
+        config = configs[name]
+        if config.mode == 'train':
+            plt.plot(data['ds'], data['ys'], color=config.color, linestyle='--', linewidth=0.8, label=f'{config.label} (fitted)')
+        else:
+            plt.plot(data['ds'], data['ys'], color=config.color, linestyle='--', linewidth=0.8, label=f'{config.label} (predicted)')
+    plt.text(
+        x=0.20, y=0.45,
+        s=f"L(n, d) = {A:.2f} / n^{alpha:.2f} + {B:.2f} / d^{beta:.2f} + {E:.2f}",
+        fontsize=8,
+        transform=plt.gca().transAxes,
+    )
+
+    plt.legend(loc="upper right", ncols=2, fontsize=6)
+    plt.xlabel("Tokens (d)")
+    plt.ylabel(f"CE loss, {args.key if args.key != '' else args.keys}")
+    plt.title(f"Fitting loss curves")
+    plt.savefig(args.output_path, dpi=300)
 
 
 if __name__ == "__main__":

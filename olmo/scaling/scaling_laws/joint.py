@@ -1,67 +1,11 @@
-import csv
-from dataclasses import dataclass
-from typing import List, Dict
-from collections import defaultdict
-
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
-from .utils import get_coefficients_huber
-
-
-@dataclass
-class ExtrapolateNConfig:
-    path: str
-    """
-    Path containing the W&B downloaded data and metadata.
-    """
-
-    keys: List[str]
-    """
-    The metrics for computing the scaling law predictions.
-    """
-
-    mode: str
-    """
-    Whether this model is used for fitting the curve ('train') or evaluating the fit ('eval').
-    """
-
-    n: int
-    """
-    The model size (non-embedding parameter count).
-    """
-
-    label: str
-    """
-    A short label for this curve.
-    """
-
-    color: str
-    """
-    The color for this curve.
-    """
-
-
-def get_config_by_n(configs: Dict[str, ExtrapolateNConfig], n: int):
-    for config in configs.values():
-        if config.n == n:
-            return config
-    raise ValueError(f"Could not find config for n={n}")
-
-
-def get_data_forall_n(configs: Dict[str, ExtrapolateNConfig]):
-    data_by_n = defaultdict(lambda: {'ds': [], 'ys': []})
-    for name, config in configs.items():
-        n = config.n
-        with open(config.path) as file_ref:
-            reader = csv.DictReader(file_ref)
-            for row in reader:
-                d = int(float(row['throughput/total_tokens']))
-                y = np.mean([float(row[key]) for key in config.keys])
-                data_by_n[n]['ds'].append(d)
-                data_by_n[n]['ys'].append(y)
-    return data_by_n
+from .utils import (
+    get_config_by_n,
+    get_coefficients_huber,
+)
 
 
 def plot_n_d_scaling(data_by_n, configs, fitting_func, grad_func, p0, bounds, **plot_kwargs):
