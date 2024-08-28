@@ -134,7 +134,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         permanent_data_prefix = "s3://ai2-llm"
     permanent_data_prefix.rstrip("/")
 
-    remote_save_folder = f"s3://ai2-llm/checkpoints/OLMo-ladder/benb/{run_name}"
+    remote_save_folder = f"s3://ai2-llm/checkpoints/OLMo-ladder/ianm/{run_name}"
     load_path = args.load_path
     if load_path is None:
         load_path = find_latest_checkpoint(remote_save_folder)
@@ -187,7 +187,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         wandb=None if not args.wandb else WandbConfig(
             name=run_name,
             group=run_name,
-            project="olmo-ladder-benb"
+            project="olmo-ladder-ianm"
         ),
         model=model_config,
         ddp=DDPConfig(),  # defaults are fine
