@@ -155,20 +155,41 @@ def get_data_forall_n(configs, keys, min_step=None):
 
 
 def get_data_by_name(configs, keys, min_step=None):
-    data_by_name = defaultdict(lambda: {'ns': [], 'ds': [], 'hs': [], 'ys': []})
+    data_by_name = defaultdict(lambda: {'ns': [], 'ds': [], 'hs': [], 's1s': [], 's2s': [], 'ys': []})
     for name, config in configs.items():
         n = config.n
         with open(config.path) as file_ref:
             reader = csv.DictReader(file_ref)
+            lam = 0.999
+            s1 = 0
+            s2 = 0
+            s2_momentum = 0
+            last_lr = 0
+            last_d = 0
             for row in reader:
                 d = int(float(row['throughput/total_tokens']))
-                h = float(row["optim/learning_rate_group0"]) / float(row["learning_rate_peak"])
+                if d == last_d:
+                    continue
+                batch_size = int(row['batch_size_in_tokens'])
+                steps = (d - last_d) / batch_size
+                lr = float(row["optim/learning_rate_group0"])
+                if min_step is not None and d < min_step * batch_size:
+                    lr = float(row["learning_rate_peak"])
+                    last_lr = lr
+                h = lr / float(row["learning_rate_peak"])
+                s1 += lr * steps
+                s2_momentum = lam**steps * s2_momentum + (last_lr - lr) * steps
+                s2 += s2_momentum
+                last_lr = lr
+                last_d = d
                 y = np.mean([float(row[key]) for key in keys])
-                if min_step is not None and d < min_step * int(row['batch_size_in_tokens']):
+                if min_step is not None and d < min_step * batch_size:
                     continue
                 data_by_name[name]['ns'].append(n)
                 data_by_name[name]['ds'].append(d)
                 data_by_name[name]['hs'].append(h)
+                data_by_name[name]['s1s'].append(s1)
+                data_by_name[name]['s2s'].append(s2)
                 data_by_name[name]['ys'].append(y)
     return data_by_name
 
@@ -263,6 +284,20 @@ def grad_chinchilla_n_d_lr_power_fit(x, p):
     grad_E = 1
     grad_F = x[2] * x[0]**p[6]
     grad_r = p[5] * x[2] * x[0]**p[6] * np.log(x[0])
+    return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r]
+
+
+def tissue_fit(x, p):
+    # return e**a / x[0]**alpha + e**b / x[1]**beta + E - F * x[2] * x[0]**r
+    return np.exp(p[0]) / x[0]**p[2] + np.exp(p[1]) / x[1]**p[3] + p[4] - p[5] * x[2] * x[0]**p[6]
+def grad_tissue_fit(x, p):
+    grad_a = np.exp(p[0]) / x[0]**p[2]
+    grad_b = np.exp(p[1]) / x[1]**p[3]
+    grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0]**p[2]
+    grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1]**p[3]
+    grad_E = 1
+    grad_F = - x[2] * x[0]**p[6]
+    grad_r = - p[5] * x[2] * x[0]**p[6] * np.log(x[0])
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r]
 
 
