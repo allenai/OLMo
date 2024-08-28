@@ -91,6 +91,7 @@ MODEL_CONFIGS = {
 
 
 _number_unit_re = re.compile(r"^([0-9]+)([a-zA-Z]+)$")
+_run_name_re = re.compile(r"^([^-]+)-([^-]+)-([^-]+)$")
 
 
 def parse_size(size: str) -> int:
@@ -123,6 +124,12 @@ def parse_length(length: str, model_size: int) -> int:
     else:
         raise ValueError(f"Could not parse length '{args.length}'")
     return length_in_tokens
+
+def parse_run_name(name: str):
+    name, size, length = _run_name_re.match(name).groups()
+    size = parse_size(size)
+    length = parse_length(length, size)
+    return name, size, length
 
 
 def get_batch_size(model_config, model_size):
