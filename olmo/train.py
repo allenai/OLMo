@@ -914,7 +914,7 @@ class Trainer:
             is_outlier = self.grad_norm_outlier_detector.is_outlier(total_grad_norm)
 
             should_step = should_step and not is_outlier
-            metrics["train/outlier_total_grad_norm"] = float(is_outlier is True)
+            metrics["optim/outlier_total_grad_norm"] = float(is_outlier is True)
 
         # Optimizer step.
         if should_step:
