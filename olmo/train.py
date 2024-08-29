@@ -919,8 +919,7 @@ class Trainer:
         # Optimizer step.
         if should_step:
             self.optim.step()
-        else:
-            log.info("Skipping optimizer step for global step %d", self.global_step)
+        metrics["optim/skip_step"] = not should_step
 
         # Collect metrics and check for NaN loss.
         # NOTE: this involves a bunch of host-device syncs so we wait until the last moment to do this.
