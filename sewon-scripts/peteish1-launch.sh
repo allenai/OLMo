@@ -33,6 +33,8 @@ gantry run \
   --env R2_PROFILE=R2 \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
+  --env-secret AWS_CONFIG=SEWONM_AWS_CONFIG \
+  --env-secret AWS_CREDENTIALS=SEWONM_AWS_CREDENTIALS \
   --env-secret WANDB_API_KEY=SEWONM_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
