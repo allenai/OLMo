@@ -206,6 +206,10 @@ Note: passing CLI overrides like `--reset_trainer_state` is only necessary if yo
 
 Additional tools for evaluating OLMo models are available at the [OLMo Eval](https://github.com/allenai/ai2-olmo-eval) repo.
 
+## Debugging
+
+See [Debugging](https://github.com/allenai/OLMo/blob/main/docs/NOTES.md#debugging).
+
 ## Citing
 
 ```bibtex
