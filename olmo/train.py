@@ -906,14 +906,14 @@ class Trainer:
             self.ce_loss_outlier_detector.add_data_point(ce_batch_loss.item())
             is_outlier = self.ce_loss_outlier_detector.is_outlier(ce_batch_loss.item())
 
-            should_step = should_step and is_outlier
+            should_step = should_step and not is_outlier
             metrics["train/outlier_ce_loss"] = float(is_outlier is True)
         if self.grad_norm_outlier_detector is not None and "total_grad_norm" in optim_metrics:
             total_grad_norm = optim_metrics["total_grad_norm"].item()
             self.grad_norm_outlier_detector.add_data_point(total_grad_norm)
             is_outlier = self.grad_norm_outlier_detector.is_outlier(total_grad_norm)
 
-            should_step = should_step and is_outlier
+            should_step = should_step and not is_outlier
             metrics["train/outlier_total_grad_norm"] = float(is_outlier is True)
 
         # Optimizer step.
