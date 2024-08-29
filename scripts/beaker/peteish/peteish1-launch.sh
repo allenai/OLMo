@@ -2,13 +2,13 @@
 
 set -ex
 
-NUM_NODES=16
+NUM_NODES=1
 
 gantry run \
-  --workspace ai2/OLMo-pretraining-stability \
-  --task-name peteish1 \
-  --description "Pete-ish 1B" \
-  --priority urgent \
+  --workspace ai2/shanea \
+  --task-name z-score-clipping \
+  --description "Skip optimizer steps based on outlier loss/grad norm" \
+  --priority normal \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
@@ -29,11 +29,10 @@ gantry run \
   --env R2_PROFILE=R2 \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
-  --env-secret AWS_CONFIG=PETEW_AWS_CONFIG \
-  --env-secret AWS_CREDENTIALS=PETEW_AWS_CREDENTIALS \
+  --env-secret AWS_CONFIG=AWS_CONFIG \
+  --env-secret AWS_CREDENTIALS=AWS_CREDENTIALS \
   --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
-  --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
-  --env-secret WANDB_API_KEY=PETEW_WANDB_API_KEY \
+  --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \

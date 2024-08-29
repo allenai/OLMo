@@ -52,6 +52,9 @@ torchrun \
     configs/peteish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=null \
+      --load_path=/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1/step0 \
+      '--ce_loss_outlier_detector_cfg={}' \
+      '--grad_norm_outlier_detector_cfg={}' \
       --save_overwrite
 
      # '--load_path=${path.last_checkpoint:${save_folder}}' \
