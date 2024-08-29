@@ -124,5 +124,19 @@
         "n": 1176832000,
         "label": "1b-5xC",
         "color": "teal"
+    },
+    "1b-full": {
+        "path": "wandb/amberish1.csv",
+        "mode": "eval",
+        "n": 1176832000,
+        "label": "1b-full",
+        "color": "teal"
+    },
+    "7b-full": {
+        "path": "wandb/amberish7.csv",
+        "mode": "eval",
+        "n": 6682316800,
+        "label": "7b-full",
+        "color": "darkviolet"
     }
 }

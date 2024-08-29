@@ -195,6 +195,18 @@ def get_data_by_name(configs, keys, min_step=None):
     return data_by_name
 
 
+def get_ax(name):
+    if '1xC' in name:
+        return 0
+    if '2xC' in name:
+        return 1
+    if '5xC' in name:
+        return 2
+    if '10xC' in name:
+        return 3
+    return 4
+
+
 # Power Law functions
 
 
@@ -303,7 +315,7 @@ def grad_chinchilla_n_d_lr_power_fit(x, p):
 
 def tissue_fit(x, p):
     # return e**a / x[0]**alpha + e**b / x[1]**beta + E - F * x[2] * x[0]**r
-    return np.exp(p[0]) / x[0]**p[2] + np.exp(p[1]) / x[1]**p[3] + p[4] - p[5] * x[2] * x[0]**p[6]
+    return max(1e-8, np.exp(p[0]) / x[0]**p[2] + np.exp(p[1]) / x[1]**p[3] + p[4] - p[5] * x[2] * x[0]**p[6])
 def grad_tissue_fit(x, p):
     grad_a = np.exp(p[0]) / x[0]**p[2]
     grad_b = np.exp(p[1]) / x[1]**p[3]

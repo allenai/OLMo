@@ -186,7 +186,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     default_device_batch_size = {
         "150M": 16,
         "300M": 8,
-        "530M": 8,
+        "530M": 4,
         "750M": 4,
         "1B": 2,
         "3B": 2,
