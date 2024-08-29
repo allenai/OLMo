@@ -64,7 +64,7 @@ scheduler:
   alpha_f: 0
 
 tokenizer:
-  identifier: tokenizers/allenai_dolma2.json
+  identifier: allenai/dolma2-tokenizer
   truncate_direction: right
 
 save_folder: /weka/oe-training-default/ai2-llm/checkpoints/Spicy-OLMo/${run_name}
