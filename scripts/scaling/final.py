@@ -16,7 +16,7 @@ def main():
         configs = json.load(f)
         configs = {name: ExtrapolateNConfig(**config) for name, config in configs.items()}
 
-    data_by_n = get_data_forall_n(configs, args.keys)
+    data_by_n = get_data_forall_n(configs, args.keys, final_only=args.final_only)
 
     plt.figure()
 
@@ -40,6 +40,25 @@ def main():
     # make predictions
     predicted_data_by_n = {}
     plotted_predicted_data_by_n = {}
+
+    if args.final_only:
+        plot_ds = []
+        predicted_data = []
+        plotted_predicted_data = []
+        for n, data in data_by_n.items():
+            plot_ds.append(data['ds'])
+
+        predicted_data = {
+            'ds': plot_ds,
+            'ys': [chinchilla_n_d_fit([n, d], coefficients) for d in plot_ds],
+        }
+        plot_ds = np.linspace(min(plot_ds), max(plot_ds), 100) 
+        plotted_predicted_data = {
+            'ds': plot_ds,
+            'ys': [chinchilla_n_d_fit([n, d], coefficients) for d in plot_ds],
+        }
+
+
     for n, data in data_by_n.items():
         ds = data['ds']
         predicted_data_by_n[n] = {
@@ -55,20 +74,26 @@ def main():
     # plot the actual data
     for n, data in data_by_n.items():
         config = get_config_by_n(configs, n)
-        plt.scatter(data['ds'], data['ys'], color='white', edgecolors=config.color, label=config.label, s=5.0)
+        if args.final_only:
+            plt.scatter(data['ds'], data['ys'], color='white', edgecolors=config.color, s=5.0)
+        else:
+            plt.scatter(data['ds'], data['ys'], color='white', edgecolors=config.color, label=config.label, s=5.0)
 
         predicted_data = predicted_data_by_n[n]
         for d, y, y_pred in zip(data['ds'], data['ys'], predicted_data['ys']):
             rel_error = (y_pred - y) / y
-            plt.annotate(f'{rel_error * 100:+.1f}%', (d, y), textcoords="offset points", xytext=(0, 5), ha='center', fontsize=6, color=config.color)
+            plt.annotate(f'{config.label}: {rel_error * 100:+.1f}%', (d, y), textcoords="offset points", xytext=(0, 5), ha='center', fontsize=6, color=config.color)
 
     # plot the fitted curve
-    for n, data in plotted_predicted_data_by_n.items():
-        config = get_config_by_n(configs, n)
-        if config.mode == 'train':
-            plt.plot(data['ds'], data['ys'], color=config.color, linestyle='--', linewidth=0.8, label=f'{config.label} (fitted)')
-        else:
-            plt.plot(data['ds'], data['ys'], color=config.color, linestyle='--', linewidth=0.8, label=f'{config.label} (predicted)')
+    if args.final_only:
+        plt.plot(plotted_predicted_data['ds'], plotted_predicted_data['ys'], color="black", linestyle='--', linewidth=0.8)
+    else:
+        for n, data in plotted_predicted_data_by_n.items():
+            config = get_config_by_n(configs, n)
+            if config.mode == 'train':
+                plt.plot(data['ds'], data['ys'], color=config.color, linestyle='--', linewidth=0.8, label=f'{config.label} (fitted)')
+            else:
+                plt.plot(data['ds'], data['ys'], color=config.color, linestyle='--', linewidth=0.8, label=f'{config.label} (predicted)')
     plt.text(
         x=0.25, y=0.50,
         s=f"L(n, d) = {A:.2f} / n^{alpha:.2f} + {B:.2f} / d^{beta:.2f} + {E:.2f}",

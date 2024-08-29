@@ -115,6 +115,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-k", "--key", type=str, default="", help="For avg metrics. Use one of [all-val-lm, all-bpb]")
     parser.add_argument("--keys", nargs='+', type=str, help="For individual metrics")
+    parser.add_argument("-f", "--final-only", action="store_true")
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
     args = parser.parse_args()
@@ -137,7 +138,7 @@ def get_config_by_n(configs, n):
     raise ValueError(f"Could not find config for n={n}")
 
 
-def get_data_forall_n(configs, keys, min_step=None):
+def get_data_forall_n(configs, keys, min_step=None, final_only=False):
     data_by_n = defaultdict(lambda: {'ds': [], 'hs': [], 'ys': []})
     for name, config in configs.items():
         n = config.n
@@ -152,6 +153,10 @@ def get_data_forall_n(configs, keys, min_step=None):
                 data_by_n[n]['ds'].append(d)
                 data_by_n[n]['hs'].append(h)
                 data_by_n[n]['ys'].append(y)
+            if final_only:
+                data_by_n[n]['ds'] = data_by_n[n]['ds'][-1:]
+                data_by_n[n]['hs'] = data_by_n[n]['hs'][-1:]
+                data_by_n[n]['ys'] = data_by_n[n]['ys'][-1:]
     return data_by_n
 
 
