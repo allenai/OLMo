@@ -17,9 +17,10 @@ printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 checkpoint=$1
+shift
 
 echo "Unsharding..."
-python scripts/unshard.py "/weka/oe-training-default/${checkpoint}" \
+python scripts/unshard.py "$@" "/weka/oe-training-default/${checkpoint}" \
     "/weka/oe-training-default/${checkpoint}-unsharded"
 
 echo "Uploading to S3..."
