@@ -413,13 +413,40 @@ def size_cmd(args: argparse.Namespace):
     print(without_embeddings)
 
 
+def flops_for_model(model_config: Union[ModelConfig, str]) -> int:
+    if isinstance(model_config, str):
+        model_config = MODEL_CONFIGS[model_config]
+    assert isinstance(model_config, ModelConfig)
+    model_config = deepcopy(model_config)
+    model_config.init_device = "cpu"
+
+    from olmo import OLMo
+    model = OLMo(model_config, init_params=False)
+    model_flops = model.num_fwd_flops + model.num_bck_flops
+    return model_flops
+
+
+# MODEL_GFLOPS = {
+#     key: flops_for_model(val) for key, val in MODEL_CONFIGS.items()
+# }
+
+MODEL_GFLOPS = {
+    "150M": 1518912000,
+    "300M": 2931234816,
+    "530M": 4507848576,
+    "750M": 5604811776,
+    "1B": 9083695104,
+    "3B": 21304118784,
+    "7B": 47360532480
+}
+
+
 def flops_cmd(args: argparse.Namespace):
     cfg = config_from_args(args)
 
-    from olmo import OLMo
-    model = OLMo(cfg.model, init_params=False)
+    flops = flops_for_model(cfg.model)
     length_in_tokens = parse_length(args.length, parse_size(args.model))
-    print("Expected model flops: ", round((model.num_fwd_flops + model.num_bck_flops) * length_in_tokens / 1e18, 3), "x 10^9 GFlops")
+    print("Expected model flops: ", round(flops * length_in_tokens/ 1e18, 3), "x 10^9 GFlops")
 
 
 def dump_cmd(args: argparse.Namespace):

@@ -202,6 +202,7 @@ def openai_fit(x, a, b, c):
     return (a / x + c) ** b
 
 
+
 def chinchilla_fit(x, a, b, c):
     return a * x**b + c
 
@@ -218,6 +219,18 @@ def get_coefficients(train_xs, train_ys, fitting_func, p0):
     coeffs_string = ", ".join([chr(ord("a") + i) + f" = {coeffs[i]:.2f}" for i in range(len(coeffs))])
     print(f"{fitting_func.__name__}: {coeffs_string}")
     return coeffs
+
+
+# x = flops
+# p[0] = A, p[1] = B, p[2] = E
+def chinchilla_flops_fit(x, p):
+    # return ax**b + E
+    return p[0] * x**p[1] + p[2]
+def grad_chinchilla_flops_fit(x, p):
+    grad_A = x**p[1]
+    grad_B = p[0] * x**p[1] * np.log(x)
+    grad_E = 1
+    return [grad_A, grad_B, grad_E]
 
 
 # x[0] = d, x[1] = h
@@ -303,7 +316,7 @@ def grad_tissue_fit(x, p):
 
 
 # Scipy minimize w/ Huber loss
-def get_coefficients_huber(train_xs, train_ys, fitting_func, grad_func, p0, bounds):
+def get_coefficients_huber(train_xs, train_ys, fitting_func, grad_func, p0, bounds, disp: bool = True, max_iter: int = 10000):
 
     def huber_loss(x, delta):
         if np.abs(x) < delta:
@@ -331,7 +344,7 @@ def get_coefficients_huber(train_xs, train_ys, fitting_func, grad_func, p0, boun
 
     assert len(train_xs) == len(train_ys)
     delta = 1e-3
-    res = scipy.optimize.minimize(loss_fn, p0, args=(train_xs, train_ys, delta), jac=jac_fn, bounds=bounds, tol=0.0, method='L-BFGS-B', options={'ftol': 0.0, 'gtol': 1e-10, 'maxiter': 10000, 'disp': True})
+    res = scipy.optimize.minimize(loss_fn, p0, args=(train_xs, train_ys, delta), jac=jac_fn, bounds=bounds, tol=0.0, method='L-BFGS-B', options={'ftol': 0.0, 'gtol': 1e-10, 'maxiter': max_iter, 'disp': disp})
     # res = scipy.optimize.minimize(loss_fn, p0, args=(train_xs, train_ys, delta), jac=jac_fn, tol=0.0, method='BFGS', options={'gtol': 1e-10, 'maxiter': 10000, 'disp': True})
     # print(res.message)
     coeffs = res.x

@@ -80,14 +80,14 @@ def main(args):
     if dirname:
         os.makedirs(dirname, exist_ok=True)
     with open(args.output_path, "w") as file_ref:
-        writer = csv.DictWriter(file_ref, fieldnames=[args.x_axis] + args.y_axis + ['optim/learning_rate_group0', 'learning_rate_peak', "batch_size_in_tokens"])
+        writer = csv.DictWriter(file_ref, fieldnames=[args.x_axis] + ["throughput/total_training_Gflops"] + args.y_axis + ['optim/learning_rate_group0', 'learning_rate_peak', "batch_size_in_tokens"])
         writer.writeheader()
 
         rows = []
         for wb_run in tqdm(wb_runs):
             print(f"Processing {wb_run.name}")
             history = wb_run.scan_history(
-                keys=[args.x_axis] + args.y_axis + ['optim/learning_rate_group0'], page_size=10000
+                keys=[args.x_axis] + ["throughput/total_training_Gflops"] + args.y_axis + ['optim/learning_rate_group0'], page_size=10000
             )  # page_size cannot be too big, it will make it faster but it will start to downsample
 
             config = json.loads(wb_run.json_config)
