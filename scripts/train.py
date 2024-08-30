@@ -240,7 +240,7 @@ def main(cfg: TrainConfig) -> None:
         evaluators=evaluators,
         indices_file=indices_file,
     ) as trainer:
-        if cfg.try_load_latest_save and cfg.load_path is None:
+        if cfg.try_load_latest_save:
             if (
                 cfg.save_folder is not None
                 and (checkpoint_dir := find_latest_checkpoint(cfg.save_folder)) is not None
