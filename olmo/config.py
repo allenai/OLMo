@@ -1027,6 +1027,14 @@ class TrainConfig(BaseConfig):
     The sharded checkpointer type to use to load the initial checkpoint from ``load_path``.
     """
 
+    try_load_latest_save: bool = False
+    """
+    If set and `load_path` is not set, then training will be resumed from the latest checkpoint
+    in the local save folder, falling back to the latest checkpoint in the remote save folder if none
+    exists. If there are no checkpoints in the local and remote save folders, then the model will be
+    initialized from scratch.
+    """
+
     reset_optimizer_state: bool = False
     """
     When this is set, we restore the model from a checkpoint (if given), but we leave the optimizer uninitialized.
