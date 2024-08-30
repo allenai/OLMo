@@ -1,4 +1,4 @@
-run_name: peteish1-B34v0x5
+run_name: peteish1-corr-B34v0x5
 seed: 6198
 dry_run: false
 
@@ -61,8 +61,8 @@ optimizer:
 scheduler:
   name: cosine_with_warmup
   units: tokens
-  t_warmup: 8388608000
-  t_max: 3e12
+  t_warmup: 5e9
+  t_max: 130e9
   alpha_f: 0.1
   warmup_min_lr: 0.0
 
@@ -109,21 +109,21 @@ eval_interval: 1000
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
-  # - label: all-small-ppl-validation
-  #   data:
-  #     num_workers: 0
-  #     drop_last: true
-  #     # generate_doc_lengths: true
-  #     memmap_dtype: uint32
-  #     datasets:
-  #       c4_en-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
-  #       dolma_books-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
+  - label: all-small-ppl-validation
+    data:
+      num_workers: 0
+      drop_last: true
+      # generate_doc_lengths: true
+      memmap_dtype: uint32
+      datasets:
+        c4_en-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
+        dolma_books-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
   #       dolma_common-crawl-validation:
   #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
-  #       dolma_pes2o-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
+        dolma_pes2o-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
   #       dolma_reddit-validation:
   #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
   #       dolma_stack-validation:
@@ -134,8 +134,8 @@ evaluators:
   #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
   #       m2d2_s2orc-validation:
   #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
-  #       pile-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
+        pile-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
   #       wikitext_103-validation:
   #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
 
