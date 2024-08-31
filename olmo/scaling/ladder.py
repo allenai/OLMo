@@ -208,7 +208,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         "7B": 1000,
     }.get(args.model, 500)
 
-    eval_interval = 100
+    eval_interval = 200
 
     distributed_strategy = {
         "3B": DistributedStrategy.fsdp,
