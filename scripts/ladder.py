@@ -203,10 +203,11 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     #else:
     #    lr = 0.0047 * ((model_size + 2048 * model_config.n_layers * model_config.d_model) / 108000000) ** (-1 / 3)
 
-    save_interval = {
-        "1B": 500,
-        "7B": 1000,
-    }.get(args.model, 500)
+    # save_interval = {
+    #     "1B": 500,
+    #     "7B": 1000,
+    # }.get(args.model, 500)
+    save_interval = 200
 
     eval_interval = 200
 
