@@ -35,7 +35,6 @@ gantry run \
   --shared-memory 10GiB \
   --venv base \
   --yes \
-  --timeout=-1 \
   -- /bin/bash -c "${COMMAND}"
 
   # --cluster ai2/pluto-cirrascale \
