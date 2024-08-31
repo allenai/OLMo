@@ -525,7 +525,7 @@ def train_cmd(args: argparse.Namespace):
     prepare_cli_environment()
     add_cached_path_clients()
 
-    from olmo.train import main
+    from train import main
 
     main(cfg)
 

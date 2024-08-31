@@ -25,4 +25,4 @@ torchrun \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
-  olmo/scaling/ladder.py train "$@"
+  scripts/ladder.py train "$@"
