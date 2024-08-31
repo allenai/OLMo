@@ -480,7 +480,7 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers(required=True)
 
     no_train_defaults = dict(
-        data="dolma17",
+        data="dolma17_flan_sep_rulebased",
         length="1xC",
         name="nodecounts",
         s3=False,
