@@ -238,7 +238,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         ),
         scheduler=SchedulerConfig(
             name=SchedulerType.cosine_with_warmup,
-            alpha_f=0.1,
+            alpha_f=args.alpha_f,
             warmup_min_lr=0.0,
             t_warmup=round(model_size / (global_batch_size * model_config.max_sequence_length)),
         ),
@@ -610,6 +610,7 @@ if __name__ == "__main__":
         subparser.add_argument("--save_overwrite", action="store_true")
         subparser.add_argument("--load_path", type=str)
         subparser.add_argument("--eval_on_load", action="store_true")
+        subparser.add_argument("--alpha_f", type=float, default=0.1)
 
     args = parser.parse_args()
     args.func(args)
