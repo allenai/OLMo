@@ -155,6 +155,27 @@ if __name__ == "__main__":
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-750M-10xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-750M-10xC_val-all.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-1B-10xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-1B-10xC_val-all.csv
 
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-150M-1xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/150M-1xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-300M-1xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/300M-1xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-530M-1xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/530M-1xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-750M-1xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/750M-1xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-1B-1xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/1B-1xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-150M-2xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/150M-2xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-300M-2xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/300M-2xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-530M-2xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/530M-2xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-750M-2xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/750M-2xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-1B-2xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/1B-2xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-150M-5xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/150M-5xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-300M-5xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/300M-5xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-530M-5xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/530M-5xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-750M-5xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/750M-5xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-1B-5xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/1B-5xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-150M-10xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/150M-10xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-300M-10xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/300M-10xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-530M-10xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/530M-10xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-750M-10xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/750M-10xC_val-all.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-5shot-1B-10xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-5shot/1B-10xC_val-all.csv
+
     args = parse_args()
     print(args)
     main(args)

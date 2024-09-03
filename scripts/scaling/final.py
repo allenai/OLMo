@@ -52,7 +52,7 @@ def main():
             'ds': plot_ds,
             'ys': [chinchilla_n_d_fit([n, d], coefficients) for d in plot_ds],
         }
-        plot_ds = np.linspace(min(plot_ds), max(plot_ds), 100) 
+        plot_ds = np.linspace(min(plot_ds), max(plot_ds), 100)
         plotted_predicted_data = {
             'ds': plot_ds,
             'ys': [chinchilla_n_d_fit([n, d], coefficients) for d in plot_ds],
@@ -82,7 +82,7 @@ def main():
         predicted_data = predicted_data_by_n[n]
         for d, y, y_pred in zip(data['ds'], data['ys'], predicted_data['ys']):
             rel_error = (y_pred - y) / y
-            plt.annotate(f'{config.label}: {rel_error * 100:+.1f}%', (d, y), textcoords="offset points", xytext=(0, 5), ha='center', fontsize=6, color=config.color)
+            plt.annotate(f'{rel_error * 100:+.1f}%', (d, y), textcoords="offset points", xytext=(0, 5), ha='center', fontsize=6, color=config.color)
 
     # plot the fitted curve
     if args.final_only:
