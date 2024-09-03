@@ -3523,7 +3523,8 @@ def build_collection_include(corpora: List[str], sample_factor=1):
         else:
             raise ValueError(f"Unknown corpus: {corpus}")
         
-        if sample_factor > 1:
+        assert sample_factor >= 0 and sample_factor <= 1
+        if sample_factor < 1:
             random.seed(62540)
             random.shuffle(paths)
             sample_idx = math.ceil(len(paths) * sample_factor)
