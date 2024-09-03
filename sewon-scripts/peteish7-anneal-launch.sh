@@ -4,9 +4,10 @@ set -ex
 
 # CONFIG_NAME="peteish7-anneal"
 # CONFIG_NAME="peteish7-anneal-B34v0x10"
+# CINFIG_NAME="peteish7-anneal-B34v0.1x50"
 
 CONFIG_NAME=$1
-NUM_NODES=4
+NUM_NODES=8
 
 gantry run \
   --workspace ai2/ds-olmo \
