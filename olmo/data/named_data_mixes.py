@@ -3508,8 +3508,10 @@ EXTRA_DATA_SOURCES = {
 
 DATA_PATHS = {}
 
+import random
+import math
 
-def build_collection_include(corpora: List[str]):
+def build_collection_include(corpora: List[str], sample_factor=1):
     collection = []
     for corpus in corpora:
         if corpus in DATA_SOURCES.keys():
@@ -3520,6 +3522,13 @@ def build_collection_include(corpora: List[str]):
             paths = EXTRA_DATA_SOURCES[corpus]
         else:
             raise ValueError(f"Unknown corpus: {corpus}")
+        
+        if sample_factor > 1:
+            random.seed(62540)
+            random.shuffle(paths)
+            sample_idx = math.ceil(len(paths) * sample_factor)
+            paths = paths[:sample_idx]
+
         collection.extend(paths)
     return collection
 
@@ -3554,3 +3563,15 @@ DATA_PATHS["openwebmath_10x"] = build_collection_include(['gutenberg_books', 'pe
 # all the dolma 1.6 ++ data
 DATA_PATHS['dolma-v1-6-and-sources-baseline'] = build_collection_include_all(DOLMA_1_6_TO_1_7_DATA_SOURCES)
 DATA_PATHS['DCLM-baseline'] = build_collection_include(['DCLM-baseline'])
+
+DATA_PATHS['DCLM-baseline-75p'] = build_collection_include(['DCLM-baseline'], sample_factor=0.75)
+DATA_PATHS['DCLM-baseline-50p'] = build_collection_include(['DCLM-baseline'], sample_factor=0.5)
+DATA_PATHS['DCLM-baseline-25p'] = build_collection_include(['DCLM-baseline'], sample_factor=0.25)
+
+DATA_PATHS['dolma17-75p'] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'], sample_factor=0.75)
+DATA_PATHS['dolma17-50p'] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'], sample_factor=0.5)
+DATA_PATHS['dolma17-25p'] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'], sample_factor=0.25)
+
+DATA_PATHS['dolma17-75p-DCLM-baseline-25p'] = DATA_PATHS['dolma17-75p'] + DATA_PATHS['DCLM-baseline-25p']
+DATA_PATHS['dolma17-50p-DCLM-baseline-50p'] = DATA_PATHS['dolma17-50p'] + DATA_PATHS['DCLM-baseline-50p']
+DATA_PATHS['dolma17-25p-DCLM-baseline-75p'] = DATA_PATHS['dolma17-25p'] + DATA_PATHS['DCLM-baseline-75p']
