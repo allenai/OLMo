@@ -6,8 +6,8 @@ NUM_NODES=1
 
 gantry run \
   --workspace ai2/shanea \
-  --task-name fsdp-fp32params \
-  --description "Running training but with params shared at fp32" \
+  --task-name fsdp-fp32all \
+  --description "Running training but with fp32 mixed precision" \
   --priority normal \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
