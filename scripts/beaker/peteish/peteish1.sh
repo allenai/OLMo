@@ -53,6 +53,7 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --try_load_latest_save \
       --save_interval_ephemeral=null \
+      --fsdp.sharding_strategy=HYBRID_SHARD \
       --load_path=/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1/step0 \
       --save_overwrite
 
