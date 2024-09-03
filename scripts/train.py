@@ -41,6 +41,7 @@ from olmo.train import Trainer
 from olmo.util import (
     add_cached_path_clients,
     clean_opt,
+    find_latest_checkpoint,
     log_extra_field,
     prepare_cli_environment,
 )
@@ -239,6 +240,20 @@ def main(cfg: TrainConfig) -> None:
         evaluators=evaluators,
         indices_file=indices_file,
     ) as trainer:
+        if cfg.try_load_latest_save:
+            if (
+                cfg.save_folder is not None
+                and (checkpoint_dir := find_latest_checkpoint(cfg.save_folder)) is not None
+            ):
+                log.info("Setting load path to local checkpoint %s", checkpoint_dir)
+                cfg.load_path = str(checkpoint_dir)
+            elif (
+                cfg.remote_save_folder is not None
+                and (checkpoint_dir := find_latest_checkpoint(cfg.remote_save_folder)) is not None
+            ):
+                log.info("Setting load path to remote checkpoint %s", checkpoint_dir)
+                cfg.load_path = str(checkpoint_dir)
+
         if not cfg.dry_run and not cfg.no_pre_train_checkpoint and cfg.load_path is None:
             if cfg.distributed_strategy == DistributedStrategy.ddp:
                 checkpoint_type = CheckpointType.unsharded
