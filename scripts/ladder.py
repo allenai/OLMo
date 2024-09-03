@@ -125,6 +125,7 @@ def parse_length(length: str, model_size: int) -> int:
         raise ValueError(f"Could not parse length '{args.length}'")
     return length_in_tokens
 
+
 def parse_run_name(name: str):
     name, size, length = _run_name_re.match(name).groups()
     size = parse_size(size)
@@ -137,7 +138,7 @@ def get_batch_size(model_config, model_size):
     # https://www.semanticscholar.org/reader/5585191b1b479346ecf173be3b35c8313b77d457
     # holds only for a sequence length of 2048 (but could probably be easily adapted)
     # assert model_config.max_sequence_length == 2048
-    #if model_config.max_sequence_length == 2048:
+    # if model_config.max_sequence_length == 2048:
     global_batch_size = 160 * (model_size / 108000000) ** (2 / 3)
     # elif model_config.max_sequence_length == 4096:
     #     # TODO: confirm back-of-the-napkin calculation
@@ -180,7 +181,6 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     else:
         global_batch_size = args.batch_size  # 128, 256, 512, 1024
 
-
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
     default_device_batch_size = {
@@ -198,9 +198,9 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     assert global_batch_size % device_batch_size == 0
 
     # calculate the learning rate according to the same paper
-    #if model_config.max_sequence_length == 2048:
+    # if model_config.max_sequence_length == 2048:
     lr = 0.0047 * (model_size / 108000000) ** (-1 / 3)
-    #else:
+    # else:
     #    lr = 0.0047 * ((model_size + 2048 * model_config.n_layers * model_config.d_model) / 108000000) ** (-1 / 3)
 
     # save_interval = {
@@ -211,10 +211,9 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
 
     eval_interval = 200
 
-    distributed_strategy = {
-        "3B": DistributedStrategy.fsdp,
-        "7B": DistributedStrategy.fsdp
-    }.get(args.model, DistributedStrategy.ddp)
+    distributed_strategy = {"3B": DistributedStrategy.fsdp, "7B": DistributedStrategy.fsdp}.get(
+        args.model, DistributedStrategy.ddp
+    )
 
     return TrainConfig(
         run_name=run_name,
@@ -333,7 +332,6 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             EvaluatorConfig(label="trivia_qa_wiki_ppl", type=EvaluatorType.downstream),
             EvaluatorConfig(label="natural_qs_open_ppl", type=EvaluatorType.downstream),
             EvaluatorConfig(label="arc_easy_ppl", type=EvaluatorType.downstream),
-
             EvaluatorConfig(label="piqa_rc_0shot", type=EvaluatorType.downstream),
             EvaluatorConfig(label="piqa_rc_0shot_bpb", type=EvaluatorType.downstream),
             EvaluatorConfig(label="piqa_rc_5shot", type=EvaluatorType.downstream),
@@ -477,6 +475,7 @@ def flops_for_model(model_config: Union[ModelConfig, str]) -> int:
     model_config.init_device = "cpu"
 
     from olmo import OLMo
+
     model = OLMo(model_config, init_params=False)
     model_flops = model.num_fwd_flops + model.num_bck_flops
     return model_flops
@@ -493,7 +492,7 @@ MODEL_GFLOPS = {
     "750M": 5604811776,
     "1B": 9083695104,
     "3B": 21304118784,
-    "7B": 47360532480
+    "7B": 47360532480,
 }
 
 
@@ -502,13 +501,13 @@ MODEL_GFLOPS = {
 # }
 
 MODEL_PARAMS = {
-    '150M': 151898880,
-    '300M': 319980544,
-    '530M': 530074944,
-    '750M': 681297408,
-    '1B': 1176832000,
-    '3B': 3002871040,
-    '7B': 6682316800
+    "150M": 151898880,
+    "300M": 319980544,
+    "530M": 530074944,
+    "750M": 681297408,
+    "1B": 1176832000,
+    "3B": 3002871040,
+    "7B": 6682316800,
 }
 
 
@@ -517,7 +516,7 @@ def flops_cmd(args: argparse.Namespace):
 
     flops = flops_for_model(cfg.model)
     length_in_tokens = parse_length(args.length, parse_size(args.model))
-    print("Expected model flops: ", round(flops * length_in_tokens/ 1e18, 3), "x 10^9 GFlops")
+    print("Expected model flops: ", round(flops * length_in_tokens / 1e18, 3), "x 10^9 GFlops")
 
 
 def dump_cmd(args: argparse.Namespace):

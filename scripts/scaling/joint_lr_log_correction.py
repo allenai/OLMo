@@ -1,12 +1,16 @@
 import json
+
 import matplotlib.pyplot as plt
 import numpy as np
+
 from olmo.scaling.scaling_laws.utils import (
-    parse_args,
-    ExtrapolateNConfig, get_data_by_name,
+    ExtrapolateNConfig,
+    chinchilla_n_d_lr_log_fit,
     get_ax,
-    chinchilla_n_d_lr_log_fit, grad_chinchilla_n_d_lr_log_fit,
     get_coefficients_huber,
+    get_data_by_name,
+    grad_chinchilla_n_d_lr_log_fit,
+    parse_args,
 )
 
 
@@ -25,16 +29,27 @@ def main():
     train_ndhs, train_ys = [], []
     for name, data in data_by_name.items():
         config = configs[name]
-        if config.mode == 'train':
-            train_ndhs += [[n, d, h] for n, d, h in zip(data['ns'], data['ds'], data['hs'])]
-            train_ys += data['ys']
+        if config.mode == "train":
+            train_ndhs += [[n, d, h] for n, d, h in zip(data["ns"], data["ds"], data["hs"])]
+            train_ys += data["ys"]
 
     # fit the parameters
     coefficients = get_coefficients_huber(
-        train_ndhs, train_ys,
-        chinchilla_n_d_lr_log_fit, grad_chinchilla_n_d_lr_log_fit,
+        train_ndhs,
+        train_ys,
+        chinchilla_n_d_lr_log_fit,
+        grad_chinchilla_n_d_lr_log_fit,
         p0=[4.0, 15.0, 0.25, 0.7, 1.5, 0.05, 15.0, 4.0],
-        bounds=[(None, None), (None, None), (0, None), (0, None), (0, None), (0, None), (None, None), (None, None)],
+        bounds=[
+            (None, None),
+            (None, None),
+            (0, None),
+            (0, None),
+            (0, None),
+            (0, None),
+            (None, None),
+            (None, None),
+        ],
     )
     a, b, alpha, beta, E, F, r, S = coefficients
     A, B, R = np.exp(a), np.exp(b), np.exp(r)
@@ -44,27 +59,45 @@ def main():
     for name, data in data_by_name.items():
         config = configs[name]
         predicted_data_by_name[name] = {
-            'ns': data['ns'],
-            'ds': data['ds'],
-            'ys': [chinchilla_n_d_lr_log_fit([n, d, h], coefficients) for n, d, h in zip(data['ns'], data['ds'], data['hs'])],
+            "ns": data["ns"],
+            "ds": data["ds"],
+            "ys": [
+                chinchilla_n_d_lr_log_fit([n, d, h], coefficients)
+                for n, d, h in zip(data["ns"], data["ds"], data["hs"])
+            ],
         }
 
     # plot the actual data
     for name, data in data_by_name.items():
         config = configs[name]
         ax = axs[get_ax(name)]
-        ax.scatter(data['ds'], data['ys'], color='white', edgecolors=config.color, label=config.label, s=5.0)
+        ax.scatter(data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=5.0)
 
     # plot the fitted curve
     for name, data in predicted_data_by_name.items():
         config = configs[name]
         ax = axs[get_ax(name)]
-        if config.mode == 'train':
-            ax.plot(data['ds'], data['ys'], color=config.color, linestyle='--', linewidth=0.8, label=f'{config.label} (fitted)')
+        if config.mode == "train":
+            ax.plot(
+                data["ds"],
+                data["ys"],
+                color=config.color,
+                linestyle="--",
+                linewidth=0.8,
+                label=f"{config.label} (fitted)",
+            )
         else:
-            ax.plot(data['ds'], data['ys'], color=config.color, linestyle='--', linewidth=0.8, label=f'{config.label} (predicted)')
+            ax.plot(
+                data["ds"],
+                data["ys"],
+                color=config.color,
+                linestyle="--",
+                linewidth=0.8,
+                label=f"{config.label} (predicted)",
+            )
     plt.text(
-        x=0.40, y=0.90,
+        x=0.40,
+        y=0.90,
         s=f"L(n, d, h) = {A:.2f} / n^{alpha:.2f} + {B:.2f} / d^{beta:.2f} + {E:.2f} + {F:.2f} * h * log(n / {R:.2f} + {S:.2f})",
         fontsize=12,
         transform=fig.transFigure,
@@ -75,7 +108,7 @@ def main():
         ax.set_xlabel("Tokens (d)")
     axs[0].set_ylabel(f"CE loss, {args.key if args.key != '' else args.keys}")
     plt.suptitle(f"Fitting loss curves, with LR logn correction")
-    plt.savefig(args.output_path, dpi=300, bbox_inches='tight')
+    plt.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
 
 if __name__ == "__main__":

@@ -5,10 +5,15 @@ import os.path
 import re
 from typing import List
 
-import wandb
 from tqdm import tqdm
 
-from olmo.scaling.scaling_laws.utils import downstream, v3_validation, validation, downstream_bpb
+import wandb
+from olmo.scaling.scaling_laws.utils import (
+    downstream,
+    downstream_bpb,
+    v3_validation,
+    validation,
+)
 
 run_path_re = re.compile(r"^[^/]+/[^/]+/[^/]+$")
 run_path_url = re.compile(r"^https?://wandb.ai/([^/]+)/([^/]+)/runs/([^/]+)")
@@ -59,12 +64,13 @@ def parse_args():
 
 
 def main(args):
-
     if args.y_axis == ["eval/all-validation/CrossEntropyLoss"]:
         args.y_axis = [f"eval/{d}/CrossEntropyLoss" for d in validation]
 
     if args.y_axis == ["eval/all-validation-and-bpb/CrossEntropyLoss"]:
-        args.y_axis = [f"eval/{d}/CrossEntropyLoss" for d in validation] + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_bpb]
+        args.y_axis = [f"eval/{d}/CrossEntropyLoss" for d in validation] + [
+            f"eval/downstream_bpb/{d}_bpb" for d in downstream_bpb
+        ]
 
     elif args.y_axis == ["eval/all-v3-validation/CrossEntropyLoss"]:
         args.y_axis = [f"eval/{d}/CrossEntropyLoss" for d in v3_validation]
@@ -80,14 +86,24 @@ def main(args):
     if dirname:
         os.makedirs(dirname, exist_ok=True)
     with open(args.output_path, "w") as file_ref:
-        writer = csv.DictWriter(file_ref, fieldnames=[args.x_axis] + ["throughput/total_training_Gflops"] + args.y_axis + ['optim/learning_rate_group0', 'learning_rate_peak', "batch_size_in_tokens"])
+        writer = csv.DictWriter(
+            file_ref,
+            fieldnames=[args.x_axis]
+            + ["throughput/total_training_Gflops"]
+            + args.y_axis
+            + ["optim/learning_rate_group0", "learning_rate_peak", "batch_size_in_tokens"],
+        )
         writer.writeheader()
 
         rows = []
         for wb_run in tqdm(wb_runs):
             print(f"Processing {wb_run.name}")
             history = wb_run.scan_history(
-                keys=[args.x_axis] + ["throughput/total_training_Gflops"] + args.y_axis + ['optim/learning_rate_group0'], page_size=10000
+                keys=[args.x_axis]
+                + ["throughput/total_training_Gflops"]
+                + args.y_axis
+                + ["optim/learning_rate_group0"],
+                page_size=10000,
             )  # page_size cannot be too big, it will make it faster but it will start to downsample
 
             config = json.loads(wb_run.json_config)

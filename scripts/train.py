@@ -10,12 +10,12 @@ from typing import Optional, TextIO
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import ShardingStrategy
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+import wandb
 from olmo.config import (
     CheckpointType,
     DDPGradSyncMode,

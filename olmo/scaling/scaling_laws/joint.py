@@ -2,10 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
-from .utils import (
-    get_config_by_n,
-    get_coefficients_huber,
-)
+from .utils import get_coefficients_huber, get_config_by_n
 
 
 def plot_n_d_scaling(data_by_n, configs, fitting_func, grad_func, p0, bounds, **plot_kwargs):
@@ -13,9 +10,9 @@ def plot_n_d_scaling(data_by_n, configs, fitting_func, grad_func, p0, bounds, **
     train_nds, train_ys = [], []
     for n, data in data_by_n.items():
         config = get_config_by_n(configs, n)
-        if config.mode == 'train':
-            train_nds += [[n, d] for d in data['ds']]
-            train_ys += data['ys']
+        if config.mode == "train":
+            train_nds += [[n, d] for d in data["ds"]]
+            train_ys += data["ys"]
             # DMAX = 104857600000 * 2
             # train_nds += [[n, d] for d in data['ds'] if d <= DMAX]
             # train_ys += [y for d, y in zip(data['ds'], data['ys']) if d <= DMAX]
@@ -23,22 +20,46 @@ def plot_n_d_scaling(data_by_n, configs, fitting_func, grad_func, p0, bounds, **
     predicted_data_by_n = {}
     for n, data in data_by_n.items():
         predicted_data_by_n[n] = {
-            'ds': data['ds'],
-            'ys': [fitting_func([n, d], coefficients) for d in data['ds']],
+            "ds": data["ds"],
+            "ys": [fitting_func([n, d], coefficients) for d in data["ds"]],
         }
 
     # plot the actual data
     for n, data in data_by_n.items():
         config = get_config_by_n(configs, n)
-        plt.scatter(data['ds'], data['ys'], color='white', edgecolors=config.color, label=config.label, s=5.0, **plot_kwargs)
+        plt.scatter(
+            data["ds"],
+            data["ys"],
+            color="white",
+            edgecolors=config.color,
+            label=config.label,
+            s=5.0,
+            **plot_kwargs,
+        )
 
     # plot the fitted curve
     for n, data in predicted_data_by_n.items():
         config = get_config_by_n(configs, n)
-        if config.mode == 'train':
-            plt.plot(data['ds'], data['ys'], color=config.color, linestyle='--', linewidth=0.8, label=f'{config.label} (fitted)', **plot_kwargs)
+        if config.mode == "train":
+            plt.plot(
+                data["ds"],
+                data["ys"],
+                color=config.color,
+                linestyle="--",
+                linewidth=0.8,
+                label=f"{config.label} (fitted)",
+                **plot_kwargs,
+            )
         else:
-            plt.plot(data['ds'], data['ys'], color=config.color, linestyle='--', linewidth=0.8, label=f'{config.label} (predicted)', **plot_kwargs)
+            plt.plot(
+                data["ds"],
+                data["ys"],
+                color=config.color,
+                linestyle="--",
+                linewidth=0.8,
+                label=f"{config.label} (predicted)",
+                **plot_kwargs,
+            )
 
     # # plot the residue
     # for n in data_by_n:

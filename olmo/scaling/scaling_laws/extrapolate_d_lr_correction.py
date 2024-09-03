@@ -37,7 +37,17 @@ def get_data_at_n(config: ExtrapolateDConfig):
 
 
 def plot_d_scaling_at_n(
-    train_ds, train_hs, train_ys, eval_ds, eval_hs, fitting_func, grad_func, final_loss_tokens, p0, predict=False, **plot_kwargs
+    train_ds,
+    train_hs,
+    train_ys,
+    eval_ds,
+    eval_hs,
+    fitting_func,
+    grad_func,
+    final_loss_tokens,
+    p0,
+    predict=False,
+    **plot_kwargs,
 ):
     train_dhs = [[d, h] for d, h in zip(train_ds, train_hs)]
     eval_dhs = [[d, h] for d, h in zip(eval_ds, eval_hs)]

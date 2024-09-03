@@ -1,11 +1,15 @@
 import json
+
 import matplotlib.pyplot as plt
 import numpy as np
+
 from olmo.scaling.scaling_laws.utils import (
-    parse_args,
-    ExtrapolateNConfig, get_data_by_name,
-    chinchilla_n_d_lr_fit, grad_chinchilla_n_d_lr_fit,
+    ExtrapolateNConfig,
+    chinchilla_n_d_lr_fit,
     get_coefficients_huber,
+    get_data_by_name,
+    grad_chinchilla_n_d_lr_fit,
+    parse_args,
 )
 
 
@@ -23,14 +27,16 @@ def main():
     train_ndhs, train_ys = [], []
     for name, data in data_by_name.items():
         config = configs[name]
-        if config.mode == 'train':
-            train_ndhs += [[n, d, h] for n, d, h in zip(data['ns'], data['ds'], data['hs'])]
-            train_ys += data['ys']
+        if config.mode == "train":
+            train_ndhs += [[n, d, h] for n, d, h in zip(data["ns"], data["ds"], data["hs"])]
+            train_ys += data["ys"]
 
     # fit the parameters
     coefficients = get_coefficients_huber(
-        train_ndhs, train_ys,
-        chinchilla_n_d_lr_fit, grad_chinchilla_n_d_lr_fit,
+        train_ndhs,
+        train_ys,
+        chinchilla_n_d_lr_fit,
+        grad_chinchilla_n_d_lr_fit,
         p0=[4.0, 15.0, 0.25, 0.7, 1.5, 0.05],
         bounds=[(None, None), (None, None), (0, None), (0, None), (0, None), (0, None)],
     )
@@ -42,25 +48,43 @@ def main():
     for name, data in data_by_name.items():
         config = configs[name]
         predicted_data_by_name[name] = {
-            'ns': data['ns'],
-            'ds': data['ds'],
-            'ys': [chinchilla_n_d_lr_fit([n, d, h], coefficients) for n, d, h in zip(data['ns'], data['ds'], data['hs'])],
+            "ns": data["ns"],
+            "ds": data["ds"],
+            "ys": [
+                chinchilla_n_d_lr_fit([n, d, h], coefficients)
+                for n, d, h in zip(data["ns"], data["ds"], data["hs"])
+            ],
         }
 
     # plot the actual data
     for name, data in data_by_name.items():
         config = configs[name]
-        plt.scatter(data['ds'], data['ys'], color='white', edgecolors=config.color, label=config.label, s=5.0)
+        plt.scatter(data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=5.0)
 
     # plot the fitted curve
     for name, data in predicted_data_by_name.items():
         config = configs[name]
-        if config.mode == 'train':
-            plt.plot(data['ds'], data['ys'], color=config.color, linestyle='--', linewidth=0.8, label=f'{config.label} (fitted)')
+        if config.mode == "train":
+            plt.plot(
+                data["ds"],
+                data["ys"],
+                color=config.color,
+                linestyle="--",
+                linewidth=0.8,
+                label=f"{config.label} (fitted)",
+            )
         else:
-            plt.plot(data['ds'], data['ys'], color=config.color, linestyle='--', linewidth=0.8, label=f'{config.label} (predicted)')
+            plt.plot(
+                data["ds"],
+                data["ys"],
+                color=config.color,
+                linestyle="--",
+                linewidth=0.8,
+                label=f"{config.label} (predicted)",
+            )
     plt.text(
-        x=0.20, y=0.45,
+        x=0.20,
+        y=0.45,
         s=f"L(n, d, h) = {A:.2f} / n^{alpha:.2f} + {B:.2f} / d^{beta:.2f} + {E:.2f} + {F:.2f} * h",
         fontsize=8,
         transform=plt.gca().transAxes,

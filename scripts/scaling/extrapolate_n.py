@@ -12,32 +12,32 @@ from olmo.scaling.scaling_laws.extrapolate_n import (
 )
 from olmo.scaling.scaling_laws.utils import chinchilla_fit, validation
 
-VAL_KEYS = [f'eval/{val}/CrossEntropyLoss' for val in validation]
+VAL_KEYS = [f"eval/{val}/CrossEntropyLoss" for val in validation]
 
 CONFIGS = {
-    '20m': {
-        'path': 'wandb/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
-        'keys': VAL_KEYS,
-        'mode': 'train',
-        'n': 21266432,
-        'label': '20m',
-        'color': 'darkred',
+    "20m": {
+        "path": "wandb/tiny-olmo-20M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv",
+        "keys": VAL_KEYS,
+        "mode": "train",
+        "n": 21266432,
+        "label": "20m",
+        "color": "darkred",
     },
-    '60m': {
-        'path': 'wandb/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
-        'keys': VAL_KEYS,
-        'mode': 'train',
-        'n': 59310080,
-        'label': '60m',
-        'color': 'darkorange',
+    "60m": {
+        "path": "wandb/tiny-olmo-60M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv",
+        "keys": VAL_KEYS,
+        "mode": "train",
+        "n": 59310080,
+        "label": "60m",
+        "color": "darkorange",
     },
-    '150m': {
-        'path': 'wandb/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
-        'keys': VAL_KEYS,
-        'mode': 'train',
-        'n': 151879680,
-        'label': '150m',
-        'color': 'gold',
+    "150m": {
+        "path": "wandb/tiny-olmo-150M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv",
+        "keys": VAL_KEYS,
+        "mode": "train",
+        "n": 151879680,
+        "label": "150m",
+        "color": "gold",
     },
     # '300m': {
     #     'path': 'wandb/tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd_val-all.csv',
@@ -47,29 +47,29 @@ CONFIGS = {
     #     'label': '300m',
     #     'color': 'darkgreen',
     # },
-    '700m': {
-        'path': 'wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd_val-all.csv',
-        'keys': VAL_KEYS,
-        'mode': 'train',
-        'n': 681297408,
-        'label': '700m',
-        'color': 'teal',
+    "700m": {
+        "path": "wandb/tiny-olmo-700M-rms-norm-adam-eps-1e-8-emb-wd_val-all.csv",
+        "keys": VAL_KEYS,
+        "mode": "train",
+        "n": 681297408,
+        "label": "700m",
+        "color": "teal",
     },
-    '1b': {
-        'path': 'wandb/amberish1.csv',
-        'keys': VAL_KEYS,
-        'mode': 'eval',
-        'n': 1176832000,
-        'label': '7b',
-        'color': 'darkblue',
+    "1b": {
+        "path": "wandb/amberish1.csv",
+        "keys": VAL_KEYS,
+        "mode": "eval",
+        "n": 1176832000,
+        "label": "7b",
+        "color": "darkblue",
     },
-    '7b': {
-        'path': 'wandb/amberish7.csv',
-        'keys': VAL_KEYS,
-        'mode': 'eval',
-        'n': 6682316800,
-        'label': '7b',
-        'color': 'darkviolet',
+    "7b": {
+        "path": "wandb/amberish7.csv",
+        "keys": VAL_KEYS,
+        "mode": "eval",
+        "n": 6682316800,
+        "label": "7b",
+        "color": "darkviolet",
     },
 }
 # CONFIGS = {
@@ -109,7 +109,9 @@ CONFIGS = {
 
 
 def fit_curves(
-    configs: Dict[str, ExtrapolateNConfig], output_path: PathOrStr, d: int,
+    configs: Dict[str, ExtrapolateNConfig],
+    output_path: PathOrStr,
+    d: int,
 ):
     train_ns, train_ys, eval_ns, eval_ys = get_data_at_d(configs, d)
 

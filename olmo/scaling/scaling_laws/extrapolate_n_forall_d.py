@@ -41,5 +41,3 @@ class CurveFitConfig:
     """
     The color for this curve.
     """
-
-
