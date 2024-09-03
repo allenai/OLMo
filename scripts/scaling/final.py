@@ -139,7 +139,7 @@ def main():
     plt.legend(loc="upper right", ncols=2)
     plt.xlabel("Tokens (d)")
     plt.ylabel(f"CE loss, {args.key if args.key != '' else args.keys}")
-    plt.title(f"Fitting final loss")
+    plt.title("Fitting final loss")
     plt.savefig(args.output_path, dpi=300)
 
     y_7b_2T = chinchilla_n_d_fit([6682316800, 2e12], coefficients)

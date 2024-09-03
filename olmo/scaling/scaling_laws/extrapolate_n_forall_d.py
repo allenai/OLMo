@@ -1,13 +1,5 @@
-import csv
-from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List
-
-import matplotlib.pyplot as plt
-import numpy as np
-import scipy
-
-from .extrapolate_d import get_coefficients
+from typing import List
 
 
 @dataclass

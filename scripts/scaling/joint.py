@@ -90,7 +90,7 @@ def main():
     plt.legend(loc="upper right", ncols=2, fontsize=6)
     plt.xlabel("Tokens (d)")
     plt.ylabel(f"CE loss, {args.key if args.key != '' else args.keys}")
-    plt.title(f"Fitting loss curves")
+    plt.title("Fitting loss curves")
     plt.savefig(args.output_path, dpi=300)
 
 

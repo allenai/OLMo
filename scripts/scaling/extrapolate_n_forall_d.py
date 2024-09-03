@@ -94,7 +94,7 @@ def fit_curves(
 
     plt.xlabel("Tokens (d)")
     plt.ylabel("CE Loss")
-    plt.title(f"Extrapolate across model size at all ckpts")
+    plt.title("Extrapolate across model size at all ckpts")
     plt.savefig(f"{output_path}/extrapolate_n_forall_d.png", dpi=300)
 
 

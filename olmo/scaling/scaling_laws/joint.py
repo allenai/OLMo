@@ -1,6 +1,4 @@
 import matplotlib.pyplot as plt
-import numpy as np
-import scipy
 
 from .utils import get_coefficients_huber, get_config_by_n
 

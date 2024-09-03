@@ -98,7 +98,7 @@ def main():
         ax.legend(loc="upper right", ncols=2, fontsize=10)
         ax.set_xlabel("Tokens (d)")
     axs[0].set_ylabel(f"CE loss, {args.key if args.key != '' else args.keys}")
-    plt.suptitle(f"Fitting loss curves, with LR power correction")
+    plt.suptitle("Fitting loss curves, with LR power correction")
     plt.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
 
