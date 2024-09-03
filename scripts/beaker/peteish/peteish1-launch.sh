@@ -2,13 +2,13 @@
 
 set -ex
 
-NUM_NODES=1
+NUM_NODES=32
 
 gantry run \
   --workspace ai2/shanea \
   --task-name fsdp-fp32params \
   --description "Running training but with params shared at fp32" \
-  --priority normal \
+  --priority low \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
