@@ -52,7 +52,7 @@ torchrun \
     configs/peteish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --try_load_latest_save \
-      --save_interval_ephemeral=null \
+      --save_interval_ephemeral=100 \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.precision=fp32_params \
       --load_path=/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1/step0 \
