@@ -1,4 +1,4 @@
-run_name: peteish1-B34v0.1x15
+run_name: peteish1-B34v0.1x12
 seed: 6198
 dry_run: false
 
@@ -248,39 +248,6 @@ data:
     repetition_max_count: 32
   paths:
     # SD-B34v0 (upsample by 15x)
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
-
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
-
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
-
     - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
     - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
     - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy

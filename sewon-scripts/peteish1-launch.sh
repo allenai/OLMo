@@ -5,7 +5,7 @@ set -ex
 # CONFIG_NAME="peteish1"                # This is for a baseline trained with OLMoE-mix: DCLM (including OpenWebText, Algebraic-stack, Starcoder) + Pes2o + Wikipedia
 # CONFIG_NAME="peteish1-dclm-only"      # This is for a baseline trained with DCLM (including OpenWebText, Algebraic-stack, Starcoder) 
 # CONFIG_NAME="peteish1-B34v0"            # This is for a model trained on OLMoE-mix + B34v0
-# CONFIG_NAME="peteish1-B34v0.1x15" 
+# CONFIG_NAME="peteish1-B34v0.1x12" 
 CONFIG_NAME=$1
 NUM_NODES=8
 
