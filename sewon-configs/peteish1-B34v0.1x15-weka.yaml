@@ -1,4 +1,4 @@
-run_name: peteish1-B34v0x3
+run_name: peteish1-B34v0.1x15
 seed: 6198
 dry_run: false
 
@@ -48,7 +48,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 4.0e-4
+  learning_rate: 2.0e-3
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
@@ -246,161 +246,172 @@ data:
     repetition_max_period: 13
     repetition_min_period: 1
     repetition_max_count: 32
-  
   paths:
-    # SD-B34v0 (upsample by 3x)
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-09-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-09-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-09-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-09-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-09-00000.npy
+    # SD-B34v0 (upsample by 15x)
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
 
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-09-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-09-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-09-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-09-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
 
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard0/part-09-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard1/part-09-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard2/part-09-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard3/part-09-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-00-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-06-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-07-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-08-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard4/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
+
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
+
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
+
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
+
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
+
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
+
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
+
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
+
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
+
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
+
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
+
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
+
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/part-09-00000.npy
 
     # ProofPile 2: Algebraic Stack Data
     - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-00-00000.npy
