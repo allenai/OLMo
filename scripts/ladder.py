@@ -497,6 +497,21 @@ MODEL_GFLOPS = {
 }
 
 
+# MODEL_PARAMS = {
+#     key: size_for_model(val)[1] for key, val in MODEL_CONFIGS.items()
+# }
+
+MODEL_PARAMS = {
+    '150M': 151898880,
+    '300M': 319980544,
+    '530M': 530074944,
+    '750M': 681297408,
+    '1B': 1176832000,
+    '3B': 3002871040,
+    '7B': 6682316800
+}
+
+
 def flops_cmd(args: argparse.Namespace):
     cfg = config_from_args(args)
 
