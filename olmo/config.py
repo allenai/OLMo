@@ -798,6 +798,12 @@ class FSDPPrecision(StrEnum):
     set to the autocast precision data type, while ``param_dtype`` is set to fp32.
     """
 
+    fp32_all = "fp32_all"
+    """
+    Equivalent to :class:`torch.distributed.fsdp.MixedPrecision` with ``param_dtype`, ``buffer_dtype``
+    and ``reduce_dtype`` set to fp32.
+    """
+
 
 @dataclass
 class FSDPConfig(BaseConfig):
@@ -1273,6 +1279,12 @@ class TrainConfig(BaseConfig):
                     param_dtype=torch.float32,
                     reduce_dtype=self.autocast_precision,
                     buffer_dtype=self.autocast_precision,
+                )
+            elif self.fsdp.precision == FSDPPrecision.fp32_all:
+                return MixedPrecision(
+                    param_dtype=torch.float32,
+                    reduce_dtype=torch.float32,
+                    buffer_dtype=torch.float32,
                 )
             else:
                 raise NotImplementedError(f"{self.fsdp.precision}")
