@@ -51,7 +51,10 @@ torchrun \
   scripts/train.py \
     configs/peteish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --save_interval_ephemeral=null \
+      --try_load_latest_save \
+      --save_interval_ephemeral=100 \
+      --scheduler.alpha_f=1.0 \
+      --load_path=/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1/step0 \
       --save_overwrite
 
      # '--load_path=${path.last_checkpoint:${save_folder}}' \
