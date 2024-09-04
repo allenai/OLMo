@@ -78,6 +78,13 @@ def main(args):
     elif args.y_axis == ["eval/downstream/all"]:
         args.y_axis = [f"eval/downstream/{d}" for d in downstream]
 
+    elif args.y_axis == ["eval/validation-and-bpb-and-downstream"]:
+        args.y_axis = (
+            [f"eval/{d}/CrossEntropyLoss" for d in validation]
+            + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_bpb]
+            + [f"eval/downstream/{d}" for d in downstream]
+        )
+
     wb_runs = get_runs(args.wandb_names)
 
     print("Downloading the data from the following wandb runs:\n", "\n".join([str(run) for run in wb_runs]))
