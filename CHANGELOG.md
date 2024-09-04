@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `OLMoE`: Configurations & modeling for training Mixture-of-Experts models.
+- Added ability to try loading latest checkpoint from save folder using `--try_load_latest_save`.
+
+## [v0.5.0](https://github.com/allenai/OLMo/releases/tag/v0.5.0) - 2024-08-26
+
+- Fixed conversion to HuggingFace model for DDP-trained models.
+- Added support for remote source and destination for HuggingFace model conversion.
+
+### Added
+
 - Added support for document masking via flash-attn during training with `--data.generate_doc_lengths`.
 - Added config options for `model.norm_after`, `model.scale_emb_init`, and `auxiliary_loss_multiplier` (used with zloss).
 - Added scripts for running experiments on qk_norm, norm reordering, and zloss.
@@ -19,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added downstream eval task for requests dumped from oe-eval tasks
 - Added `CosLinearEnvelope` scheduler, which is a pointwise product of a cosine schedule and a linear decay.
 - Added ability to save outputs of submodules for debugging purposes.
+- Added a number of tasks from oe-eval to the downstream eval tasks.
+- Version dolma flan change in named_data_mix.py
 
 ### Changed
 
