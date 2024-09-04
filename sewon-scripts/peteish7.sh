@@ -53,11 +53,9 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=500 \
       --save_overwrite \
-      
-      
-      #'--load_path=${path.last_checkpoint:${save_folder}}' \
-      #--restore_dataloader=true \
-      #--reset_optimizer_state=false
+      '--load_path=${path.last_checkpoint:${save_folder}}' \
+      --restore_dataloader=true \
+      --reset_optimizer_state=false
 
 
 
