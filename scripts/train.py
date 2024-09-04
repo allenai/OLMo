@@ -65,6 +65,7 @@ def main(cfg: TrainConfig) -> None:
 
     # Set CUDA device.
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
+    torch.cuda.empty_cache()
     device = torch.device("cuda")
 
     # Fill some configuration options.
