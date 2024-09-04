@@ -24,11 +24,6 @@ pip install flash-attn==2.5.9.post1 --no-build-isolation
 pip install '.[train]'
 pip freeze
 
-# Move AWS credentials from env to relevant files
-mkdir -p ~/.aws
-printenv AWS_CONFIG > ~/.aws/config
-printenv AWS_CREDENTIALS > ~/.aws/credentials
-
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
 
