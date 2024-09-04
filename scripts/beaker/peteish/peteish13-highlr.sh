@@ -52,6 +52,7 @@ torchrun \
       --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/${GANTRY_TASK_NAME}" \
       --remote_save_folder="s3://ai2-llm/checkpoints/OLMo-medium/${GANTRY_TASK_NAME}/" \
       --save_overwrite \
+      '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=4 \
       --activation_checkpointing=whole_layer \
