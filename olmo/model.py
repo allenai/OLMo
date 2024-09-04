@@ -684,6 +684,7 @@ class OLMoEBlock(OLMoBlock):
                 "To train MoEs, run `pip install git+https://github.com/Muennighoff/megablocks.git@olmoe`"
             )
         from .config import config_to_moe_args
+
         super().__init__(layer_id, config, cache)
 
         self.moe_args = config_to_moe_args(config)
