@@ -5,7 +5,7 @@ set -ex
 NUM_NODES=8
 
 gantry run \
-  --workspace ai2/OLMo-training \
+  --workspace ai2/OLMo-pretraining-stability \
   --task-name peteish13-highlr \
   --description "Pete-ish 13B High LR" \
   --priority high \
