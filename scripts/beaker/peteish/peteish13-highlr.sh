@@ -44,7 +44,7 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/peteish13-s3.yaml \
+    configs/peteish13-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=200 \
       --fsdp.sharding_strategy=HYBRID_SHARD \
