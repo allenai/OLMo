@@ -9,10 +9,10 @@ wandb:
 model:
   use_mup: false  # set in the calling script
   mup_query_zero_init: true
-  d_model: 768 # 768 – 300M, 1536 – 1B, 3072 – 3.6B, 6144 - 13B
-  n_heads: 32
-  n_layers: 32
-  mlp_ratio: 4
+  d_model: 160 # 160 – 300M, 320 – 600M, 640 – 1.2B, 1280 – 2.6B, 2560 – 5.8B, 5120 - 13B
+  n_heads: 40
+  n_layers: 40
+  mlp_hidden_size: 27648
   weight_tying: false
   alibi: false
   rope: true
