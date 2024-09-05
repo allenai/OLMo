@@ -41,9 +41,9 @@ torchrun \
   --node_rank=$BEAKER_REPLICA_RANK \
   scripts/train.py \
     configs/mup/base-olmo-cosine.yaml \
-      --run_name="cosine_mup_olmo_$WIDTH" \
-      --wandb.name="cosine_mup_olmo_$WIDTH" \
-      --wandb.group="cosine_mup_olmo" \
+      --run_name="mup_lr_search_$WIDTH" \
+      --wandb.name="mup_lr_search_$WIDTH" \
+      --wandb.group="mup_lr_search" \
       --wandb.project=olmo-mup \
       --stop_at=1000 \
       --model.use_mup \
