@@ -1076,6 +1076,7 @@ class OLMo(nn.Module):
         super().__init__()
         self.config = config
         self.__cache = BufferCache()
+        self.__mup_rescale_params = mup_rescale_params
 
         # Validate config.
         if self.config.alibi and self.config.flash_attention:
@@ -1167,13 +1168,6 @@ class OLMo(nn.Module):
 
         # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
         if init_params and self.config.init_device != "meta":
-            # In case of muP, we need to have called set_base_shapes beforehand
-            if self.config.use_mup:
-                from mup import set_base_shapes
-
-                # TODO: make sure that fsdp/ddp plays nice with this
-                # TODO: add cached_path
-                set_base_shapes(self, self.config.mup_base_shapes, rescale_params=mup_rescale_params)
             self.reset_parameters()
         self.__num_fwd_flops: Optional[int] = None
         self.__num_bck_flops: Optional[int] = None
@@ -1201,6 +1195,14 @@ class OLMo(nn.Module):
             return device
 
     def reset_parameters(self):
+        # In case of muP, we need to have called set_base_shapes beforehand
+        if self.config.use_mup:
+            from mup import set_base_shapes
+
+            # TODO: make sure that fsdp/ddp plays nice with this
+            # TODO: add cached_path
+            set_base_shapes(self, self.config.mup_base_shapes, rescale_params=self.__mup_rescale_params)
+
         log.info("Initializing model parameters...")
         # Top-level embeddings / linear layers.
 
