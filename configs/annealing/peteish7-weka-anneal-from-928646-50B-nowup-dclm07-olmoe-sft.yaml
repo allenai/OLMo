@@ -631,12 +631,12 @@ data:
 
     # OLMoE Commercial-friendly SFT mix (0.708 B tokens)
     - /weka/oe-training-default/ai2-llm/preprocessed/ai2-adapt-dev_olmoe-commercial/v0_train/allenai_dolma2-tokenizer/part-0-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/ai2-adapt-dev_olmoe-commercial/v0_train/allenai_dolma2-tokenizer/part-01-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/ai2-adapt-dev_olmoe-commercial/v0_train/allenai_dolma2-tokenizer/part-02-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/ai2-adapt-dev_olmoe-commercial/v0_train/allenai_dolma2-tokenizer/part-03-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/ai2-adapt-dev_olmoe-commercial/v0_train/allenai_dolma2-tokenizer/part-04-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/ai2-adapt-dev_olmoe-commercial/v0_train/allenai_dolma2-tokenizer/part-05-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/ai2-adapt-dev_olmoe-commercial/v0_train/allenai_dolma2-tokenizer/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/ai2-adapt-dev_olmoe-commercial/v0_train/allenai_dolma2-tokenizer/part-1-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/ai2-adapt-dev_olmoe-commercial/v0_train/allenai_dolma2-tokenizer/part-2-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/ai2-adapt-dev_olmoe-commercial/v0_train/allenai_dolma2-tokenizer/part-3-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/ai2-adapt-dev_olmoe-commercial/v0_train/allenai_dolma2-tokenizer/part-4-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/ai2-adapt-dev_olmoe-commercial/v0_train/allenai_dolma2-tokenizer/part-5-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/ai2-adapt-dev_olmoe-commercial/v0_train/allenai_dolma2-tokenizer/part-6-00000.npy
 
     # GSM8K (0.007 B tokens)
     - /weka/oe-training-default/ai2-llm/preprocessed/gsm8k/v0_main_train/allenai/dolma2-tokenizer/part-0-00000.npy
