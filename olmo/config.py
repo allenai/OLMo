@@ -315,6 +315,11 @@ class ModelConfig(BaseConfig):
     apply RoPE at the precision of the input.
     """
 
+    rope_theta: int = 10_000
+    """
+    The theta setting for RoPE.
+    """
+
     flash_attention: bool = False
     """
     If ``True``, use ``FlashAttention``.
@@ -344,6 +349,11 @@ class ModelConfig(BaseConfig):
     embedding_dropout: float = 0.1
     """
     The dropout probability for embeddings.
+    """
+
+    embedding_layer_norm: bool = False
+    """
+    Apply layer norm directly to the embeddings.
     """
 
     layer_norm_type: LayerNormType = LayerNormType.default
@@ -449,7 +459,13 @@ class ModelConfig(BaseConfig):
 
     scale_emb_init: bool = False
     """
-    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization. To be used with `full_megatron` init.
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization.
+    Currently this is only used with `full_megatron` init when ``emb_init_std`` is unset.
+    """
+
+    emb_init_std: Optional[float] = None
+    """
+    Override the standard deviation to use when initializing the embedding weights.
     """
 
     norm_after: bool = False
@@ -556,6 +572,7 @@ class SchedulerType(StrEnum):
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
     max_scheduler = "max_scheduler"
     constant = "constant"
+    cosine_linear_envelope = "cosine_linear_envelope"
 
 
 class SchedulerUnits(StrEnum):
@@ -610,6 +627,7 @@ class DataConfig(BaseConfig):
     label_mask_paths: Optional[List[str]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
     generate_attention_mask: bool = False
+    generate_doc_lengths: bool = False
     num_workers: int = 0
     drop_last: bool = False
     pin_memory: bool = False
@@ -806,7 +824,7 @@ class FSDPConfig(BaseConfig):
     FSDP instance.
     """
 
-    precision: FSDPPrecision = FSDPPrecision.pure
+    precision: Optional[FSDPPrecision] = FSDPPrecision.pure
 
     hybrid_sharding_num_model_replicas: Optional[int] = None
     """
@@ -1009,7 +1027,7 @@ class TrainConfig(BaseConfig):
 
     load_path: Optional[str] = None
     """
-    The path to a training checkpoint to restore/resume from.
+    The path to a training checkpoint to restore/resume from. If not set, then training begins from scratch.
 
     Note that you can make use of the "path.last_checkpoint" Omegaconfig YAML resolver here, which takes
     a local or remote directory and resolves to the latest checkpoint (sharded or unsharded) in that directory.
@@ -1018,11 +1036,21 @@ class TrainConfig(BaseConfig):
     ```bash
     --load_path='${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/v1_5-mix-run-001}'
     ```
+
+    If `try_load_latest_save` is set and saved checkpoints exist, then `load_path` will be overriden
+    by the latest saved checkpoint.
     """
 
     load_path_sharded_checkpointer: Optional[ShardedCheckpointerType] = None
     """
     The sharded checkpointer type to use to load the initial checkpoint from ``load_path``.
+    """
+
+    try_load_latest_save: bool = False
+    """
+    If set, then training will be resumed from the latest checkpoint in the local save folder, falling
+    back to the latest checkpoint in the remote save folder if none exists. If there are no checkpoints
+    in the local and remote save folders, then checkpoint loading will fall back to `load_path`.
     """
 
     reset_optimizer_state: bool = False
@@ -1216,6 +1244,12 @@ class TrainConfig(BaseConfig):
     Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
     """
 
+    module_outputs_save_steps: Optional[List[int]] = None
+    """
+    Outputs of model submodules are saved during the provided steps. Submodule outputs
+    can be compared using `scripts/compare_module_outputs.py`.
+    """
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
@@ -1228,9 +1262,11 @@ class TrainConfig(BaseConfig):
             raise ValueError(f"Unexpected precision type '{self.precision}'")
 
     @property
-    def fsdp_precision(self) -> MixedPrecision:
+    def fsdp_precision(self) -> Optional[MixedPrecision]:
         if self.fsdp is not None:
-            if self.fsdp.precision == FSDPPrecision.pure:
+            if self.fsdp.precision is None:
+                return None
+            elif self.fsdp.precision == FSDPPrecision.pure:
                 return MixedPrecision(
                     param_dtype=self.autocast_precision,
                     reduce_dtype=self.autocast_precision,

@@ -2,6 +2,7 @@ import pytest
 import torch
 
 from olmo.data.collator import DataCollator, PaddingDirection
+from olmo.data.util import get_document_lengths
 
 
 @pytest.mark.parametrize(
@@ -129,3 +130,24 @@ def test_collate_with_label_mask(train_config, pad_direction):
                 [[True, False, True, True], [False, True, True, False]],
             )
         ).all()
+
+
+def test_collate_with_document_lengths(train_config):
+    eos_token_id = 50279
+    train_config.model.eos_token_id = eos_token_id
+    train_config.data.generate_doc_lengths = True
+    collator = DataCollator.from_train_config(train_config)
+
+    input_ids = [
+        torch.tensor([eos_token_id, 3, 4, 5, 5, eos_token_id, 6, 5, eos_token_id, 3, 5]),
+        torch.tensor([3, 4, 5, 5, eos_token_id, 6, 5, eos_token_id, 3, 5, eos_token_id]),
+    ]
+    inputs = [{"input_ids": x, "doc_lens": get_document_lengths(x, eos_token_id)} for x in input_ids]
+    batch = collator(inputs)  # type: ignore
+    assert "doc_lens" in batch
+    assert "max_doc_lens" in batch
+    assert batch["doc_lens"].tolist() == [
+        [1, 5, 3, 2],
+        [5, 3, 3, 0],
+    ]
+    assert batch["max_doc_lens"] == [5, 5]
