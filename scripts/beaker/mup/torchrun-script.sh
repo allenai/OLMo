@@ -50,7 +50,8 @@ torchrun \
       --model.mup_base_shapes=scripts/beaker/mup/base_olmo_shapes.bsh \
       --model.d_model=$WIDTH \
       --optimizer.learning_rate=$LR \
-      --scheduler.t_warmup=$((3 * $WIDTH / 128))
+      --scheduler.t_warmup=$((3 * $WIDTH / 128)) \
+      --try_load_latest_save
 
 #for WIDTH in 128 256 512 1024 2048 4096;
 #do
