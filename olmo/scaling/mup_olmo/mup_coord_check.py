@@ -41,7 +41,7 @@ def coord_check(
         def f():
             config = ModelConfig.load(config_path, key="model")
             config.d_model = d_model
-            model = load_mu_model(config)
+            model = load_mu_model(config, mup_rescale_params=False)
 
             if standparam:
                 set_base_shapes(model, None)
