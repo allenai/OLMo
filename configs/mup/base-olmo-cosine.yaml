@@ -9,14 +9,15 @@ wandb:
 model:
   use_mup: false  # set in the calling script
   mup_query_zero_init: true
-  d_model: 128
-  n_heads: 2
-  n_layers: 2
-  mlp_ratio: 1
+  d_model: 160 # 160 – 300M, 320 – 600M, 640 – 1.2B, 1280 – 2.6B, 2560 – 5.8B, 5120 - 13B
+  n_heads: 40
+  n_layers: 40
+  mlp_hidden_size: 27648
   weight_tying: false
   alibi: false
   rope: true
-  flash_attention: false
+  rope_theta: 500000
+  flash_attention: true
   attention_dropout: 0.0
   attention_layer_norm: false
   clip_qkv: null
@@ -31,10 +32,10 @@ model:
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 4096
-  vocab_size: 50280
-  embedding_size: 50304
-  eos_token_id: 0
-  pad_token_id: 1
+  vocab_size: 100278
+  embedding_size: 100352
+  eos_token_id: 100257
+  pad_token_id: 100277
   init_device: cuda
   init_fn: normal
   init_std: 0.02
@@ -43,6 +44,10 @@ model:
 ddp:
   grad_sync_mode: batch
   find_unused_params: false
+
+softmax_auxiliary_loss: true
+auxiliary_loss_multiplier: 1e-5
+fused_loss: true
 
 compile: null
 
@@ -65,15 +70,18 @@ scheduler:
   warmup_min_lr: 0.0
 
 tokenizer:
-  identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
+  identifier: tokenizers/allenai_dolma2.json
   truncate_direction: right
 
-save_folder: workspace/${run_name}  # doesn't matter since we'll upload to S3
-remote_save_folder: s3://ai2-llm/checkpoints/olmo-mup/${run_name}
+save_folder: /weka/oe-training-default/ai2-llm/checkpoints/olmo-mup/${run_name}
 save_overwrite: false
 
-# Unsharded checkpoints (for ddp)
-save_interval_unsharded: 5000
+save_interval: 1000
+save_interval_ephemeral: 250
+save_num_checkpoints_to_keep: -1
+sharded_checkpointer: olmo_core
+
+save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
