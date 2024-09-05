@@ -4,11 +4,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from olmo.scaling.scaling_laws.utils import (
-    ExtrapolateNConfig,
+    FinalConfig,
     chinchilla_n_d_fit,
     get_coefficients_huber,
-    get_config_by_n,
-    get_data_forall_n,
+    get_final_data_by_name,
     grad_chinchilla_n_d_fit,
     parse_args,
 )
@@ -19,17 +18,17 @@ def main():
 
     with open(args.config_path) as f:
         configs = json.load(f)
-        configs = {name: ExtrapolateNConfig(**config) for name, config in configs.items()}
+        configs = {name: FinalConfig(**config) for name, config in configs.items()}
 
-    data_by_n = get_data_forall_n(configs, args.keys, final_only=args.final_only)
+    data_by_name = get_final_data_by_name(configs, args.keys, num_to_avg=20)
 
     plt.figure()
 
     train_nds, train_ys = [], []
-    for n, data in data_by_n.items():
-        config = get_config_by_n(configs, n)
+    for name, data in data_by_name.items():
+        config = configs[name]
         if config.mode == "train":
-            train_nds += [[n, d] for d in data["ds"]]
+            train_nds += [[n, d] for n, d in zip(data["ns"], data["ds"])]
             train_ys += data["ys"]
 
     # fit the parameters
@@ -45,47 +44,26 @@ def main():
     A, B = np.exp(a), np.exp(b)
 
     # make predictions
-    predicted_data_by_n = {}
-    plotted_predicted_data_by_n = {}
-
-    if args.final_only:
-        plot_ds = []
-        predicted_data = []
-        plotted_predicted_data = []
-        for n, data in data_by_n.items():
-            plot_ds.append(data["ds"])
-
-        predicted_data = {
-            "ds": plot_ds,
-            "ys": [chinchilla_n_d_fit([n, d], coefficients) for d in plot_ds],
-        }
-        plot_ds = np.linspace(min(plot_ds), max(plot_ds), 100)
-        plotted_predicted_data = {
-            "ds": plot_ds,
-            "ys": [chinchilla_n_d_fit([n, d], coefficients) for d in plot_ds],
-        }
-
-    for n, data in data_by_n.items():
-        ds = data["ds"]
-        predicted_data_by_n[n] = {
-            "ds": ds,
-            "ys": [chinchilla_n_d_fit([n, d], coefficients) for d in ds],
+    predicted_data_by_name = {}
+    plotted_predicted_data_by_name = {}
+    for name, data in data_by_name.items():
+        predicted_data_by_name[name] = {
+            "ds": data["ds"],
+            "ys": [chinchilla_n_d_fit([n, d], coefficients) for n, d in zip(data["ns"], data["ds"])],
         }
         ds = np.linspace(min(data["ds"]), max(data["ds"]), 100)
-        plotted_predicted_data_by_n[n] = {
+        ns = [data["ns"][0]] * len(ds)
+        plotted_predicted_data_by_name[name] = {
             "ds": ds,
-            "ys": [chinchilla_n_d_fit([n, d], coefficients) for d in ds],
+            "ys": [chinchilla_n_d_fit([n, d], coefficients) for n, d in zip(ns, ds)],
         }
 
     # plot the actual data
-    for n, data in data_by_n.items():
-        config = get_config_by_n(configs, n)
-        if args.final_only:
-            plt.scatter(data["ds"], data["ys"], color="white", edgecolors=config.color, s=5.0)
-        else:
-            plt.scatter(data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=5.0)
+    for name, data in data_by_name.items():
+        config = configs[name]
+        plt.scatter(data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=5.0)
 
-        predicted_data = predicted_data_by_n[n]
+        predicted_data = predicted_data_by_name[name]
         for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["ys"]):
             rel_error = (y_pred - y) / y
             plt.annotate(
@@ -99,35 +77,26 @@ def main():
             )
 
     # plot the fitted curve
-    if args.final_only:
-        plt.plot(
-            plotted_predicted_data["ds"],
-            plotted_predicted_data["ys"],
-            color="black",
-            linestyle="--",
-            linewidth=0.8,
-        )
-    else:
-        for n, data in plotted_predicted_data_by_n.items():
-            config = get_config_by_n(configs, n)
-            if config.mode == "train":
-                plt.plot(
-                    data["ds"],
-                    data["ys"],
-                    color=config.color,
-                    linestyle="--",
-                    linewidth=0.8,
-                    label=f"{config.label} (fitted)",
-                )
-            else:
-                plt.plot(
-                    data["ds"],
-                    data["ys"],
-                    color=config.color,
-                    linestyle="--",
-                    linewidth=0.8,
-                    label=f"{config.label} (predicted)",
-                )
+    for name, data in plotted_predicted_data_by_name.items():
+        config = configs[name]
+        if config.mode == "train":
+            plt.plot(
+                data["ds"],
+                data["ys"],
+                color=config.color,
+                linestyle="--",
+                linewidth=0.8,
+                label=f"{config.label} (fitted)",
+            )
+        else:
+            plt.plot(
+                data["ds"],
+                data["ys"],
+                color=config.color,
+                linestyle="--",
+                linewidth=0.8,
+                label=f"{config.label} (predicted)",
+            )
     plt.text(
         x=0.25,
         y=0.50,

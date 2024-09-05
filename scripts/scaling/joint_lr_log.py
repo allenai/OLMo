@@ -5,12 +5,12 @@ import numpy as np
 
 from olmo.scaling.scaling_laws.utils import (
     ExtrapolateNConfig,
+    chinchilla_n_d_lr_log_fit,
     get_ax,
     get_coefficients_huber,
     get_data_by_name,
-    grad_tissue_fit,
+    grad_chinchilla_n_d_lr_log_fit,
     parse_args,
-    tissue_fit,
 )
 
 
@@ -26,35 +26,44 @@ def main():
     num_axs = 5
     fig, axs = plt.subplots(1, num_axs, figsize=(num_axs * 8, 6))
 
-    train_ns1s2s, train_ys = [], []
+    train_ndhs, train_ys = [], []
     for name, data in data_by_name.items():
         config = configs[name]
         if config.mode == "train":
-            train_ns1s2s += [[n, s1, s2] for n, s1, s2 in zip(data["ns"], data["s1s"], data["s2s"])]
+            train_ndhs += [[n, d, h] for n, d, h in zip(data["ns"], data["ds"], data["hs"])]
             train_ys += data["ys"]
 
     # fit the parameters
     coefficients = get_coefficients_huber(
-        train_ns1s2s,
+        train_ndhs,
         train_ys,
-        tissue_fit,
-        grad_tissue_fit,
-        p0=[3.0, 6.0, 0.2, 0.4, 1.0, 0.01, 0.01],
-        bounds=[(None, None), (None, None), (0, None), (0, None), (0, None), (0, None), (None, None)],
+        chinchilla_n_d_lr_log_fit,
+        grad_chinchilla_n_d_lr_log_fit,
+        p0=[4.0, 15.0, 0.25, 0.7, 1.5, 0.05, 15.0, 4.0],
+        bounds=[
+            (None, None),
+            (None, None),
+            (0, None),
+            (0, None),
+            (0, None),
+            (0, None),
+            (None, None),
+            (None, None),
+        ],
     )
-    a, b, alpha, beta, E, F, gamma = coefficients
-    A, B = np.exp(a), np.exp(b)
+    a, b, alpha, beta, E, F, r, S = coefficients
+    A, B, R = np.exp(a), np.exp(b), np.exp(r)
 
     # make predictions
     predicted_data_by_name = {}
     for name, data in data_by_name.items():
         config = configs[name]
         predicted_data_by_name[name] = {
+            "ns": data["ns"],
             "ds": data["ds"],
-            "s1s": data["s1s"],
-            "s2s": data["s2s"],
             "ys": [
-                tissue_fit([n, s1, s2], coefficients) for n, s1, s2 in zip(data["ns"], data["s1s"], data["s2s"])
+                chinchilla_n_d_lr_log_fit([n, d, h], coefficients)
+                for n, d, h in zip(data["ns"], data["ds"], data["hs"])
             ],
         }
 
@@ -89,7 +98,7 @@ def main():
     plt.text(
         x=0.40,
         y=0.90,
-        s=f"L(n, s1, s2) = {A:.2f} / n^{alpha:.2f} + {B:.2f} / s1^{beta:.2f} + {E:.2f} - {F:.2f} * s2 * n^{gamma:.2f}",
+        s=f"L(n, d, h) = {A:.2f} / n^{alpha:.2f} + {B:.2f} / d^{beta:.2f} + {E:.2f} + {F:.2f} * h * log(n / {R:.2f} + {S:.2f})",
         fontsize=12,
         transform=fig.transFigure,
     )
@@ -98,7 +107,7 @@ def main():
         ax.legend(loc="upper right", ncols=2, fontsize=10)
         ax.set_xlabel("Tokens (d)")
     axs[0].set_ylabel(f"CE loss, {args.key if args.key != '' else args.keys}")
-    plt.suptitle("Fitting loss curves, with Tissue function")
+    plt.suptitle("Fitting loss curves, with LR logn correction")
     plt.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
 

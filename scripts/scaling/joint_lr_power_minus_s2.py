@@ -26,16 +26,16 @@ def main():
     num_axs = 5
     fig, axs = plt.subplots(1, num_axs, figsize=(num_axs * 8, 6))
 
-    train_ns1s2s, train_ys = [], []
+    train_nds2s, train_ys = [], []
     for name, data in data_by_name.items():
         config = configs[name]
         if config.mode == "train":
-            train_ns1s2s += [[n, s1, s2] for n, s1, s2 in zip(data["ns"], data["s1s"], data["s2s"])]
+            train_nds2s += [[n, d, s2] for n, d, s2 in zip(data["ns"], data["ds"], data["s2s"])]
             train_ys += data["ys"]
 
     # fit the parameters
     coefficients = get_coefficients_huber(
-        train_ns1s2s,
+        train_nds2s,
         train_ys,
         tissue_fit,
         grad_tissue_fit,
@@ -51,10 +51,9 @@ def main():
         config = configs[name]
         predicted_data_by_name[name] = {
             "ds": data["ds"],
-            "s1s": data["s1s"],
             "s2s": data["s2s"],
             "ys": [
-                tissue_fit([n, s1, s2], coefficients) for n, s1, s2 in zip(data["ns"], data["s1s"], data["s2s"])
+                tissue_fit([n, d, s2], coefficients) for n, d, s2 in zip(data["ns"], data["ds"], data["s2s"])
             ],
         }
 
@@ -89,7 +88,7 @@ def main():
     plt.text(
         x=0.40,
         y=0.90,
-        s=f"L(n, s1, s2) = {A:.2f} / n^{alpha:.2f} + {B:.2f} / s1^{beta:.2f} + {E:.2f} - {F:.2f} * s2 * n^{gamma:.2f}",
+        s=f"L(n, d, s2) = {A:.2f} / n^{alpha:.2f} + {B:.2f} / d^{beta:.2f} + {E:.2f} - {F:.2f} * s2 * n^{gamma:.2f}",
         fontsize=12,
         transform=fig.transFigure,
     )
@@ -98,7 +97,7 @@ def main():
         ax.legend(loc="upper right", ncols=2, fontsize=10)
         ax.set_xlabel("Tokens (d)")
     axs[0].set_ylabel(f"CE loss, {args.key if args.key != '' else args.keys}")
-    plt.suptitle("Fitting loss curves, with Tissue function")
+    plt.suptitle("Fitting loss curves, with LR power minus s2 correction")
     plt.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
 

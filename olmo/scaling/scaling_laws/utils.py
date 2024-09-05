@@ -2,6 +2,7 @@ import argparse
 import csv
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import List
 
 import numpy as np
 import scipy
@@ -161,13 +162,40 @@ class ExtrapolateNConfig:
     """
 
 
+@dataclass
+class FinalConfig:
+    paths: List[str]
+    """
+    Path containing the W&B downloaded data and metadata.
+    """
+
+    mode: str
+    """
+    Whether this model is used for fitting the curve ('train') or evaluating the fit ('eval').
+    """
+
+    n: int
+    """
+    The model size (non-embedding parameter count).
+    """
+
+    label: str
+    """
+    A short label for this curve.
+    """
+
+    color: str
+    """
+    The color for this curve.
+    """
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-k", "--key", type=str, default="", help="For avg metrics. Use one of [all-val-lm, all-bpb]"
     )
     parser.add_argument("--keys", nargs="+", type=str, help="For individual metrics")
-    parser.add_argument("-f", "--final-only", action="store_true")
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
     args = parser.parse_args()
@@ -177,7 +205,6 @@ def parse_args():
     elif args.key == "all-bpb":
         args.keys = [f"eval/downstream_bpb/{task}_bpb" for task in downstream_bpb]
     elif args.key == "mmlu-var-bpb":
-        print("YAY")
         args.keys = [
             f"eval/downstream_bpb/{task}_bpb"
             for task in [
@@ -189,35 +216,6 @@ def parse_args():
         ]
 
     return args
-
-
-def get_config_by_n(configs, n):
-    for config in configs.values():
-        if config.n == n:
-            return config
-    raise ValueError(f"Could not find config for n={n}")
-
-
-def get_data_forall_n(configs, keys, min_step=None, final_only=False):
-    data_by_n = defaultdict(lambda: {"ds": [], "hs": [], "ys": []})
-    for name, config in configs.items():
-        n = config.n
-        with open(config.path) as file_ref:
-            reader = csv.DictReader(file_ref)
-            for row in reader:
-                d = int(float(row["throughput/total_tokens"]))
-                h = float(row["optim/learning_rate_group0"]) / float(row["learning_rate_peak"])
-                y = np.mean([float(row[key]) for key in keys])
-                if min_step is not None and d < min_step * int(row["batch_size_in_tokens"]):
-                    continue
-                data_by_n[n]["ds"].append(d)
-                data_by_n[n]["hs"].append(h)
-                data_by_n[n]["ys"].append(y)
-            if final_only:
-                data_by_n[n]["ds"] = data_by_n[n]["ds"][-1:]
-                data_by_n[n]["hs"] = data_by_n[n]["hs"][-1:]
-                data_by_n[n]["ys"] = data_by_n[n]["ys"][-1:]
-    return data_by_n
 
 
 def get_data_by_name(configs, keys, min_step=None):
@@ -256,6 +254,29 @@ def get_data_by_name(configs, keys, min_step=None):
                 data_by_name[name]["hs"].append(h)
                 data_by_name[name]["s1s"].append(s1)
                 data_by_name[name]["s2s"].append(s2)
+                data_by_name[name]["ys"].append(y)
+    return data_by_name
+
+
+def get_final_data_by_name(configs, keys, num_to_avg=1):
+    data_by_name = defaultdict(lambda: {"ns": [], "ds": [], "ys": []})
+    for name, config in configs.items():
+        n = config.n
+        for path in config.paths:
+            with open(path) as file_ref:
+                reader = csv.DictReader(file_ref)
+                rows = [row for row in reader]
+                rows = rows[-num_to_avg:]
+                ds, ys = [], []
+                for row in rows:
+                    d = int(float(row["throughput/total_tokens"]))
+                    y = np.mean([float(row[key]) for key in keys])
+                    ds.append(d)
+                    ys.append(y)
+                d = np.mean(ds)
+                y = np.mean(ys)
+                data_by_name[name]["ns"].append(n)
+                data_by_name[name]["ds"].append(d)
                 data_by_name[name]["ys"].append(y)
     return data_by_name
 
@@ -393,6 +414,22 @@ def grad_chinchilla_n_d_lr_power_fit(x, p):
     grad_E = 1
     grad_F = x[2] * x[0] ** p[6]
     grad_r = p[5] * x[2] * x[0] ** p[6] * np.log(x[0])
+    return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r]
+
+
+def chinchilla_n_d_lr_power_minus_fit(x, p):
+    # return e**a / x[0]**alpha + e**b / x[1]**beta + E - F * (1 - x[2]) * x[0]**r
+    return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4] - p[5] * (1 - x[2]) * x[0] ** p[6]
+
+
+def grad_chinchilla_n_d_lr_power_minus_fit(x, p):
+    grad_a = np.exp(p[0]) / x[0] ** p[2]
+    grad_b = np.exp(p[1]) / x[1] ** p[3]
+    grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
+    grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
+    grad_E = 1
+    grad_F = - (1 - x[2]) * x[0] ** p[6]
+    grad_r = - p[5] * (1 - x[2]) * x[0] ** p[6] * np.log(x[0])
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r]
 
 
