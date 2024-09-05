@@ -699,7 +699,8 @@ class OLMoSequentialBlock(OLMoBlock):
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
         # Feed-forward input projection.
-        self.ff_proj = nn.Linear(
+        layer_func = MuReadout if config.use_mup else nn.Linear
+        self.ff_proj = layer_func(
             config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
         )
 
