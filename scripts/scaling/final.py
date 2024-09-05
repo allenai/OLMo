@@ -20,7 +20,7 @@ def main():
         configs = json.load(f)
         configs = {name: FinalConfig(**config) for name, config in configs.items()}
 
-    data_by_name = get_final_data_by_name(configs, args.keys, num_to_avg=20)
+    data_by_name = get_final_data_by_name(configs, args.keys, num_to_avg=args.num_to_avg)
 
     plt.figure()
 

@@ -196,6 +196,7 @@ def parse_args():
         "-k", "--key", type=str, default="", help="For avg metrics. Use one of [all-val-lm, all-bpb]"
     )
     parser.add_argument("--keys", nargs="+", type=str, help="For individual metrics")
+    parser.add_argument("--num_to_avg", type=int, default=1, help="Number of final ckpts to average (for final loss fitting)")
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
     args = parser.parse_args()
