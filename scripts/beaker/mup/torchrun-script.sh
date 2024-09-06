@@ -64,6 +64,7 @@ torchrun \
       --wandb.project=olmo-mup \
       --stop_at=1000 \
       --model.use_mup \
+      --model.mup_query_zero_init=false \
       --model.mup_base_shapes=scripts/beaker/mup/lr_search_base_shapes_300m.bsh \
       --model.d_model=$WIDTH \
       --optimizer.learning_rate=$LR \
