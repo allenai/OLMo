@@ -50,8 +50,8 @@ class InfinigramEngine:
             try:
                 log.info(f'Loading index from {cfg.index_dir}')
                 max_batch_size = (self.nnodes * max_batch_size_per_device) if cfg.sharded else max_batch_size_per_device
-                # os.popen(f'g++ -std=c++20 -O3 -pthread -Wno-stringop-overread infini_gram/infini_gram.cpp -o infini_gram/infini_gram').read()
-                subprocess.Popen(f'{os.path.dirname(os.path.abspath(__file__))}/infini_gram {cfg.index_dir} {local_world_size} {max_batch_size} {max_seq_len} {cfg.support} {cfg.mode} >> {cfg.cpp_log_path} 2>&1', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                os.popen(f'g++ -std=c++20 -O3 -pthread -Wno-stringop-overread infini_gram/infini_gram.cpp -o infini_gram/infini_gram').read()
+                subprocess.Popen(f'./infini_gram/infini_gram {cfg.index_dir} {local_world_size} {max_batch_size} {max_seq_len} {cfg.support} {cfg.mode} >> {cfg.cpp_log_path} 2>&1', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             except Exception as e:
                 log.error(f'[infini-gram] Engine failed to initialize: {e}')
                 exit(1)
