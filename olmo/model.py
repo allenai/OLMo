@@ -1925,3 +1925,6 @@ class OLMo(nn.Module):
             og_keys_to_new[og_key].add(new_key)
 
         return state_dict, og_keys_to_new
+
+    def get_shapes(self):
+        return {name.replace("_fsdp_wrapped_module.", ""): param.shape for name, param in self.named_parameters()}
