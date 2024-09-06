@@ -1,0 +1,16 @@
+gantry run \
+    --description "Converting ${CHECKPOINT_PATH}" \
+    --allow-dirty \
+    --no-python \
+    --workspace ai2/cheap-decisions  \
+    --priority normal \
+    --gpus 0 \
+    --preemptible \
+    --cluster ai2/jupiter-cirrascale-2 \
+    --budget ai2/oe-eval \
+    --env-secret AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID} \
+    --env-secret AWS_SECRET_ACCESS_KEY={AWS_SECRET_ACCESS_KEY} \
+    --shared-memory 10GiB \
+    --weka=oe-eval-default:/data/input \
+    --yes \
+    -- /bin/bash -c "python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{cp}' --destination-dir '{weka_loc}' --keep-olmo-artifacts"

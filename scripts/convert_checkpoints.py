@@ -9,7 +9,7 @@ import subprocess
 AWS_ACCESS_KEY_ID = 'JENA_AWS_ACCESS_KEY_ID'
 AWS_SECRET_ACCESS_KEY = 'JENA_AWS_SECRET_ACCESS_KEY'
 
-SANITY_CHECK = False
+SANITY_CHECK = True
 
 def convert_checkpoint(checkpoint_paths):
 
@@ -17,7 +17,6 @@ def convert_checkpoint(checkpoint_paths):
         retain_path_name = cp.replace('s3://', '').strip('/')
         load_dir = "/data/input"
         weka_loc = f"{load_dir}/{retain_path_name}-hf/"
-        log_file = "log.txt"
 
         cmd = f"gantry run " \
               f"--description 'Converting {cp}' " \
@@ -42,8 +41,7 @@ def convert_checkpoint(checkpoint_paths):
             print(cmd)
         else:
             try:
-                with open(log_file,'w') as fout:
-                    subprocess.run(cmd, shell=True, check=True, stdout=fout, stderr=subprocess.STDOUT)
+                subprocess.run(cmd, shell=True, check=True)
             except subprocess.CalledProcessError as e:
                 print(e.output)
 
