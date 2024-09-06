@@ -70,6 +70,7 @@ torchrun \
       --optimizer.learning_rate=$LR \
       --scheduler.t_warmup=50 \
       --distributed_strategy=fsdp \
+      --device_train_microbatch_size=8 \
       --try_load_latest_save \
       --save_overwrite
 
