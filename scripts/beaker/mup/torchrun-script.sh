@@ -69,7 +69,8 @@ torchrun \
       --optimizer.learning_rate=$LR \
       --scheduler.t_warmup=50 \
       --distributed_strategy=fsdp \
-      --try_load_latest_save
+      --try_load_latest_save \
+      --save_overwrite
 
 #for WIDTH in 128 256 512 1024 2048 4096;
 #do
