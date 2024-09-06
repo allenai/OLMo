@@ -700,8 +700,9 @@ class OLMoSequentialBlock(OLMoBlock):
         )
         # Feed-forward input projection.
         layer_func = MuReadout if config.use_mup else nn.Linear
+        kwargs = {"readout_zero_init": True} if config.use_mup else {}
         self.ff_proj = layer_func(
-            config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
+            config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device, **kwargs
         )
 
         # Layer norms.
@@ -1502,7 +1503,11 @@ class OLMo(nn.Module):
         if self.config.scale_logits:
             logits.mul_(1 / math.sqrt(self.config.d_model))
 
-        return OLMoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
+        return OLMoOutput(
+            logits=logits,
+            attn_key_values=attn_key_values,
+            hidden_states=tuple(all_hidden_states) if output_hidden_states else None,
+        )  # type: ignore[arg-type]
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
