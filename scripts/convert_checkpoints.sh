@@ -12,4 +12,5 @@ gantry run \
     --shared-memory 10GiB \
     --weka=oe-eval-default:/data/input \
     --yes \
+    --install install_torch.sh \
     -- /bin/bash -c "python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir 's3://ai2-llm/checkpoints/cheap_decisions/dolma-v1-6-and-sources-baseline-3x-code-1B-N-1T-D-mitchish1-001/step99000-unsharded' --destination-dir '/data/input/ai2-llm/checkpoints/cheap_decisions/dolma-v1-6-and-sources-baseline-3x-code-1B-N-1T-D-mitchish1-001/step99000-unsharded' --keep-olmo-artifacts"
