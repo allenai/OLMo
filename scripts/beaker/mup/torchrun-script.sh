@@ -69,7 +69,7 @@ torchrun \
       --model.d_model=$WIDTH \
       --optimizer.learning_rate=$LR \
       --scheduler.t_warmup=50 \
-      --device_train_microbatch_size=4 \
+      --device_train_microbatch_size=1 \
       --try_load_latest_save \
       --save_overwrite
 
