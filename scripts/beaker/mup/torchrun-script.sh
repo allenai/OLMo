@@ -30,7 +30,7 @@ printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 # Temporary, since it is not part of the image yet.
-pip install mup@git+https://github.com/microsoft/mup#egg=19814971934ef91dd546f88e913fc963e096d11c
+pip install git+https://github.com/janEbert/mup.git@22ca9dd6964f8b7e2d309e2ec588f71edf26f78c
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
