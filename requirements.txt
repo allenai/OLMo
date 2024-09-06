@@ -3,3 +3,4 @@ datasets
 rich
 botocore
 cached-path
+transformers
