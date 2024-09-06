@@ -1,2 +1,5 @@
 torch
 datasets
+rich
+botocore
+cachedpath
