@@ -52,7 +52,7 @@ train = [
     "msgspec>=0.14.0",
 ]
 scaling = [
-    "mup@git+https://github.com/janEbert/mup@22ca9dd6964f8b7e2d309e2ec588f71edf26f78c",
+    "mup@git+https://github.com/2015aroras/mup@b0792fc05ca8bbf260270127f9580d250d4259bd",
 ]
 all = [
     "ai2-olmo[dev,train,scaling]",
