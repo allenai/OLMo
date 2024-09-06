@@ -17,11 +17,20 @@ shift
 LR=$1
 shift
 
-# Warm HF cache
-mkdir -p /root/.cache
-pushd /root/.cache
-curl "https://storage.googleapis.com/hf-cache/huggingface_cache_v4.tar.gz" | tar --keep-newer-files -xzf -
-popd
+# Setup Python environment.
+conda shell.bash activate base
+
+# Install flash-attn
+#conda install -y -c nvidia cuda-python
+pip install packaging ninja
+export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
+pip install flash-attn==2.5.9.post1 --no-build-isolation
+# pip install awscli
+pip install '.[train]'
+pip install '.[scaling]'
+
+pip freeze
+
 export HF_DATASETS_OFFLINE=1
 
 # Move AWS credentials from env to relevant files
@@ -29,8 +38,16 @@ mkdir -p ~/.aws
 printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
 
-# Temporary, since it is not part of the image yet.
-pip install git+https://github.com/janEbert/mup.git@22ca9dd6964f8b7e2d309e2ec588f71edf26f78c
+# Force processes to synchronize at init_process_group
+export TORCH_DIST_INIT_BARRIER=1
+
+# Tell OLMo all ranks share the same filesystem for checkpoints.
+export OLMO_SHARED_FS=1
+
+export NCCL_DEBUG=INFO
+export NCCL_IB_HCA="^=mlx5_bond_0"
+export NCCL_SOCKET_IFNAME=ib
+# export NCCL_IB_GID_INDEX=0
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
