@@ -1,5 +1,4 @@
 gantry run \
-    --description "Converting ${CHECKPOINT_PATH}" \
     --allow-dirty \
     --no-python \
     --workspace ai2/cheap-decisions  \
