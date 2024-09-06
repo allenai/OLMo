@@ -3,8 +3,8 @@
 set -ex
 
 CONFIG_PATH=configs/amberish1-weka.yaml
-NUM_NODES=8
-RUN_NAME="v2.10_v2.9_full-index"
+NUM_NODES=1
+RUN_NAME="v2.11_v2.9_shared-wte"
 
 gantry run \
   --allow-dirty \
@@ -23,12 +23,6 @@ gantry run \
   --cpus 186 \
   --memory 1912GiB \
   --shared-memory 10GiB \
-  --replicas "${NUM_NODES}" \
-  --host-networking \
-  --leader-selection \
-  --propagate-failure \
-  --propagate-preemption \
-  --synchronized-start-timeout 48h \
   --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
@@ -50,14 +44,14 @@ gantry run \
     export OLMO_SHARED_FS=1; \
     export NCCL_DEBUG=INFO; \
     export NCCL_IB_HCA="^=mlx5_bond_0"; \
-    export NCCL_SOCKET_IFNAME=ib; \
     export NCCL_IB_TIMEOUT=22; \
     export PYTHONPATH=.; \
-    torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 8 --rdzv_id=20310 --rdzv_backend=static --rdzv_conf='read_timeout=1200' --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 --node_rank=\$BEAKER_REPLICA_RANK \
+    torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 8 \
         scripts/train.py ${CONFIG_PATH} \
         --run_name=${RUN_NAME} \
         --wandb.project=hb-wolf-olmo-2 --wandb.entity=liujch1998 \
         --save_folder=/weka/oe-training-default/wolf/ckpt/${RUN_NAME} --save_overwrite=true --load_path=\\\${path.last_checkpoint:/weka/oe-training-default/wolf/ckpt/${RUN_NAME}} \
         --device_train_microbatch_size=4 \
-        --infgram.index_dir=/weka/oe-training-default/wolf/index/v5_dolma-v1_7_olmo --infgram.sharded=true --infgram.prefetch=true --model.separate_infgram_wte=true --infgram.method_train=5 --infgram.method_eval=5 \
+        --max_duration=11224 \
+        --infgram.index_dir=/weka/oe-training-default/wolf/index/v5_dolma-v1_7_olmo/0 --infgram.prefetch=true --model.separate_infgram_wte=false \
     "

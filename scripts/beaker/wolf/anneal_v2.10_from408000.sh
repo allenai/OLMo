@@ -2,9 +2,11 @@
 
 set -ex
 
-CONFIG_PATH=configs/amberish1-weka.yaml
+CONFIG_PATH=configs/annealing/amberish1-weka.yaml
 NUM_NODES=8
-RUN_NAME="v2.10_v2.9_full-index"
+RUN_NAME="anneal_v2.10_from408000"
+LOAD_PATH=/weka/oe-training-default/wolf/ckpt/v2.10_v2.9_full-index/step408000
+LEARNING_RATE=0.00018116
 
 gantry run \
   --allow-dirty \
@@ -57,7 +59,8 @@ gantry run \
         scripts/train.py ${CONFIG_PATH} \
         --run_name=${RUN_NAME} \
         --wandb.project=hb-wolf-olmo-2 --wandb.entity=liujch1998 \
-        --save_folder=/weka/oe-training-default/wolf/ckpt/${RUN_NAME} --save_overwrite=true --load_path=\\\${path.last_checkpoint:/weka/oe-training-default/wolf/ckpt/${RUN_NAME}} \
+        --save_folder=/weka/oe-training-default/wolf/ckpt/${RUN_NAME} --save_overwrite=true --load_path=${LOAD_PATH} \
+        --optimizer.learning_rate=${LEARNING_RATE} \
         --device_train_microbatch_size=4 \
         --infgram.index_dir=/weka/oe-training-default/wolf/index/v5_dolma-v1_7_olmo --infgram.sharded=true --infgram.prefetch=true --model.separate_infgram_wte=true --infgram.method_train=5 --infgram.method_eval=5 \
     "
