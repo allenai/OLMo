@@ -1206,6 +1206,7 @@ class OLMo(nn.Module):
             # TODO: make sure that fsdp/ddp plays nice with this
             # TODO: add cached_path
             set_base_shapes(self, self.config.mup_base_shapes, rescale_params=self.__mup_rescale_params)
+            self.__mup_rescale_params = False
 
         log.info("Initializing model parameters...")
         # Top-level embeddings / linear layers.
