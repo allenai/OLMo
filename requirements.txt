@@ -2,4 +2,4 @@ torch
 datasets
 rich
 botocore
-cachedpath
+cached-path
