@@ -27,6 +27,8 @@ from typing import (
 
 import torch
 import torch.backends.cuda
+import torch.distributed
+import torch.distributed.fsdp
 import torch.nn as nn
 import torch.nn.functional as F
 from mup import MuReadout, MuSharedReadout
@@ -733,7 +735,8 @@ class OLMoSequentialBlock(OLMoBlock):
             init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
 
         if self.config.use_mup and self.config.mup_query_zero_init:
-            self.att_proj.weight.data[:, : self.config.d_model] = 0  # just the query part
+            with torch.distributed.fsdp.FullyShardedDataParallel.summon_full_params(self):
+                self.att_proj.weight.data[:, : self.config.d_model] = 0  # just the query part
 
     def forward(
         self,
