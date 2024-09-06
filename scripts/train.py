@@ -64,10 +64,6 @@ def main(cfg: TrainConfig) -> None:
 
     barrier()
 
-    # Set CUDA device.
-    torch.cuda.set_device(f"cuda:{get_local_rank()}")
-    device = torch.device("cuda")
-
     # Fill some configuration options.
     cfg.model.precision = cfg.precision
     cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
@@ -341,6 +337,10 @@ if __name__ == "__main__":
     except RuntimeError as e:
         print(f"failed to set multiprocessing start method: {e}")
     log.info(f"Multiprocessing start method set to '{mp.get_start_method()}'")
+
+    # Set CUDA device.
+    torch.cuda.set_device(f"cuda:{get_local_rank()}")
+    device = torch.device("cuda")
 
     # Initialize process group.
     dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30))
