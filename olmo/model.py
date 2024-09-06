@@ -727,7 +727,9 @@ class OLMoSequentialBlock(OLMoBlock):
             raise NotImplementedError(self.config.init_fn)
 
         init_normal(self.att_proj, std, cutoff_factor, use_mup=self.config.use_mup)
-        init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
+        if not self.config.use_mup:
+            # if mup, don't reset readout weights.
+            init_normal(self.ff_out, std, cutoff_factor, use_mup=self.config.use_mup)
 
         if self.config.use_mup and self.config.mup_query_zero_init:
             self.att_proj.weight.data[:, : self.config.d_model] = 0  # just the query part
