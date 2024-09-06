@@ -8,8 +8,8 @@ gantry run \
     --preemptible \
     --cluster ai2/jupiter-cirrascale-2 \
     --budget ai2/oe-eval \
-    --env-secret AWS_ACCESS_KEY_ID={AWS_ACCESS_KEY_ID} \
-    --env-secret AWS_SECRET_ACCESS_KEY={AWS_SECRET_ACCESS_KEY} \
+    --env-secret AWS_ACCESS_KEY_ID=JENA_AWS_ACCESS_KEY_ID \
+    --env-secret AWS_SECRET_ACCESS_KEY=JENA_AWS_SECRET_ACCESS_KE \
     --shared-memory 10GiB \
     --weka=oe-eval-default:/data/input \
     --yes \
