@@ -103,8 +103,7 @@ speed_monitor:
   window_size: 20
 
 fsdp:
-  wrapping_strategy: null
-  sharding_strategy: SHARD_GRAD_OP
+  wrapping_strategy: by_block_and_size
   precision: mixed
 
 eval_interval: 5000
