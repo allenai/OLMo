@@ -5,7 +5,8 @@ set -ex
 NUM_NODES=16
 
 gantry run \
-  --workspace ai2/hb-wolf-olmo-2 \
+  --allow-dirty \
+  --workspace ai2/hb-wolf-olmo \
   --task-name amberish1 \
   --description "Amberish 1B train" \
   --priority high \

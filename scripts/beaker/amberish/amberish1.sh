@@ -33,9 +33,9 @@ popd
 export HF_DATASETS_OFFLINE=1
 
 # Move AWS credentials from env to relevant files
-mkdir -p ~/.aws
-printenv AWS_CONFIG > ~/.aws/config
-printenv AWS_CREDENTIALS > ~/.aws/credentials
+# mkdir -p ~/.aws
+# printenv AWS_CONFIG > ~/.aws/config
+# printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 # mkdir /root/checkpoint-unsharded
 # aws s3 cp --no-progress --recursive --profile=S3 \
