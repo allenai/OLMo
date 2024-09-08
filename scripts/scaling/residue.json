@@ -110,5 +110,33 @@
         "n": 681297408,
         "label": "750m-10xC",
         "color": "darkgreen"
+    },
+    "1b-1xC": {
+        "path": "wandb/amberish-5shot/1B-1xC_val-all.csv",
+        "mode": "eval",
+        "n": 1176832000,
+        "label": "1b-1xC",
+        "color": "teal"
+    },
+    "1b-2xC": {
+        "path": "wandb/amberish-5shot/1B-2xC_val-all.csv",
+        "mode": "eval",
+        "n": 1176832000,
+        "label": "1b-2xC",
+        "color": "teal"
+    },
+    "1b-5xC": {
+        "path": "wandb/amberish-5shot/1B-5xC_val-all.csv",
+        "mode": "eval",
+        "n": 1176832000,
+        "label": "1b-5xC",
+        "color": "teal"
+    },
+    "1b-10xC": {
+        "path": "wandb/amberish-5shot/1B-10xC_val-all.csv",
+        "mode": "eval",
+        "n": 1176832000,
+        "label": "1b-10xC",
+        "color": "teal"
     }
 }

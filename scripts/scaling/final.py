@@ -37,7 +37,7 @@ def main():
         train_ys,
         chinchilla_n_d_fit,
         grad_chinchilla_n_d_fit,
-        p0=[7.0, 11.5, 0.5, 0.5, 2.0],
+        p0=[3.0, 6.0, 0.1, 0.2, 1.0],
         bounds=[(0, None), (0, None), (0, None), (0, None), (0, None)],
     )
     a, b, alpha, beta, E = coefficients
@@ -111,6 +111,8 @@ def main():
     plt.title("Fitting final loss")
     plt.savefig(args.output_path, dpi=300)
 
+    y_1b_3T = chinchilla_n_d_fit([1176832000, 3e12], coefficients)
+    print(f"Predicted final loss for 1b-3T: {y_1b_3T:.2f}")
     y_7b_2T = chinchilla_n_d_fit([6682316800, 2e12], coefficients)
     print(f"Predicted final loss for 7b-2T: {y_7b_2T:.2f}")
     y_7b_3T = chinchilla_n_d_fit([6682316800, 3e12], coefficients)

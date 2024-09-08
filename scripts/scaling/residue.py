@@ -5,11 +5,8 @@ import numpy as np
 
 from olmo.scaling.scaling_laws.utils import (
     ExtrapolateNConfig,
-    chinchilla_n_d_lr_power_fit,
     get_ax,
-    get_coefficients_huber,
     get_data_by_name,
-    grad_chinchilla_n_d_lr_power_fit,
     parse_args,
 )
 
@@ -37,12 +34,12 @@ def main():
         config = configs[name]
         data = data_by_name[name]
         const_data = const_data_by_name[name]
-        if not data['ds'][:-1] == const_data['ds'][:len(data['ds'])-1]:
-            print(name)
-            print(data['ds'][:-1])
-            print(const_data['ds'][:len(data['ds'])-1])
+        # if not data['ds'][:-1] == const_data['ds'][:len(data['ds'])-1]:
+        #     print(name)
+        #     print(data['ds'][:-1])
+        #     print(const_data['ds'][:len(data['ds'])-1])
         # assert data['ds'][:-1] == const_data['ds'][:len(data['ds'])-1]
-        ds = data['ds'][:-2]
+        ds = data['ds'][:-2] # TODO: this should be -1
         residues = np.array(data['ys'][:-2]) - np.array(const_data['ys'][:len(data['ys'])-2])
 
         ax = axs[get_ax(name)]

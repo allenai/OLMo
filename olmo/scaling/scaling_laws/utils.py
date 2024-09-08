@@ -57,6 +57,9 @@ downstream = [
     "openbookqa_rc_5shot_len_norm",
     "openbookqa_mc_5shot_acc",
     "commonsense_qa_len_norm",
+    "csqa_rc_0shot_len_norm",
+    "csqa_rc_5shot_len_norm",
+    "csqa_mc_5shot_acc",
     "boolq_acc",
     "boolq_rc_0shot_acc",
     "boolq_rc_5shot_acc",
@@ -432,6 +435,23 @@ def grad_chinchilla_n_d_lr_power_minus_fit(x, p):
     grad_F = - (1 - x[2]) * x[0] ** p[6]
     grad_r = - p[5] * (1 - x[2]) * x[0] ** p[6] * np.log(x[0])
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r]
+
+
+def chinchilla_n_d_lr_power_minus_powerd_fit(x, p):
+    # return e**a / x[0]**alpha + e**b / x[1]**beta + E - F * (1 - x[2]) * x[0]**r * x[1]**s
+    return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4] - p[5] * (1 - x[2]) * x[0] ** p[6] * x[1] ** p[7]
+
+
+def grad_chinchilla_n_d_lr_power_minus_powerd_fit(x, p):
+    grad_a = np.exp(p[0]) / x[0] ** p[2]
+    grad_b = np.exp(p[1]) / x[1] ** p[3]
+    grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
+    grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
+    grad_E = 1
+    grad_F = - (1 - x[2]) * x[0] ** p[6] * x[1] ** p[7]
+    grad_r = - p[5] * (1 - x[2]) * x[1] ** p[7] * x[0] ** p[6] * np.log(x[0])
+    grad_s = - p[5] * (1 - x[2]) * x[0] ** p[6] * x[1] ** p[7] * np.log(x[1])
+    return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r, grad_s]
 
 
 def tissue_fit(x, p):

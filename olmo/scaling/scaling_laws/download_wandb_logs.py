@@ -205,6 +205,27 @@ if __name__ == "__main__":
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-const-750M-10xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-const/750M-10xC_val-all.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-const-1B-10xC' -y eval/all-validation-and-bpb/CrossEntropyLoss -o wandb/amberish-const/1B-10xC_val-all.csv
 
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-150M-1xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/150M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-300M-1xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/300M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-530M-1xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/530M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-750M-1xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/750M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-1B-1xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/1B-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-150M-2xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/150M-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-300M-2xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/300M-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-530M-2xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/530M-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-750M-2xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/750M-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-1B-2xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/1B-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-150M-5xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/150M-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-300M-5xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/300M-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-530M-5xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/530M-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-750M-5xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/750M-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-1B-5xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/1B-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-150M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/150M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-300M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/300M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-530M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/530M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-750M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/750M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-1B-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/1B-10xC.csv
+
     args = parse_args()
     print(args)
     main(args)
