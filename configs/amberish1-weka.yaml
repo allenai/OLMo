@@ -135,6 +135,24 @@ evaluators:
   ##########################
   # Downstream evaluations #
   ##########################
+  - label: vera_arc_easy
+    type: downstream
+
+  - label: vera_arc_hard
+    type: downstream
+
+  - label: vera_commonsenseqa
+    type: downstream
+
+  - label: vera_physical_iqa
+    type: downstream
+
+  - label: vera_social_iqa
+    type: downstream
+
+  - label: vera_sciq
+    type: downstream
+
   - label: piqa
     type: downstream
 
@@ -149,7 +167,7 @@ evaluators:
 
   - label: boolq
     type: downstream
- 
+
   - label: sciq
     type: downstream
 
@@ -223,6 +241,228 @@ evaluators:
     type: downstream
 
   - label: arc_easy_ppl
+    type: downstream
+
+  - label: piqa_rc_0shot
+    type: downstream
+
+  - label: piqa_rc_0shot_bpb
+    type: downstream
+
+  - label: piqa_rc_5shot
+    type: downstream
+
+  - label: piqa_rc_5shot_bpb
+    type: downstream
+
+  - label: piqa_mc_5shot
+    type: downstream
+
+  - label: piqa_mc_5shot_bpb
+    type: downstream
+
+  - label: hellaswag_rc_0shot
+    type: downstream
+
+  - label: hellaswag_rc_0shot_bpb
+    type: downstream
+
+  - label: hellaswag_rc_5shot
+    type: downstream
+
+  - label: hellaswag_rc_5shot_bpb
+    type: downstream
+
+  - label: hellaswag_mc_5shot
+    type: downstream
+
+  - label: hellaswag_mc_5shot_bpb
+    type: downstream
+
+  - label: winogrande_rc_0shot
+    type: downstream
+
+  - label: winogrande_rc_0shot_bpb
+    type: downstream
+
+  - label: winogrande_rc_5shot
+    type: downstream
+
+  - label: winogrande_rc_5shot_bpb
+    type: downstream
+
+  - label: winogrande_mc_5shot
+    type: downstream
+
+  - label: winogrande_mc_5shot_bpb
+    type: downstream
+
+  - label: openbookqa_rc_0shot
+    type: downstream
+
+  - label: openbookqa_rc_0shot_bpb
+    type: downstream
+
+  - label: openbookqa_rc_5shot
+    type: downstream
+
+  - label: openbookqa_rc_5shot_bpb
+    type: downstream
+
+  - label: openbookqa_mc_5shot
+    type: downstream
+
+  - label: openbookqa_mc_5shot_bpb
+    type: downstream
+
+  - label: boolq_rc_0shot
+    type: downstream
+
+  - label: boolq_rc_0shot_bpb
+    type: downstream
+
+  - label: boolq_rc_5shot
+    type: downstream
+
+  - label: boolq_rc_5shot_bpb
+    type: downstream
+
+  - label: boolq_mc_5shot
+    type: downstream
+
+  - label: boolq_mc_5shot_bpb
+    type: downstream
+
+  - label: sciq_rc_0shot
+    type: downstream
+
+  - label: sciq_rc_0shot_bpb
+    type: downstream
+
+  # - label: sciq_rc_5shot
+  #   type: downstream
+
+  # - label: sciq_rc_5shot_bpb
+  #   type: downstream
+
+  # - label: sciq_mc_5shot
+  #   type: downstream
+
+  # - label: sciq_mc_5shot_bpb
+  #   type: downstream
+
+  - label: arc_easy_rc_0shot
+    type: downstream
+
+  - label: arc_easy_rc_0shot_bpb
+    type: downstream
+
+  - label: arc_easy_rc_5shot
+    type: downstream
+
+  - label: arc_easy_rc_5shot_bpb
+    type: downstream
+
+  - label: arc_easy_mc_5shot
+    type: downstream
+
+  - label: arc_easy_mc_5shot_bpb
+    type: downstream
+
+  - label: arc_challenge_rc_0shot
+    type: downstream
+
+  - label: arc_challenge_rc_0shot_bpb
+    type: downstream
+
+  - label: arc_challenge_rc_5shot
+    type: downstream
+
+  - label: arc_challenge_rc_5shot_bpb
+    type: downstream
+
+  - label: arc_challenge_mc_5shot
+    type: downstream
+
+  - label: arc_challenge_mc_5shot_bpb
+    type: downstream
+
+  - label: copa_rc_0shot
+    type: downstream
+
+  - label: copa_rc_0shot_bpb
+    type: downstream
+
+  # - label: copa_rc_5shot
+  #   type: downstream
+
+  # - label: copa_rc_5shot_bpb
+  #   type: downstream
+
+  # - label: copa_mc_5shot
+  #   type: downstream
+
+  # - label: copa_mc_5shot_bpb
+  #   type: downstream
+
+  - label: csqa_rc_0shot
+    type: downstream
+
+  - label: csqa_rc_0shot_bpb
+    type: downstream
+
+  - label: csqa_rc_5shot
+    type: downstream
+
+  - label: csqa_rc_5shot_bpb
+    type: downstream
+
+  - label: csqa_mc_5shot
+    type: downstream
+
+  - label: csqa_mc_5shot_bpb
+    type: downstream
+
+  - label: socialiqa_rc_0shot
+    type: downstream
+
+  - label: socialiqa_rc_0shot_bpb
+    type: downstream
+
+  - label: socialiqa_rc_5shot
+    type: downstream
+
+  - label: socialiqa_rc_5shot_bpb
+    type: downstream
+
+  - label: socialiqa_mc_5shot
+    type: downstream
+
+  - label: socialiqa_mc_5shot_bpb
+    type: downstream
+
+  - label: mmlu_stem_var_bpb
+    type: downstream
+
+  - label: mmlu_humanities_var_bpb
+    type: downstream
+
+  - label: mmlu_social_sciences_var_bpb
+    type: downstream
+
+  - label: mmlu_other_var_bpb
+    type: downstream
+
+  - label: mmlu_stem_bpb
+    type: downstream
+
+  - label: mmlu_humanities_bpb
+    type: downstream
+
+  - label: mmlu_social_sciences_bpb
+    type: downstream
+
+  - label: mmlu_other_bpb
     type: downstream
 
 data:
