@@ -57,7 +57,7 @@ def convert_checkpoint(cps, load_dir="/data/input"):
     results = 'results/'
     if not os.path.exists(results):
         os.mkdir(results)
-    with open(f'{results}log.jsonl', 'a+') as fout:
+    with open(f'{results}metrics.jsonl', 'a+') as fout:
         for p in processed:
             fout.write(json.dumps(p) + '\n')
 
