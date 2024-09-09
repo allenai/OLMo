@@ -10,12 +10,13 @@ Requires AWS CLI to be installed and configured.
 import argparse
 import subprocess
 import os
+import json
 
 SANITY_CHECK = True
 
 def convert_checkpoint(cps, load_dir="/data/input"):
     cps = expand_paths(cps)
-    save = {}
+    processed = []
 
     for checkpoint_path in cps:
         # Convert to old-style checkpoint.
@@ -35,9 +36,14 @@ def convert_checkpoint(cps, load_dir="/data/input"):
             else:
                 subprocess.run(conversion_cmd, shell=True, check=True)
 
-        save[checkpoint_path] = {'converted_path': weka_loc, 'convertion': conversion}
+        processed.append({
+            'unproccessed_path': checkpoint_path,
+            'converted_path': weka_loc,
+            'convertion': conversion})
 
-    print(save)
+    with open('/data/input/jenah/log.jsonl','a+') as fout:
+        for p in processed:
+            fout.write(json.dumps(p)+'\n')
 
 def expand_paths(cps):
     expanded = []
@@ -49,7 +55,7 @@ def expand_paths(cps):
         relevant_dirs = ['/'.join(d.split()[-1].split('/')[:-1]) for d in all_dirs.split() if 'model.pt' in d]
         search_segs = [seg for i, seg in enumerate(segs) if i > 0 and seg != ""]
 
-        print(search_segs)
+        print(f"search segments: {search_segs}")
 
         temp_dirs = relevant_dirs
         if len(search_segs) > 0:
