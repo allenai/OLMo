@@ -8,6 +8,7 @@
 # - OUTPUT is weka with the same path name as s3 + "-hf" suffix appended to the path
 # - Budget for oe-eval
 # - Experiments saved to ai2/cheap-decisions
+# - Assumes tokenizer allenai/gpt-neox-olmo-dolma-v1_5.json
 
 # NOTES
 # - saves metrics.json
@@ -16,6 +17,7 @@
 # TODOs
 # - Make consistent with Luca's code
 # - Code allows for a txt file with a list of checkpoint paths, sh needs to allow this
+#
 
 CHECKPOINT_PATH=$1
 

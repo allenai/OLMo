@@ -29,6 +29,7 @@ def convert_checkpoint(cps, load_dir="/data/input"):
         weka_loc = f"{load_dir}/{retain_path_name}-hf/"
 
         # Check if the output location is already there. If not, do the conversion.
+        print('WEKA LOC', weka_loc)
         if os.path.exists(weka_loc):
             conversion = 'existing'
             converted_path = weka_loc
@@ -39,7 +40,7 @@ def convert_checkpoint(cps, load_dir="/data/input"):
             conversion = 'new'
             converted_path = weka_loc
 
-            conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{weka_loc}' --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5.json'"
+            conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{weka_loc}' --tokenizer ' allenai/gpt-neox-olmo-dolma-v1_5'"
 
             if SANITY_CHECK:
                 print(conversion_cmd)
