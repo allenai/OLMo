@@ -12,7 +12,7 @@ import subprocess
 import os
 import json
 
-SANITY_CHECK = True
+SANITY_CHECK = False
 
 def convert_checkpoint(cps, load_dir="/data/input"):
     cps = expand_paths(cps)

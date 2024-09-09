@@ -9,7 +9,7 @@ import subprocess
 AWS_ACCESS_KEY_ID = 'JENA_AWS_ACCESS_KEY_ID'
 AWS_SECRET_ACCESS_KEY = 'JENA_AWS_SECRET_ACCESS_KEY'
 
-SANITY_CHECK = True
+SANITY_CHECK = False
 
 def convert_checkpoints(args):
     cmd = f"gantry run " \
