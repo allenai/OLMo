@@ -12,6 +12,7 @@ gantry run \
     --weka=oe-eval-default:/data/input \
     --pip requirements.txt \
     --yes \
-    -- /bin/bash -c "python scripts/convert_checkpoints_batch.py --checkpoint-path 's3://ai2-llm/checkpoints/cheap_decisions/dolma-v1-6-and-sources-baseline-3x-code-1B-N-1T-D-mitchish1-001/step351000-unsharded' --weka-load-dir '/data/input/'"
+    --result=log.jsonl \
+    -- /bin/bash -c "python scripts/convert_checkpoints_batch.py --checkpoint-path 's3://ai2-llm/checkpoints/cheap_decisions/dolma-v1-6-and-sources-baseline-3x-code-1B-N-1T-D-mitchish1-001/step99*' --weka-load-dir '/data/input/'"
 
 #    --install install_torch.sh \
