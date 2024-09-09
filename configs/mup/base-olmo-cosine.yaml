@@ -103,7 +103,7 @@ speed_monitor:
   window_size: 20
 
 fsdp:
-  wrapping_strategy: by_block_and_size
+  wrapping_strategy: by_block
   precision: mixed
 
 eval_interval: 5000
