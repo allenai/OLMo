@@ -39,7 +39,7 @@ def convert_checkpoint(cps, load_dir="/data/input"):
             conversion = 'new'
             converted_path = weka_loc
 
-            conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{weka_loc}' --keep-olmo-artifacts --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5.json'"
+            conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{weka_loc}' --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5.json'"
 
             if SANITY_CHECK:
                 print(conversion_cmd)
@@ -53,9 +53,13 @@ def convert_checkpoint(cps, load_dir="/data/input"):
             'date_time': time.strftime('%b-%d-%Y_%H%M', time.localtime())})
 
     print(processed)
-    with open('log.jsonl','a+') as fout:
+
+    results = 'results/'
+    if not os.path.exists(results):
+        os.mkdir(results)
+    with open(f'{results}log.jsonl', 'a+') as fout:
         for p in processed:
-            fout.write(json.dumps(p)+'\n')
+            fout.write(json.dumps(p) + '\n')
 
 
 def s3_path_exists(cp, s3):
