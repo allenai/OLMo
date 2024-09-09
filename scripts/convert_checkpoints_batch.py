@@ -29,7 +29,9 @@ def convert_checkpoint(cps, load_dir="/data/input"):
             conversion = 'existing'
         else:
             conversion = 'new'
-            conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{weka_loc}' --keep-olmo-artifacts"
+            conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{weka_loc}' --keep-olmo-artifacts --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5.json'"
+
+
 
             if SANITY_CHECK:
                 print(conversion_cmd)
