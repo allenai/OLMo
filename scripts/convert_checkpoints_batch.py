@@ -14,7 +14,7 @@ import time
 import boto3
 import json
 
-SANITY_CHECK = True
+SANITY_CHECK = False
 
 def convert_checkpoint(cps, load_dir="/data/input"):
     s3_client = boto3.client('s3')
@@ -44,6 +44,11 @@ def convert_checkpoint(cps, load_dir="/data/input"):
             if SANITY_CHECK:
                 print(conversion_cmd)
             else:
+                print('\n--------------------------------------------')
+                print("\nConverting Checkpoint...")
+                print(conversion_cmd)
+                print('\n--------------------------------------------')
+
                 subprocess.run(conversion_cmd, shell=True, check=True)
 
         processed.append({
@@ -57,7 +62,7 @@ def convert_checkpoint(cps, load_dir="/data/input"):
     results = 'results/'
     if not os.path.exists(results):
         os.mkdir(results)
-    with open(f'{results}metrics.jsonl', 'a+') as fout:
+    with open(f'{results}metrics.json', 'w') as fout:
         for p in processed:
             fout.write(json.dumps(p) + '\n')
 
@@ -66,6 +71,7 @@ def s3_path_exists(cp, s3):
     b = cp.split('/')[2]
     bucket = s3.Bucket(b)
     objs = list(bucket.objects.filter(Prefix=cp.replace('s3://'+b+'/', '') + '-hf'))
+    print(objs)
     return True if (len(objs) > 0) else False
 
 
@@ -89,7 +95,7 @@ def expand_paths(cps, s3):
 
         search_segs = [seg for i, seg in enumerate(segs) if i > 0 and seg != ""]
 
-        print(f"search segments: {search_segs}")
+        # print(f"search segments: {search_segs}")
 
         temp_dirs = relevant_dirs
         if len(search_segs) > 0:

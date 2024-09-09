@@ -1,4 +1,27 @@
+#!/usr/bin/env bash
+
+# To be run at the top of the root of OLMo repository.
+#  Converts s3 checkpoints into WEKA
+
+# ASSUMPTIONS
+# - INPUT must be on s3
+# - OUTPUT is weka with the same path name as s3 + "-hf" suffix appended to the path
+# - Budget for oe-eval
+# - Experiments saved to ai2/cheap-decisions
+
+# NOTES
+# - saves metrics.json
+# - allows for wildcard (*)
+
+# TODOs
+# - Make consistent with Luca's code
+# - Code allows for a txt file with a list of checkpoint paths, sh needs to allow this
+
+CHECKPOINT_PATH=$1
+
+
 gantry run \
+    --description "checkpoint conv; eval for cons ranking" \
     --allow-dirty \
     --workspace ai2/cheap-decisions  \
     --priority normal \
@@ -10,8 +33,6 @@ gantry run \
     --env-secret AWS_SECRET_ACCESS_KEY=JENA_AWS_SECRET_ACCESS_KEY \
     --shared-memory 10GiB \
     --weka=oe-eval-default:/data/input \
-    --pip requirements.txt \
     --yes \
-    -- /bin/bash -c "python scripts/convert_checkpoints_batch.py --checkpoint-path 's3://ai2-llm/checkpoints/cheap_decisions/dolma-v1-6-and-sources-baseline-3x-code-1B-N-1T-D-mitchish1-001/step99*' --weka-load-dir '/data/input/'"
+    -- /bin/bash -c "python scripts/convert_checkpoints_batch.py --checkpoint-path $CHECKPOINT_PATH --weka-load-dir '/data/input/'"
 
-#    --install install_torch.sh \
