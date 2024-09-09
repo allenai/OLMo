@@ -56,3 +56,5 @@ site/
 /wandb/
 /scratch/
 core
+
+olmo_data/tulu
