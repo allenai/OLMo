@@ -71,7 +71,6 @@ torchrun \
       --scheduler.t_warmup=50 \
       --device_train_microbatch_size=4 \
       --try_load_latest_save \
-      --distributed_strategy=ddp \
       --save_overwrite
 
 #for WIDTH in 128 256 512 1024 2048 4096;
