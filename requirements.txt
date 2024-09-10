@@ -4,4 +4,4 @@ rich
 botocore
 cached-path
 transformers
-gantry
+beaker-gantry
