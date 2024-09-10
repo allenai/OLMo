@@ -2,6 +2,16 @@
 
 # To be run at the top of the root of OLMo repository.
 #  Converts s3 checkpoints into WEKA
+#
+# Example use:
+# sh scripts/convert_checkpoints.sh s3://ai2-llm/checkpoints/cheap_decisions/dolma-v1-6-and-sources-baseline-3x-code-1B-N-1T-D-mitchish1-001/step9*
+#
+# This will convert all models in the directory
+# and save them to their respective directories under
+#
+# /weka/ai2-llm/checkpoints/cheap_decisions/dolma-v1-6-and-sources-baseline-3x-code-1B-N-1T-D-mitchish1-001/step9*
+#
+# It will first, though, check that the weka directory doesn't exist AND that s3 doesn't have a corresponding directory (so as not to replicate what conversions already made)
 
 # ASSUMPTIONS
 # - INPUT must be on s3
@@ -17,7 +27,7 @@
 # TODOs
 # - Make consistent with Luca's code
 # - Code allows for a txt file with a list of checkpoint paths, sh needs to allow this
-#
+# - Output is not saving. But it prints to the log. Fix this.
 
 CHECKPOINT_PATH=$1
 
