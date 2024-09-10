@@ -15,6 +15,8 @@ import boto3
 import json
 import sys
 
+from gantry import METRICS_FILE
+
 SANITY_CHECK = False
 
 def convert_checkpoint(cps, load_dir="/data/input"):
@@ -61,10 +63,10 @@ def convert_checkpoint(cps, load_dir="/data/input"):
 
     print(processed)
 
-    results = 'results/'
-    if not os.path.exists(results):
-        os.mkdir(results)
-    with open(f'{results}metrics.json', 'w') as fout:
+    # results = 'results/'
+    # if not os.path.exists(results):
+    #     os.mkdir(results)
+    with open(METRICS_FILE, 'w') as fout:
         for p in processed:
             fout.write(json.dumps(p) + '\n')
 

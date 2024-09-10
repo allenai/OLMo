@@ -28,6 +28,7 @@
 # - Make consistent with Luca's code
 # - Code allows for a txt file with a list of checkpoint paths, sh needs to allow this
 # - Output is not saving. But it prints to the log. Fix this.
+# - Make tokenizer updatable
 
 CHECKPOINT_PATH=$1
 
