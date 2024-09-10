@@ -28,6 +28,7 @@ def test_olmo_model(model_path: str):
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA devices")
 def test_flash_attention_2(model_path: str):
     from transformers import AutoModelForCausalLM, AutoTokenizer
+
     import hf_olmo  # noqa: F401
 
     hf_model = AutoModelForCausalLM.from_pretrained(model_path)
@@ -45,6 +46,7 @@ def test_flash_attention_2(model_path: str):
 
 def test_sdpa(model_path: str):
     from transformers import AutoModelForCausalLM, AutoTokenizer
+
     import hf_olmo  # noqa: F401
 
     hf_model = AutoModelForCausalLM.from_pretrained(model_path)
@@ -62,6 +64,7 @@ def test_sdpa(model_path: str):
 
 def test_gradient_checkpointing(model_path: str):
     from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel
+
     import hf_olmo  # noqa: F401
 
     hf_model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(model_path)
@@ -81,6 +84,7 @@ def test_gradient_checkpointing(model_path: str):
 
 def test_gradient_checkpointing_disable(model_path: str):
     from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel
+
     import hf_olmo  # noqa: F401
 
     hf_model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(model_path)
