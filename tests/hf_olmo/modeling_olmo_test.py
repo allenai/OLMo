@@ -60,6 +60,45 @@ def test_sdpa(model_path: str):
     torch.testing.assert_close(hf_output_sdpa.logits, hf_output.logits)
 
 
+def test_gradient_checkpointing(model_path: str):
+    from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel
+    import hf_olmo  # noqa: F401
+
+    hf_model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(model_path)
+
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    encoded_input = tokenizer.encode("My name is OLMo!")
+    input_tensor = torch.tensor(encoded_input).unsqueeze(0)
+
+    hf_output_no_checkpointing = hf_model(input_tensor)
+
+    hf_model.gradient_checkpointing_enable()
+
+    hf_output_checkpointing = hf_model(input_tensor)
+
+    torch.testing.assert_close(hf_output_checkpointing.logits, hf_output_no_checkpointing.logits)
+
+
+def test_gradient_checkpointing_disable(model_path: str):
+    from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel
+    import hf_olmo  # noqa: F401
+
+    hf_model: PreTrainedModel = AutoModelForCausalLM.from_pretrained(model_path)
+
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    encoded_input = tokenizer.encode("My name is OLMo!")
+    input_tensor = torch.tensor(encoded_input).unsqueeze(0)
+
+    hf_output = hf_model(input_tensor)
+
+    hf_model.gradient_checkpointing_enable()
+    hf_model.gradient_checkpointing_disable()
+
+    hf_output_after_disable = hf_model(input_tensor)
+
+    torch.testing.assert_close(hf_output_after_disable.logits, hf_output.logits)
+
+
 def test_save_pretrained(model_path: str):
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
