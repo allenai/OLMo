@@ -26,6 +26,15 @@ def create_model_config_from_pretrained_config(config: OLMoConfig):
         kwargs[field.name] = getattr(config, field.name)
 
     model_config = ModelConfig(**kwargs)
+
+    # Handle flash attention settings
+    if config._attn_implementation == "flash_attention_2":
+        model_config.flash_attention = True
+    elif config._attn_implementation in ("eager", "sdpa"):
+        model_config.flash_attention = False
+    else:
+        raise ValueError(f"Unexpected _attn_implementation {config._attn_implementation}")
+
     return model_config
 
 
@@ -37,6 +46,8 @@ class OLMoForCausalLM(PreTrainedModel):
     config_class = OLMoConfig
     base_model_prefix = "model"
     _no_split_modules = ["OLMoBlock"]
+    _supports_flash_attn_2 = True
+    _supports_sdpa = True
 
     def __init__(self, config: OLMoConfig, model: Optional[OLMo] = None, init_params: bool = False):
         super().__init__(config)
