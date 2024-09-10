@@ -418,7 +418,7 @@ class OLMoBlock(nn.Module):
         self.__cache = cache
         assert config.d_model % config.n_heads == 0
 
-        self._activation_checkpoint_fn = None
+        self._activation_checkpoint_fn: Optional[Callable] = None
 
         # Dropout.
         self.dropout = Dropout(config.residual_dropout)
@@ -982,7 +982,7 @@ class OLMoOutput(NamedTuple):
     Attention keys and values from each block.
     """
 
-    hidden_states: Optional[Tuple[torch.Tensor]]
+    hidden_states: Optional[Tuple[torch.Tensor, ...]]
     """
     Hidden states from each block.
     """
@@ -1455,7 +1455,7 @@ class OLMo(nn.Module):
             logits=logits,
             attn_key_values=attn_key_values,
             hidden_states=tuple(all_hidden_states) if output_hidden_states else None,
-        )  # type: ignore[arg-type]
+        )
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
