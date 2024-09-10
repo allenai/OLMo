@@ -36,5 +36,5 @@ gantry run \
     --shared-memory 10GiB \
     --weka=oe-eval-default:/data/input \
     --yes \
-    -- /bin/bash -c "python scripts/convert_checkpoints_batch.py --checkpoint-path $CHECKPOINT_PATH --weka-load-dir '/data/input/'"
+    -- /bin/bash -c "python scripts/convert_checkpoints_batch.py --checkpoint-path $CHECKPOINT_PATH --weka-load-dir '/data/input'"
 

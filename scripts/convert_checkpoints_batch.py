@@ -13,6 +13,7 @@ import os
 import time
 import boto3
 import json
+import sys
 
 SANITY_CHECK = False
 
@@ -45,10 +46,10 @@ def convert_checkpoint(cps, load_dir="/data/input"):
             if SANITY_CHECK:
                 print(conversion_cmd)
             else:
-                print('\n--------------------------------------------')
-                print("\nConverting Checkpoint...")
-                print(conversion_cmd)
-                print('\n--------------------------------------------')
+                sys.stdout.write('\n--------------------------------------------')
+                sys.stdout.write("\nConverting Checkpoint...")
+                sys.stdout.write(conversion_cmd)
+                sys.stdout.write('\n--------------------------------------------')
 
                 subprocess.run(conversion_cmd, shell=True, check=True)
 
@@ -72,7 +73,7 @@ def s3_path_exists(cp, s3):
     b = cp.split('/')[2]
     bucket = s3.Bucket(b)
     objs = list(bucket.objects.filter(Prefix=cp.replace('s3://'+b+'/', '') + '-hf'))
-    print(objs)
+    sys.stdout.write(f's3 path exists check: {objs}')
     return True if (len(objs) > 0) else False
 
 
