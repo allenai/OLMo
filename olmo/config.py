@@ -1201,6 +1201,12 @@ class TrainConfig(BaseConfig):
     Whether to run the PyTorch profiler on batches 6, 7, and 8.
     """
 
+    torch_profile_memory: bool = False
+    """
+    If `torch_profiling` is set, decides if the PyTorch profiler should profile
+    memory too.
+    """
+
     stop_at: Optional[int] = None
     """
     Stop at a specific step.
