@@ -50,6 +50,7 @@ from .torch_util import (
     gc_cuda,
     get_fs_local_rank,
     get_global_rank,
+    get_local_rank,
     get_world_size,
     move_to_device,
     peak_gpu_memory,
@@ -1136,7 +1137,7 @@ class Trainer:
 
             profiling_schedule = schedule(wait=1, warmup=5, active=3, repeat=1)
 
-            def on_trace_ready(p):
+            def on_trace_ready(p: torch.profiler.profile):
                 profiler_output_dir = Path(self.cfg.save_folder) / "profiler"
                 profiler_output_dir.mkdir(exist_ok=True)
 
@@ -1153,12 +1154,21 @@ class Trainer:
                     log.info(f"Tracing complete, uploading results to '{upload_folder}'...")
                     upload(trace_path, f"{upload_folder}/{trace_path.name}")
 
+                if self.cfg.torch_profile_memory:
+                    device_str = f"cuda:{get_local_rank()}" if self.device.type == "cuda" else self.device.type
+                    memory_timeline_path = profiler_output_dir / f"{p.step_num}.memory_timeline.html"
+                    p.export_memory_timeline(str(memory_timeline_path), device=device_str)
+                    if self.cfg.remote_save_folder is not None:
+                        upload_folder = f"{self.cfg.remote_save_folder.rstrip('/')}/profiler"
+                        log.info("Memory tracing complete, uploading results to '%s'...", upload_folder)
+                        upload(memory_timeline_path, f"{upload_folder}/{memory_timeline_path.name}")
+
             from torch.profiler import ProfilerActivity
 
             torch_profiler = torch.profiler.profile(
                 activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
                 record_shapes=False,
-                profile_memory=False,
+                profile_memory=self.cfg.torch_profile_memory,
                 with_stack=True,
                 schedule=profiling_schedule,
                 on_trace_ready=on_trace_ready,
