@@ -465,6 +465,66 @@ evaluators:
   - label: mmlu_other_bpb
     type: downstream
 
+  - label: mmlu_newline_stem_var
+    type: downstream
+
+  - label: mmlu_newline_humanities_var
+    type: downstream
+
+  - label: mmlu_newline_social_sciences_var
+    type: downstream
+
+  - label: mmlu_newline_other_var
+    type: downstream
+
+  - label: mmlu_newline_stem_mc_5shot
+    type: downstream
+
+  - label: mmlu_newline_humanities_mc_5shot
+    type: downstream
+
+  - label: mmlu_newline_social_sciences_mc_5shot
+    type: downstream
+
+  - label: mmlu_newline_other_mc_5shot
+    type: downstream
+
+  - label: mmlu_newline_stem_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_newline_humanities_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_newline_social_sciences_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_newline_other_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_newline_stem_var_bpb
+    type: downstream
+
+  - label: mmlu_newline_humanities_var_bpb
+    type: downstream
+
+  - label: mmlu_newline_social_sciences_var_bpb
+    type: downstream
+
+  - label: mmlu_newline_other_var_bpb
+    type: downstream
+
+  - label: mmlu_newline_stem_bpb
+    type: downstream
+
+  - label: mmlu_newline_humanities_bpb
+    type: downstream
+
+  - label: mmlu_newline_social_sciences_bpb
+    type: downstream
+
+  - label: mmlu_newline_other_bpb
+    type: downstream
+
 data:
   pad_direction: right
   num_workers: 32

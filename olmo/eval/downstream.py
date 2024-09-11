@@ -1372,6 +1372,60 @@ class MMLU(ICLMultiChoiceTaskDataset):
         return "Answer:"
 
 
+class MMLUWithNewline(MMLU):
+
+    def doc_to_text(self, doc):
+        def format_example(doc, keys):
+            question_prefix = ""
+            if not self.mc_labels:
+                question_prefix = "Question: "  # To make context more clear
+            question = question_prefix + doc["question"].strip()
+            choices = ""
+            if self.mc_labels:
+                choices = "".join([f"{key}. {choice}\n" for key, choice in zip(keys, doc["choices"])])
+            prompt = f"{question}\n{choices}Answer:\n"
+            return prompt
+
+        keys = ["A", "B", "C", "D"]
+        output_text = format_example(doc, keys)
+
+        if self.current_prompt is not None:
+            prefix = ""
+            if "inst" in self.current_prompt:
+                subject = doc.get("subject").replace("_", " ")
+                prefix = f"The following are multiple choice questions (with answers) about {subject}:\n\n"
+            num_shots = re.findall("\\+(\\d+)", self.current_prompt)
+            if num_shots:
+                dev_set = self.dev_set.get(doc.get("subject"), [])
+                num_shots_int = int(num_shots[0])
+                for idx, dev_doc in enumerate(dev_set):
+                    if idx >= num_shots_int:
+                        break
+                    if self.mc_labels:
+                        answer = keys[dev_doc["answer"]]
+                    else:
+                        answer = dev_doc["choices"][dev_doc["answer"]]
+                    prefix += format_example(dev_doc, keys) + answer + "\n\n"
+            output_text = prefix + output_text
+        return output_text
+
+    def doc_to_continuations(self, doc):
+        # add spaces in front of continuation
+        if self.mc_labels:
+            choices = ["A", "B", "C", "D"]
+        else:
+            choices = [choice for choice in doc["choices"]]
+        if self.metric_type in ["ce_loss", "bpb"]:
+            # Only need correct answer for these metrics
+            return [choices[doc["answer"]]]
+        else:
+            return choices
+
+    def doc_to_domain_conditional(self, doc):
+        del doc
+        return "Answer:\n"
+
+
 class TriviaQACELoss(ICLMultiChoiceTaskDataset):
     """Sample TriviaQA entity with some fields suppressed. For CE Loss we only consider the "value"
     field as the answer to score.
@@ -1699,6 +1753,58 @@ label_to_task_map = {
         MMLU,
         {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
     ),
+
+    # MMLU with old newline format
+    "mmlu_newline_stem_test": (MMLUWithNewline, {"dataset_name": "stem", "split": "test"}),
+    "mmlu_newline_humanities_test": (MMLUWithNewline, {"dataset_name": "humanities", "split": "test"}),
+    "mmlu_newline_social_sciences_test": (MMLUWithNewline, {"dataset_name": "social_sciences", "split": "test"}),
+    "mmlu_newline_other_test": (MMLUWithNewline, {"dataset_name": "other", "split": "test"}),
+    "mmlu_newline_stem": (MMLUWithNewline, {"dataset_name": "stem"}),
+    "mmlu_newline_humanities": (MMLUWithNewline, {"dataset_name": "humanities"}),
+    "mmlu_newline_social_sciences": (MMLUWithNewline, {"dataset_name": "social_sciences"}),
+    "mmlu_newline_other": (MMLUWithNewline, {"dataset_name": "other"}),
+    "mmlu_newline_stem_bpb": (MMLUWithNewline, {"dataset_name": "stem", "metric_type": "bpb"}),
+    "mmlu_newline_humanities_bpb": (MMLUWithNewline, {"dataset_name": "humanities", "metric_type": "bpb"}),
+    "mmlu_newline_social_sciences_bpb": (MMLUWithNewline, {"dataset_name": "social_sciences", "metric_type": "bpb"}),
+    "mmlu_newline_other_bpb": (MMLUWithNewline, {"dataset_name": "other", "metric_type": "bpb"}),
+    "mmlu_newline_stem_var": (MMLUWithNewline, {"dataset_name": "stem", "prompt_variations": 1}),
+    "mmlu_newline_humanities_var": (MMLUWithNewline, {"dataset_name": "humanities", "prompt_variations": 1}),
+    "mmlu_newline_social_sciences_var": (MMLUWithNewline, {"dataset_name": "social_sciences", "prompt_variations": 1}),
+    "mmlu_newline_other_var": (MMLUWithNewline, {"dataset_name": "other", "prompt_variations": 1}),
+    "mmlu_newline_stem_var_bpb": (MMLUWithNewline, {"dataset_name": "stem", "prompt_variations": 1, "metric_type": "bpb"}),
+    "mmlu_newline_humanities_var_bpb": (
+        MMLUWithNewline,
+        {"dataset_name": "humanities", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_newline_social_sciences_var_bpb": (
+        MMLUWithNewline,
+        {"dataset_name": "social_sciences", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_newline_other_var_bpb": (MMLUWithNewline, {"dataset_name": "other", "prompt_variations": 1, "metric_type": "bpb"}),
+    "mmlu_newline_stem_mc_5shot": (MMLUWithNewline, {"dataset_name": "stem", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_newline_humanities_mc_5shot": (MMLUWithNewline, {"dataset_name": "humanities", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_newline_social_sciences_mc_5shot": (
+        MMLUWithNewline,
+        {"dataset_name": "social_sciences", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_newline_other_mc_5shot": (MMLUWithNewline, {"dataset_name": "other", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_newline_stem_mc_5shot_test": (
+        MMLUWithNewline,
+        {"dataset_name": "stem", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_newline_humanities_mc_5shot_test": (
+        MMLUWithNewline,
+        {"dataset_name": "humanities", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_newline_social_sciences_mc_5shot_test": (
+        MMLUWithNewline,
+        {"dataset_name": "social_sciences", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_newline_other_mc_5shot_test": (
+        MMLUWithNewline,
+        {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+
     # Paste in all oe-eval tasks from output of scripts/list_evals_from_oe_eval.py
     "arc_challenge_mc_5shot": (
         OEEvalTask,
