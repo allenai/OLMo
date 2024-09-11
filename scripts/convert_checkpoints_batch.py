@@ -99,7 +99,6 @@ def s3_path_exists(cp, s3):
     b = cp.split('/')[2]
     bucket = s3.Bucket(b)
     objs = list(bucket.objects.filter(Prefix=cp.replace('s3://'+b+'/', '') + '-hf'))
-    sys.stdout.write(f's3 path exists check: {objs}')
     return True if (len(objs) > 0) else False
 
 

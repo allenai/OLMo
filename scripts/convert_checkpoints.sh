@@ -31,10 +31,11 @@
 # - Make tokenizer updatable
 
 CHECKPOINT_PATH=$1
+DESCRIPTION=$2
 
 
 gantry run \
-    --description "checkpoint conv; eval for cons ranking" \
+    --description $DESCRIPTION \
     --allow-dirty \
     --workspace ai2/cheap-decisions  \
     --priority normal \
