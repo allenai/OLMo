@@ -1180,6 +1180,10 @@ class Trainer:
 
             torch_profiler = contextlib.nullcontext()
 
+        # PyTorch memory snapshot collection
+        if self.cfg.torch_profiling and get_global_rank() in (0, 1):
+            torch.cuda.memory._record_memory_history()
+
         # Train.
         first_batch: bool = True
         cancel_initiated: bool = False
@@ -1328,6 +1332,10 @@ class Trainer:
                     # Run generation 1 garbage collection.
                     if self.cfg.gen1_gc_interval is not None and self.global_step % self.cfg.gen1_gc_interval == 0:
                         gc.collect(1)
+
+                    if self.cfg.torch_profiling and self.global_step == 3 and (rank := get_global_rank()) in (0, 1):
+                        snapshot_path = Path(self.cfg.save_folder) / f"profiler/step{self.global_step}_rank{rank}_snapshot.pickle"
+                        torch.cuda.memory._dump_snapshot(str(snapshot_path))
 
                     # Python Profiler stuff
                     # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
