@@ -1170,7 +1170,7 @@ class Trainer:
                 activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
                 record_shapes=False,
                 profile_memory=self.cfg.torch_profile_memory,
-                with_stack=not self.cfg.torch_profile_memory,
+                with_stack=True,
                 schedule=profiling_schedule,
                 on_trace_ready=on_trace_ready,
             )
