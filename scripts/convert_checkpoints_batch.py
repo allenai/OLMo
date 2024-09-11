@@ -23,6 +23,7 @@ SANITY_CHECK = False
 # "self" is the target location where the converted model would be saved
 # key: template, value: description
 # template: MUST obey .format(load_dir, retain_path_name)
+
 WEKA_CHECK_LOCATIONS_PREFIXES = {
     "{}/{}-hf/": 'self',
     "{}/ianm/{}-hf": "ian's"
@@ -64,7 +65,7 @@ def convert_checkpoint(cps, load_dir="/data/input"):
             conversion = 'new'
             converted_path = weka_loc
 
-            conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{weka_loc}' --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5'"
+            conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{weka_loc}' --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5'  --cleanup-local-dir"
 
             if SANITY_CHECK:
                 print(conversion_cmd)
