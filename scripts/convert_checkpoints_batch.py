@@ -23,8 +23,8 @@ from gantry import METRICS_FILE
 # template: MUST obey .format(load_dir, retain_path_name)
 
 WEKA_CHECK_LOCATIONS_PREFIXES = {
-    "{}/{}-hf/": 'self',
-    "{}/ianm/{}-hf": "ian's"
+    "{}/{}-hf/pytorch_model.bin": 'self',
+    "{}/ianm/{}-hf/pytorch_model.bin": "ian's"
 }
 
 def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
