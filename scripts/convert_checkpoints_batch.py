@@ -19,6 +19,15 @@ from gantry import METRICS_FILE
 
 SANITY_CHECK = False
 
+# possible converted locations.
+# "self" is the target location where the converted model would be saved
+# key: template, value: description
+# template: MUST obey .format(load_dir, retain_path_name)
+WEKA_CHECK_LOCATIONS_PREFIXES = {
+    "{}/{}-hf/": 'self',
+    "{}/ianm/{}-hf": "ian's"
+}
+
 def convert_checkpoint(cps, load_dir="/data/input"):
     s3_client = boto3.client('s3')
     s3_resource = boto3.resource('s3')
@@ -30,16 +39,27 @@ def convert_checkpoint(cps, load_dir="/data/input"):
         # Convert to old-style checkpoint.
         retain_path_name = checkpoint_path.replace('s3://', '').strip('/')
         weka_loc = f"{load_dir}/{retain_path_name}-hf/"
+        check_locs = [l.format(load_dir,retain_path_name) for l in WEKA_CHECK_LOCATIONS_PREFIXES]
+
+        sys.stdout.write(f"\n\n=== Processing Checkpoint: {retain_path_name}\n")
+        error = ""
+
+        path_found = None
+        for loc in check_locs:
+            if os.path.exists(loc):
+                path_found = loc
+                break
 
         # Check if the output location is already there. If not, do the conversion.
-        error = ""
-        print('WEKA LOC', weka_loc)
-        if os.path.exists(weka_loc):
+        # print('WEKA LOC', weka_loc)
+        if path_found is not None:
             conversion = 'existing'
-            converted_path = weka_loc.replace(load_dir,'/weka')
+            converted_path = path_found.replace(load_dir,'/weka')
+            sys.stdout.write(f" -- Converted Checkpoint Found: {converted_path}\n")
         elif s3_path_exists(checkpoint_path, s3_resource):
             conversion = 'existing'
             converted_path = checkpoint_path + '-hf'
+            sys.stdout.write(f" -- Converted Checkpoint Found: {converted_path}\n")
         else:
             conversion = 'new'
             converted_path = weka_loc
@@ -49,8 +69,6 @@ def convert_checkpoint(cps, load_dir="/data/input"):
             if SANITY_CHECK:
                 print(conversion_cmd)
             else:
-                sys.stdout.write('\n--------------------------------------------')
-                sys.stdout.write("\nConverting Checkpoint...")
                 sys.stdout.write(conversion_cmd)
                 sys.stdout.write('\n--------------------------------------------')
 
