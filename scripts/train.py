@@ -64,6 +64,14 @@ def main(cfg: TrainConfig) -> None:
 
     barrier()
 
+    # Set CUDA device.
+    torch.cuda.set_device(f"cuda:{get_local_rank()}")
+    device = torch.device("cuda")
+
+    # PyTorch memory snapshot collection
+    if cfg.torch_profiling and get_global_rank() in (0, 1):
+        torch.cuda.memory._record_memory_history()
+
     # Fill some configuration options.
     cfg.model.precision = cfg.precision
     cfg.device_train_batch_size = cfg.global_train_batch_size // get_world_size()
