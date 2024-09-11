@@ -17,7 +17,7 @@ import sys
 
 from gantry import METRICS_FILE
 
-SANITY_CHECK = False
+SANITY_CHECK = True
 
 # possible converted locations.
 # "self" is the target location where the converted model would be saved
@@ -34,15 +34,16 @@ def convert_checkpoint(cps, load_dir="/data/input"):
     s3_resource = boto3.resource('s3')
 
     cps = expand_paths(cps, s3_client)
-    processed = []
 
     for checkpoint_path in cps:
         # Convert to old-style checkpoint.
+        processed = []
+
         retain_path_name = checkpoint_path.replace('s3://', '').strip('/')
         weka_loc = f"{load_dir}/{retain_path_name}-hf/"
         check_locs = [l.format(load_dir,retain_path_name) for l in WEKA_CHECK_LOCATIONS_PREFIXES]
 
-        sys.stdout.write(f"\n\n=== Processing Checkpoint: {retain_path_name}\n")
+        sys.stdout.write(f"\n\nProcessing Checkpoint: {retain_path_name}\n")
         error = ""
 
         path_found = None
@@ -56,7 +57,7 @@ def convert_checkpoint(cps, load_dir="/data/input"):
         if path_found is not None:
             conversion = 'existing'
             converted_path = path_found.replace(load_dir,'/weka')
-            sys.stdout.write(f" -- Converted Checkpoint Found: {converted_path}\n")
+            sys.stdout.write(f"Converted Checkpoint Found: {converted_path}\n")
         elif s3_path_exists(checkpoint_path, s3_resource):
             conversion = 'existing'
             converted_path = checkpoint_path + '-hf'
@@ -68,10 +69,10 @@ def convert_checkpoint(cps, load_dir="/data/input"):
             conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{weka_loc}' --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5'  --cleanup-local-dir"
 
             if SANITY_CHECK:
-                print(conversion_cmd)
+                sys.stdout.write('SANITY CHECK MODE (not running the conversion)')
+                sys.stdout.write(conversion_cmd + '\n')
             else:
-                sys.stdout.write(conversion_cmd)
-                sys.stdout.write('\n--------------------------------------------')
+                sys.stdout.write(conversion_cmd + '\n')
 
                 try:
                     subprocess.run(conversion_cmd, shell=True, check=True)
@@ -86,14 +87,11 @@ def convert_checkpoint(cps, load_dir="/data/input"):
             'error': error}
         )
 
-    print(processed)
+        print(processed)
 
-    # results = 'results/'
-    # if not os.path.exists(results):
-    #     os.mkdir(results)
-    with open(METRICS_FILE, 'w') as fout:
-        for p in processed:
-            fout.write(json.dumps(p) + '\n')
+        with open(METRICS_FILE, 'a+') as fout:
+            for p in processed:
+                fout.write(json.dumps(p) + '\n')
 
 
 def s3_path_exists(cp, s3):
