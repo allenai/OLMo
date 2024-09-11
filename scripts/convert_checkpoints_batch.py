@@ -17,8 +17,6 @@ import sys
 
 from gantry import METRICS_FILE
 
-SANITY_CHECK = True
-
 # possible converted locations.
 # "self" is the target location where the converted model would be saved
 # key: template, value: description
@@ -29,7 +27,7 @@ WEKA_CHECK_LOCATIONS_PREFIXES = {
     "{}/ianm/{}-hf": "ian's"
 }
 
-def convert_checkpoint(cps, load_dir="/data/input"):
+def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
     s3_client = boto3.client('s3')
     s3_resource = boto3.resource('s3')
 
@@ -68,7 +66,7 @@ def convert_checkpoint(cps, load_dir="/data/input"):
 
             conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{weka_loc}' --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5'  --cleanup-local-dir"
 
-            if SANITY_CHECK:
+            if sanity_check:
                 sys.stdout.write('SANITY CHECK MODE (not running the conversion)')
                 sys.stdout.write(conversion_cmd + '\n')
             else:
@@ -147,13 +145,14 @@ def main():
     group_batch.add_argument("--checkpoint-path", help="path to sharded checkpoint", type=str)
     group_batch.add_argument("--checkpoint-path-file", help="file that lists sharded checkpoint paths (batch run option)", type=str)
     parser.add_argument("--weka-load-dir", help='mounted location of weka bucket', default='/data/input', type=str)
+    parser.add_argument("--sanity-check", help='print what would be run; do not actually run conversion', action='store_true')
 
     args = parser.parse_args()
 
     if args.checkpoint_path is not None:
-        convert_checkpoint([args.checkpoint_path], args.weka_load_dir)
+        convert_checkpoint([args.checkpoint_path], load_dir=args.weka_load_dir, sanity_check=args.sanity_check)
     else:
-        convert_checkpoint(read_checkpoints(args.checkpoint_path_file), args.weka_load_dir)
+        convert_checkpoint(read_checkpoints(args.checkpoint_path_file), load_dir=args.weka_load_dir, sanity_check=args.sanity_check)
 
 
 if __name__ == "__main__":
