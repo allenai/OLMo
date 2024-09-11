@@ -6,6 +6,7 @@ import gc
 import logging
 import math
 import os
+import pickle
 import random
 import shutil
 import time
@@ -1331,7 +1332,9 @@ class Trainer:
 
                     if self.cfg.torch_profiling and self.global_step == 3 and (rank := get_global_rank()) in (0, 1):
                         snapshot_path = Path(self.cfg.save_folder) / f"profiler/step{self.global_step}_rank{rank}_snapshot.pickle"
-                        torch.cuda.memory._dump_snapshot(str(snapshot_path))
+                        s = torch.cuda.memory._snapshot(self.device)
+                        with open(str(snapshot_path), "wb") as f:
+                            pickle.dump(s, f)
 
                     # Python Profiler stuff
                     # We do this now, at the bottom of this loop, so we capture the work of getting the next batch.
