@@ -1331,7 +1331,7 @@ class Trainer:
 
                     if self.cfg.torch_profiling and self.global_step == 3 and (rank := get_global_rank()) in (0, 1):
                         snapshot_path = Path(self.cfg.save_folder) / f"profiler/step{self.global_step}_rank{rank}_snapshot.pickle"
-                        s = torch.cuda.memory._snapshot(self.device)
+                        s = torch.cuda.memory._snapshot(torch.device(f"cuda:{get_local_rank()}"))
                         with open(str(snapshot_path), "wb") as f:
                             pickle.dump(s, f)
 
