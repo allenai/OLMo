@@ -31,11 +31,9 @@
 # - Make tokenizer updatable
 
 CHECKPOINT_PATH=$1
-DESCRIPTION=$2
-
 
 gantry run \
-    --description $DESCRIPTION \
+    --description "Converting $CHECKPOINT_PATH" \
     --allow-dirty \
     --workspace ai2/cheap-decisions  \
     --priority normal \
