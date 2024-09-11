@@ -32,10 +32,11 @@ def convert_checkpoint(cps, load_dir="/data/input"):
         weka_loc = f"{load_dir}/{retain_path_name}-hf/"
 
         # Check if the output location is already there. If not, do the conversion.
+        error = ""
         print('WEKA LOC', weka_loc)
         if os.path.exists(weka_loc):
             conversion = 'existing'
-            converted_path = weka_loc
+            converted_path = weka_loc.replace(load_dir,'/weka')
         elif s3_path_exists(checkpoint_path, s3_resource):
             conversion = 'existing'
             converted_path = checkpoint_path + '-hf'
@@ -53,13 +54,18 @@ def convert_checkpoint(cps, load_dir="/data/input"):
                 sys.stdout.write(conversion_cmd)
                 sys.stdout.write('\n--------------------------------------------')
 
-                subprocess.run(conversion_cmd, shell=True, check=True)
+                try:
+                    subprocess.run(conversion_cmd, shell=True, check=True)
+                except subprocess.CalledProcessError as e:
+                    error = e.output
 
         processed.append({
             'unproccessed_path': checkpoint_path,
-            'converted_path': converted_path.replace(load_dir,'/weka'),
+            'converted_path': converted_path,
             'convertion': conversion,
-            'date_time': time.strftime('%b-%d-%Y_%H%M', time.localtime())})
+            'date_time': time.strftime('%b-%d-%Y_%H%M', time.localtime()),
+            'error': error}
+        )
 
     print(processed)
 
