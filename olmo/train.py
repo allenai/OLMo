@@ -1168,7 +1168,7 @@ class Trainer:
 
             torch_profiler = torch.profiler.profile(
                 activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-                record_shapes=False,
+                record_shapes=self.cfg.torch_profile_memory,
                 profile_memory=self.cfg.torch_profile_memory,
                 with_stack=True,
                 schedule=profiling_schedule,
