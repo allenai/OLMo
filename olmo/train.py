@@ -1180,10 +1180,6 @@ class Trainer:
 
             torch_profiler = contextlib.nullcontext()
 
-        # PyTorch memory snapshot collection
-        if self.cfg.torch_profiling and get_global_rank() in (0, 1):
-            torch.cuda.memory._record_memory_history()
-
         # Train.
         first_batch: bool = True
         cancel_initiated: bool = False
