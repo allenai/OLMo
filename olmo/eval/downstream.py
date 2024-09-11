@@ -84,6 +84,13 @@ class ICLMetric(Metric):
                     / batch["cont_byte_len"][idx]
                     * LOG_2_OF_E
                 )
+                if log_likelihood > 100000000:
+                    log.info('Abnormally high log_likelihood!')
+                    log.info(f'batch["cont_byte_len"][idx] = {batch["cont_byte_len"][idx]}')
+                    log.info(f'cont_tokens = {cont_tokens}')
+                    log.info(f'min(lm_cont_logits) = {min(lm_cont_logits)}')
+                    log.info(f'ctx = {batch["ctx"][idx]}')
+                    log.info(f'continuation = {batch["continuation"][idx]}')
             else:
                 raise ValueError(self.metric_type)
 
