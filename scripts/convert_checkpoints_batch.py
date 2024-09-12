@@ -33,6 +33,8 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
 
     cps = expand_paths(cps, s3_client)
 
+    print(f"Total of {len(cps)} paths to process.", flush=True)
+
     for checkpoint_path in cps:
         # Convert to old-style checkpoint.
         processed = []
