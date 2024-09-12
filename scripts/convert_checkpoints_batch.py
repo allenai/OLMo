@@ -129,9 +129,9 @@ def expand_paths(cps, s3):
             for obj in page['Contents']:
                 p = Path(obj["Key"])
                 if p.parent.name in ['optim', 'train','model']:
-                    relevant_dirs.append(p.parent.parent)
+                    relevant_dirs.append(str(p.parent.parent))
                 elif p.name == 'model.pt':
-                    relevant_dirs.append(p.parent)
+                    relevant_dirs.append(str(p.parent))
                 # if 'model.pt' in obj["Key"]:
                 #     relevant_dirs.append(obj["Key"].replace('/model.pt',''))
 
@@ -139,6 +139,7 @@ def expand_paths(cps, s3):
 
         # print(f"search segments: {search_segs}")
 
+        # subselect the directory with remaining segments (for multiple wildcard *)
         temp_dirs = relevant_dirs
         if len(search_segs) > 0:
             for s in search_segs:
