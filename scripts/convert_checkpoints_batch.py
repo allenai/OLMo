@@ -48,7 +48,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
         path_found = None
         for loc in check_locs:
             if os.path.exists(loc):
-                path_found = loc
+                path_found = loc.replace('/pytorch_model.bin','')
                 break
 
         # Check if the output location is already there. If not, do the conversion.
