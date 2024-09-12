@@ -99,7 +99,6 @@ speed_monitor:
 
 gen1_gc_interval: 10
 
-eval_on_load: true
 eval_interval: 1000
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}

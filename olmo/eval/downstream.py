@@ -1324,6 +1324,63 @@ class MMLU(ICLMultiChoiceTaskDataset):
             metric_type=metric_type,
         )
 
+    def doc_to_text(self, doc):
+        def format_example(doc, keys):
+            question_prefix = ""
+            if not self.mc_labels:
+                question_prefix = "Question: "  # To make context more clear
+            question = question_prefix + doc["question"].strip()
+            choices = ""
+            if self.mc_labels:
+                choices = "".join([f"{key}. {choice}\n" for key, choice in zip(keys, doc["choices"])])
+            prompt = f"{question}\n{choices}Answer:"
+            return prompt
+
+        keys = ["A", "B", "C", "D"]
+        output_text = format_example(doc, keys)
+
+        if self.current_prompt is not None:
+            prefix = ""
+            if "inst" in self.current_prompt:
+                subject = doc.get("subject").replace("_", " ")
+                prefix = f"The following are multiple choice questions (with answers) about {subject}:\n\n"
+            num_shots = re.findall("\\+(\\d+)", self.current_prompt)
+            if num_shots:
+                dev_set = self.dev_set.get(doc.get("subject"), [])
+                num_shots_int = int(num_shots[0])
+                for idx, dev_doc in enumerate(dev_set):
+                    if idx >= num_shots_int:
+                        break
+                    if self.mc_labels:
+                        answer = keys[dev_doc["answer"]]
+                    else:
+                        answer = dev_doc["choices"][dev_doc["answer"]]
+                    prefix += format_example(dev_doc, keys) + " " + answer + "\n\n"
+            output_text = prefix + output_text
+        return output_text
+
+    def doc_to_continuations(self, doc):
+        # add spaces in front of continuation
+        if self.mc_labels:
+            choices = [" A", " B", " C", " D"]
+        else:
+            choices = [" " + choice for choice in doc["choices"]]
+        if self.metric_type in ["ce_loss", "bpb"]:
+            # Only need correct answer for these metrics
+            return [choices[doc["answer"]]]
+        else:
+            return choices
+
+    def doc_to_label(self, doc):
+        return doc["answer"]
+
+    def doc_to_domain_conditional(self, doc):
+        del doc
+        return "Answer:"
+
+
+class MMLUWithNewline(MMLU):
+
     def prep_examples(self):
         """Append doc_ids to each example so that they are processed together in the metric"""
         doc_id = 0
@@ -1389,63 +1446,6 @@ class MMLU(ICLMultiChoiceTaskDataset):
                     )
 
                 doc_id += 1
-
-    def doc_to_text(self, doc):
-        def format_example(doc, keys):
-            question_prefix = ""
-            if not self.mc_labels:
-                question_prefix = "Question: "  # To make context more clear
-            question = question_prefix + doc["question"].strip()
-            choices = ""
-            if self.mc_labels:
-                choices = "".join([f"{key}. {choice}\n" for key, choice in zip(keys, doc["choices"])])
-            prompt = f"{question}\n{choices}Answer:"
-            return prompt
-
-        keys = ["A", "B", "C", "D"]
-        output_text = format_example(doc, keys)
-
-        if self.current_prompt is not None:
-            prefix = ""
-            if "inst" in self.current_prompt:
-                subject = doc.get("subject").replace("_", " ")
-                prefix = f"The following are multiple choice questions (with answers) about {subject}:\n\n"
-            num_shots = re.findall("\\+(\\d+)", self.current_prompt)
-            if num_shots:
-                dev_set = self.dev_set.get(doc.get("subject"), [])
-                num_shots_int = int(num_shots[0])
-                for idx, dev_doc in enumerate(dev_set):
-                    if idx >= num_shots_int:
-                        break
-                    if self.mc_labels:
-                        answer = keys[dev_doc["answer"]]
-                    else:
-                        answer = dev_doc["choices"][dev_doc["answer"]]
-                    prefix += format_example(dev_doc, keys) + " " + answer + "\n\n"
-            output_text = prefix + output_text
-        return output_text
-
-    def doc_to_continuations(self, doc):
-        # add spaces in front of continuation
-        if self.mc_labels:
-            choices = [" A", " B", " C", " D"]
-        else:
-            choices = [" " + choice for choice in doc["choices"]]
-        if self.metric_type in ["ce_loss", "bpb"]:
-            # Only need correct answer for these metrics
-            return [choices[doc["answer"]]]
-        else:
-            return choices
-
-    def doc_to_label(self, doc):
-        return doc["answer"]
-
-    def doc_to_domain_conditional(self, doc):
-        del doc
-        return "Answer:"
-
-
-class MMLUWithNewline(MMLU):
 
     def doc_to_text(self, doc):
         def format_example(doc, keys):
