@@ -966,6 +966,7 @@ class Trainer:
         if lb_batch_loss is not None:
             metrics["train/LoadBalancingLoss"] = lb_batch_loss.item()
             # Log assignment metrics.
+            expert_assignments = None
             if expert_assignments is not None:
                 for layer_idx, expert_assignments_layer in enumerate(expert_assignments):
                     total_tokens = expert_assignments_layer.sum().item()
