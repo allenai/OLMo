@@ -14,6 +14,7 @@ import time
 import boto3
 import json
 import sys
+from pathlib import Path
 
 from gantry import METRICS_FILE
 
@@ -102,6 +103,7 @@ def s3_path_exists(cp, s3):
     b = cp.split('/')[2]
     bucket = s3.Bucket(b)
     prefix = cp.replace('s3://'+b+'/', '')
+    print(bucket, prefix)
     objs = list(bucket.objects.filter(Prefix=prefix + '-hf/pytorch_model.bin'))
     if len(objs) > 0:
         return cp + '-hf'
@@ -112,21 +114,26 @@ def s3_path_exists(cp, s3):
 
 def expand_paths(cps, s3):
     expanded = []
+
     for cp in cps:
         bucket = cp.split('/')[2]
         segs = cp.split('*')
-
-        # cmd = f"aws s3 ls --recursive {segs[0]}"
-        # all_dirs = subprocess.run(cmd, shell=True, check=True, capture_output=True, text = True).stdout
-        # relevant_dirs = ['/'.join(d.split()[-1].split('/')[:-1]) for d in all_dirs.split() if 'model.pt' in d]
+        prefix = segs[0].replace('s3://'+bucket+'/', '')
 
         relevant_dirs = []
+
         paginator = s3.get_paginator('list_objects_v2')
-        page_iterator = paginator.paginate(Bucket=bucket, Prefix=segs[0].replace('s3://'+bucket+'/', ''))
+        page_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix)
+
         for page in page_iterator:
             for obj in page['Contents']:
-                if 'model.pt' in obj["Key"]:
-                    relevant_dirs.append(obj["Key"].replace('/model.pt',''))
+                p = Path(obj["Key"])
+                if p.parent.name in ['optim', 'train','model']:
+                    relevant_dirs.append(p.parent.parent)
+                elif p.name == 'model.pt':
+                    relevant_dirs.append(p.parent)
+                # if 'model.pt' in obj["Key"]:
+                #     relevant_dirs.append(obj["Key"].replace('/model.pt',''))
 
         search_segs = [seg for i, seg in enumerate(segs) if i > 0 and seg != ""]
 
