@@ -2,650 +2,650 @@
 # - `null` indicates a dimension is "finite", i.e. a non-"width" dimension
 # - a number indicates the base dimension of an "infinite" dimension, i.e. some notion of "width"
 transformer.blocks.0.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.0.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.0.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.0.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.0.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.0.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.1.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.1.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.1.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.1.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.1.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.1.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.10.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.10.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.10.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.10.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.10.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.10.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.11.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.11.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.11.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.11.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.11.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.11.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.12.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.12.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.12.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.12.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.12.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.12.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.13.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.13.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.13.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.13.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.13.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.13.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.14.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.14.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.14.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.14.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.14.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.14.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.15.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.15.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.15.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.15.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.15.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.15.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.16.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.16.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.16.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.16.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.16.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.16.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.17.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.17.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.17.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.17.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.17.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.17.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.18.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.18.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.18.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.18.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.18.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.18.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.19.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.19.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.19.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.19.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.19.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.19.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.2.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.2.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.2.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.2.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.2.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.2.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.20.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.20.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.20.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.20.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.20.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.20.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.21.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.21.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.21.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.21.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.21.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.21.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.22.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.22.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.22.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.22.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.22.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.22.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.23.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.23.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.23.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.23.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.23.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.23.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.24.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.24.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.24.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.24.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.24.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.24.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.25.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.25.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.25.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.25.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.25.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.25.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.26.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.26.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.26.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.26.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.26.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.26.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.27.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.27.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.27.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.27.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.27.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.27.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.28.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.28.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.28.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.28.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.28.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.28.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.29.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.29.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.29.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.29.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.29.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.29.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.3.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.3.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.3.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.3.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.3.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.3.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.30.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.30.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.30.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.30.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.30.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.30.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.31.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.31.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.31.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.31.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.31.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.31.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.32.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.32.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.32.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.32.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.32.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.32.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.33.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.33.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.33.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.33.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.33.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.33.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.34.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.34.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.34.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.34.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.34.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.34.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.35.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.35.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.35.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.35.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.35.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.35.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.36.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.36.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.36.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.36.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.36.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.36.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.37.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.37.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.37.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.37.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.37.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.37.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.38.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.38.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.38.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.38.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.38.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.38.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.39.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.39.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.39.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.39.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.39.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.39.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.4.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.4.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.4.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.4.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.4.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.4.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.5.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.5.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.5.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.5.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.5.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.5.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.6.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.6.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.6.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.6.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.6.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.6.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.7.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.7.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.7.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.7.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.7.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.7.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.8.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.8.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.8.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.8.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.8.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.8.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.blocks.9.att_proj.weight:
-- 480
-- 160
+- 240
+- 80
 transformer.blocks.9.attn_norm.weight:
-- 160
+- 80
 transformer.blocks.9.attn_out.weight:
-- 160
-- 160
+- 80
+- 80
 transformer.blocks.9.ff_norm.weight:
-- 160
+- 80
 transformer.blocks.9.ff_out.weight:
-- 160
+- 80
 - null
 transformer.blocks.9.ff_proj.weight:
 - null
-- 160
+- 80
 transformer.ff_out.weight:
 - null
-- 160
+- 80
 transformer.ln_f.weight:
-- 160
+- 80
 transformer.wte.weight:
 - null
-- 160
+- 80
