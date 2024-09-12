@@ -1324,6 +1324,72 @@ class MMLU(ICLMultiChoiceTaskDataset):
             metric_type=metric_type,
         )
 
+    def prep_examples(self):
+        """Append doc_ids to each example so that they are processed together in the metric"""
+        doc_id = 0
+        for doc in self.dataset:
+            for prompt in self.prompts:
+                self.current_prompt = prompt
+                # from EAI harness
+                # how this all works:
+                #          CTX      CONT
+                # inp    0 1 2 3|4 5 6 7 8 9   <- last token is deleted by inp[:, :-1]
+                # gpt2    \               \
+                # logits   1 2 3|4 5 6 7 8 9   <- the ctx half gets tossed out by the
+                # cont_toks      4 5 6 7 8 9      [:, -len(continuation_enc):, :self.vocab_size] slice
+
+                continuations = self.doc_to_continuations(doc)
+                label_id = self.doc_to_label(doc)
+                doc_text = self.doc_to_text(doc)
+                ctx = self.token_encode(doc_text)
+                dc = self.token_encode(self.doc_to_domain_conditional(doc))
+                if self.log_instances > 0:
+                    self.log_instances -= 1
+                    ds_name = self.dataset_name
+                    if isinstance(ds_name, list):
+                        ds_name = ds_name[0]
+                    log.info(
+                        f"Sample doc from ({self.dataset_path}, {ds_name}, {self.current_prompt}):"
+                        + f"\ndoc_text: {doc_text}\ncontinuations: {continuations}"
+                    )
+
+                for cont_id, continuation_str in enumerate(continuations):
+                    cont_str_len = len(continuation_str)  # continuation does not contain leading blank
+                    cont_byte_len = len(continuation_str.encode("utf-8"))
+                    continuation = self.token_encode(continuation_str)
+
+                    # query, remove last token from continuation, truncate from left is longer than model ctx length
+                    query = ctx + continuation[:-1]
+                    query = query[-self.model_ctx_len :]
+                    # this will be different from len(ctx) when truncated by model_ctx_len
+                    actual_ctx_len = len(query) - len(continuation) + 1
+
+                    # get domain conditional query
+                    # we don't expect this to be longer than self.model_ctx_len and it won't make sense to truncate from left
+                    dc_query = dc + continuation[:-1]
+
+                    # form a sample
+                    self.samples.append(
+                        {
+                            "doc_id": doc_id,
+                            "cont_id": cont_id,
+                            "ctx": ctx,
+                            "continuation": continuation,
+                            "ctx_len": actual_ctx_len,
+                            "dc_len": len(dc),
+                            "cont_len": len(
+                                continuation
+                            ),  # even if query has last token removed, LM will output same cont len
+                            "cont_str_len": cont_str_len,
+                            "cont_byte_len": cont_byte_len,
+                            "query": query,  # remove last token from continuation
+                            "dc_query": dc_query,
+                            "label_id": label_id,
+                        }
+                    )
+
+                doc_id += 1
+
     def doc_to_text(self, doc):
         def format_example(doc, keys):
             question_prefix = ""
