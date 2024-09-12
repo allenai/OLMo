@@ -55,14 +55,17 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
 
         # Check if the output location is already there. If not, do the conversion.
         # print('WEKA LOC', weka_loc)
-        if path_found is not None:
+        s3_hf_exists = s3_path_exists(checkpoint_path, s3_resource)
+        if s3_hf_exists is not None:
+            conversion = 'existing'
+            converted_path = s3_hf_exists # checkpoint_path + '-hf'
+            print(f"Converted Checkpoint Found: {converted_path}\n", flush=True)
+
+        elif path_found is not None:
             conversion = 'existing'
             converted_path = path_found.replace(load_dir,'/weka')
             print(f"Converted Checkpoint Found: {converted_path}\n", flush=True)
-        elif s3_path_exists(checkpoint_path, s3_resource):
-            conversion = 'existing'
-            converted_path = checkpoint_path + '-hf'
-            print(f"Converted Checkpoint Found: {converted_path}\n", flush=True)
+
         else:
             conversion = 'new'
             converted_path = weka_loc.replace(load_dir,'/weka')
@@ -98,8 +101,13 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
 def s3_path_exists(cp, s3):
     b = cp.split('/')[2]
     bucket = s3.Bucket(b)
-    objs = list(bucket.objects.filter(Prefix=cp.replace('s3://'+b+'/', '') + '-hf'))
-    return True if (len(objs) > 0) else False
+    prefix = cp.replace('s3://'+b+'/', '')
+    objs = list(bucket.objects.filter(Prefix=prefix + '-hf/pytorch_model.bin'))
+    if len(objs) > 0:
+        return cp + '-hf'
+    else:
+        objs2 = list(bucket.objects.filter(Prefix=prefix + '-hf-olmo/pytorch_model.bin'))
+        return cp + '-hf-olmo' if (len(objs2) > 0) else None
 
 
 def expand_paths(cps, s3):
