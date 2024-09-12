@@ -41,7 +41,8 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
         weka_loc = f"{load_dir}/{retain_path_name}-hf/"
         check_locs = [l.format(load_dir,retain_path_name) for l in WEKA_CHECK_LOCATIONS_PREFIXES]
 
-        sys.stdout.write(f"\n\nProcessing Checkpoint: {retain_path_name}\n")
+        print(f"\n\n------------------------------------------------------------", flush=True)
+        print(f"\nProcessing Checkpoint: {retain_path_name}\n", flush=True)
         error = ""
 
         path_found = None
@@ -55,22 +56,22 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
         if path_found is not None:
             conversion = 'existing'
             converted_path = path_found.replace(load_dir,'/weka')
-            sys.stdout.write(f"Converted Checkpoint Found: {converted_path}\n")
+            print(f"Converted Checkpoint Found: {converted_path}\n", flush=True)
         elif s3_path_exists(checkpoint_path, s3_resource):
             conversion = 'existing'
             converted_path = checkpoint_path + '-hf'
-            sys.stdout.write(f" -- Converted Checkpoint Found: {converted_path}\n")
+            print(f"Converted Checkpoint Found: {converted_path}\n", flush=True)
         else:
             conversion = 'new'
-            converted_path = weka_loc
+            converted_path = weka_loc.replace(load_dir,'/weka')
 
             conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{weka_loc}' --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5'  --cleanup-local-dir"
 
             if sanity_check:
-                sys.stdout.write('SANITY CHECK MODE (not running the conversion)')
-                sys.stdout.write(conversion_cmd + '\n')
+                print('SANITY CHECK MODE (not running the conversion)')
+                print(conversion_cmd + '\n')
             else:
-                sys.stdout.write(conversion_cmd + '\n')
+                # sys.stdout.write(conversion_cmd + '\n')
 
                 try:
                     subprocess.run(conversion_cmd, shell=True, check=True)
@@ -78,14 +79,14 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
                     error = e.output
 
         processed.append({
-            'unproccessed_path': checkpoint_path,
+            'unprocessed_path': checkpoint_path,
             'converted_path': converted_path,
-            'convertion': conversion,
+            'conversion': conversion,
             'date_time': time.strftime('%b-%d-%Y_%H%M', time.localtime()),
             'error': error}
         )
 
-        print(processed)
+        #print(processed)
 
         with open(METRICS_FILE, 'a+') as fout:
             for p in processed:
