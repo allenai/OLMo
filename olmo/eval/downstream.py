@@ -1365,6 +1365,9 @@ class MMLU(ICLMultiChoiceTaskDataset):
             return choices
 
     def doc_to_label(self, doc):
+        if self.metric_type in ["ce_loss", "bpb"]:
+            # Only the correct answer is provided for these metrics
+            return 0
         return doc["answer"]
 
     def doc_to_domain_conditional(self, doc):
@@ -1534,9 +1537,14 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
                 continuation_str = request_dict["continuation"]
                 label_id = request["label"]
                 cont_id = request["idx"]
-                if self.metric_type in ["ce_loss", "bpb"] and label_id != cont_id:
-                    # Skip non-target continuations for ce_loss and bpb
-                    continue
+                if self.metric_type in ["ce_loss", "bpb"]:
+                    if label_id != cont_id:
+                        # Skip non-target continuations for ce_loss and bpb
+                        continue
+                    else:
+                        # Treat as instance with just one continuation
+                        cont_id = 0
+                        label_id = 0
                 doc_text = request_dict["context"]
                 ctx = self.token_encode(doc_text)
                 dc = self.token_encode(self.doc_to_domain_conditional(doc))
@@ -1746,6 +1754,8 @@ label_to_task_map = {
     ),
     "csqa_mc_5shot": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "mc_5shot", "metric_type": "acc"}),
     "csqa_mc_5shot_bpb": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "mc_5shot", "metric_type": "bpb"}),
+    "csqa_rc_0shot": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"}),
+    "csqa_rc_0shot_bpb": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
     "csqa_rc_5shot": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"}),
     "csqa_rc_5shot_bpb": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "rc_5shot", "metric_type": "bpb"}),
     "hellaswag_mc_5shot": (
@@ -1811,6 +1821,14 @@ label_to_task_map = {
     "socialiqa_mc_5shot_bpb": (
         OEEvalTask,
         {"dataset_path": "socialiqa", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "socialiqa_rc_0shot": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"},
+    ),
+    "socialiqa_rc_0shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "rc_0shot", "metric_type": "bpb"},
     ),
     "socialiqa_rc_5shot": (
         OEEvalTask,
