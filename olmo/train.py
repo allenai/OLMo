@@ -857,11 +857,11 @@ class Trainer:
                         z_batch_loss += z_loss.detach()
 
                 if self.model.config.block_type == BlockType.moe:
-                    if self.model.config.moe_zloss_weight is not None:
+                    if self.model.config.moe_zloss_weight:
                         lb_loss, moe_z_loss = batched_load_balancing_loss(self.moe_args)
                         lb_loss = lb_loss / len(micro_batches)
                         moe_z_loss = moe_z_loss / len(micro_batches)
-                    else:
+                    elif self.model.config.moe_loss_weight:
                         lb_loss = batched_load_balancing_loss(self.moe_args) / len(micro_batches)
                     if self.model.config.moe_log_expert_assignment:
                         if self.model.config.moe_zloss_weight:
@@ -872,10 +872,10 @@ class Trainer:
                     clear_load_balancing_loss()
                     if self.model.config.moe_loss_weight:
                         loss += lb_loss
+                        lb_batch_loss += lb_loss.detach()
                     if self.model.config.moe_zloss_weight:
                         loss += moe_z_loss
-                    lb_batch_loss += lb_loss.detach()
-                    moe_z_batch_loss += moe_z_loss.detach()
+                        moe_z_batch_loss += moe_z_loss.detach()
 
                 # Run backward pass.
                 loss.backward()
