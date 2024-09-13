@@ -77,12 +77,12 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
                 print('SANITY CHECK MODE (not running the conversion)')
                 print(conversion_cmd + '\n')
             else:
-                # sys.stdout.write(conversion_cmd + '\n')
-
                 try:
                     subprocess.run(conversion_cmd, shell=True, check=True)
                 except subprocess.CalledProcessError as e:
-                    error = e.output
+                    error = e.output ### NOT ACTUALLY WORKING CORRECTLY. FIX THIS (not catching config not found error)
+                    conversion = 'error'
+                    converted_path = ""
 
         processed.append({
             'unprocessed_path': checkpoint_path,
