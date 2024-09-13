@@ -34,7 +34,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
 
     cps = expand_paths(cps, s3_client)
 
-    print(f"Total of {len(cps)} paths to process.", flush=True)
+    print(f">>> Total of {len(cps)} paths to process. <<<", flush=True)
 
     for checkpoint_path in cps:
         # Convert to old-style checkpoint.
@@ -94,16 +94,17 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
 
         #print(processed)
 
-        with open(METRICS_FILE, 'a+') as fout:
-            for p in processed:
-                fout.write(json.dumps(p) + '\n')
+        if not sanity_check:
+            with open(METRICS_FILE, 'a+') as fout:
+                for p in processed:
+                    fout.write(json.dumps(p) + '\n')
 
 
 def s3_path_exists(cp, s3):
     b = cp.split('/')[2]
     bucket = s3.Bucket(b)
     prefix = cp.replace('s3://'+b+'/', '')
-    print(bucket, prefix)
+    # print(bucket, prefix)
     objs = list(bucket.objects.filter(Prefix=prefix + '-hf/pytorch_model.bin'))
     if len(objs) > 0:
         return cp + '-hf'
