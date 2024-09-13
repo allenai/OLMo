@@ -70,6 +70,7 @@ torchrun \
       --optimizer.learning_rate=$LR \
       --scheduler.t_warmup=50 \
       --save_interval_ephemeral=100 \
+      --eval_interval=100 \
       --try_load_latest_save \
       --save_overwrite
 
