@@ -122,19 +122,46 @@ def expand_paths(cps, s3):
         prefix = segs[0].replace('s3://'+bucket+'/', '')
 
         relevant_dirs = []
+        skip_parent = []
 
         paginator = s3.get_paginator('list_objects_v2')
         page_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix)
+        contents = {obj["Key"]:str(Path(obj['Key']).parent) for page in page_iterator for obj in page['Contents']}
+        paths = set(contents.values())
+        # print(contents)
 
-        for page in page_iterator:
-            for obj in page['Contents']:
-                p = Path(obj["Key"])
-                if p.parent.name in ['optim', 'train','model']:
-                    relevant_dirs.append(str(p.parent.parent))
-                elif p.name == 'model.pt':
-                    relevant_dirs.append(str(p.parent))
-                # if 'model.pt' in obj["Key"]:
-                #     relevant_dirs.append(obj["Key"].replace('/model.pt',''))
+        for path in contents:
+            p = Path(path)
+            parent = str(p.parent)
+            grandpa = str(p.parent.parent)
+
+            if parent in relevant_dirs or parent in skip_parent:
+                continue
+            if p.parent.name in ['optim', 'train','model']:
+                if f"{grandpa}-unsharded" in paths:
+                    # skip condition
+                    skip_parent.append(parent)
+                    continue
+                else:
+                    relevant_dirs.append(grandpa)
+            elif p.name == 'model.pt':
+                relevant_dirs.append(parent)
+
+
+        # for page in page_iterator:
+        #     for obj in page['Contents']:
+        #         p = Path(obj["Key"])
+        #         if p.parent.name in ['optim', 'train','model']:
+        #             grand_parent = str(p.parent.parent)
+        #             if '-unsharded' not in grand_parent:
+        #                 objs = list(s3_resource.Bucket(bucket).objects.filter(Prefix=grand_parent + '-unsharded'))
+        #                 if len(objs) > 0:
+        #                     continue
+        #             relevant_dirs.append(str(p.parent.parent))
+        #         elif p.name == 'model.pt':
+        #             relevant_dirs.append(str(p.parent))
+        #         # if 'model.pt' in obj["Key"]:
+        #         #     relevant_dirs.append(obj["Key"].replace('/model.pt',''))
 
         search_segs = [seg for i, seg in enumerate(segs) if i > 0 and seg != ""]
 
