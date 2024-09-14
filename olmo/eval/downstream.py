@@ -1,6 +1,7 @@
 import abc
 import logging
 import re
+from collections import defaultdict
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 import datasets
@@ -38,11 +39,17 @@ class ICLMetric(Metric):
     ):
         self.loglikelihoods = []
         self.labels = []
+        self.ctx_lens = []
+        self.cont_lens = []
+        self.cont_str_lens = []
+        self.cont_byte_lens = []
 
     def update(self, batch: Dict[str, Any], lm_logits: torch.Tensor, dc_lm_logits=None):
         lm_logits = F.log_softmax(lm_logits, dim=-1)
 
-        if self.metric_type == "pmi_dc":
+        metrics = self.metric_type if isinstance(self.metric_type, list) else [self.metric_type]
+
+        if "pmi_dc" in metrics:
             assert dc_lm_logits is not None, "PMI_DC acc type selected but no domain conditional logits provided"
 
         for idx, (doc_id, cont_id) in enumerate(zip(batch["doc_id"], batch["cont_id"])):
@@ -55,37 +62,9 @@ class ICLMetric(Metric):
                 batch["ctx_len"][idx] - 1 : batch["ctx_len"][idx] + batch["cont_len"][idx] - 1
             ]
 
-            log_likelihood: torch.Tensor
-            if self.metric_type == "pmi_dc":
-                assert dc_lm_logits is not None
-                # get domain conditional continuation logits: [cont_len, vocab]
-                dc_lm_cont_logits = dc_lm_logits[idx][
-                    batch["dc_len"][idx] - 1 : batch["dc_len"][idx] + batch["cont_len"][idx] - 1
-                ]
-
-                # gather log-probs at continuation token indices but divide by domain conditional prob
-                log_likelihood = (
-                    torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
-                    / torch.gather(dc_lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
-                )
-            elif self.metric_type == "acc" or self.metric_type == "f1":
-                # gather log-probs at continuation token indices
-                log_likelihood = torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
-            elif self.metric_type == "len_norm" or self.metric_type == "ce_loss":
-                log_likelihood = (
-                    torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum() / batch["cont_str_len"][idx]
-                )
-                if self.metric_type == "ce_loss":
-                    log_likelihood = -log_likelihood
-            elif self.metric_type == "bpb":
-                # bits per byte
-                log_likelihood = (
-                    -torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
-                    / batch["cont_byte_len"][idx]
-                    * LOG_2_OF_E
-                )
-            else:
-                raise ValueError(self.metric_type)
+            log_likelihood = (
+                torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
+            )
 
             # because metric states cannot be dict/list of tuples, store this tuple as tensor: (doc_id, cont_id, metric_state)
             self.loglikelihoods.append(
@@ -94,70 +73,90 @@ class ICLMetric(Metric):
             self.labels.append(
                 torch.LongTensor((doc_id, cont_id, batch["label_id"][idx])).to(batch["label_id"][idx].device)
             )
+            self.ctx_lens.append(
+                torch.LongTensor((doc_id, cont_id, batch["ctx_len"][idx])).to(batch["ctx_len"][idx].device)
+            )
+            self.cont_lens.append(
+                torch.LongTensor((doc_id, cont_id, batch["cont_len"][idx])).to(batch["cont_len"][idx].device)
+            )
+            self.cont_str_lens.append(
+                torch.LongTensor((doc_id, cont_id, batch["cont_str_len"][idx])).to(batch["cont_str_len"][idx].device)
+            )
+            self.cont_byte_lens.append(
+                torch.LongTensor((doc_id, cont_id, batch["cont_byte_len"][idx])).to(batch["cont_byte_len"][idx].device)
+            )
 
     def compute(self) -> torch.Tensor:
         # states should have been synced from all accelerators at this point
         # account for duplicates here because of DistributedSampler compensating for drop_last=False
-        loglikelihood_dict: Dict[int, Dict[int, float]] = {}
+
         label_dict = {}
+        batches_dict_values = defaultdict(lambda: defaultdict(dict))
 
         # collect labels
         for doc_id, cont_id, label_id in self.labels:
             if doc_id.item() not in label_dict:
                 label_dict[doc_id.item()] = label_id.item()
 
-        # collect loglikelihoods
-        for doc_id, cont_id, loglikelihood in self.loglikelihoods:
-            if int(doc_id.item()) not in loglikelihood_dict:
-                loglikelihood_dict[int(doc_id.item())] = {}
+        for values_list, key in zip([self.loglikelihoods, self.ctx_lens, self.cont_lens, self.cont_str_lens, self.cont_byte_lens], ["loglikelihoods", "ctx_lens", "cont_lens", "cont_str_lens", "cont_byte_lens"]):
+            for doc_id, cont_id, value in values_list:
+                d = batches_dict_values[key]
+                if int(cont_id.item()) not in d[int(doc_id.item())]:
+                    d[int(doc_id.item())][int(cont_id.item())] = value.item()
 
-            if int(cont_id.item()) not in loglikelihood_dict[int(doc_id.item())]:
-                loglikelihood_dict[int(doc_id.item())][int(cont_id.item())] = loglikelihood
+        output = defaultdict(list)
 
-        # compute acc
-        correct = []
-        preds: Optional[List[float]] = None
-        labels: Optional[List[int]] = None
-        if self.metric_type == "f1":
-            preds = []
-            labels = []
+        if "f1" in self.metric_type:
+            raise NotImplementedError("F1 score not supported")
 
-        for doc_id in loglikelihood_dict:
+        for doc_id in batches_dict_values["loglikelihoods"]:
             # each doc_id might have a different number of continuation
-            num_continuations = len(loglikelihood_dict[doc_id].keys())
+            num_continuations = len(batches_dict_values["loglikelihoods"][doc_id].keys())
             loglikelihoods = torch.tensor([-float("inf")] * num_continuations)
 
             skip_document = False
-            for cont_id in loglikelihood_dict[doc_id]:
+            for cont_id in batches_dict_values["loglikelihoods"][doc_id]:
                 try:
-                    loglikelihoods[cont_id] = loglikelihood_dict[doc_id][cont_id]
+                    loglikelihoods[cont_id] = batches_dict_values["loglikelihoods"][doc_id][cont_id]
                 except IndexError:
                     # We didn't process all of the continuations, so skip this document.
                     skip_document = True
                     break
 
+            cont_str_lens = torch.tensor(list(batches_dict_values["cont_str_lens"][doc_id].values()))
+            cont_byte_lens = torch.tensor(list(batches_dict_values["cont_byte_lens"][doc_id].values()))
+
             if skip_document:
                 continue
-            if self.metric_type in ["ce_loss", "bpb"]:
-                correct.append(loglikelihoods[0])  # Only one answer is scored
-            else:
-                correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
+            if "ce_loss" in self.metric_type:
+                output["ce_loss"].append(-loglikelihoods[label_dict[doc_id]])
+            if "ce_loss_norm_str_len" in self.metric_type:
+                output["ce_loss_norm_str_len"].append(-loglikelihoods[label_dict[doc_id]] / cont_str_lens[label_dict[doc_id]])
+            if "ce_loss_norm_byte_len" in self.metric_type:
+                output["ce_loss_norm_byte_len"].append(-loglikelihoods[label_dict[doc_id]] / cont_str_lens[label_dict[doc_id]])
+            if "acc" in self.metric_type:
+                output["acc"].append(1.0 if torch.argmax(loglikelihoods) == label_dict[doc_id] else 0.0)
+            if "acc_norm_str_len" in self.metric_type:
+                output["acc_norm_str_len"].append(1.0 if torch.argmax(loglikelihoods / cont_str_lens) == label_dict[doc_id] else 0.0)
+            if "acc_norm_byte_len" in self.metric_type:
+                output["acc_norm_byte_len"].append(1.0 if torch.argmax(loglikelihoods / cont_str_lens) == label_dict[doc_id] else 0.0)
+            if "ce_loss_norm_cont" in self.metric_type:
+                ce_loss_norm_cont = -(loglikelihoods[label_dict[doc_id]].item() - torch.logsumexp(loglikelihoods, 0))
+                output["ce_loss_norm_cont"].append(ce_loss_norm_cont)
+            if "ce_loss_norm_cont_norm_str_len" in self.metric_type:
+                adjusted_loglikelihoods = loglikelihoods / cont_str_lens
+                ce_loss_norm_cont_norm_str_len = - (adjusted_loglikelihoods[label_dict[doc_id]] - torch.logsumexp(adjusted_loglikelihoods, dim=0))
+                output["ce_loss_norm_cont_norm_str_len"].append(ce_loss_norm_cont_norm_str_len.item())
+            if "ce_loss_norm_cont_norm_byte_len" in self.metric_type:
+                adjusted_loglikelihoods = loglikelihoods / cont_byte_lens
+                ce_loss_norm_cont_norm_byte_len = - (adjusted_loglikelihoods[label_dict[doc_id]] - torch.logsumexp(adjusted_loglikelihoods, dim=0))
+                output["ce_loss_norm_cont_norm_byte_len"].append(ce_loss_norm_cont_norm_byte_len.item())
 
-            if self.metric_type == "f1":
-                assert preds is not None
-                assert labels is not None
-                preds.append(torch.argmax(loglikelihoods).item())
-                labels.append(label_dict[doc_id])
+        # average over all documents
+        for key in output:
+            output[key] = torch.tensor(output[key]).mean().item()
 
-        if self.metric_type == "f1":
-            assert preds is not None
-            assert labels is not None
-            # for NLI tasks, continuations are yes, no, neither, so idx=0 assigned to pos label
-            score = f1_score(labels, preds, pos_label=0)
-        else:
-            score = sum(correct) / len(correct)
-
-        return torch.tensor(score)
+        return output
 
 
 class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
@@ -760,7 +759,8 @@ class ArcEasy(ICLMultiChoiceTaskDataset):
     }
     """
 
-    metric_type = "acc"
+    # let's take all
+    metric_type = ["acc", "ce_loss", "ce_loss_norm_str_len", "ce_loss_norm_byte_len", "acc_norm_str_len", "acc_norm_byte_len", "ce_loss_norm_cont", "ce_loss_norm_cont_norm_str_len", "ce_loss_norm_cont_norm_byte_len"]
 
     def __init__(
         self,

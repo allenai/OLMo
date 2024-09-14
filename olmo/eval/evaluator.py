@@ -29,11 +29,13 @@ class Evaluator:
     def compute_metrics(self) -> Dict[str, float]:
         if self.type == EvaluatorType.downstream:
             assert isinstance(self.eval_metric, ICLMetric)
-            value = self.eval_metric.compute().item()
-            key = f"eval/downstream/{self.label}_{self.eval_metric.metric_type}"
-            if self.eval_metric.metric_type in ["ce_loss", "bpb"]:
-                key = key.replace("/downstream/", f"/downstream_{self.eval_metric.metric_type}/")
-            return {key: value}
+            metrics = self.eval_metric.compute()
+            output = {}
+            for metric_key, metric_value in metrics.items():
+                key = f"eval/downstream/{self.label}_{metric_key}"
+                output[key] = metric_value
+            return output
+
         elif self.type == EvaluatorType.lm:
             # Metric(s) = cross entropy loss
             metrics: Dict[str, Metric]
