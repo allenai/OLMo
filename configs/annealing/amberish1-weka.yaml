@@ -5,7 +5,7 @@ dry_run: false
 wandb:
   name: ${run_name}
   project: olmo-medium
-  group: amberish7-anneal-from477850-50B
+  group: ${run_name}
 
 model:
   d_model: 2048

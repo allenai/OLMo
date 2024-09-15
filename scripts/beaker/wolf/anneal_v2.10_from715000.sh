@@ -4,9 +4,9 @@ set -ex
 
 CONFIG_PATH=configs/annealing/amberish1-weka.yaml
 NUM_NODES=8
-RUN_NAME="anneal_v2.10_from408000"
-LOAD_PATH=/weka/oe-training-default/wolf/ckpt/v2.10_v2.9_full-index/step408000
-LEARNING_RATE=0.00018116
+RUN_NAME="anneal_v2.10_from715000"
+LOAD_PATH=/weka/oe-training-default/wolf/ckpt/v2.10_v2.9_full-index/step715000
+LEARNING_RATE=0.00004
 
 gantry run \
   --allow-dirty \
@@ -17,7 +17,7 @@ gantry run \
   --budget ai2/oe-training \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
-  --priority high \
+  --priority urgent \
   --preemptible \
   --no-nfs \
   --weka oe-training-default:/weka/oe-training-default \
