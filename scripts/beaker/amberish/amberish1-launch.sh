@@ -9,7 +9,7 @@ gantry run \
   --workspace ai2/hb-wolf-olmo \
   --task-name amberish1 \
   --description "Amberish 1B train" \
-  --priority high \
+  --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \

@@ -137,6 +137,32 @@ downstream_bpb = [
 ]
 
 
+downstream_mmlu_newline = [
+    "mmlu_newline_social_sciences_var_len_norm",
+    "mmlu_newline_humanities_var_len_norm",
+    "mmlu_newline_other_var_len_norm",
+    "mmlu_newline_stem_mc_5shot_test_len_norm",
+    "mmlu_newline_humanities_mc_5shot_len_norm",
+    "mmlu_newline_social_sciences_mc_5shot_len_norm",
+    "mmlu_newline_stem_var_len_norm",
+    "mmlu_newline_other_mc_5shot_test_len_norm",
+    "mmlu_newline_humanities_mc_5shot_test_len_norm",
+    "mmlu_newline_stem_mc_5shot_len_norm",
+    "mmlu_newline_social_sciences_mc_5shot_test_len_norm",
+    "mmlu_newline_other_mc_5shot_len_norm",
+]
+downstream_mmlu_newline_bpb = [
+    "mmlu_newline_stem_var_bpb",
+    "mmlu_newline_humanities_var_bpb",
+    "mmlu_newline_social_sciences_var_bpb",
+    "mmlu_newline_other_var_bpb",
+    "mmlu_newline_stem_bpb",
+    "mmlu_newline_humanities_bpb",
+    "mmlu_newline_social_sciences_bpb",
+    "mmlu_newline_other_bpb",
+]
+
+
 @dataclass
 class ExtrapolateNConfig:
     path: str

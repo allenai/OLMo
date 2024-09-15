@@ -11,6 +11,8 @@ import wandb
 from olmo.scaling.scaling_laws.utils import (
     downstream,
     downstream_bpb,
+    downstream_mmlu_newline,
+    downstream_mmlu_newline_bpb,
     v3_validation,
     validation,
 )
@@ -83,6 +85,8 @@ def main(args):
             [f"eval/{d}/CrossEntropyLoss" for d in validation]
             + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_bpb]
             + [f"eval/downstream/{d}" for d in downstream]
+            + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_mmlu_newline_bpb]
+            + [f"eval/downstream/{d}" for d in downstream_mmlu_newline]
         )
 
     wb_runs = get_runs(args.wandb_names)
@@ -124,6 +128,11 @@ def main(args):
                 # With certain run restarts, we also update the batch size.
                 wb_step["batch_size_in_tokens"] = batch_size_in_tokens
 
+        row_by_key = {}
+        for row in rows:
+            key = row[args.x_axis]
+            row_by_key[key] = row
+        rows = list(row_by_key.values())
         rows = sorted(rows, key=lambda x: x[args.x_axis])
         writer.writerows(rows)
 
