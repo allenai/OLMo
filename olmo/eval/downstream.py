@@ -1579,99 +1579,6 @@ class NaturalQuestionsCELoss(ICLMultiChoiceTaskDataset):
         del doc
         return "Answer:"
 
-class OEEvalTaskWithNewline(OEEvalTask):
-
-    def prep_examples(self):
-        current_doc_id_offset = 0
-        max_doc_id = 0
-        for requests in self.dataset:
-            current_doc_id_offset += max_doc_id
-            max_doc_id = 0  # Max doc id seen in this dataset
-            for request in requests:
-                doc = request["doc"]
-                doc_id = request["doc_id"]
-                if doc_id >= 1000000:
-                    # Hacky implementation of unconditional requests in oe-eval
-                    # Not supported here for now
-                    continue
-                if doc_id > max_doc_id:
-                    max_doc_id = doc_id
-                assert (
-                    request["request_type"] == "loglikelihood"
-                ), f"Unsupported request type: {request['request_type']}"
-
-                # from EAI harness
-                # how this all works:
-                #          CTX      CONT
-                # inp    0 1 2 3|4 5 6 7 8 9   <- last token is deleted by inp[:, :-1]
-                # gpt2    \               \
-                # logits   1 2 3|4 5 6 7 8 9   <- the ctx half gets tossed out by the
-                # cont_toks      4 5 6 7 8 9      [:, -len(continuation_enc):, :self.vocab_size] slice
-
-                request_dict = request["request"]
-                continuation_str = request_dict["continuation"]
-                if continuation_str.startswith(' '):
-                    continuation_str = continuation_str.lstrip(' ')
-                label_id = request["label"]
-                cont_id = request["idx"]
-                if self.metric_type in ["ce_loss", "bpb"]:
-                    if label_id != cont_id:
-                        # Skip non-target continuations for ce_loss and bpb
-                        continue
-                    else:
-                        # Treat as instance with just one continuation
-                        cont_id = 0
-                        label_id = 0
-                doc_text = request_dict["context"]
-                doc_text.replace('Answer: ', 'Answer:\n')
-                if not doc_text.endswith('\n'):
-                    doc_text += '\n'
-                ctx = self.token_encode(doc_text)
-                dc = self.token_encode(self.doc_to_domain_conditional(doc))
-                if self.log_instances > 0:
-                    self.log_instances -= 1
-                    ds_name = self.dataset_name
-                    if isinstance(ds_name, list):
-                        ds_name = ds_name[0]
-                    log.info(
-                        f"Sample doc from ({self.dataset_path}, {ds_name}):"
-                        + f"\ndoc_text: {doc_text}\ncontinuation: {continuation_str}"
-                    )
-                cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
-                cont_byte_len = len(continuation_str[1:].encode("utf-8"))
-                continuation = self.token_encode(continuation_str)
-
-                # query, remove last token from continuation, truncate from left is longer than model ctx length
-                query = ctx + continuation[:-1]
-                query = query[-self.model_ctx_len :]
-                # this will be different from len(ctx) when truncated by model_ctx_len
-                actual_ctx_len = len(query) - len(continuation) + 1
-
-                # get domain conditional query
-                # we don't expect this to be longer than self.model_ctx_len and it won't make sense to truncate from left
-                dc_query = dc + continuation[:-1]
-
-                # form a sample
-                self.samples.append(
-                    {
-                        "doc_id": doc_id + current_doc_id_offset,
-                        "cont_id": cont_id,
-                        "ctx": ctx,
-                        "continuation": continuation,
-                        "ctx_len": actual_ctx_len,
-                        "dc_len": len(dc),
-                        "cont_len": len(
-                            continuation
-                        ),  # even if query has last token removed, LM will output same cont len
-                        "cont_str_len": cont_str_len,
-                        "cont_byte_len": cont_byte_len,
-                        "query": query,  # remove last token from continuation
-                        "dc_query": dc_query,
-                        "label_id": label_id,
-                    }
-                )
-
-
 class OEEvalTask(ICLMultiChoiceTaskDataset):
     """Generic class for OE evaluation tasks"""
 
@@ -1815,6 +1722,99 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
 
     def doc_to_label(self, doc) -> int:
         raise NotImplementedError
+
+
+class OEEvalTaskWithNewline(OEEvalTask):
+
+    def prep_examples(self):
+        current_doc_id_offset = 0
+        max_doc_id = 0
+        for requests in self.dataset:
+            current_doc_id_offset += max_doc_id
+            max_doc_id = 0  # Max doc id seen in this dataset
+            for request in requests:
+                doc = request["doc"]
+                doc_id = request["doc_id"]
+                if doc_id >= 1000000:
+                    # Hacky implementation of unconditional requests in oe-eval
+                    # Not supported here for now
+                    continue
+                if doc_id > max_doc_id:
+                    max_doc_id = doc_id
+                assert (
+                    request["request_type"] == "loglikelihood"
+                ), f"Unsupported request type: {request['request_type']}"
+
+                # from EAI harness
+                # how this all works:
+                #          CTX      CONT
+                # inp    0 1 2 3|4 5 6 7 8 9   <- last token is deleted by inp[:, :-1]
+                # gpt2    \               \
+                # logits   1 2 3|4 5 6 7 8 9   <- the ctx half gets tossed out by the
+                # cont_toks      4 5 6 7 8 9      [:, -len(continuation_enc):, :self.vocab_size] slice
+
+                request_dict = request["request"]
+                continuation_str = request_dict["continuation"]
+                if continuation_str.startswith(' '):
+                    continuation_str = continuation_str.lstrip(' ')
+                label_id = request["label"]
+                cont_id = request["idx"]
+                if self.metric_type in ["ce_loss", "bpb"]:
+                    if label_id != cont_id:
+                        # Skip non-target continuations for ce_loss and bpb
+                        continue
+                    else:
+                        # Treat as instance with just one continuation
+                        cont_id = 0
+                        label_id = 0
+                doc_text = request_dict["context"]
+                doc_text.replace('Answer: ', 'Answer:\n')
+                if not doc_text.endswith('\n'):
+                    doc_text += '\n'
+                ctx = self.token_encode(doc_text)
+                dc = self.token_encode(self.doc_to_domain_conditional(doc))
+                if self.log_instances > 0:
+                    self.log_instances -= 1
+                    ds_name = self.dataset_name
+                    if isinstance(ds_name, list):
+                        ds_name = ds_name[0]
+                    log.info(
+                        f"Sample doc from ({self.dataset_path}, {ds_name}):"
+                        + f"\ndoc_text: {doc_text}\ncontinuation: {continuation_str}"
+                    )
+                cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
+                cont_byte_len = len(continuation_str[1:].encode("utf-8"))
+                continuation = self.token_encode(continuation_str)
+
+                # query, remove last token from continuation, truncate from left is longer than model ctx length
+                query = ctx + continuation[:-1]
+                query = query[-self.model_ctx_len :]
+                # this will be different from len(ctx) when truncated by model_ctx_len
+                actual_ctx_len = len(query) - len(continuation) + 1
+
+                # get domain conditional query
+                # we don't expect this to be longer than self.model_ctx_len and it won't make sense to truncate from left
+                dc_query = dc + continuation[:-1]
+
+                # form a sample
+                self.samples.append(
+                    {
+                        "doc_id": doc_id + current_doc_id_offset,
+                        "cont_id": cont_id,
+                        "ctx": ctx,
+                        "continuation": continuation,
+                        "ctx_len": actual_ctx_len,
+                        "dc_len": len(dc),
+                        "cont_len": len(
+                            continuation
+                        ),  # even if query has last token removed, LM will output same cont len
+                        "cont_str_len": cont_str_len,
+                        "cont_byte_len": cont_byte_len,
+                        "query": query,  # remove last token from continuation
+                        "dc_query": dc_query,
+                        "label_id": label_id,
+                    }
+                )
 
 
 class Vera(ICLMultiChoiceTaskDataset):
