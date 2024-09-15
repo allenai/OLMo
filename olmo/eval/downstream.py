@@ -1782,8 +1782,8 @@ class OEEvalTaskWithNewline(OEEvalTask):
                         f"Sample doc from ({self.dataset_path}, {ds_name}):"
                         + f"\ndoc_text: {doc_text}\ncontinuation: {continuation_str}"
                     )
-                cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
-                cont_byte_len = len(continuation_str[1:].encode("utf-8"))
+                cont_str_len = len(continuation_str)  # continuation does not contain leading blank
+                cont_byte_len = len(continuation_str.encode("utf-8"))
                 continuation = self.token_encode(continuation_str)
 
                 # query, remove last token from continuation, truncate from left is longer than model ctx length
