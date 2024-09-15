@@ -5,11 +5,11 @@ import numpy as np
 
 from olmo.scaling.scaling_laws.utils import (
     ExtrapolateNConfig,
-    chinchilla_n_d_lr_power_minus_fit,
+    chinchilla_n_d_lr_power_minus_logtd_fit,
     get_ax,
     get_coefficients_huber,
     get_data_by_name,
-    grad_chinchilla_n_d_lr_power_minus_fit,
+    grad_chinchilla_n_d_lr_power_minus_logtd_fit,
     parse_args,
 )
 
@@ -37,12 +37,12 @@ def main():
     coefficients = get_coefficients_huber(
         train_ndhs,
         train_ys,
-        chinchilla_n_d_lr_power_minus_fit,
-        grad_chinchilla_n_d_lr_power_minus_fit,
-        p0=[3.0, 6.0, 0.1, 0.2, 1.0, 0.05, -0.05],
-        bounds=[(None, None), (None, None), (0, None), (0, None), (0, None), (0, None), (None, None)],
+        chinchilla_n_d_lr_power_minus_logtd_fit,
+        grad_chinchilla_n_d_lr_power_minus_logtd_fit,
+        p0=[3.0, 6.0, 0.1, 0.2, 1.0, 0.01, -0.05, 0.0],
+        bounds=[(None, None), (None, None), (0, None), (0, None), (0, None), (0, None), (None, None), (None, None)],
     )
-    a, b, alpha, beta, E, F, gamma = coefficients
+    a, b, alpha, beta, E, F, gamma, delta = coefficients
     A, B = np.exp(a), np.exp(b)
 
     # make predictions
@@ -53,7 +53,7 @@ def main():
             "ns": data["ns"],
             "ds": data["ds"],
             "ys": [
-                chinchilla_n_d_lr_power_minus_fit([n, d, h], coefficients)
+                chinchilla_n_d_lr_power_minus_logtd_fit([n, d, h], coefficients)
                 for n, d, h in zip(data["ns"], data["ds"], data["hs"])
             ],
         }
@@ -89,7 +89,7 @@ def main():
     plt.text(
         x=0.40,
         y=0.90,
-        s=f"L(n, d, h) = {A:.2f} / n^{alpha:.2f} + {B:.2f} / d^{beta:.2f} + {E:.2f} - {F:.2f} * (1 - h) * n^{gamma:.2f}",
+        s=f"L(n, d, h) = {A:.2f} / n^{alpha:.2f} + {B:.2f} / d^{beta:.2f} + {E:.2f} - {F:.2f} * (1 - h) * n^{gamma:.2f} * (log(d) + {delta:.2f})",
         fontsize=12,
         transform=fig.transFigure,
     )
@@ -98,7 +98,7 @@ def main():
         ax.legend(loc="upper right", ncols=2, fontsize=10)
         ax.set_xlabel("Tokens (d)")
     axs[0].set_ylabel(f"CE loss, {args.key if args.key != '' else args.keys}")
-    plt.suptitle("Fitting loss curves, with LR power minus correction")
+    plt.suptitle("Fitting loss curves, with LR power minus logtd correction")
     plt.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
 

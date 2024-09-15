@@ -112,13 +112,13 @@ def main():
     plt.savefig(args.output_path, dpi=300)
 
     y_1b_3T = chinchilla_n_d_fit([1176832000, 3e12], coefficients)
-    print(f"Predicted final loss for 1b-3T: {y_1b_3T:.2f}")
+    print(f"Predicted final loss for 1b-3T: {y_1b_3T:.3f}")
     y_7b_2T = chinchilla_n_d_fit([6682316800, 2e12], coefficients)
-    print(f"Predicted final loss for 7b-2T: {y_7b_2T:.2f}")
+    print(f"Predicted final loss for 7b-2T: {y_7b_2T:.3f}")
     y_7b_3T = chinchilla_n_d_fit([6682316800, 3e12], coefficients)
-    print(f"Predicted final loss for 7b-3T: {y_7b_3T:.2f}")
+    print(f"Predicted final loss for 7b-3T: {y_7b_3T:.3f}")
     y_13b_5T = chinchilla_n_d_fit([13e9, 5e12], coefficients)
-    print(f"Predicted final loss for 13b-5T: {y_13b_5T:.2f}")
+    print(f"Predicted final loss for 13b-5T: {y_13b_5T:.3f}")
 
 
 if __name__ == "__main__":

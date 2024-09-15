@@ -33,7 +33,7 @@
         "mode": "train",
         "n": 530074944,
         "label": "530m",
-        "color": "gold"
+        "color": "goldenrod"
     },
     "700m": {
         "paths": [

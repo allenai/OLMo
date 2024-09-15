@@ -233,23 +233,29 @@ def get_data_by_name(configs, keys, min_step=None):
             s2 = 0
             s2_momentum = 0
             last_lr = 0
+            last_fake_lr = 0
             last_d = 0
+            encountered_ds = set()
             for row in reader:
                 d = int(float(row["throughput/total_tokens"]))
-                if d == last_d:
+                if d in encountered_ds:
                     continue
                 batch_size = int(row["batch_size_in_tokens"])
                 steps = (d - last_d) / batch_size
                 lr = float(row["optim/learning_rate_group0"])
-                if min_step is not None and d < min_step * batch_size:
-                    lr = float(row["learning_rate_peak"])
-                    last_lr = lr
+                if lr > last_lr: # warmup phase
+                    fake_lr = float(row["learning_rate_peak"])
+                    last_fake_lr = float(row["learning_rate_peak"])
+                else: # anneal phase
+                    fake_lr = lr
                 h = lr / float(row["learning_rate_peak"])
-                s1 += lr * steps
-                s2_momentum = lam**steps * s2_momentum + (last_lr - lr) * steps
+                s1 += fake_lr * steps
+                s2_momentum = lam**steps * s2_momentum + (last_fake_lr - fake_lr) * steps
                 s2 += s2_momentum
                 last_lr = lr
+                last_fake_lr = fake_lr
                 last_d = d
+                encountered_ds.add(d)
                 y = np.mean([float(row[key]) for key in keys])
                 if min_step is not None and d < min_step * batch_size:
                     continue
@@ -454,6 +460,58 @@ def grad_chinchilla_n_d_lr_power_minus_powerd_fit(x, p):
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r, grad_s]
 
 
+def chinchilla_n_d_lr_power_minus_powertd_fit(x, p):
+    # return e**a / x[0]**alpha + e**b / x[1]**beta + E - F * (1 - x[2]) * x[0]**r * (x[1]**s + t)
+    return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4] - p[5] * (1 - x[2]) * x[0] ** p[6] * (x[1] ** p[7] + np.exp(p[8]))
+
+
+def grad_chinchilla_n_d_lr_power_minus_powertd_fit(x, p):
+    grad_a = np.exp(p[0]) / x[0] ** p[2]
+    grad_b = np.exp(p[1]) / x[1] ** p[3]
+    grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
+    grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
+    grad_E = 1
+    grad_F = - (1 - x[2]) * x[0] ** p[6] * (x[1] ** p[7] + np.exp(p[8]))
+    grad_r = - p[5] * (1 - x[2]) * (x[1] ** p[7] + np.exp(p[8])) * x[0] ** p[6] * np.log(x[0])
+    grad_s = - p[5] * (1 - x[2]) * x[0] ** p[6] * x[1] ** p[7] * np.log(x[1])
+    grad_t = - p[5] * (1 - x[2]) * x[0] ** p[6] * np.exp(p[8])
+    return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r, grad_s, grad_t]
+
+
+def chinchilla_n_d_lr_power_minus_logtd_fit(x, p):
+    # return e**a / x[0]**alpha + e**b / x[1]**beta + E - F * (1 - x[2]) * x[0]**r * (log(x[1]) + s)
+    return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4] - p[5] * (1 - x[2]) * x[0] ** p[6] * (np.log(x[1]) + p[7])
+
+
+def grad_chinchilla_n_d_lr_power_minus_logtd_fit(x, p):
+    grad_a = np.exp(p[0]) / x[0] ** p[2]
+    grad_b = np.exp(p[1]) / x[1] ** p[3]
+    grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
+    grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
+    grad_E = 1
+    grad_F = - (1 - x[2]) * x[0] ** p[6] * (np.log(x[1]) + p[7])
+    grad_r = - p[5] * (1 - x[2]) * (np.log(x[1]) + p[7]) * x[0] ** p[6] * np.log(x[0])
+    grad_s = - p[5] * (1 - x[2]) * x[0] ** p[6]
+    return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r, grad_s]
+
+
+def chinchilla_n_d_lr_logt_minus_logtd_fit(x, p):
+    # return e**a / x[0]**alpha + e**b / x[1]**beta + E - F * (1 - x[2]) / (log(x[0]) + r) * (log(x[1]) + s)
+    return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4] - p[5] * (1 - x[2]) / (np.log(x[0]) + p[6]) * (np.log(x[1]) + p[7])
+
+
+def grad_chinchilla_n_d_lr_logt_minus_logtd_fit(x, p):
+    grad_a = np.exp(p[0]) / x[0] ** p[2]
+    grad_b = np.exp(p[1]) / x[1] ** p[3]
+    grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
+    grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
+    grad_E = 1
+    grad_F = - (1 - x[2]) / (np.log(x[0]) + p[6]) * (np.log(x[1]) + p[7])
+    grad_r = - p[5] * (1 - x[2]) * (np.log(x[1]) + p[7]) * (-1 / (np.log(x[0]) + p[6])**2)
+    grad_s = - p[5] * (1 - x[2]) / (np.log(x[0]) + p[6])
+    return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r, grad_s]
+
+
 def tissue_fit(x, p):
     # return e**a / x[0]**alpha + e**b / x[1]**beta + E - F * x[2] * x[0]**r
     return max(1e-8, np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4] - p[5] * x[2] * x[0] ** p[6])
@@ -517,3 +575,52 @@ def get_coefficients_huber(
     coeffs = res.x
     print(f"coeffs: {coeffs}")
     return coeffs
+
+
+def get_coefficients_huber_nolog(
+    train_xs, train_ys, fitting_func, grad_func, p0, bounds, disp: bool = True, max_iter: int = 10000
+):
+    def huber_loss(x, delta):
+        if np.abs(x) < delta:
+            return 0.5 * x**2
+        else:
+            return delta * (np.abs(x) - 0.5 * delta)
+
+    def loss_fn(p, train_xs, train_ys, delta):
+        actuals = train_ys
+        preds = [fitting_func(x, p) for x in train_xs]
+        loss = np.sum(
+            [huber_loss(pred - actual, delta=delta) for actual, pred in zip(actuals, preds)]
+        )
+        return loss
+
+    def jac_fn(p, train_xs, train_ys, delta):
+        actuals = train_ys
+        preds = [fitting_func(x, p) for x in train_xs]
+        grads = [grad_func(x, p) for x in train_xs]
+        us = [pred - actual for actual, pred in zip(actuals, preds)]
+        grad_us = [u if np.abs(u) < delta else (delta * np.abs(u) / u) for u in us]
+        results = [
+            np.sum([grad_u * grad[i] for grad_u, pred, grad in zip(grad_us, preds, grads)])
+            for i in range(len(grads[0]))
+        ]
+        return results
+
+    assert len(train_xs) == len(train_ys)
+    delta = 1e-3
+    res = scipy.optimize.minimize(
+        loss_fn,
+        p0,
+        args=(train_xs, train_ys, delta),
+        jac=jac_fn,
+        bounds=bounds,
+        tol=0.0,
+        method="L-BFGS-B",
+        options={"ftol": 0.0, "gtol": 1e-10, "maxiter": max_iter, "disp": disp},
+    )
+    # res = scipy.optimize.minimize(loss_fn, p0, args=(train_xs, train_ys, delta), jac=jac_fn, tol=0.0, method='BFGS', options={'gtol': 1e-10, 'maxiter': 10000, 'disp': True})
+    # print(res.message)
+    coeffs = res.x
+    loss = res.fun
+    print(f"coeffs: {coeffs}")
+    return coeffs, loss

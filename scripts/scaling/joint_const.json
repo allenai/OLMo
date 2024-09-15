@@ -18,13 +18,20 @@
         "mode": "train",
         "n": 530074944,
         "label": "530m-10xC",
-        "color": "gold"
+        "color": "goldenrod"
     },
-    "700m-10xC": {
+    "750m-10xC": {
         "path": "wandb/amberish-const/750M-10xC_val-all.csv",
         "mode": "train",
         "n": 681297408,
         "label": "750m-10xC",
         "color": "darkgreen"
+    },
+    "1b-10xC": {
+        "path": "wandb/amberish-const/1B-10xC_val-all.csv",
+        "mode": "train",
+        "n": 1176832000,
+        "label": "1b-10xC",
+        "color": "teal"
     }
 }

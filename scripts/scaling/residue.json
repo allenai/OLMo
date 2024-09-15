@@ -60,28 +60,28 @@
         "mode": "train",
         "n": 530074944,
         "label": "530m-1xC",
-        "color": "gold"
+        "color": "goldenrod"
     },
     "530m-2xC": {
         "path": "wandb/amberish-5shot/530M-2xC_val-all.csv",
         "mode": "train",
         "n": 530074944,
         "label": "530m-2xC",
-        "color": "gold"
+        "color": "goldenrod"
     },
     "530m-5xC": {
         "path": "wandb/amberish-5shot/530M-5xC_val-all.csv",
         "mode": "train",
         "n": 530074944,
         "label": "530m-5xC",
-        "color": "gold"
+        "color": "goldenrod"
     },
     "530m-10xC": {
         "path": "wandb/amberish-5shot/530M-10xC_val-all.csv",
         "mode": "train",
         "n": 530074944,
         "label": "530m-10xC",
-        "color": "gold"
+        "color": "goldenrod"
     },
     "700m-1xC": {
         "path": "wandb/amberish-5shot/750M-1xC_val-all.csv",
