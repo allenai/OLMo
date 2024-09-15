@@ -85,8 +85,15 @@ def main(args):
             [f"eval/{d}/CrossEntropyLoss" for d in validation]
             + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_bpb]
             + [f"eval/downstream/{d}" for d in downstream]
-            # + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_newline_bpb]
-            # + [f"eval/downstream/{d}" for d in downstream_newline]
+        )
+
+    elif args.y_axis == ["eval/validation-and-bpb-and-downstream-newline"]:
+        args.y_axis = (
+            [f"eval/{d}/CrossEntropyLoss" for d in validation]
+            + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_bpb]
+            + [f"eval/downstream/{d}" for d in downstream]
+            + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_newline_bpb]
+            + [f"eval/downstream/{d}" for d in downstream_newline]
         )
 
     wb_runs = get_runs(args.wandb_names)
@@ -148,7 +155,7 @@ if __name__ == "__main__":
 
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-small/amberish1' -y eval/all-validation/CrossEntropyLoss -o wandb/amberish1.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/amberish7' -y eval/all-validation/CrossEntropyLoss -o wandb/amberish7.csv
-    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-small/amberish1' -y eval/validation-and-bpb-and-downstream -o wandb/amberish1_newline.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-small/amberish1' -y eval/validation-and-bpb-and-downstream-newline -o wandb/amberish1_newline.csv
 
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/baseline-150M-1xC' -y eval/all-validation/CrossEntropyLoss -o wandb/baseline-150M-1xC_val-all.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/baseline-300M-1xC' -y eval/all-validation/CrossEntropyLoss -o wandb/baseline-300M-1xC_val-all.csv
