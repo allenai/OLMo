@@ -99,6 +99,7 @@ speed_monitor:
 
 gen1_gc_interval: 10
 
+eval_on_load: true
 eval_interval: 1000
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
@@ -463,6 +464,204 @@ evaluators:
     type: downstream
 
   - label: mmlu_other_bpb
+    type: downstream
+
+  - label: piqa_newline_rc_0shot
+    type: downstream
+
+  - label: piqa_newline_rc_0shot_bpb
+    type: downstream
+
+  - label: piqa_newline_rc_5shot
+    type: downstream
+
+  - label: piqa_newline_rc_5shot_bpb
+    type: downstream
+
+  - label: piqa_newline_mc_5shot
+    type: downstream
+
+  - label: piqa_newline_mc_5shot_bpb
+    type: downstream
+
+  - label: hellaswag_newline_rc_0shot
+    type: downstream
+
+  - label: hellaswag_newline_rc_0shot_bpb
+    type: downstream
+
+  - label: hellaswag_newline_rc_5shot
+    type: downstream
+
+  - label: hellaswag_newline_rc_5shot_bpb
+    type: downstream
+
+  - label: hellaswag_newline_mc_5shot
+    type: downstream
+
+  - label: hellaswag_newline_mc_5shot_bpb
+    type: downstream
+
+  - label: winogrande_newline_rc_0shot
+    type: downstream
+
+  - label: winogrande_newline_rc_0shot_bpb
+    type: downstream
+
+  - label: winogrande_newline_rc_5shot
+    type: downstream
+
+  - label: winogrande_newline_rc_5shot_bpb
+    type: downstream
+
+  - label: winogrande_newline_mc_5shot
+    type: downstream
+
+  - label: winogrande_newline_mc_5shot_bpb
+    type: downstream
+
+  - label: openbookqa_newline_rc_0shot
+    type: downstream
+
+  - label: openbookqa_newline_rc_0shot_bpb
+    type: downstream
+
+  - label: openbookqa_newline_rc_5shot
+    type: downstream
+
+  - label: openbookqa_newline_rc_5shot_bpb
+    type: downstream
+
+  - label: openbookqa_newline_mc_5shot
+    type: downstream
+
+  - label: openbookqa_newline_mc_5shot_bpb
+    type: downstream
+
+  - label: boolq_newline_rc_0shot
+    type: downstream
+
+  - label: boolq_newline_rc_0shot_bpb
+    type: downstream
+
+  - label: boolq_newline_rc_5shot
+    type: downstream
+
+  - label: boolq_newline_rc_5shot_bpb
+    type: downstream
+
+  - label: boolq_newline_mc_5shot
+    type: downstream
+
+  - label: boolq_newline_mc_5shot_bpb
+    type: downstream
+
+  - label: sciq_newline_rc_0shot
+    type: downstream
+
+  - label: sciq_newline_rc_0shot_bpb
+    type: downstream
+
+  # - label: sciq_newline_rc_5shot
+  #   type: downstream
+
+  # - label: sciq_newline_rc_5shot_bpb
+  #   type: downstream
+
+  # - label: sciq_newline_mc_5shot
+  #   type: downstream
+
+  # - label: sciq_newline_mc_5shot_bpb
+  #   type: downstream
+
+  - label: arc_easy_newline_rc_0shot
+    type: downstream
+
+  - label: arc_easy_newline_rc_0shot_bpb
+    type: downstream
+
+  - label: arc_easy_newline_rc_5shot
+    type: downstream
+
+  - label: arc_easy_newline_rc_5shot_bpb
+    type: downstream
+
+  - label: arc_easy_newline_mc_5shot
+    type: downstream
+
+  - label: arc_easy_newline_mc_5shot_bpb
+    type: downstream
+
+  - label: arc_challenge_newline_rc_0shot
+    type: downstream
+
+  - label: arc_challenge_newline_rc_0shot_bpb
+    type: downstream
+
+  - label: arc_challenge_newline_rc_5shot
+    type: downstream
+
+  - label: arc_challenge_newline_rc_5shot_bpb
+    type: downstream
+
+  - label: arc_challenge_newline_mc_5shot
+    type: downstream
+
+  - label: arc_challenge_newline_mc_5shot_bpb
+    type: downstream
+
+  - label: copa_newline_rc_0shot
+    type: downstream
+
+  - label: copa_newline_rc_0shot_bpb
+    type: downstream
+
+  # - label: copa_newline_rc_5shot
+  #   type: downstream
+
+  # - label: copa_newline_rc_5shot_bpb
+  #   type: downstream
+
+  # - label: copa_newline_mc_5shot
+  #   type: downstream
+
+  # - label: copa_newline_mc_5shot_bpb
+  #   type: downstream
+
+  - label: csqa_newline_rc_0shot
+    type: downstream
+
+  - label: csqa_newline_rc_0shot_bpb
+    type: downstream
+
+  - label: csqa_newline_rc_5shot
+    type: downstream
+
+  - label: csqa_newline_rc_5shot_bpb
+    type: downstream
+
+  - label: csqa_newline_mc_5shot
+    type: downstream
+
+  - label: csqa_newline_mc_5shot_bpb
+    type: downstream
+
+  - label: socialiqa_newline_rc_0shot
+    type: downstream
+
+  - label: socialiqa_newline_rc_0shot_bpb
+    type: downstream
+
+  - label: socialiqa_newline_rc_5shot
+    type: downstream
+
+  - label: socialiqa_newline_rc_5shot_bpb
+    type: downstream
+
+  - label: socialiqa_newline_mc_5shot
+    type: downstream
+
+  - label: socialiqa_newline_mc_5shot_bpb
     type: downstream
 
   - label: mmlu_newline_stem_var

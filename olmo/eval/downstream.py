@@ -1579,6 +1579,98 @@ class NaturalQuestionsCELoss(ICLMultiChoiceTaskDataset):
         del doc
         return "Answer:"
 
+class OEEvalTaskWithNewline(OEEvalTask):
+
+    def prep_examples(self):
+        current_doc_id_offset = 0
+        max_doc_id = 0
+        for requests in self.dataset:
+            current_doc_id_offset += max_doc_id
+            max_doc_id = 0  # Max doc id seen in this dataset
+            for request in requests:
+                doc = request["doc"]
+                doc_id = request["doc_id"]
+                if doc_id >= 1000000:
+                    # Hacky implementation of unconditional requests in oe-eval
+                    # Not supported here for now
+                    continue
+                if doc_id > max_doc_id:
+                    max_doc_id = doc_id
+                assert (
+                    request["request_type"] == "loglikelihood"
+                ), f"Unsupported request type: {request['request_type']}"
+
+                # from EAI harness
+                # how this all works:
+                #          CTX      CONT
+                # inp    0 1 2 3|4 5 6 7 8 9   <- last token is deleted by inp[:, :-1]
+                # gpt2    \               \
+                # logits   1 2 3|4 5 6 7 8 9   <- the ctx half gets tossed out by the
+                # cont_toks      4 5 6 7 8 9      [:, -len(continuation_enc):, :self.vocab_size] slice
+
+                request_dict = request["request"]
+                continuation_str = request_dict["continuation"]
+                if continuation_str.startswith(' '):
+                    continuation_str = continuation_str.lstrip(' ')
+                label_id = request["label"]
+                cont_id = request["idx"]
+                if self.metric_type in ["ce_loss", "bpb"]:
+                    if label_id != cont_id:
+                        # Skip non-target continuations for ce_loss and bpb
+                        continue
+                    else:
+                        # Treat as instance with just one continuation
+                        cont_id = 0
+                        label_id = 0
+                doc_text = request_dict["context"]
+                doc_text.replace('Answer: ', 'Answer:\n')
+                if not doc_text.endswith('\n'):
+                    doc_text += '\n'
+                ctx = self.token_encode(doc_text)
+                dc = self.token_encode(self.doc_to_domain_conditional(doc))
+                if self.log_instances > 0:
+                    self.log_instances -= 1
+                    ds_name = self.dataset_name
+                    if isinstance(ds_name, list):
+                        ds_name = ds_name[0]
+                    log.info(
+                        f"Sample doc from ({self.dataset_path}, {ds_name}):"
+                        + f"\ndoc_text: {doc_text}\ncontinuation: {continuation_str}"
+                    )
+                cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
+                cont_byte_len = len(continuation_str[1:].encode("utf-8"))
+                continuation = self.token_encode(continuation_str)
+
+                # query, remove last token from continuation, truncate from left is longer than model ctx length
+                query = ctx + continuation[:-1]
+                query = query[-self.model_ctx_len :]
+                # this will be different from len(ctx) when truncated by model_ctx_len
+                actual_ctx_len = len(query) - len(continuation) + 1
+
+                # get domain conditional query
+                # we don't expect this to be longer than self.model_ctx_len and it won't make sense to truncate from left
+                dc_query = dc + continuation[:-1]
+
+                # form a sample
+                self.samples.append(
+                    {
+                        "doc_id": doc_id + current_doc_id_offset,
+                        "cont_id": cont_id,
+                        "ctx": ctx,
+                        "continuation": continuation,
+                        "ctx_len": actual_ctx_len,
+                        "dc_len": len(dc),
+                        "cont_len": len(
+                            continuation
+                        ),  # even if query has last token removed, LM will output same cont len
+                        "cont_str_len": cont_str_len,
+                        "cont_byte_len": cont_byte_len,
+                        "query": query,  # remove last token from continuation
+                        "dc_query": dc_query,
+                        "label_id": label_id,
+                    }
+                )
+
 
 class OEEvalTask(ICLMultiChoiceTaskDataset):
     """Generic class for OE evaluation tasks"""
@@ -1827,57 +1919,6 @@ label_to_task_map = {
         {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
     ),
 
-    # MMLU with old newline format
-    "mmlu_newline_stem_test": (MMLUWithNewline, {"dataset_name": "stem", "split": "test"}),
-    "mmlu_newline_humanities_test": (MMLUWithNewline, {"dataset_name": "humanities", "split": "test"}),
-    "mmlu_newline_social_sciences_test": (MMLUWithNewline, {"dataset_name": "social_sciences", "split": "test"}),
-    "mmlu_newline_other_test": (MMLUWithNewline, {"dataset_name": "other", "split": "test"}),
-    "mmlu_newline_stem": (MMLUWithNewline, {"dataset_name": "stem"}),
-    "mmlu_newline_humanities": (MMLUWithNewline, {"dataset_name": "humanities"}),
-    "mmlu_newline_social_sciences": (MMLUWithNewline, {"dataset_name": "social_sciences"}),
-    "mmlu_newline_other": (MMLUWithNewline, {"dataset_name": "other"}),
-    "mmlu_newline_stem_bpb": (MMLUWithNewline, {"dataset_name": "stem", "metric_type": "bpb"}),
-    "mmlu_newline_humanities_bpb": (MMLUWithNewline, {"dataset_name": "humanities", "metric_type": "bpb"}),
-    "mmlu_newline_social_sciences_bpb": (MMLUWithNewline, {"dataset_name": "social_sciences", "metric_type": "bpb"}),
-    "mmlu_newline_other_bpb": (MMLUWithNewline, {"dataset_name": "other", "metric_type": "bpb"}),
-    "mmlu_newline_stem_var": (MMLUWithNewline, {"dataset_name": "stem", "prompt_variations": 1}),
-    "mmlu_newline_humanities_var": (MMLUWithNewline, {"dataset_name": "humanities", "prompt_variations": 1}),
-    "mmlu_newline_social_sciences_var": (MMLUWithNewline, {"dataset_name": "social_sciences", "prompt_variations": 1}),
-    "mmlu_newline_other_var": (MMLUWithNewline, {"dataset_name": "other", "prompt_variations": 1}),
-    "mmlu_newline_stem_var_bpb": (MMLUWithNewline, {"dataset_name": "stem", "prompt_variations": 1, "metric_type": "bpb"}),
-    "mmlu_newline_humanities_var_bpb": (
-        MMLUWithNewline,
-        {"dataset_name": "humanities", "prompt_variations": 1, "metric_type": "bpb"},
-    ),
-    "mmlu_newline_social_sciences_var_bpb": (
-        MMLUWithNewline,
-        {"dataset_name": "social_sciences", "prompt_variations": 1, "metric_type": "bpb"},
-    ),
-    "mmlu_newline_other_var_bpb": (MMLUWithNewline, {"dataset_name": "other", "prompt_variations": 1, "metric_type": "bpb"}),
-    "mmlu_newline_stem_mc_5shot": (MMLUWithNewline, {"dataset_name": "stem", "prompt_variations": 2, "mc_labels": True}),
-    "mmlu_newline_humanities_mc_5shot": (MMLUWithNewline, {"dataset_name": "humanities", "prompt_variations": 2, "mc_labels": True}),
-    "mmlu_newline_social_sciences_mc_5shot": (
-        MMLUWithNewline,
-        {"dataset_name": "social_sciences", "prompt_variations": 2, "mc_labels": True},
-    ),
-    "mmlu_newline_other_mc_5shot": (MMLUWithNewline, {"dataset_name": "other", "prompt_variations": 2, "mc_labels": True}),
-    "mmlu_newline_stem_mc_5shot_test": (
-        MMLUWithNewline,
-        {"dataset_name": "stem", "split": "test", "prompt_variations": 2, "mc_labels": True},
-    ),
-    "mmlu_newline_humanities_mc_5shot_test": (
-        MMLUWithNewline,
-        {"dataset_name": "humanities", "split": "test", "prompt_variations": 2, "mc_labels": True},
-    ),
-    "mmlu_newline_social_sciences_mc_5shot_test": (
-        MMLUWithNewline,
-        {"dataset_name": "social_sciences", "split": "test", "prompt_variations": 2, "mc_labels": True},
-    ),
-    "mmlu_newline_other_mc_5shot_test": (
-        MMLUWithNewline,
-        {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
-    ),
-
     # Paste in all oe-eval tasks from output of scripts/list_evals_from_oe_eval.py
     "arc_challenge_mc_5shot": (
         OEEvalTask,
@@ -2068,6 +2109,250 @@ label_to_task_map = {
     ),
     "winogrande_rc_5shot_bpb": (
         OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
+
+    # MMLU with old newline format
+    "mmlu_newline_stem_test": (MMLUWithNewline, {"dataset_name": "stem", "split": "test"}),
+    "mmlu_newline_humanities_test": (MMLUWithNewline, {"dataset_name": "humanities", "split": "test"}),
+    "mmlu_newline_social_sciences_test": (MMLUWithNewline, {"dataset_name": "social_sciences", "split": "test"}),
+    "mmlu_newline_other_test": (MMLUWithNewline, {"dataset_name": "other", "split": "test"}),
+    "mmlu_newline_stem": (MMLUWithNewline, {"dataset_name": "stem"}),
+    "mmlu_newline_humanities": (MMLUWithNewline, {"dataset_name": "humanities"}),
+    "mmlu_newline_social_sciences": (MMLUWithNewline, {"dataset_name": "social_sciences"}),
+    "mmlu_newline_other": (MMLUWithNewline, {"dataset_name": "other"}),
+    "mmlu_newline_stem_bpb": (MMLUWithNewline, {"dataset_name": "stem", "metric_type": "bpb"}),
+    "mmlu_newline_humanities_bpb": (MMLUWithNewline, {"dataset_name": "humanities", "metric_type": "bpb"}),
+    "mmlu_newline_social_sciences_bpb": (MMLUWithNewline, {"dataset_name": "social_sciences", "metric_type": "bpb"}),
+    "mmlu_newline_other_bpb": (MMLUWithNewline, {"dataset_name": "other", "metric_type": "bpb"}),
+    "mmlu_newline_stem_var": (MMLUWithNewline, {"dataset_name": "stem", "prompt_variations": 1}),
+    "mmlu_newline_humanities_var": (MMLUWithNewline, {"dataset_name": "humanities", "prompt_variations": 1}),
+    "mmlu_newline_social_sciences_var": (MMLUWithNewline, {"dataset_name": "social_sciences", "prompt_variations": 1}),
+    "mmlu_newline_other_var": (MMLUWithNewline, {"dataset_name": "other", "prompt_variations": 1}),
+    "mmlu_newline_stem_var_bpb": (MMLUWithNewline, {"dataset_name": "stem", "prompt_variations": 1, "metric_type": "bpb"}),
+    "mmlu_newline_humanities_var_bpb": (
+        MMLUWithNewline,
+        {"dataset_name": "humanities", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_newline_social_sciences_var_bpb": (
+        MMLUWithNewline,
+        {"dataset_name": "social_sciences", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_newline_other_var_bpb": (MMLUWithNewline, {"dataset_name": "other", "prompt_variations": 1, "metric_type": "bpb"}),
+    "mmlu_newline_stem_mc_5shot": (MMLUWithNewline, {"dataset_name": "stem", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_newline_humanities_mc_5shot": (MMLUWithNewline, {"dataset_name": "humanities", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_newline_social_sciences_mc_5shot": (
+        MMLUWithNewline,
+        {"dataset_name": "social_sciences", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_newline_other_mc_5shot": (MMLUWithNewline, {"dataset_name": "other", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_newline_stem_mc_5shot_test": (
+        MMLUWithNewline,
+        {"dataset_name": "stem", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_newline_humanities_mc_5shot_test": (
+        MMLUWithNewline,
+        {"dataset_name": "humanities", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_newline_social_sciences_mc_5shot_test": (
+        MMLUWithNewline,
+        {"dataset_name": "social_sciences", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_newline_other_mc_5shot_test": (
+        MMLUWithNewline,
+        {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+
+    # oe-eval tasks with old newline format
+    "arc_challenge_newline_mc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "arc_challenge", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
+    "arc_challenge_newline_mc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "arc_challenge", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_challenge_newline_rc_0shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "arc_challenge", "dataset_name": "rc_0shot", "metric_type": "len_norm"},
+    ),
+    "arc_challenge_newline_rc_0shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "arc_challenge", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "arc_challenge_newline_rc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "arc_challenge", "dataset_name": "rc_5shot", "metric_type": "len_norm"},
+    ),
+    "arc_challenge_newline_rc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "arc_challenge", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_easy_newline_mc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "arc_easy", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
+    "arc_easy_newline_mc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "arc_easy", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_easy_newline_rc_0shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "arc_easy", "dataset_name": "rc_0shot", "metric_type": "acc"},
+    ),
+    "arc_easy_newline_rc_0shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "arc_easy", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "arc_easy_newline_rc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "arc_easy", "dataset_name": "rc_5shot", "metric_type": "acc"},
+    ),
+    "arc_easy_newline_rc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "arc_easy", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
+    "boolq_newline_mc_5shot": (OEEvalTaskWithNewline, {"dataset_path": "boolq", "dataset_name": "mc_5shot", "metric_type": "acc"}),
+    "boolq_newline_mc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "boolq", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "boolq_newline_rc_0shot": (OEEvalTaskWithNewline, {"dataset_path": "boolq", "dataset_name": "rc_0shot", "metric_type": "acc"}),
+    "boolq_newline_rc_0shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "boolq", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "boolq_newline_rc_5shot": (OEEvalTaskWithNewline, {"dataset_path": "boolq", "dataset_name": "rc_5shot", "metric_type": "acc"}),
+    "boolq_newline_rc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "boolq", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
+    "copa_newline_rc_0shot": (OEEvalTaskWithNewline, {"dataset_path": "copa", "dataset_name": "rc_0shot", "metric_type": "acc"}),
+    "copa_newline_rc_0shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "copa", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
+    "copycolors_10way": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "copycolors", "dataset_name": "10way", "metric_type": "acc"},
+    ),
+    "copycolors_10way_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "copycolors", "dataset_name": "10way", "metric_type": "bpb"},
+    ),
+    "copycolors_xl_10way": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "copycolors", "dataset_name": "xl_10way", "metric_type": "acc"},
+    ),
+    "copycolors_xl_10way_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "copycolors", "dataset_name": "xl_10way", "metric_type": "bpb"},
+    ),
+    "csqa_newline_mc_5shot": (OEEvalTaskWithNewline, {"dataset_path": "csqa", "dataset_name": "mc_5shot", "metric_type": "acc"}),
+    "csqa_newline_mc_5shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "csqa", "dataset_name": "mc_5shot", "metric_type": "bpb"}),
+    "csqa_newline_rc_0shot": (OEEvalTaskWithNewline, {"dataset_path": "csqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"}),
+    "csqa_newline_rc_0shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "csqa", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
+    "csqa_newline_rc_5shot": (OEEvalTaskWithNewline, {"dataset_path": "csqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"}),
+    "csqa_newline_rc_5shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "csqa", "dataset_name": "rc_5shot", "metric_type": "bpb"}),
+    "hellaswag_newline_mc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "hellaswag", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
+    "hellaswag_newline_mc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "hellaswag", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "hellaswag_newline_rc_0shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "hellaswag", "dataset_name": "rc_0shot", "metric_type": "len_norm"},
+    ),
+    "hellaswag_newline_rc_0shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "hellaswag", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "hellaswag_newline_rc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "hellaswag", "dataset_name": "rc_5shot", "metric_type": "len_norm"},
+    ),
+    "hellaswag_newline_rc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "hellaswag", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
+    "openbookqa_newline_mc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "openbookqa", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
+    "openbookqa_newline_mc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "openbookqa", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "openbookqa_newline_rc_0shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "openbookqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"},
+    ),
+    "openbookqa_newline_rc_0shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "openbookqa", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "openbookqa_newline_rc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "openbookqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"},
+    ),
+    "openbookqa_newline_rc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "openbookqa", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
+    "piqa_newline_mc_5shot": (OEEvalTaskWithNewline, {"dataset_path": "piqa", "dataset_name": "mc_5shot", "metric_type": "acc"}),
+    "piqa_newline_mc_5shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "piqa", "dataset_name": "mc_5shot", "metric_type": "bpb"}),
+    "piqa_newline_rc_0shot": (OEEvalTaskWithNewline, {"dataset_path": "piqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"}),
+    "piqa_newline_rc_0shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "piqa", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
+    "piqa_newline_rc_5shot": (OEEvalTaskWithNewline, {"dataset_path": "piqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"}),
+    "piqa_newline_rc_5shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "piqa", "dataset_name": "rc_5shot", "metric_type": "bpb"}),
+    "sciq_newline_rc_0shot": (OEEvalTaskWithNewline, {"dataset_path": "sciq", "dataset_name": "rc_0shot", "metric_type": "acc"}),
+    "sciq_newline_rc_0shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "sciq", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
+    "socialiqa_newline_mc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "socialiqa", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
+    "socialiqa_newline_mc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "socialiqa", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "socialiqa_newline_rc_0shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "socialiqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"},
+    ),
+    "socialiqa_newline_rc_0shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "socialiqa", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "socialiqa_newline_rc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "socialiqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"},
+    ),
+    "socialiqa_newline_rc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "socialiqa", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
+    "winogrande_newline_mc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "winogrande", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
+    "winogrande_newline_mc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "winogrande", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "winogrande_newline_rc_0shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "winogrande", "dataset_name": "rc_0shot", "metric_type": "acc"},
+    ),
+    "winogrande_newline_rc_0shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "winogrande", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "winogrande_newline_rc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "winogrande", "dataset_name": "rc_5shot", "metric_type": "acc"},
+    ),
+    "winogrande_newline_rc_5shot_bpb": (
+        OEEvalTaskWithNewline,
         {"dataset_path": "winogrande", "dataset_name": "rc_5shot", "metric_type": "bpb"},
     ),
 }
