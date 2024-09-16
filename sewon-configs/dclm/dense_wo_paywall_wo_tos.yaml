@@ -422,25 +422,6 @@ data:
 
 
 
-    #### Med_Low
-    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Med_Low/tokens0/part-0-00000.npy
-
-
-
-    #### Med_Low_News
-    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Med_Low_News/tokens0/part-0-00000.npy
-
-
-
-    #### Med_Low_None
-    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Med_Low_None/tokens0/part-0-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Med_Low_None/tokens0/part-1-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Med_Low_None/tokens0/part-2-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Med_Low_None/tokens0/part-3-00000.npy
-    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Med_Low_None/tokens0/part-4-00000.npy
-
-
-
     #### Unknown_Unknown_0
     #### (Upsampling ratio = 10)
     - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Unknown_Unknown_0/tokens0/part-000-00000.npy

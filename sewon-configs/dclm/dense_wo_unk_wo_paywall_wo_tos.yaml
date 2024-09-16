@@ -1,0 +1,424 @@
+run_name: dense_wo_paywall_wo_tos
+seed: 6198
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: peteish1-dclm
+  group: ${run_name}
+
+model:
+  d_model: 2048
+  n_heads: 16
+  n_layers: 16
+  mlp_ratio: 8
+  weight_tying: false
+  alibi: false
+  rope: true
+  rope_theta: 500000
+  flash_attention: true
+  attention_dropout: 0.0
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  bias_for_layer_norm: false
+  attention_layer_norm: true
+  attention_layer_norm_with_affine: true
+  norm_after: true
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 4096
+  vocab_size: 100278
+  embedding_size: 100352
+  eos_token_id: 100257
+  pad_token_id: 100277
+  init_device: meta
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3
+
+softmax_auxiliary_loss: true
+auxiliary_loss_multiplier: 1e-5
+fused_loss: true
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 2.0e-3
+  weight_decay: 0.1
+  eps: 1e-8
+  decay_norm_and_bias: true
+  decay_embeddings: false
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 1
+
+scheduler:
+  name: cosine_with_warmup
+  units: tokens
+  t_warmup: 5e9
+  t_max: 130e9
+  alpha_f: 0.1
+  warmup_min_lr: 0.0
+
+tokenizer:
+  identifier: allenai/dolma2-tokenizer
+  truncate_direction: right
+
+save_folder: /weka/oe-training-default/ai2-llm/checkpoints/ds-olmo/baselines/${run_name}
+save_overwrite: false
+
+save_interval: 1000
+save_interval_ephemeral: 200
+save_num_checkpoints_to_keep: -1
+sharded_checkpointer: olmo_core
+
+save_interval_unsharded: null
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+max_duration: 130e9T
+global_train_batch_size: 1024
+device_train_microbatch_size: 4
+
+precision: amp_bf16
+
+fsdp:
+  wrapping_strategy: null
+  sharding_strategy: SHARD_GRAD_OP
+  precision: mixed
+
+# activation_checkpointing: whole_layer
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 1
+
+gen1_gc_interval: 10
+
+eval_interval: 1000
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  # - label: all-small-ppl-validation
+  #   data:
+  #     num_workers: 0
+  #     drop_last: true
+  #     # generate_doc_lengths: true
+  #     memmap_dtype: uint32
+  #     datasets:
+  #       c4_en-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
+  #       dolma_books-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
+  #       dolma_common-crawl-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
+  #       dolma_pes2o-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
+  #       dolma_reddit-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
+  #       dolma_stack-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
+  #       dolma_wiki-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
+  #       ice-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
+  #       m2d2_s2orc-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
+  #       pile-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
+  #       wikitext_103-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
+
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: piqa
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+  - label: winogrande
+    type: downstream
+
+  - label: openbook_qa
+    type: downstream
+
+  - label: boolq
+    type: downstream
+ 
+  - label: sciq
+    type: downstream
+
+  - label: arc_easy
+    type: downstream
+
+  - label: arc_challenge
+    type: downstream
+
+  - label: copa
+    type: downstream
+
+  #- label: rte
+  #  type: downstream
+
+  #- label: commitment_bank
+  #  type: downstream
+
+  #- label: sst2
+  #  type: downstream
+
+  - label: commonsense_qa
+    type: downstream
+
+  - label: social_iqa
+    type: downstream
+
+  - label: mmlu_stem_var
+    type: downstream
+
+  - label: mmlu_humanities_var
+    type: downstream
+
+  - label: mmlu_social_sciences_var
+    type: downstream
+
+  - label: mmlu_other_var
+    type: downstream
+
+  - label: mmlu_stem_mc_5shot
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot
+    type: downstream
+
+  - label: mmlu_other_mc_5shot
+    type: downstream
+
+  #- label: mmlu_stem_mc_5shot_test
+  #  type: downstream
+
+  #- label: mmlu_humanities_mc_5shot_test
+  #  type: downstream
+
+  #- label: mmlu_social_sciences_mc_5shot_test
+  #  type: downstream
+
+  #- label: mmlu_other_mc_5shot_test
+  #  type: downstream
+
+  - label: basic_arithmetic
+    type: downstream
+
+  - label: trivia_qa_wiki_ppl
+    type: downstream
+
+  - label: natural_qs_open_ppl
+    type: downstream
+
+  - label: arc_easy_ppl
+    type: downstream
+
+data:
+  pad_direction: right
+  # generate_doc_lengths: true
+  num_workers: 32
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 8
+  persistent_workers: true
+  memmap_dtype: uint32
+  timeout: 0
+  instance_filter:
+    repetition_max_period: 13
+    repetition_min_period: 1
+    repetition_max_count: 32
+  paths:
+    #### Low_Low
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low/tokens0/part-0-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low/tokens0/part-1-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low/tokens0/part-2-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low/tokens0/part-3-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low/tokens0/part-4-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low/tokens0/part-5-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low/tokens0/part-6-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low/tokens0/part-7-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low/tokens0/part-8-00000.npy
+
+
+
+    #### Low_Low_Art
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_Art/tokens0/part-15-00000.npy
+
+
+
+    #### Low_Low_News
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-16-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-17-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-18-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-19-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-20-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-21-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-22-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-23-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-24-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-25-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-26-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-27-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-28-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-29-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-30-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-31-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-32-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-33-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-34-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-35-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-36-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-37-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-38-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-39-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-40-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-41-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-42-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-43-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-44-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-45-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-46-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-47-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-48-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-49-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-50-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-51-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-52-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-53-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-54-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-55-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-56-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-57-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-58-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-59-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-60-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-61-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-62-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News/tokens0/part-63-00000.npy
+
+
+
+    #### Low_Low_News_Art
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News_Art/tokens0/part-0-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News_Art/tokens0/part-1-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_News_Art/tokens0/part-2-00000.npy
+
+
+
+    #### Low_Low_None
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-16-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-17-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-18-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-19-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-20-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-21-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-22-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-23-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-24-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-25-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-26-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-27-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-28-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-29-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-30-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-31-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-32-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-33-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-34-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-35-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-36-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-37-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-38-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-39-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-40-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-41-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-42-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-43-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-44-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-45-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-46-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-47-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-48-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-49-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-50-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-51-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-52-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-53-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-54-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-55-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-56-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-57-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-58-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-59-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-60-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-61-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-62-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/original/Low_Low_None/tokens0/part-63-00000.npy
+
+
+
