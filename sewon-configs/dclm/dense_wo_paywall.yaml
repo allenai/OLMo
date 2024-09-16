@@ -70,7 +70,7 @@ tokenizer:
   identifier: allenai/dolma2-tokenizer
   truncate_direction: right
 
-save_folder: save_folder: /weka/oe-training-default/ai2-llm/checkpoints/ds-olmo/baselines/${run_name}
+save_folder: /weka/oe-training-default/ai2-llm/checkpoints/ds-olmo/baselines/${run_name}
 save_overwrite: false
 
 save_interval: 1000
