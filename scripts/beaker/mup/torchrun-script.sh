@@ -62,7 +62,7 @@ torchrun \
       --wandb.name="mup_lr_search_${WIDTH}_${LR}" \
       --wandb.group="mup_lr_search" \
       --wandb.project=olmo-mup \
-      --stop_at=1000 \
+      --stop_at=3000 \
       --model.use_mup \
       --model.mup_query_zero_init=false \
       --model.mup_base_shapes=scripts/beaker/mup/lr_search_base_shapes_150m.bsh \
