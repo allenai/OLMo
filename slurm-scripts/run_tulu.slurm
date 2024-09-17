@@ -25,7 +25,7 @@ export NCCL_DEBUG=WARN
 # export CUDA_LAUNCH_BLOCKING=1
 # export NCCL_DEBUG=INFO
 
-# torchrun --nproc_per_node=1 scripts/train.py ${path_to_train_config} \
+# torchrun --nproc_per_node=1 cdscripts/train.py ${path_to_train_config} \
 #     --data.paths=[${path_to_data}/input_ids.npy] \
 #     --data.label_mask_paths=[${path_to_data}/label_mask.npy] \
 #     --load_path=${path_to_checkpoint} \
