@@ -50,10 +50,11 @@ RUN apt-get update
 RUN apt-get install -y google-cloud-cli
 
 # Install ROCm
+ENV ROCM_VERSION=6.2
 RUN mkdir --parents --mode=0755 /etc/apt/keyrings && \
     wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | gpg --dearmor | tee /etc/apt/keyrings/rocm.gpg > /dev/null && \
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.0.2/ubuntu jammy main" >> /etc/apt/sources.list.d/amdgpu.list && \
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.0.2 jammy main" >> /etc/apt/sources.list.d/rocm.list && \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/$ROCM_VERSION/ubuntu jammy main" >> /etc/apt/sources.list.d/amdgpu.list && \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/$ROCM_VERSION jammy main" >> /etc/apt/sources.list.d/rocm.list && \
     echo 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' > /etc/apt/preferences.d/rocm-pin-600 && \
     apt-get update && \
     apt-get install -y rccl rccl-dev rocm-libs rocm-gdb rocm-dev rocm-developer-tools rocm-hip-runtime-dev rocm-utils rocm-hip-sdk && \
@@ -64,7 +65,7 @@ ENV ROCM_HOME=/opt/rocm
 ENV ROCM_PATH=/opt/rocm
 
 # Install MPICH
-ENV MPICH_VERSION="3.1.4"
+ENV MPICH_VERSION="4.2.2"
 RUN cd /opt && \
     wget https://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz && \
     tar xf mpich-${MPICH_VERSION}.tar.gz && \
@@ -72,7 +73,7 @@ RUN cd /opt && \
     ./configure --disable-fortran --enable-fast=all,O3 --prefix=/usr && \
     make -j install && \
     ldconfig && \
-    rm /opt/mpich-3.1.4.tar.gz
+    rm /opt/mpich-${MPICH_VERSION}.tar.gz
 
 # Install aws-ofi-rccl
 RUN apt-get install -y libfabric-dev
@@ -88,7 +89,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Install torch
 RUN pip install --upgrade pip
-RUN pip install --no-cache-dir torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/rocm6.0
+RUN pip install --no-cache-dir torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/rocm6.1
 
 # Install DeepSpeed
 RUN pip install --no-cache-dir mpi4py
@@ -118,6 +119,6 @@ RUN pip install --no-cache-dir wandb --upgrade
 
 # Cleanup
 RUN apt-get autoremove
-RUN rm -rf /opt/mpich-3.1.4 /opt/aws-ofi-rccl /opt/DeepSpeed
+RUN rm -rf /opt/mpich-${MPICH_VERSION} /opt/aws-ofi-rccl /opt/DeepSpeed
 RUN apt-get clean
 RUN pip cache purge
