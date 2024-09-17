@@ -14,7 +14,7 @@ requires-python = ">=3.8"
 license = { file = "LICENSE" }
 dependencies = [
     "numpy",
-    "torch>=2.1,<2.4",
+    "torch>=2.1,<2.5",
     "ai2-olmo-core==0.1.0",
     "omegaconf",
     "rich",
