@@ -58,3 +58,6 @@ site/
 core
 
 olmo_data/tulu
+eval-data/
+# slurm-scripts/
+slurm-outputs/
