@@ -57,7 +57,7 @@ RUN mkdir --parents --mode=0755 /etc/apt/keyrings && \
     echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/$ROCM_VERSION jammy main" >> /etc/apt/sources.list.d/rocm.list && \
     echo 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' > /etc/apt/preferences.d/rocm-pin-600 && \
     apt-get update && \
-    apt-get install -y rccl rccl-dev rocm-libs rocm-gdb rocm-dev rocm-developer-tools rocm-hip-runtime-dev rocm-utils rocm-hip-sdk && \
+    apt-get install -y rccl rccl-dev rocm-libs rocm-gdb rocm-dev rocm-developer-tools rocm-hip-runtime-dev rocm-utils rocm-hip-sdk rocm-llvm-dev && \
     echo /opt/rocm/lib >> /etc/ld.so.conf.d/rocm.conf && \
     echo /opt/rocm/lib64 >> /etc/ld.so.conf.d/rocm.conf && \
     ldconfig
@@ -113,6 +113,16 @@ RUN mkdir -p OLMo/olmo && \
 
 RUN pip install --no-cache-dir py-spy
 RUN pip install --no-cache-dir wandb --upgrade
+
+# This seems to be a prereq for AMD flash attention
+RUN git clone https://github.com/ROCm/composable_kernel.git && \
+    cd composable_kernel && \
+    mkdir build && \
+    cd build && \
+    make -j && \
+    make -j install && \
+    cd ../.. && \
+    rm -rf composable_kernel
 
 # Install flash attention
 RUN GPU_ARCHS="gfx90a" pip install --no-cache-dir flash-attn --no-build-isolation
