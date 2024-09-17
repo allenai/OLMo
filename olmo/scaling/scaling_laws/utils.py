@@ -663,7 +663,8 @@ def get_coefficients_huber(
     # res = scipy.optimize.minimize(loss_fn, p0, args=(train_xs, train_ys, delta), jac=jac_fn, tol=0.0, method='BFGS', options={'gtol': 1e-10, 'maxiter': 10000, 'disp': True})
     # print(res.message)
     coeffs = res.x
-    print(f"coeffs: {coeffs}")
+    if disp:
+        print(f"coeffs: {coeffs}")
     return coeffs
 
 
@@ -712,5 +713,6 @@ def get_coefficients_huber_nolog(
     # print(res.message)
     coeffs = res.x
     loss = res.fun
-    print(f"coeffs: {coeffs}")
+    if disp:
+        print(f"coeffs: {coeffs}")
     return coeffs, loss
