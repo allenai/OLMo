@@ -44,8 +44,8 @@ test-image : base-image
 
 .PHONY : lumi-image
 lumi-image :
-	docker build -f docker/Dockerfile.lumi -t ghcr.io/allenai/llm-lumi:$(shell git log -1 --pretty=format:%h) .
-	docker push ghcr.io/allenai/llm-lumi:$(shell git log -1 --pretty=format:%h)
+	docker build -f docker/Dockerfile.lumi -t ghcr.io/2015aroras/llm-lumi:$(shell git log -1 --pretty=format:%h) .
+	docker push ghcr.io/2015aroras/llm-lumi:$(shell git log -1 --pretty=format:%h)
 
 .PHONY : singularity-pull
 singularity-pull :
