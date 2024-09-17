@@ -101,12 +101,15 @@ RUN cd /opt && \
 
 # Install more dependencies
 COPY pyproject.toml .
-RUN mkdir olmo && \
+RUN mkdir -P OLMo/olmo && \
+    mv pyproject.toml OLMo && \
+    cd OLMo && \
     touch olmo/__init__.py && \
     echo 'VERSION = "0.1.0"' > olmo/version.py && \
     pip install --no-cache-dir .[train] && \
     pip uninstall -y ai2-olmo && \
-    rm -rf olmo/
+    cd .. && \
+    rm -rf OLMo/
 
 RUN pip install --no-cache-dir py-spy
 RUN pip install --no-cache-dir wandb --upgrade
