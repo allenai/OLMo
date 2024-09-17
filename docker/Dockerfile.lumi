@@ -115,7 +115,7 @@ RUN pip install --no-cache-dir py-spy
 RUN pip install --no-cache-dir wandb --upgrade
 
 # Install flash attention
-RUN pip install --no-cache-dir flash-attn --no-build-isolation
+RUN GPU_ARCHS="gfx90a" pip install --no-cache-dir flash-attn --no-build-isolation
 
 # # Install flash attention (for MI200 series!)
 # RUN cd /opt && \
