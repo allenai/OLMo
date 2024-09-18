@@ -111,7 +111,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
 
     if not sanity_check:
         with open(os.path.join(RESULTS_DIR, 'model_checkpoints.jsonl'), 'w') as fout:
-            for p in processed:
+            for _,p in processed.items():
                 fout.write(json.dumps(p) + '\n')
 
 
