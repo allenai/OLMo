@@ -16,7 +16,7 @@ import json
 import sys
 from pathlib import Path
 
-from gantry import METRICS_FILE
+from gantry import RESULTS_DIR
 
 # possible converted locations.
 # "self" is the target location where the converted model would be saved
@@ -28,7 +28,7 @@ WEKA_CHECK_LOCATIONS_PREFIXES = {
     "{}/ianm/{}-hf/pytorch_model.bin": "ian's"
 }
 
-def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
+def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_prefix="/weka"):
     s3_client = boto3.client('s3')
     s3_resource = boto3.resource('s3')
 
@@ -36,10 +36,10 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
 
     print(f">>> Total of {len(cps)} paths to process. <<<", flush=True)
 
+    processed = {}
+
     for checkpoint_path in cps:
         # Convert to old-style checkpoint.
-        processed = []
-
         retain_path_name = checkpoint_path.replace('s3://', '').strip('/')
         weka_loc = f"{load_dir}/{retain_path_name}-hf/"
         check_locs = [l.format(load_dir,retain_path_name) for l in WEKA_CHECK_LOCATIONS_PREFIXES]
@@ -64,12 +64,12 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
 
         elif path_found is not None:
             conversion = 'existing'
-            converted_path = path_found.replace(load_dir,'/weka')
+            converted_path = path_found.replace(load_dir,weka_prefix)
             print(f"Converted Checkpoint Found: {converted_path}\n", flush=True)
 
         else:
             conversion = 'new'
-            converted_path = weka_loc.replace(load_dir,'/weka')
+            converted_path = weka_loc
 
             conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{weka_loc}' --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5'  --cleanup-local-dir"
 
@@ -84,20 +84,35 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False):
                     conversion = 'error'
                     converted_path = ""
 
-        processed.append({
+        local_log = {
             'unprocessed_path': checkpoint_path,
-            'converted_path': converted_path,
+            'converted_path': converted_path.replace(load_dir,weka_prefix),
             'conversion': conversion,
             'date_time': time.strftime('%b-%d-%Y_%H%M', time.localtime()),
-            'error': error}
-        )
+            'error': error
+        }
 
-        #print(processed)
+        # {"model_name": "name", "checkpoints_location": "weka://path/to/<name/>", "revisions": ["step0-unsharded-hf", "step1000-unsharded-hf", etc]}
+        curr = Path(converted_path)
+        parent = curr.parent
+        if parent.name not in processed:
+            processed[parent.name] = {
+                'model_name': parent.name,
+                'checkpoints_location': str(parent).replace(load_dir,weka_prefix),
+                'revisions': [curr.name]
+            }
+        else:
+            processed[parent.name]['revisions'].append(curr.name)
 
+        # LOG
         if not sanity_check:
-            with open(METRICS_FILE, 'a+') as fout:
-                for p in processed:
-                    fout.write(json.dumps(p) + '\n')
+            with open(os.path.join(RESULTS_DIR, 'log.jsonl'), 'a+') as fout:
+                fout.write(json.dumps(local_log) + '\n')
+
+    if not sanity_check:
+        with open(os.path.join(RESULTS_DIR, 'model_checkpoints.jsonl'), 'w') as fout:
+            for p in processed:
+                fout.write(json.dumps(p) + '\n')
 
 
 def s3_path_exists(cp, s3):
@@ -192,14 +207,15 @@ def main():
     group_batch.add_argument("--checkpoint-path", help="path to sharded checkpoint", type=str)
     group_batch.add_argument("--checkpoint-path-file", help="file that lists sharded checkpoint paths (batch run option)", type=str)
     parser.add_argument("--weka-load-dir", help='mounted location of weka bucket', default='/data/input', type=str)
+    parser.add_argument("--weka-prefix", help='weka directory prefix for output', default='/weka', type=str)
     parser.add_argument("--sanity-check", help='print what would be run; do not actually run conversion', action='store_true')
 
     args = parser.parse_args()
 
     if args.checkpoint_path is not None:
-        convert_checkpoint([args.checkpoint_path], load_dir=args.weka_load_dir, sanity_check=args.sanity_check)
+        convert_checkpoint([args.checkpoint_path], load_dir=args.weka_load_dir, sanity_check=args.sanity_check, weka_prefix=args.weka_prefix)
     else:
-        convert_checkpoint(read_checkpoints(args.checkpoint_path_file), load_dir=args.weka_load_dir, sanity_check=args.sanity_check)
+        convert_checkpoint(read_checkpoints(args.checkpoint_path_file), load_dir=args.weka_load_dir, sanity_check=args.sanity_check, weka_prefix=args.weka_prefix)
 
 
 if __name__ == "__main__":
