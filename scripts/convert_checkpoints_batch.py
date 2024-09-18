@@ -54,23 +54,23 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
                 path_found = loc.replace('/pytorch_model.bin','')
                 break
 
-        # Check if the output location is already there. If not, do the conversion.
-        # print('WEKA LOC', weka_loc)
+        # Check if the output location is already there in s3. If so then skip conversion
         s3_hf_exists = s3_path_exists(checkpoint_path, s3_resource)
         if s3_hf_exists is not None:
             conversion = 'existing'
             converted_path = s3_hf_exists # checkpoint_path + '-hf'
             print(f"Converted Checkpoint Found: {converted_path}\n", flush=True)
 
+        # Check if the output location is in weka. If so then skip conversion
         elif path_found is not None:
             conversion = 'existing'
             converted_path = path_found.replace(load_dir,weka_prefix)
             print(f"Converted Checkpoint Found: {converted_path}\n", flush=True)
 
+        # Do conversion and save to Weka
         else:
             conversion = 'new'
             converted_path = weka_loc
-
             conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{weka_loc}' --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5'  --cleanup-local-dir"
 
             if sanity_check:
@@ -84,6 +84,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
                     conversion = 'error'
                     converted_path = ""
 
+        # Keep info for log.jsonl
         local_log = {
             'unprocessed_path': checkpoint_path,
             'converted_path': converted_path.replace(load_dir,weka_prefix),
@@ -92,9 +93,10 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
             'error': error
         }
 
-        # {"model_name": "name", "checkpoints_location": "weka://path/to/<name/>", "revisions": ["step0-unsharded-hf", "step1000-unsharded-hf", etc]}
+        # output model checkpoint location for eval scripts
         curr = Path(converted_path)
         parent = curr.parent
+        print(parent, flush=True)
         if parent.name not in processed:
             processed[parent.name] = {
                 'model_name': parent.name,
@@ -104,11 +106,12 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
         else:
             processed[parent.name]['revisions'].append(curr.name)
 
-        # LOG
+        # Output Log
         if not sanity_check:
             with open(os.path.join(RESULTS_DIR, 'log.jsonl'), 'a+') as fout:
                 fout.write(json.dumps(local_log) + '\n')
 
+    # Output checkpoint location for eval scripts
     if not sanity_check:
         with open(os.path.join(RESULTS_DIR, 'model_checkpoints.jsonl'), 'w') as fout:
             for _,p in processed.items():
