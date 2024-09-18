@@ -64,7 +64,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
         # Check if the output location is in weka. If so then skip conversion
         elif path_found is not None:
             conversion = 'existing'
-            converted_path = path_found.replace(load_dir,weka_prefix)
+            converted_path = path_found
             print(f"Converted Checkpoint Found: {converted_path}\n", flush=True)
 
         # Do conversion and save to Weka
@@ -96,7 +96,6 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
         # output model checkpoint location for eval scripts
         curr = Path(converted_path)
         parent = curr.parent
-        print(parent, flush=True)
         if parent.name not in processed:
             processed[parent.name] = {
                 'model_name': parent.name,
