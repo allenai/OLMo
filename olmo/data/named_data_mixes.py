@@ -1066,6 +1066,7 @@ DATA_SOURCES = {
         "preprocessed/olmo-mix/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001/cc_en_tail/gpt-neox-olmo-dolma-v1_5/part-091-00000.npy",
         "preprocessed/olmo-mix/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001/cc_en_tail/gpt-neox-olmo-dolma-v1_5/part-092-00000.npy",
     ],
+    "all_red_pajama": [f"preprocessed/redpajama/v1/redpajama-train-{i}.npy" for i in range(1, 33)]
 }
 
 EXTRA_DATA_SOURCES = {
@@ -1107,6 +1108,9 @@ DATA_PATHS["no_math_no_code"] = build_collection_exclude(["pes20_stem_papers", "
 DATA_PATHS["no_reddit"] = build_collection_exclude(["reddit"])
 DATA_PATHS["no_flan"] = build_collection_exclude(["tulu"])
 DATA_PATHS["dolma17"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
+DATA_PATHS["redpajama"] = build_collection_include(["all_red_pajama"])
+DATA_PATHS["falcon"] = build_collection_include(["falcon"])
+DATA_PATHS["c4"] = build_collection_include(["c4"])
 
 # web_instruct instead of openwebmath, 2x sampled (openwebmath is roughly 2.4x larger than web_instruct)
 DATA_PATHS["web_instruct_2x"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'web_instruct', 'web_instruct', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
