@@ -133,13 +133,13 @@ class ICLMetric(Metric):
             if "ce_loss_norm_str_len" in self.metric_type:
                 output["ce_loss_norm_str_len"].append(-loglikelihoods[label_dict[doc_id]] / cont_str_lens[label_dict[doc_id]])
             if "ce_loss_norm_byte_len" in self.metric_type:
-                output["ce_loss_norm_byte_len"].append(-loglikelihoods[label_dict[doc_id]] / cont_str_lens[label_dict[doc_id]])
+                output["ce_loss_norm_byte_len"].append(-loglikelihoods[label_dict[doc_id]] / cont_byte_lens[label_dict[doc_id]])
             if "acc" in self.metric_type:
                 output["acc"].append(1.0 if torch.argmax(loglikelihoods) == label_dict[doc_id] else 0.0)
             if "acc_norm_str_len" in self.metric_type:
                 output["acc_norm_str_len"].append(1.0 if torch.argmax(loglikelihoods / cont_str_lens) == label_dict[doc_id] else 0.0)
             if "acc_norm_byte_len" in self.metric_type:
-                output["acc_norm_byte_len"].append(1.0 if torch.argmax(loglikelihoods / cont_str_lens) == label_dict[doc_id] else 0.0)
+                output["acc_norm_byte_len"].append(1.0 if torch.argmax(loglikelihoods / cont_byte_lens) == label_dict[doc_id] else 0.0)
             if "ce_loss_norm_cont" in self.metric_type:
                 ce_loss_norm_cont = -(loglikelihoods[label_dict[doc_id]].item() - torch.logsumexp(loglikelihoods, 0))
                 output["ce_loss_norm_cont"].append(ce_loss_norm_cont)

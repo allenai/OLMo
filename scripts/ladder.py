@@ -179,8 +179,12 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     no_pre_train_checkpoint = False
     device_eval_batch_size = device_batch_size
 
-    global_batch_size = 32
+    global_batch_size = 16
+    device_batch_size = 16
+    device_eval_batch_size = 16
     eval_subset_num_batches = 100
+    eval_interval = 1
+    no_pre_train_checkpoint = True
 
     if args.debug:
         global_batch_size = 1
@@ -245,17 +249,17 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         no_pre_train_checkpoint=no_pre_train_checkpoint,
         device_eval_batch_size=device_eval_batch_size,
         evaluators=[
-            EvaluatorConfig(
-                label="all-small-ppl-validation",
-                data=DataConfig(
-                    drop_last=True,
-                    datasets={
-                        "c4_en-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy"
-                        ],
-                    },
-                ),
-            ),
+            # EvaluatorConfig(
+            #     label="all-small-ppl-validation",
+            #     data=DataConfig(
+            #         drop_last=True,
+            #         datasets={
+            #             "c4_en-validation": [
+            #                 f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy"
+            #             ],
+            #         },
+            #     ),
+            # ),
             EvaluatorConfig(label="arc_easy", type=EvaluatorType.downstream),
         ],
         data=DataConfig(

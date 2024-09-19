@@ -14,17 +14,16 @@ else
 fi
 
 gantry run \
-  --workspace ai2/OLMo-training \
+  --workspace ai2/sandbox \
   --task-name ladder \
-  --description "OLMo ladder with $*" \
+  --description "OLMo PTQA with $*" \
   --priority normal \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/jupiter-cirrascale-2 \
-  --weka=oe-training-default:/weka/oe-training-default \
-  --gpus 8 \
+  --cluster ai2/aristo-cirrascale \
+  --gpus 1 \
   $MULTI_NODE_ARGS \
-  --budget ai2/oe-training \
+  --budget ai2/aristo \
   --no-nfs \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
@@ -36,4 +35,5 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
+  --allow-dirty
   -- /bin/bash -c "${COMMAND}"
