@@ -119,6 +119,12 @@ RUN git clone https://github.com/ROCm/composable_kernel.git && \
     cd composable_kernel && \
     mkdir build && \
     cd build && \
+    cmake                                                                                          \
+        -D CMAKE_PREFIX_PATH=/opt/rocm                                                             \
+        -D CMAKE_CXX_COMPILER=/opt/rocm/bin/hipcc                                                  \
+        -D CMAKE_BUILD_TYPE=Release                                                                \
+        -D GPU_TARGETS="gfx90a"  \
+        .. \
     make -j && \
     make -j install && \
     cd ../.. && \
