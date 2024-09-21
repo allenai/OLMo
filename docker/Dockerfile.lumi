@@ -65,7 +65,7 @@ ENV ROCM_HOME=/opt/rocm
 ENV ROCM_PATH=/opt/rocm
 
 # Install MPICH
-ENV MPICH_VERSION="3.3.2"
+ENV MPICH_VERSION="3.1.4"
 RUN cd /opt && \
     wget https://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz && \
     tar xf mpich-${MPICH_VERSION}.tar.gz && \
