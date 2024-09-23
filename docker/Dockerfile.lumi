@@ -114,25 +114,6 @@ RUN mkdir -p OLMo/olmo && \
 RUN pip install --no-cache-dir py-spy
 RUN pip install --no-cache-dir wandb --upgrade
 
-# This seems to be a prereq for AMD flash attention
-RUN git clone https://github.com/ROCm/composable_kernel.git && \
-    cd composable_kernel && \
-    mkdir build && \
-    cd build && \
-    cmake                                                                                          \
-        -D CMAKE_PREFIX_PATH=/opt/rocm                                                             \
-        -D CMAKE_CXX_COMPILER=/opt/rocm/bin/hipcc                                                  \
-        -D CMAKE_BUILD_TYPE=Release                                                                \
-        -D GPU_TARGETS="gfx90a"  \
-        .. && \
-    make -j && \
-    make -j install && \
-    cd ../.. && \
-    rm -rf composable_kernel
-
-# Install flash attention
-RUN GPU_ARCHS="gfx90a" pip install --no-cache-dir flash-attn --no-build-isolation
-
 # # Install flash attention (for MI200 series!)
 # RUN cd /opt && \
 #     git clone --recursive https://github.com/ROCm/flash-attention.git && \
