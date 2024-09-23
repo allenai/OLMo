@@ -106,7 +106,7 @@ ENV _GLIBCXX_USE_CXX11_ABI=1
 RUN python tools/amd_build/build_amd.py
 RUN apt-get install python3.10-venv -y
 ENV PYTORCH_ROCM_ARCH=gfx90a
-RUN DEBUG=1 CUDA_DEVICE_DEBUG=1 python setup.py develop
+RUN DEBUG=1 CUDA_DEVICE_DEBUG=1 USE_FLASH_ATTENTION=0 USE_MEM_EFF_ATTENTION=0 BUILD_TEST=0 USE_MKLDNN=0 USE_FBGEMM=0 USE_QNNPACK=0 python setup.py develop
 
 # Install DeepSpeed
 RUN pip install --no-cache-dir mpi4py
