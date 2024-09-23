@@ -102,9 +102,9 @@ RUN git submodule update --init --recursive
 RUN pip install -r requirements.txt
 RUN pip install mkl-static mkl-include
 RUN make triton
-RUN export _GLIBCXX_USE_CXX11_ABI=1
+ENV _GLIBCXX_USE_CXX11_ABI=1
 RUN python tools/amd_build/build_amd.py
-RUN export PYTORCH_ROCM_ARCH=gfx90a
+ENV PYTORCH_ROCM_ARCH=gfx90a
 RUN DEBUG=1 CUDA_DEVICE_DEBUG=1 python setup.py develop
 
 # Install DeepSpeed
