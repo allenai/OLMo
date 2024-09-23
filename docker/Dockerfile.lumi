@@ -50,7 +50,7 @@ RUN apt-get update
 RUN apt-get install -y google-cloud-cli
 
 # Install ROCm
-ENV ROCM_VERSION=6.2
+ENV ROCM_VERSION=6.1.2
 RUN mkdir --parents --mode=0755 /etc/apt/keyrings && \
     wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | gpg --dearmor | tee /etc/apt/keyrings/rocm.gpg > /dev/null && \
     echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/$ROCM_VERSION/ubuntu jammy main" >> /etc/apt/sources.list.d/amdgpu.list && \
