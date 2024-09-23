@@ -104,6 +104,7 @@ RUN pip install mkl-static mkl-include
 RUN make triton
 ENV _GLIBCXX_USE_CXX11_ABI=1
 RUN python tools/amd_build/build_amd.py
+RUN apt-get install python3.10-venv -y
 ENV PYTORCH_ROCM_ARCH=gfx90a
 RUN DEBUG=1 CUDA_DEVICE_DEBUG=1 python setup.py develop
 
