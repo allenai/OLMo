@@ -1,7 +1,7 @@
 #FROM registry.suse.com/bci/bci-base:15.3.17.20.5
 #FROM registry.suse.com/bci/bci-base:15.3.17.20.101
 # FROM registry.suse.com/bci/bci-base:15.3.17.20.145
-FROM registry.suse.com/bci/bci-base:15.5.36.5.29
+FROM registry.suse.com/bci/bci-base:15.5.36.5.18
 
 ARG SERVER_PORT
 
