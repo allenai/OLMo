@@ -54,7 +54,7 @@ RUN set -eux ; \
 #   amdgpu-install -y --no-dkms --usecase=rocm --rocmrelease=$ROCM_RELEASE
 
 RUN echo "[ROCm-6.1.2] name=ROCm6.1.2 baseurl=https://repo.radeon.com/rocm/zyp/6.1.2/main enabled=1 gpgcheck=1 gpgkey=https://repo.radeon.com/rocm/rocm.gpg.key" | tr ' ' '\n' >> /etc/zypp/repos.d/amdgpu.repo && \
-  zypper -n ref
+  zypper -n ref -y
 
 RUN set -eux; \
   zypper --no-gpg-checks -n install -y rocm
