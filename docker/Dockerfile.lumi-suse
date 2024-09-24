@@ -53,7 +53,7 @@ RUN set -eux ; \
 # RUN set -eux ; \
 #   amdgpu-install -y --no-dkms --usecase=rocm --rocmrelease=$ROCM_RELEASE
 
-RUN echo "[ROCm-6.1.2]\nname=ROCm6.1.2\nbaseurl=baseurl=https://repo.radeon.com/rocm/zyp/6.1.2/main\nenabled=1\n\ngpgcheck=1\ngpgkey=https://repo.radeon.com/rocm/rocm.gpg.key" >> /etc/zypp/repos.d/amdgpu.repo && \
+RUN echo "[ROCm-6.1.2]\nname=ROCm6.1.2\nbaseurl=https://repo.radeon.com/rocm/zyp/6.1.2/main\nenabled=1\n\ngpgcheck=1\ngpgkey=https://repo.radeon.com/rocm/rocm.gpg.key" >> /etc/zypp/repos.d/amdgpu.repo && \
   zypper ref
 
 RUN set -eux; \
