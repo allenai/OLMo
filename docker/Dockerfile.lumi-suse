@@ -3,7 +3,7 @@
 # FROM registry.suse.com/bci/bci-base:15.3.17.20.145
 FROM registry.suse.com/bci/bci-base:15.5.36.14.25
 
-ARG SERVER_PORT
+# ARG SERVER_PORT
 
 #
 # Disable BCI repros
@@ -94,13 +94,13 @@ RUN set -eux ; \
 #     ln -s $dst $src ; \
 #   done
 
-RUN set -eux ; \
-  cd $ROCM_PATH/bin ; \
-  for i in rocm_agent_enumerator rocminfo ; do \
-    rm -rf $i ; \
-    curl -LO http://localhost:$SERVER_PORT/$i ; \
-    chmod +x $i ; \
-  done
+# RUN set -eux ; \
+#   cd $ROCM_PATH/bin ; \
+#   for i in rocm_agent_enumerator rocminfo ; do \
+#     rm -rf $i ; \
+#     curl -LO http://localhost:$SERVER_PORT/$i ; \
+#     chmod +x $i ; \
+#   done
 #
 # Install miniconda
 #
