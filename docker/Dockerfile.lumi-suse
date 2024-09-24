@@ -112,7 +112,7 @@ RUN set -eux ; \
 ENV WITH_CONDA "source /opt/miniconda3/bin/activate base"
 
 # Install MPICH
-ENV MPICH_VERSION="3.1.4"
+ENV MPICH_VERSION="3.3.1"
 RUN cd /opt && \
   curl -LO https://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz && \
   tar xf mpich-${MPICH_VERSION}.tar.gz && \
