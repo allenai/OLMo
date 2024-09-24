@@ -102,7 +102,7 @@ RUN git submodule update --init --recursive
 RUN pip install -r requirements.txt
 RUN pip install mkl-static mkl-include
 RUN make triton
-ENV _GLIBCXX_USE_CXX11_ABI=1
+# ENV _GLIBCXX_USE_CXX11_ABI=1
 RUN python tools/amd_build/build_amd.py
 RUN apt-get install python3.10-venv -y
 ENV PYTORCH_ROCM_ARCH=gfx90a
