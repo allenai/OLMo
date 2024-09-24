@@ -1,7 +1,7 @@
 #FROM registry.suse.com/bci/bci-base:15.3.17.20.5
 #FROM registry.suse.com/bci/bci-base:15.3.17.20.101
 # FROM registry.suse.com/bci/bci-base:15.3.17.20.145
-FROM registry.suse.com/bci/bci-base:15.5.36.5.4
+FROM registry.suse.com/bci/bci-base:15.5.36.14.25
 
 ARG SERVER_PORT
 
@@ -57,6 +57,8 @@ RUN echo "[ROCm-6.1.2] name=ROCm6.1.2 baseurl=https://repo.radeon.com/rocm/zyp/6
   zypper -n ref
 
 RUN set -eux; \
+  zypper -n install -y --oldpackage libsystemd0-249.16-150400.8.25.7.x86_64; \
+  zypper -n install -y --oldpackage libudev1-249.16-150400.8.25.7.x86_64; \
   zypper --no-gpg-checks -n install -y rocm
 
 #
