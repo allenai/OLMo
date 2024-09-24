@@ -1,6 +1,7 @@
 #FROM registry.suse.com/bci/bci-base:15.3.17.20.5
 #FROM registry.suse.com/bci/bci-base:15.3.17.20.101
-FROM registry.suse.com/bci/bci-base:15.3.17.20.145
+# FROM registry.suse.com/bci/bci-base:15.3.17.20.145
+FROM registry.suse.com/bci/bci-base:15.5.36.14.25
 
 ARG SERVER_PORT
 
@@ -12,9 +13,9 @@ RUN set -eux ; \
   sed -i 's#enabled=1#enabled=0#g' /etc/zypp/repos.d/SLE_BCI.repo 
 
 RUN set -eux ; \
-  zypper -n addrepo http://download.opensuse.org/distribution/leap/15.3/repo/oss/ myrepo1 ; \
+  zypper -n addrepo http://download.opensuse.org/distribution/leap/15.5/repo/oss/ myrepo1 ; \
   echo 'gpgcheck=0' >> /etc/zypp/repos.d/myrepo1.repo ; \
-  zypper -n addrepo https://download.opensuse.org/repositories/devel:/languages:/perl/SLE_15_SP3 myrepo2 ; \
+  zypper -n addrepo https://download.opensuse.org/repositories/devel:/languages:/perl/SLE_15_SP5 myrepo2 ; \
   echo 'gpgcheck=0' >> /etc/zypp/repos.d/myrepo2.repo
   
 RUN set -eux ; \
@@ -32,7 +33,7 @@ RUN set -eux; \
 #
 # Cray info
 #
-ENV CPE_VERSION "23.03"
+ENV CPE_VERSION "24.03"
 ENV CPE_URL="http://localhost:$SERVER_PORT/cpe-$CPE_VERSION.tar"
 ENV LIBFABRIC_VERSION "1.15.2.0" 
 ENV LIBFABRIC_PATH /opt/cray/libfabric/$LIBFABRIC_VERSION
@@ -41,8 +42,8 @@ ENV LD_LIBRARY_PATH /opt/cray-deps:$LIBFABRIC_PATH/lib64:$MPICH_PATH/lib:/opt/cr
 
 ENV REMOVE_CRAY_DEPS 'rm -rf /opt/cray /opt/cray-deps /usr/lib64/libcxi.so*'
 
-ENV ROCM_RPM https://repo.radeon.com/amdgpu-install/5.5.1/sle/15.3/amdgpu-install-5.5.50501-1.noarch.rpm 
-ENV ROCM_RELEASE 5.5.1
+ENV ROCM_RELEASE 6.1.2
+ENV ROCM_RPM https://repo.radeon.com/amdgpu-install/${ROCM_RELEASE}/sle/15.5/amdgpu-install-6.1.60102-1.noarch.rpm 
 
 RUN set -eux ; \
   zypper --no-gpg-checks -n install $ROCM_RPM
@@ -65,24 +66,24 @@ ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:$ROCM_PATH/lib
 #
 ENV RCCL_DEBUG 0
 
-#
-# Fix rocm-smi lib
-#
-RUN set -eux ; \
-  cd /opt ; \
-  curl -LO http://localhost:$SERVER_PORT/rocm-5.5.1-rocm-smi-lib.patch ; \
-  git clone -b rocm-$ROCM_RELEASE https://github.com/RadeonOpenCompute/rocm_smi_lib /opt/mybuild ; \
-  mkdir -p /opt/mybuild/build ; \
-  \
-  cd /opt/mybuild ; \
-  git apply < /opt/rocm-5.5.1-rocm-smi-lib.patch ; \
-  rm -rf /opt/rocm-5.5.1-rocm-smi-lib.patch ; \
-  \  
-  cd /opt/mybuild/build ; \
-  cmake -DCMAKE_INSTALL_PREFIX=/opt/rocm-patched .. ; \
-  make -j32 ; \
-  make -j32 install ; \
-  cd / ; rm -rf /opt/mybuild
+# #
+# # Fix rocm-smi lib
+# #
+# RUN set -eux ; \
+#   cd /opt ; \
+#   curl -LO http://localhost:$SERVER_PORT/rocm-$ROCM_RELEASE-rocm-smi-lib.patch ; \
+#   git clone -b rocm-$ROCM_RELEASE https://github.com/RadeonOpenCompute/rocm_smi_lib /opt/mybuild ; \
+#   mkdir -p /opt/mybuild/build ; \
+#   \
+#   cd /opt/mybuild ; \
+#   git apply < /opt/rocm-$ROCM_RELEASE-rocm-smi-lib.patch ; \
+#   rm -rf /opt/rocm-$ROCM_RELEASE-rocm-smi-lib.patch ; \
+#   \  
+#   cd /opt/mybuild/build ; \
+#   cmake -DCMAKE_INSTALL_PREFIX=/opt/rocm-patched .. ; \
+#   make -j32 ; \
+#   make -j32 install ; \
+#   cd / ; rm -rf /opt/mybuild
 
 RUN set -eux ; \
   for i in liboam librocm_smi64 ; do \
@@ -161,7 +162,7 @@ RUN set -eux ; \
 #
 # Install conda environment
 # 
-ARG PYTHON_VERSION
+ENV PYTHON_VERSION=3.10
 RUN $WITH_CONDA; set -eux ; \
   conda create -n pytorch python=$PYTHON_VERSION ; \
   conda activate pytorch ; \
@@ -212,9 +213,9 @@ RUN $WITH_CONDA; set -eux ; \
   conda install -y cmake pyyaml
   
 ENV PYTORCH_ROCM_ARCH gfx90a 
-ARG PYTORCH_VERSION
-ARG PYTORCH_DEBUG
-ARG PYTORCH_RELWITHDEBINFO
+ENV PYTORCH_VERSION=2.4.1
+ENV PYTORCH_DEBUG=0
+ENV PYTORCH_RELWITHDEBINFO=0
 RUN $WITH_CONDA; set -eux ; \
   \
   git clone --recursive https://github.com/pytorch/pytorch /opt/pytorch-build ; \
@@ -263,18 +264,16 @@ RUN $WITH_CONDA; set -eux ; \
 # Pytorch dependees
 #
 
-# ubuntu|pytorch|apex|master|18921471b2eb8240f1787d28405b32bb93e9e671|https://github.com/ROCmSoftwarePlatform/apex
-# ubuntu|pytorch|torchvision|release/0.15|fa99a5360fbcd1683311d57a76fcc0e7323a4c1e|https://github.com/pytorch/vision
-# ubuntu|pytorch|torchdata|release/0.6|e1feeb2542293e42f083d24301386db6c003eeee|https://github.com/pytorch/data
-# ubuntu|pytorch|torchtext|release/0.15|4571036cf66c539e50625218aeb99a288d79f3e1|https://github.com/pytorch/text
-# ubuntu|pytorch|torchaudio|release/2.0|31de77dad5c89274451b3f5c4bcb630be12787c4|https://github.com/pytorch/audio
+# ubuntu|pytorch|apex|master|4d04ae6760a53b856b972528adcc1cc1ef0a57c8|https://github.com/ROCmSoftwarePlatform/apex
+# ubuntu|pytorch|torchvision|release/0.19|61943691d3390bd3148a7003b4a501f0e2b7ac6e|https://github.com/pytorch/vision
+# ubuntu|pytorch|torchaudio|release/2.4|e8cbe17769796ce963fbc71b8990f1474774e6d2|https://github.com/pytorch/audio
  
 RUN $WITH_CONDA; set -eux ; \
   rm -rf $CONDA_PREFIX/lib/libstdc++.so* ; \
   \  
   git clone --recursive https://github.com/ROCmSoftwarePlatform/apex /opt/mybuild ; \
   cd /opt/mybuild ; \
-  git checkout -b mydev 18921471b2eb8240f1787d28405b32bb93e9e671 ; \
+  git checkout -b mydev 4d04ae6760a53b856b972528adcc1cc1ef0a57c8 ; \
   git submodule sync ; \
   git submodule update --init --recursive --jobs 0 ; \
   sed -i "s#/opt/rocm-5.0.0#$ROCM_PATH#g" setup.py ; \
@@ -286,29 +285,7 @@ RUN $WITH_CONDA; set -eux ; \
   \  
   git clone https://github.com/pytorch/vision /opt/mybuild ; \
   cd /opt/mybuild ; \
-  git checkout -b mydev fa99a5360fbcd1683311d57a76fcc0e7323a4c1e ; \
-  git submodule sync ; \
-  git submodule update --init --recursive --jobs 0 ; \
-  CC=gcc-10 CXX=g++-10 FORCE_CUDA=1 nice python3 setup.py bdist_wheel ; \
-  cp -rf dist/* /opt/wheels ; \
-  rm -rf /opt/mybuild 
-  
-RUN $WITH_CONDA; set -eux ; \
-  \  
-  git clone https://github.com/pytorch/data /opt/mybuild ; \
-  cd /opt/mybuild ; \
-  git checkout -b mydev e1feeb2542293e42f083d24301386db6c003eeee ; \
-  git submodule sync ; \
-  git submodule update --init --recursive --jobs 0 ; \
-  CC=gcc-10 CXX=g++-10 FORCE_CUDA=1 nice python3 setup.py bdist_wheel ; \
-  cp -rf dist/* /opt/wheels ; \
-  rm -rf /opt/mybuild 
-  
-RUN $WITH_CONDA; set -eux ; \
-  \  
-  git clone https://github.com/pytorch/text /opt/mybuild ; \
-  cd /opt/mybuild ; \
-  git checkout -b mydev 4571036cf66c539e50625218aeb99a288d79f3e1 ; \
+  git checkout -b mydev 61943691d3390bd3148a7003b4a501f0e2b7ac6e ; \
   git submodule sync ; \
   git submodule update --init --recursive --jobs 0 ; \
   CC=gcc-10 CXX=g++-10 FORCE_CUDA=1 nice python3 setup.py bdist_wheel ; \
@@ -319,7 +296,7 @@ RUN $WITH_CONDA; set -eux ; \
   \
   git clone https://github.com/pytorch/audio /opt/mybuild ; \
   cd /opt/mybuild ; \
-  git checkout -b mydev 31de77dad5c89274451b3f5c4bcb630be12787c4 ; \
+  git checkout -b mydev e8cbe17769796ce963fbc71b8990f1474774e6d2 ; \
   git submodule sync ; \
   git submodule update --init --recursive --jobs 0 ; \
   ln -s $ROCM_PATH/.info/version $ROCM_PATH/.info/version-dev ; \
@@ -334,10 +311,6 @@ RUN $WITH_CONDA; set -eux ; \
   pip install /opt/wheels/apex-*.whl
 RUN $WITH_CONDA; set -eux ; \
   pip install /opt/wheels/torchvision-*.whl
-RUN $WITH_CONDA; set -eux ; \
-  pip install /opt/wheels/torchdata-*.whl
-RUN $WITH_CONDA; set -eux ; \
-  pip install /opt/wheels/torchtext-*.whl
 RUN $WITH_CONDA; set -eux ; \
   pip install /opt/wheels/torchaudio-*.whl
   
