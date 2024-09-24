@@ -95,14 +95,14 @@ RUN pip install --upgrade pip
 # Install debug torch from source
 RUN git clone --recursive https://github.com/pytorch/pytorch
 WORKDIR /pytorch
-ENV TORCH_VER=2.3.1
+ENV TORCH_VER=2.4.1
 RUN git checkout tags/v$TORCH_VER -b $TORCH_VER
 # if you are updating an existing checkout
 RUN git submodule sync
 RUN git submodule update --init --recursive
 RUN pip install -r requirements.txt
 RUN pip install mkl-static mkl-include
-# RUN make triton
+RUN make triton
 # ENV _GLIBCXX_USE_CXX11_ABI=1
 RUN python tools/amd_build/build_amd.py
 RUN apt-get install python3.10-venv -y
