@@ -15,7 +15,7 @@ RUN set -eux ; \
 RUN set -eux ; \
   zypper -n addrepo http://download.opensuse.org/distribution/leap/15.5/repo/oss/ myrepo1 ; \
   echo 'gpgcheck=0' >> /etc/zypp/repos.d/myrepo1.repo ; \
-  zypper -n addrepo https://download.opensuse.org/repositories/devel:/languages:/perl/15.5/devel myrepo2 ; \
+  zypper -n addrepo https://download.opensuse.org/repositories/devel:/languages:/perl/15.5/devel:languages:perl.repo myrepo2 ; \
   echo 'gpgcheck=0' >> /etc/zypp/repos.d/myrepo2.repo
   
 RUN set -eux ; \
