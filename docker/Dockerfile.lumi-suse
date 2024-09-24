@@ -27,20 +27,19 @@ RUN set -eux ; \
 RUN set -eux; \
   zypper -n refresh ; \
   zypper --no-gpg-checks -n install -y --force-resolution \
-    git cmake gcc10 gcc10-c++ gcc10-fortran zlib-devel numactl awk patch tar autoconf automake libtool libjson-c-devel graphviz ncurses-devel nano which ; \
-  zypper clean
+    git cmake gcc10 gcc10-c++ gcc10-fortran zlib-devel numactl awk patch tar autoconf automake libtool libjson-c-devel graphviz ncurses-devel nano which ;
 
 #
 # Cray info
 #
-ENV CPE_VERSION "24.03"
-ENV CPE_URL="http://localhost:$SERVER_PORT/cpe-$CPE_VERSION.tar"
+# ENV CPE_VERSION "24.03"
+# ENV CPE_URL="http://localhost:$SERVER_PORT/cpe-$CPE_VERSION.tar"
 ENV LIBFABRIC_VERSION "1.15.2.0" 
 ENV LIBFABRIC_PATH /opt/cray/libfabric/$LIBFABRIC_VERSION
 ENV MPICH_PATH "/opt/cray/pe/mpich/8.1.25/ofi/crayclang/10.0"
 ENV LD_LIBRARY_PATH /opt/cray-deps:$LIBFABRIC_PATH/lib64:$MPICH_PATH/lib:/opt/cray/pe/lib64:/opt/cray/pe/lib64/cce
 
-ENV REMOVE_CRAY_DEPS 'rm -rf /opt/cray /opt/cray-deps /usr/lib64/libcxi.so*'
+ENV REMOVE_CRAY_DEPS 'rm -rf /opt/mpich-${MPICH_VERSION} /usr/lib64/libcxi.so*'
 
 ENV ROCM_RELEASE 6.1.2
 ENV ROCM_RPM https://repo.radeon.com/amdgpu-install/${ROCM_RELEASE}/sle/15.5/amdgpu-install-6.1.60102-1.noarch.rpm 
@@ -69,29 +68,23 @@ ENV RCCL_DEBUG 0
 # #
 # # Fix rocm-smi lib
 # #
-# RUN set -eux ; \
-#   cd /opt ; \
-#   curl -LO http://localhost:$SERVER_PORT/rocm-$ROCM_RELEASE-rocm-smi-lib.patch ; \
-#   git clone -b rocm-$ROCM_RELEASE https://github.com/RadeonOpenCompute/rocm_smi_lib /opt/mybuild ; \
-#   mkdir -p /opt/mybuild/build ; \
-#   \
-#   cd /opt/mybuild ; \
-#   git apply < /opt/rocm-$ROCM_RELEASE-rocm-smi-lib.patch ; \
-#   rm -rf /opt/rocm-$ROCM_RELEASE-rocm-smi-lib.patch ; \
-#   \  
-#   cd /opt/mybuild/build ; \
-#   cmake -DCMAKE_INSTALL_PREFIX=/opt/rocm-patched .. ; \
-#   make -j32 ; \
-#   make -j32 install ; \
-#   cd / ; rm -rf /opt/mybuild
-
 RUN set -eux ; \
-  for i in liboam librocm_smi64 ; do \
-    src=$(find /opt/rocm-$ROCM_RELEASE -type f -iname $i.so*) ; \
-    dst=$(find /opt/rocm-patched -type f -iname $i.so*) ; \
-    rm -rf $src ; \
-    ln -s $dst $src ; \
-  done
+  cd /opt ; \
+  git clone -b rocm-$ROCM_RELEASE https://github.com/RadeonOpenCompute/rocm_smi_lib /opt/mybuild ; \
+  mkdir -p /opt/mybuild/build ; \
+  cd /opt/mybuild/build ; \
+  cmake -DCMAKE_INSTALL_PREFIX=/opt/rocm-$ROCM_RELEASE .. ; \
+  make -j32 ; \
+  make -j32 install ; \
+  cd / ; rm -rf /opt/mybuild
+
+# RUN set -eux ; \
+#   for i in liboam librocm_smi64 ; do \
+#     src=$(find /opt/rocm-$ROCM_RELEASE -type f -iname $i.so*) ; \
+#     dst=$(find /opt/rocm-patched -type f -iname $i.so*) ; \
+#     rm -rf $src ; \
+#     ln -s $dst $src ; \
+#   done
 
 RUN set -eux ; \
   cd $ROCM_PATH/bin ; \
@@ -109,11 +102,23 @@ RUN set -eux ; \
   rm -rf ./Miniconda3-*
 
 ENV WITH_CONDA "source /opt/miniconda3/bin/activate base"
+
+# Install MPICH
+ENV MPICH_VERSION="3.1.4"
+RUN cd /opt && \
+  wget https://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz && \
+  tar xf mpich-${MPICH_VERSION}.tar.gz && \
+  cd mpich-${MPICH_VERSION} && \
+  ./configure --disable-fortran --enable-fast=all,O3 --prefix=/usr && \
+  make -j install && \
+  ldconfig && \
+  rm /opt/mpich-${MPICH_VERSION}.tar.gz
+
+# Install libfabric
 RUN set -eux ; \
-  cd / ; \
-  curl -LO $CPE_URL ; \
-  tar -xf *.tar ; rm -rf *.tar ; \
-  \
+  zypper --no-gpg-checks -n install libfabric
+
+RUN set -eux ; \
   git clone -b cxi https://github.com/ROCmSoftwarePlatform/aws-ofi-rccl /opt/mybuild ; \
   cd /opt/mybuild ; \
   ./autogen.sh ; \
@@ -126,9 +131,8 @@ RUN set -eux ; \
   \
   mkdir /opt/aws-ofi-rccl ; \
   mv src/.libs/librccl-net.so* /opt/aws-ofi-rccl ; \
-  rm -rf /opt/mybuild ; \
-  $REMOVE_CRAY_DEPS
-  
+  rm -rf /opt/mybuild
+
 #
 # Add relevant libs to execution environment
 #
@@ -137,10 +141,6 @@ ENV CXI_FORK_SAFE=1
 ENV CXI_FORK_SAFE_HP=1
 ENV FI_CXI_DISABLE_CQ_HUGETLB=1
 RUN set -eux ; \
-  cd / ; \
-  curl -LO $CPE_URL ; \
-  tar -xf *.tar ; rm -rf *.tar ; \
-  \
   git clone https://github.com/ROCmSoftwarePlatform/rccl-tests /opt/mybuild ; \
   #git clone -b remove-stream-queries https://github.com/sfantao/rccl-tests /opt/mybuild ; \
   sed -i 's/-std=c++14/-std=c++14 --amdgpu-target=gfx90a:xnack- --amdgpu-target=gfx90a:xnack+/g' /opt/mybuild/src/Makefile ; \
@@ -158,7 +158,11 @@ RUN set -eux ; \
   mv /opt/mybuild/build/* /opt/rccltests ; \
   rm -rf /opt/mybuild ; \
   $REMOVE_CRAY_DEPS
-  
+
+RUN set -eux ; \
+  zypper remove libfabric ; \
+  zypper clean
+
 #
 # Install conda environment
 # 
