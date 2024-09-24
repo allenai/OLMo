@@ -95,7 +95,8 @@ RUN pip install --upgrade pip
 # Install debug torch from source
 RUN git clone --recursive https://github.com/pytorch/pytorch
 WORKDIR /pytorch
-RUN git checkout tags/v2.4.1 -b 2.4.1
+ENV TORCH_VER=2.3.1
+RUN git checkout tags/v$TORCH_VER -b $TORCH_VER
 # if you are updating an existing checkout
 RUN git submodule sync
 RUN git submodule update --init --recursive
