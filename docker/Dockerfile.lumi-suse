@@ -42,16 +42,22 @@ ENV LD_LIBRARY_PATH /opt/cray-deps:$LIBFABRIC_PATH/lib64:$MPICH_PATH/lib:/opt/cr
 ENV REMOVE_CRAY_DEPS 'rm -rf /opt/mpich-${MPICH_VERSION} /usr/lib64/libcxi.so*'
 
 ENV ROCM_RELEASE 6.1.2
-ENV ROCM_RPM https://repo.radeon.com/amdgpu-install/${ROCM_RELEASE}/sle/15.5/amdgpu-install-6.1.60102-1.noarch.rpm 
+# ENV ROCM_RPM https://repo.radeon.com/amdgpu-install/${ROCM_RELEASE}/sle/15.5/amdgpu-install-6.1.60102-1.noarch.rpm 
 
-RUN set -eux ; \
-  zypper --no-gpg-checks -n install $ROCM_RPM
+# RUN set -eux ; \
+#   zypper --no-gpg-checks -n install $ROCM_RPM
 
 RUN set -eux ; \
   sed -i 's#gpgcheck=1#gpgcheck=0#g' /etc/zypp/repos.d/*.repo
 
-RUN set -eux ; \
- amdgpu-install -y --no-dkms --usecase=rocm --rocmrelease=$ROCM_RELEASE
+# RUN set -eux ; \
+#   amdgpu-install -y --no-dkms --usecase=rocm --rocmrelease=$ROCM_RELEASE
+
+RUN echo "[ROCm-6.1.2]\nname=ROCm6.1.2\nbaseurl=baseurl=https://repo.radeon.com/rocm/zyp/6.1.2/main\nenabled=1\n\ngpgcheck=1\ngpgkey=https://repo.radeon.com/rocm/rocm.gpg.key" >> /etc/zypp/repos.d/amdgpu.repo && \
+  zypper ref
+
+RUN set -eux; \
+  zypper --no-gpg-checks -n install -y rocm
 
 #
 # ROCm environment
