@@ -340,11 +340,8 @@ if __name__ == "__main__":
         print(f"failed to set multiprocessing start method: {e}")
     log.info(f"Multiprocessing start method set to '{mp.get_start_method()}'")
 
-    # Set CUDA device.
-    torch.cuda.set_device(f"cuda:{get_local_rank()}")
-
     # Initialize process group.
-    dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30))
+    dist.init_process_group(backend="nccl")
     log.info("Process group initialized")
 
     prepare_cli_environment()
