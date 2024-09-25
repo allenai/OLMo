@@ -169,8 +169,8 @@ RUN set -eux ; \
   $REMOVE_CRAY_DEPS
 
 RUN set -eux ; \
-  zypper remove libfabric-devel ; \
-  zypper clean
+  zypper -n remove libfabric-devel ; \
+  zypper -n clean
 
 #
 # Install conda environment
