@@ -14,7 +14,7 @@ else
 fi
 
 gantry run \
-  --workspace ai2/sandbox \
+  --workspace ai2/ptqa \
   --task-name ladder \
   --description "OLMo PTQA with $*" \
   --priority normal \
@@ -35,5 +35,5 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  --allow-dirty
+  --allow-dirty \
   -- /bin/bash -c "${COMMAND}"

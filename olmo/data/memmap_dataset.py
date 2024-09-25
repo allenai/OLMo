@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch
+import math
 from torch.utils.data import Dataset
 
 from olmo.exceptions import OLMoEnvironmentError
@@ -169,7 +170,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
     def _get_file_length(self, path, dtype=None) -> Tuple[PathOrStr, int]:
         dtype = dtype or self.dtype
         item_size = dtype(0).itemsize
-        return path, file_size(path) // (item_size * self._chunk_size)
+        return path, math.ceil(file_size(path) / (item_size * self._chunk_size))
 
     def __len__(self) -> int:
         if self._num_instances is None:

@@ -132,6 +132,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     if read_location is None:
         if args.s3:
             read_location = "s3://ai2-llm"
+            read__inject_location = "s3://ai2-benb"
         else:
             read_location = "/weka/oe-training-default/ai2-llm"
     read_location.rstrip("/")
@@ -148,7 +149,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # calculate batch size according to
     # https://www.semanticscholar.org/reader/5585191b1b479346ecf173be3b35c8313b77d457
     # holds only for a sequence length of 2048 (but could probably be easily adapted)
-    assert model_config.max_sequence_length == 2048
+    # assert model_config.max_sequence_length == 2048
     global_batch_size = 160 * (model_size / 108000000) ** (2 / 3)
     global_batch_size /= 8 * 4  # 8 GPUs per node, microbatch size 4
     global_batch_size = round(global_batch_size)
@@ -183,8 +184,9 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     device_batch_size = 16
     device_eval_batch_size = 16
     eval_subset_num_batches = 100
-    eval_interval = 1
+    eval_interval = 50
     no_pre_train_checkpoint = True
+    args.eval_on_load = True
 
     if args.debug:
         global_batch_size = 1
@@ -235,6 +237,8 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         save_num_unsharded_checkpoints_to_keep=-1,
         save_interval=None,
         load_path=load_path,
+        reset_optimizer_state=True,
+        reset_trainer_state=True,
         eval_on_load=args.eval_on_load,
         sharded_checkpointer=ShardedCheckpointerType.olmo_core,
         device_train_microbatch_size=device_batch_size,
@@ -260,7 +264,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             #         },
             #     ),
             # ),
-            EvaluatorConfig(label="arc_easy", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_challenge", type=EvaluatorType.downstream),
         ],
         data=DataConfig(
             num_workers=32,
@@ -271,6 +275,15 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             instance_filter=InstanceFilterConfig(),  # defaults are fine
             paths=[f"{read_location}/{path}" for path in named_data_mixes.DATA_PATHS[args.data]],
         ),
+        data_inject=DataConfig(
+            num_workers=32,
+            drop_last=False,
+            pin_memory=True,
+            prefetch_factor=8,
+            persistent_workers=True,
+            instance_filter=InstanceFilterConfig(),  # defaults are fine
+            paths=[f"{read__inject_location}/{path}" for path in named_data_mixes.DATA_PATHS[args.data_inject]],
+        ) if args.data_inject else None,
     )
 
 
@@ -387,6 +400,7 @@ if __name__ == "__main__":
     for subparser in [dump_parser, train_parser]:
         subparser.add_argument("--model", type=str, required=True)
         subparser.add_argument("--data", type=str, required=True)
+        subparser.add_argument("--data-inject", type=str)
         subparser.add_argument("--length", type=str, default="2xC")
         subparser.add_argument("--name", type=str, required=True)
         subparser.add_argument(

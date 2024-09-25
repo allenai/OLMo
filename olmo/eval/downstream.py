@@ -795,26 +795,6 @@ class ArcEasy(ICLMultiChoiceTaskDataset):
         return "Answer:"
 
 
-class ArcChallenge(ArcEasy):
-    """ArcChallenge follows the same prompt format as ArcEasy.
-    implement PMI_DC
-    """
-
-    metric_type = "len_norm"  # Ideally "pmi_dc"
-
-    def __init__(
-        self,
-        tokenizer,
-        dataset_path="ai2_arc",
-        dataset_name="ARC-Challenge",
-    ):
-        super().__init__(
-            tokenizer=tokenizer,
-            dataset_path=dataset_path,
-            dataset_name=dataset_name,
-        )
-
-
 class ArcEasyCELoss(ArcEasy):
     """ArcEasyCELoss is ARCEasy using an alternate ce_loss metric"""
 
@@ -1600,6 +1580,36 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
     def doc_to_label(self, doc) -> int:
         raise NotImplementedError
 
+
+class ArcChallenge(OEEvalTask):
+    """ArcChallenge follows the same prompt format as ArcEasy.
+    implement PMI_DC
+    """
+    metric_type = None
+
+    def __init__(
+        self,
+        tokenizer,
+        dataset_path="arc_challenge",
+        dataset_name="rc_5shot",
+    ):
+        super().__init__(
+            tokenizer=tokenizer,
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+        )
+
+        self.dataset[0] = [row for row in self.dataset[0] if row["native_id"] in ["MCAS_8_2015_11", "Mercury_7264023", "MDSA_2008_5_24", "Mercury_SC_411306", "Mercury_7267995", "Mercury_SC_407695", "Mercury_400934", "Mercury_7166180", "TIMSS_2003_8_pg29", "Mercury_7032743", "Mercury_7144795", "Mercury_7018008", "Mercury_7037573", "Mercury_7029505", "MDSA_2007_5_39", "LEAP_2004_8_10397", "Mercury_184013", "Mercury_7154263", "Mercury_7014368", "Mercury_7071365", "Mercury_7112753", "Mercury_SC_400845", "Mercury_LBS10399", "Mercury_412683", "Mercury_7097318", "Mercury_SC_LBS10472", "Mercury_184765", "Mercury_7141908", "Mercury_7131828", "Mercury_177818", "Mercury_7018148", "LEAP__7_10354", "Mercury_7015435", "MCAS_1998_8_2", "TIMSS_2011_8_pg63", "Mercury_SC_407574", "Mercury_7115273", "Mercury_SC_415541", "MCAS_2005_5_21", "Mercury_7219415", "Mercury_SC_401286", "Mercury_SC_408859", "Mercury_7033653", "Mercury_7207358", "NAEP_2005_8_S11+14", "Mercury_7105123", "Mercury_SC_407314", "Mercury_7248238", "Mercury_7135310", "Mercury_7238963", "MCAS_1998_4_8", "Mercury_7032340", "Mercury_7181685", "MCAS_2006_9_35", "Mercury_SC_400178", "Mercury_7158673", "Mercury_192290", "Mercury_7086013", "Mercury_SC_407169", "ACTAAP_2007_7_25", "Mercury_SC_412337", "AIMS_2009_4_29", "NCEOGA_2013_8_4", "MCAS_2006_5_29", "Mercury_7183015", "Mercury_7235813", "Mercury_415263", "MCAS_2013_8_29421", "Mercury_7003955", "Mercury_7193043", "Mercury_7189823", "Mercury_416648", "Mercury_7103215", "Mercury_SC_415366", "Mercury_SC_406705", "Mercury_SC_401294", "Mercury_7008138", "Mercury_SC_406029", "Mercury_412551", "Mercury_7205345", "Mercury_7187058", "Mercury_7011270", "Mercury_SC_415735", "Mercury_400397", "ACTAAP_2007_7_5", "Mercury_7093975", "Mercury_7205135", "Mercury_7100695", "Mercury_7245088", "NYSEDREGENTS_2014_4_2", "Mercury_7138513", "Mercury_SC_LBS10666", "Mercury_7008120", "Mercury_177398", "TIMSS_2007_4_pg26", "MCAS_2006_9_33", "Mercury_176838", "VASoL_2008_5_19", "Mercury_7195440", "NYSEDREGENTS_2014_8_38"]]
+
+        # ignore uncond requests
+        self.dataset[0] = [row for row in self.dataset[0] if not row["request"]["context"].startswith("Answer:")]
+
+        self.metric_type = ["acc", "ce_loss", "ce_loss_norm_str_len", "ce_loss_norm_byte_len", "acc_norm_str_len",
+                       "acc_norm_byte_len", "ce_loss_norm_cont", "ce_loss_norm_cont_norm_str_len",
+                       "ce_loss_norm_cont_norm_byte_len"]
+
+        self.samples = []
+        self.prep_examples()
 
 label_to_task_map = {
     "piqa": PIQA,

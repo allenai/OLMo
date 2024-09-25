@@ -98,6 +98,12 @@ def build_train_dataloader(
     dataset = build_memmap_dataset(
         train_config, train_config.data, include_instance_metadata=include_instance_metadata
     )
+    if train_config.data_inject:
+        dataset_inject = build_memmap_dataset(
+            train_config, train_config.data_inject, include_instance_metadata=include_instance_metadata
+        )
+    else:
+        dataset_inject = None
     work_dir = Path(train_config.save_folder) / "train_data"
     if get_global_rank() == 0:
         if work_dir.is_dir() and not train_config.save_overwrite:
@@ -111,6 +117,7 @@ def build_train_dataloader(
     return DataLoader(
         IterableDataset(
             dataset,  # type: ignore
+            dataset_inject,  # type: ignore
             train_config.global_train_batch_size,
             seed=seed,
             epoch=train_config.epoch or 0,
