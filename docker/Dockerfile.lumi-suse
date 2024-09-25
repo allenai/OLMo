@@ -127,9 +127,8 @@ RUN set -eux ; \
   zypper --no-gpg-checks -n install libfabric
 
 RUN set -eux ; \
-  mkdir -p /opt/mybuild/build ; \
-  \
   git clone -b cxi https://github.com/ROCmSoftwarePlatform/aws-ofi-rccl /opt/mybuild ; \
+  mkdir -p /opt/mybuild/build ; \
   cd /opt/mybuild ; \
   ./autogen.sh ; \
   \
