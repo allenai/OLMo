@@ -169,7 +169,7 @@ RUN set -eux ; \
   $REMOVE_CRAY_DEPS
 
 RUN set -eux ; \
-  zypper remove libfabric ; \
+  zypper remove libfabric-devel ; \
   zypper clean
 
 #
