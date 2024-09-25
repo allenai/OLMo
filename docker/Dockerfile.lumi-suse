@@ -249,7 +249,8 @@ RUN $WITH_CONDA; set -eux ; \
   cd /opt/pytorch-build  ; \
   echo "${PYTORCH_VERSION}a0" > version.txt ;\
   nice python3 tools/amd_build/build_amd.py ; \
-  \
+
+RUN $WITH_CONDA; set -eux ; \
   cd /opt/pytorch-build  ; \
   export CMAKE_PREFIX_PATH=$CONDA_PREFIX ; \
   DEBUG=$PYTORCH_DEBUG \
@@ -267,7 +268,6 @@ RUN $WITH_CONDA; set -eux ; \
   VERBOSE=1 \
   V=1 \
   USE_ROCM=1 \
-  PROCS=8 \
   python3 setup.py bdist_wheel ; \
   cp -rf /opt/pytorch-build/dist/* /opt/wheels ; \
   cd / ; rm -rf /opt/pytorch-build
