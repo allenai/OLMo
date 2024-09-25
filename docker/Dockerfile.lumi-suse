@@ -134,7 +134,7 @@ RUN set -eux ; \
   cd /opt/mybuild ; \
   export CPATH=$LIBFABRIC_PATH/include ; \
   export LIBRARY_PATH=$LD_LIBRARY_PATH ; \
-  LDFLAGS='-lcxi' CC=gcc-10 CXX=g++-10 ./configure --disable-fortran --with-libfabric=$LIBFABRIC_PATH --enable-trace --with-hip=$ROCM_PATH --with-rccl=$ROCM_PATH/rccl --with-mpi=/opt/mpich-${MPICH_VERSION} --disable-tests ; \
+  LDFLAGS='-lcxi' CC=gcc-10 CXX=g++-10 ./configure --with-libfabric=$LIBFABRIC_PATH --enable-trace --with-hip=$ROCM_PATH --with-rccl=$ROCM_PATH/rccl --with-mpi=/opt/mpich-${MPICH_VERSION} --disable-tests ; \
   LDFLAGS='-lcxi' CC=gcc-10 CXX=g++-10 nice make -j ; \
   \
   mkdir /opt/aws-ofi-rccl ; \
