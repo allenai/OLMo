@@ -183,7 +183,8 @@ RUN $WITH_CONDA; set -eux ; \
   conda create -n pytorch python=$PYTHON_VERSION ; \
   conda activate pytorch ; \
   conda install -y --only-deps pytorch ; \
-  conda install -y ninja pillow mkl-include
+  conda install -y ninja pillow mkl-include ; \
+  pip install -y mkl-static ; \
 ENV WITH_CONDA="source /opt/miniconda3/bin/activate pytorch"
 
 #
@@ -252,9 +253,14 @@ RUN $WITH_CONDA; set -eux ; \
 
 RUN $WITH_CONDA; set -eux ; \
   cd /opt/pytorch-build  ; \
+  nice make triton
+
+RUN $WITH_CONDA; set -eux ; \
+  cd /opt/pytorch-build  ; \
   export CMAKE_PREFIX_PATH=$CONDA_PREFIX ; \
   DEBUG=$PYTORCH_DEBUG \
   REL_WITH_DEB_INFO=$PYTORCH_RELWITHDEBINFO \
+  _GLIBCXX_USE_CXX11_ABI=1 \
   PYTORCH_BUILD_VERSION=$PYTORCH_VERSION \
   PYTORCH_BUILD_NUMBER=1 \
   CC=gcc-10 \
@@ -268,7 +274,7 @@ RUN $WITH_CONDA; set -eux ; \
   VERBOSE=1 \
   V=1 \
   USE_ROCM=1 \
-  numactl -C 16-31 nice python3 setup.py bdist_wheel ; \
+  numactl -C 28-31 nice python3 setup.py bdist_wheel ; \
   cp -rf /opt/pytorch-build/dist/* /opt/wheels ; \
   cd / ; rm -rf /opt/pytorch-build
   
