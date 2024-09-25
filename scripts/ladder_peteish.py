@@ -188,7 +188,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             read_location = "/weka/oe-training-default/ai2-llm"
     read_location.rstrip("/")
 
-    remote_save_folder = f"s3://ai2-llm/checkpoints/OLMo-ladder/{run_name}"
+    remote_save_folder = f"{read_location}/checkpoints/OLMo-ladder/{run_name}"
     load_path = args.load_path
     if load_path is None:
         load_path = find_latest_checkpoint(remote_save_folder)
