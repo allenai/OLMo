@@ -184,7 +184,7 @@ RUN $WITH_CONDA; set -eux ; \
   conda activate pytorch ; \
   conda install -y --only-deps pytorch ; \
   conda install -y ninja pillow mkl-include ; \
-  pip install mkl-static ; \
+  pip install mkl-static
 ENV WITH_CONDA="source /opt/miniconda3/bin/activate pytorch"
 
 #
