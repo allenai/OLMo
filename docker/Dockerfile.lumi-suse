@@ -61,7 +61,10 @@ RUN echo "[ROCm-6.1.2] name=ROCm6.1.2 baseurl=https://repo.radeon.com/rocm/zyp/6
 RUN set -eux; \
   zypper -n install -y --oldpackage libsystemd0-249.16-150400.8.25.7.x86_64; \
   zypper -n install -y --oldpackage libudev1-249.16-150400.8.25.7.x86_64; \
-  zypper --no-gpg-checks -n install -y rocm
+  zypper --no-gpg-checks -n install -y rocm; \
+  echo /opt/rocm/lib >> /etc/ld.so.conf.d/rocm.conf; \
+  echo /opt/rocm/lib64 >> /etc/ld.so.conf.d/rocm.conf; \
+  ldconfig
 
 #
 # ROCm environment
