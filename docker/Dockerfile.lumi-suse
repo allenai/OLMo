@@ -187,34 +187,34 @@ RUN $WITH_CONDA; set -eux ; \
 ENV WITH_CONDA="source /opt/miniconda3/bin/activate pytorch"
 
 #
-# Install magma
-# 
-RUN ln -s ${ROCM_PATH} /opt/rocm
-RUN $WITH_CONDA; set -eux ; \
-  \
-  export MKLROOT=$CONDA_PREFIX ; \
-  \
-  mkdir -p /opt/magma ; \
-  git clone https://bitbucket.org/icl/magma /opt/magma-build ; \
-  cd /opt/magma-build ; \
-  git checkout -b mydev c62d700d880c7283b33fb1d615d62fc9c7f7ca21 ; \
-  \
-  cp make.inc-examples/make.inc.hip-gcc-mkl make.inc ; \
-  echo 'LIBDIR += -L$(MKLROOT)/lib' >> make.inc ; \
-  echo "LIB += -Wl,--enable-new-dtags -Wl,--rpath,$ROCM_PATH/lib -Wl,--rpath,\$(MKLROOT)/lib -Wl,--rpath,/opt/magma/lib" >> make.inc ; \
-  echo 'DEVCCFLAGS += --gpu-max-threads-per-block=256' >> make.inc ; \
-  echo 'DEVCCFLAGS += --amdgpu-target=gfx90a' >> make.inc ; \
-  sed -i 's/^FOPENMP/#FOPENMP/g' make.inc ; \
-  sed -i 's/VALID_GFXS = .*/VALID_GFXS = 908 90a/g' Makefile ; \
-  export CC=gcc-10 ; \
-  export CXX=g++-10 ; \
-  export FORT=gfortran-10 ;\
-  nice make -f make.gen.hipMAGMA -j32 ; \
-  nice make lib/libmagma.a GPU_TARGET="gfx90a" MKLROOT=$MKLROOT -j32 ; \
-  nice make lib/libmagma.so GPU_TARGET="gfx90a" MKLROOT=$MKLROOT -j32 ; \
-  nice make testing/testing_dgemm GPU_TARGET="gfx90a"  MKLROOT=$MKLROOT -j32 ; \
-  cp -rf include lib /opt/magma ; \
-  cd / ; rm -rf /opt/magma-build
+# # Install magma
+# # 
+# RUN ln -s ${ROCM_PATH} /opt/rocm
+# RUN $WITH_CONDA; set -eux ; \
+#   \
+#   export MKLROOT=$CONDA_PREFIX ; \
+#   \
+#   mkdir -p /opt/magma ; \
+#   git clone https://bitbucket.org/icl/magma /opt/magma-build ; \
+#   cd /opt/magma-build ; \
+#   git checkout -b mydev c62d700d880c7283b33fb1d615d62fc9c7f7ca21 ; \
+#   \
+#   cp make.inc-examples/make.inc.hip-gcc-mkl make.inc ; \
+#   echo 'LIBDIR += -L$(MKLROOT)/lib' >> make.inc ; \
+#   echo "LIB += -Wl,--enable-new-dtags -Wl,--rpath,$ROCM_PATH/lib -Wl,--rpath,\$(MKLROOT)/lib -Wl,--rpath,/opt/magma/lib" >> make.inc ; \
+#   echo 'DEVCCFLAGS += --gpu-max-threads-per-block=256' >> make.inc ; \
+#   echo 'DEVCCFLAGS += --amdgpu-target=gfx90a' >> make.inc ; \
+#   sed -i 's/^FOPENMP/#FOPENMP/g' make.inc ; \
+#   sed -i 's/VALID_GFXS = .*/VALID_GFXS = 908 90a/g' Makefile ; \
+#   export CC=gcc-10 ; \
+#   export CXX=g++-10 ; \
+#   export FORT=gfortran-10 ;\
+#   nice make -f make.gen.hipMAGMA -j32 ; \
+#   nice make lib/libmagma.a GPU_TARGET="gfx90a" MKLROOT=$MKLROOT -j32 ; \
+#   nice make lib/libmagma.so GPU_TARGET="gfx90a" MKLROOT=$MKLROOT -j32 ; \
+#   nice make testing/testing_dgemm GPU_TARGET="gfx90a"  MKLROOT=$MKLROOT -j32 ; \
+#   cp -rf include lib /opt/magma ; \
+#   cd / ; rm -rf /opt/magma-build
 
 #
 # Install pytorch
