@@ -188,10 +188,10 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             read_location = "/weka/oe-training-default/ai2-llm"
     read_location.rstrip("/")
 
-    remote_save_folder = f"{read_location}/checkpoints/OLMo-ladder/{run_name}"
+    save_folder = f"{read_location}/checkpoints/OLMo-ladder/{run_name}"
     load_path = args.load_path
     if load_path is None:
-        load_path = find_latest_checkpoint(remote_save_folder)
+        load_path = find_latest_checkpoint(save_folder)
 
     model_config = MODEL_CONFIGS[args.model]
     model_size = parse_size(args.model)
@@ -264,8 +264,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         max_duration=f"{length_in_tokens}T",
         global_train_batch_size=global_batch_size,
         tokenizer=TokenizerConfig(identifier="allenai/dolma2-tokenizer"),
-        save_folder=f"runs/{run_name}",
-        remote_save_folder=remote_save_folder,
+        save_folder=save_folder,
         save_overwrite=args.save_overwrite,
         save_interval_unsharded=save_interval,
         save_num_unsharded_checkpoints_to_keep=-1,
@@ -553,6 +552,9 @@ if __name__ == "__main__":
         read_location=None,
         batch_size=-1,
         device_batch_size=-1,
+        save_interval=1,
+        eval_interval=1,
+        alpha_f=0.1,
     )
 
     nodecounts_parser = subparsers.add_parser("nodecounts")

@@ -26,6 +26,7 @@ gantry run \
   $MULTI_NODE_ARGS \
   --budget ai2/oe-training \
   --no-nfs \
+  --weka oe-training-default:/weka/oe-training-default \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
@@ -36,7 +37,3 @@ gantry run \
   --venv base \
   --yes \
   -- /bin/bash -c "${COMMAND}"
-
-  # --cluster ai2/pluto-cirrascale \
-  # --cluster ai2/allennlp-cirrascale \
-  #--weka=oe-training-default:/weka/oe-training-default \
