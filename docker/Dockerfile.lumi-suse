@@ -34,14 +34,14 @@ RUN set -eux; \
 #
 # ENV CPE_VERSION "24.03"
 # ENV CPE_URL="http://localhost:$SERVER_PORT/cpe-$CPE_VERSION.tar"
-ENV LIBFABRIC_VERSION "1.15.2.0" 
-ENV LIBFABRIC_PATH /usr/lib64
+ENV LIBFABRIC_VERSION="1.15.2.0" 
+ENV LIBFABRIC_PATH=/usr/lib64
 # ENV MPICH_PATH "/opt/cray/pe/mpich/8.1.25/ofi/crayclang/10.0"
 # ENV LD_LIBRARY_PATH /opt/cray-deps:$LIBFABRIC_PATH/lib64:$MPICH_PATH/lib:/opt/cray/pe/lib64:/opt/cray/pe/lib64/cce
 
-ENV REMOVE_CRAY_DEPS 'rm -rf /opt/mpich-${MPICH_VERSION} /usr/lib64/libcxi.so*'
+ENV REMOVE_CRAY_DEPS='rm -rf /opt/mpich-${MPICH_VERSION} /usr/lib64/libcxi.so*'
 
-ENV ROCM_RELEASE 6.1.2
+ENV ROCM_RELEASE=6.1.2
 # ENV ROCM_RPM https://repo.radeon.com/amdgpu-install/${ROCM_RELEASE}/sle/15.5/amdgpu-install-6.1.60102-1.noarch.rpm 
 
 # RUN set -eux ; \
@@ -64,14 +64,14 @@ RUN set -eux; \
 #
 # ROCm environment
 #
-ENV ROCM_PATH /opt/rocm-$ROCM_RELEASE
-ENV PATH $ROCM_PATH/bin:$ROCM_PATH/llvm/bin:$PATH
-ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:$ROCM_PATH/lib
+ENV ROCM_PATH=/opt/rocm-$ROCM_RELEASE
+ENV PATH=$ROCM_PATH/bin:$ROCM_PATH/llvm/bin:$PATH
+ENV LD_LIBRARY_PATH=/usr/lib64:$ROCM_PATH/lib
 
 #
 # Mark RCCL as non-debug - this can me overriden by RCCL debug build. 
 #
-ENV RCCL_DEBUG 0
+ENV RCCL_DEBUG=0
 
 # #
 # # Fix rocm-smi lib
@@ -109,7 +109,7 @@ RUN set -eux ; \
   bash ./Miniconda3-* -b -p /opt/miniconda3 -s ; \
   rm -rf ./Miniconda3-*
 
-ENV WITH_CONDA "source /opt/miniconda3/bin/activate base"
+ENV WITH_CONDA="source /opt/miniconda3/bin/activate base"
 
 # Install MPICH
 ENV MPICH_VERSION="3.1.4"
@@ -144,7 +144,7 @@ RUN set -eux ; \
 #
 # Add relevant libs to execution environment
 #
-ENV LD_LIBRARY_PATH $LD_LIBRARY_PATH:/opt/aws-ofi-rccl
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/aws-ofi-rccl
 ENV CXI_FORK_SAFE=1
 ENV CXI_FORK_SAFE_HP=1
 ENV FI_CXI_DISABLE_CQ_HUGETLB=1
@@ -180,7 +180,7 @@ RUN $WITH_CONDA; set -eux ; \
   conda activate pytorch ; \
   conda install -y --only-deps pytorch ; \
   conda install -y ninja pillow mkl-include
-ENV WITH_CONDA "source /opt/miniconda3/bin/activate pytorch"
+ENV WITH_CONDA="source /opt/miniconda3/bin/activate pytorch"
 
 #
 # Install magma
@@ -224,7 +224,7 @@ RUN $WITH_CONDA; set -eux ; \
   \
   conda install -y cmake pyyaml
   
-ENV PYTORCH_ROCM_ARCH gfx90a 
+ENV PYTORCH_ROCM_ARCH=gfx90a 
 ENV PYTORCH_VERSION=2.4.1
 ENV PYTORCH_DEBUG=0
 ENV PYTORCH_RELWITHDEBINFO=0
