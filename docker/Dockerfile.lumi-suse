@@ -290,6 +290,10 @@ RUN $WITH_CONDA; set -eux ; \
 # ubuntu|pytorch|apex|master|4d04ae6760a53b856b972528adcc1cc1ef0a57c8|https://github.com/ROCmSoftwarePlatform/apex
 # ubuntu|pytorch|torchvision|release/0.19|61943691d3390bd3148a7003b4a501f0e2b7ac6e|https://github.com/pytorch/vision
 # ubuntu|pytorch|torchaudio|release/2.4|e8cbe17769796ce963fbc71b8990f1474774e6d2|https://github.com/pytorch/audio
+
+RUN $WITH_CONDA; set -eux ; \
+  \  
+  pip install packaging
  
 RUN $WITH_CONDA; set -eux ; \
   rm -rf $CONDA_PREFIX/lib/libstdc++.so* ; \
