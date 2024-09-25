@@ -274,7 +274,7 @@ RUN $WITH_CONDA; set -eux ; \
   VERBOSE=1 \
   V=1 \
   USE_ROCM=1 \
-  numactl -C 28-31 nice python3 setup.py bdist_wheel ; \
+  numactl -C 4-31 nice python3 setup.py bdist_wheel ; \
   cp -rf /opt/pytorch-build/dist/* /opt/wheels ; \
   cd / ; rm -rf /opt/pytorch-build
   
