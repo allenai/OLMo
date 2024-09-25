@@ -128,7 +128,6 @@ RUN set -eux ; \
 
 RUN set -eux ; \
   git clone -b cxi https://github.com/ROCmSoftwarePlatform/aws-ofi-rccl /opt/mybuild ; \
-  mkdir -p /opt/mybuild/build ; \
   cd /opt/mybuild ; \
   ./autogen.sh ; \
   \
