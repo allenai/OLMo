@@ -267,7 +267,7 @@ RUN $WITH_CONDA; set -eux ; \
   VERBOSE=1 \
   V=1 \
   USE_ROCM=1 \
-  PROCS=32 \
+  PROCS=16 \
   numactl -C 0-31 python3 setup.py bdist_wheel ; \
   cp -rf /opt/pytorch-build/dist/* /opt/wheels ; \
   cd / ; rm -rf /opt/pytorch-build
