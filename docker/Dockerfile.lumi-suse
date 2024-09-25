@@ -35,9 +35,9 @@ RUN set -eux; \
 # ENV CPE_VERSION "24.03"
 # ENV CPE_URL="http://localhost:$SERVER_PORT/cpe-$CPE_VERSION.tar"
 ENV LIBFABRIC_VERSION "1.15.2.0" 
-ENV LIBFABRIC_PATH /opt/cray/libfabric/$LIBFABRIC_VERSION
-ENV MPICH_PATH "/opt/cray/pe/mpich/8.1.25/ofi/crayclang/10.0"
-ENV LD_LIBRARY_PATH /opt/cray-deps:$LIBFABRIC_PATH/lib64:$MPICH_PATH/lib:/opt/cray/pe/lib64:/opt/cray/pe/lib64/cce
+ENV LIBFABRIC_PATH /usr/lib64
+# ENV MPICH_PATH "/opt/cray/pe/mpich/8.1.25/ofi/crayclang/10.0"
+# ENV LD_LIBRARY_PATH /opt/cray-deps:$LIBFABRIC_PATH/lib64:$MPICH_PATH/lib:/opt/cray/pe/lib64:/opt/cray/pe/lib64/cce
 
 ENV REMOVE_CRAY_DEPS 'rm -rf /opt/mpich-${MPICH_VERSION} /usr/lib64/libcxi.so*'
 
@@ -117,7 +117,7 @@ RUN cd /opt && \
   curl -LO https://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz && \
   tar xf mpich-${MPICH_VERSION}.tar.gz && \
   cd mpich-${MPICH_VERSION} && \
-  CC=gcc-10 ./configure --disable-fortran --enable-fast=all,O3 --prefix=/usr && \
+  CC=gcc-10 CXX=g++-10 ./configure --disable-fortran --enable-fast=all,O3 --prefix=/usr && \
   make -j install && \
   ldconfig && \
   rm /opt/mpich-${MPICH_VERSION}.tar.gz
@@ -134,8 +134,8 @@ RUN set -eux ; \
   cd /opt/mybuild ; \
   export CPATH=$LIBFABRIC_PATH/include ; \
   export LIBRARY_PATH=$LD_LIBRARY_PATH ; \
-  LDFLAGS='-lcxi' CC=gcc-10 ./configure --with-libfabric=$LIBFABRIC_PATH --enable-trace --with-hip=$ROCM_PATH --with-rccl=$ROCM_PATH/rccl --with-mpi=/opt/mpich-${MPICH_VERSION} --disable-tests ; \
-  LDFLAGS='-lcxi' CC=gcc-10 nice make -j ; \
+  LDFLAGS='-lcxi' CC=gcc-10 CXX=g++-10 ./configure --disable-fortran --with-libfabric=$LIBFABRIC_PATH --enable-trace --with-hip=$ROCM_PATH --with-rccl=$ROCM_PATH/rccl --with-mpi=/opt/mpich-${MPICH_VERSION} --disable-tests ; \
+  LDFLAGS='-lcxi' CC=gcc-10 CXX=g++-10 nice make -j ; \
   \
   mkdir /opt/aws-ofi-rccl ; \
   mv src/.libs/librccl-net.so* /opt/aws-ofi-rccl ; \
