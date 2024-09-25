@@ -248,7 +248,7 @@ RUN $WITH_CONDA; set -eux ; \
   \
   cd /opt/pytorch-build  ; \
   echo "${PYTORCH_VERSION}a0" > version.txt ;\
-  nice python3 tools/amd_build/build_amd.py ; \
+  nice python3 tools/amd_build/build_amd.py
 
 RUN $WITH_CONDA; set -eux ; \
   cd /opt/pytorch-build  ; \
