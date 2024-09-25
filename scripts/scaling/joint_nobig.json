@@ -138,19 +138,5 @@
         "n": 1176832000,
         "label": "1b-10xC",
         "color": "teal"
-    },
-    "1b-3T": {
-        "path": "wandb/amberish1.csv",
-        "mode": "eval",
-        "n": 1176832000,
-        "label": "1b-3T",
-        "color": "teal"
-    },
-    "7b-3T": {
-        "path": "wandb/amberish7.csv",
-        "mode": "eval",
-        "n": 6682316800,
-        "label": "7b-3T",
-        "color": "darkviolet"
     }
 }

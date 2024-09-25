@@ -242,6 +242,9 @@ if __name__ == "__main__":
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-530M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/530M-10xC.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-750M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/750M-10xC.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-1B-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/1B-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-3B-1xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/3B-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-3B-2xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/3B-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-3B-5xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/3B-5xC.csv
 
     args = parse_args()
     print(args)

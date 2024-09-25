@@ -112,9 +112,7 @@ def main():
         ax.set_xlabel("Tokens (D)")
     axs[0].set_ylabel(f"CE loss, {args.key if args.key != '' else args.keys}")
     axs[3].set_ylabel(f'Loss')
-    axs[3].set_title('c4')
-    # axs[3].set_title('hellaswag 5-shot')
-    # axs[3].set_title('mmlu')
+    axs[3].set_title(args.key)
     plt.suptitle("Fitting loss curves")
     plt.savefig(args.output_path, dpi=300, bbox_inches="tight")
 

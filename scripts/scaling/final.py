@@ -2,6 +2,7 @@ import json
 
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 
 from olmo.scaling.scaling_laws.utils import (
     FinalConfig,
@@ -13,6 +14,9 @@ from olmo.scaling.scaling_laws.utils import (
 )
 
 
+MARKERS = ['s', 'P', 'p', '*']
+
+
 def main():
     args = parse_args()
 
@@ -22,7 +26,9 @@ def main():
 
     data_by_name = get_final_data_by_name(configs, args.keys, num_to_avg=args.num_to_avg)
 
-    plt.figure()
+    sns.set_style("whitegrid")
+
+    plt.figure(figsize=(6, 4.5))
 
     train_nds, train_ys = [], []
     for name, data in data_by_name.items():
@@ -61,7 +67,9 @@ def main():
     # plot the actual data
     for name, data in data_by_name.items():
         config = configs[name]
-        plt.scatter(data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=5.0)
+        # plt.scatter(data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=10)
+        for i, (d, y) in enumerate(zip(data["ds"], data["ys"])):
+            plt.scatter(d, y, color=config.color, marker=MARKERS[i], s=50)
 
         predicted_data = predicted_data_by_name[name]
         for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["ys"]):
@@ -70,46 +78,36 @@ def main():
                 f"{rel_error * 100:+.1f}%",
                 (d, y),
                 textcoords="offset points",
-                xytext=(0, 5),
+                xytext=(6, 6),
                 ha="center",
-                fontsize=6,
+                fontsize=8,
                 color=config.color,
             )
 
     # plot the fitted curve
     for name, data in plotted_predicted_data_by_name.items():
         config = configs[name]
-        if config.mode == "train":
-            plt.plot(
-                data["ds"],
-                data["ys"],
-                color=config.color,
-                linestyle="--",
-                linewidth=0.8,
-                label=f"{config.label} (fitted)",
-            )
-        else:
-            plt.plot(
-                data["ds"],
-                data["ys"],
-                color=config.color,
-                linestyle="--",
-                linewidth=0.8,
-                label=f"{config.label} (predicted)",
-            )
+        plt.plot(
+            data["ds"],
+            data["ys"],
+            color=config.color,
+            linestyle="--",
+            linewidth=2.0,
+            label=f'{config.label} ({"fitted" if config.mode == "train" else "predicted"})',
+        )
     plt.text(
-        x=0.25,
-        y=0.50,
-        s=f"L(n, d) = {A:.2f} / n^{alpha:.2f} + {B:.2f} / d^{beta:.2f} + {E:.2f}",
+        x=0.20,
+        y=0.55,
+        s=f"L(N, D) = {A:.2f} / N^{alpha:.2f} + {B:.2f} / D^{beta:.2f} + {E:.2f}",
         fontsize=10,
         transform=plt.gca().transAxes,
     )
 
-    plt.legend(loc="upper right", ncols=2)
-    plt.xlabel("Tokens (d)")
-    plt.ylabel(f"CE loss, {args.key if args.key != '' else args.keys}")
-    plt.title("Fitting final loss")
-    plt.savefig(args.output_path, dpi=300)
+    plt.legend(loc="upper right", ncols=1, fontsize=10)
+    plt.xlabel("Tokens (D)")
+    plt.ylabel(f"Loss")
+    plt.title(args.key)
+    plt.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
     y_1b_3T = chinchilla_n_d_fit([1176832000, 3e12], coefficients)
     print(f"Predicted final loss for 1b-3T: {y_1b_3T:.3f}")

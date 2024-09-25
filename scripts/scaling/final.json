@@ -54,9 +54,20 @@
             "wandb/amberish-rulebased/1B-5xC.csv",
             "wandb/amberish-rulebased/1B-10xC.csv"
         ],
-        "mode": "eval",
+        "mode": "train",
         "n": 1176832000,
         "label": "1b",
         "color": "teal"
+    },
+    "3b": {
+        "paths": [
+            "wandb/amberish-rulebased/3B-1xC.csv",
+            "wandb/amberish-rulebased/3B-2xC.csv",
+            "wandb/amberish-rulebased/3B-5xC.csv"
+        ],
+        "mode": "eval",
+        "n": 3002871040,
+        "label": "3b",
+        "color": "darkmagenta"
     }
 }

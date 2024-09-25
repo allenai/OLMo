@@ -283,31 +283,44 @@ class FinalConfig:
     """
 
 
+KEYS_BY_KEY = {
+    "all-val-lm": [f"eval/{val}/CrossEntropyLoss" for val in validation],
+    "all-bpb": [f"eval/downstream_bpb/{task}_bpb" for task in downstream_bpb],
+    "c4": ["eval/c4_en-validation/CrossEntropyLoss"],
+    "mmlu": [
+        f"eval/downstream_bpb/{task}_bpb"
+        for task in [
+            "mmlu_stem_var_bpb",
+            "mmlu_humanities_var_bpb",
+            "mmlu_social_sciences_var_bpb",
+            "mmlu_other_var_bpb",
+        ]
+    ],
+    "hellaswag-5shot": ["eval/downstream_bpb/hellaswag_rc_5shot_bpb_bpb"],
+    "arc-e-5shot": ["eval/downstream_bpb/arc_easy_rc_5shot_bpb_bpb"],
+    "arc-c-5shot": ["eval/downstream_bpb/arc_challenge_rc_5shot_bpb_bpb"],
+    "piqa-5shot": ["eval/downstream_bpb/piqa_rc_5shot_bpb_bpb"],
+    "winogrande-5shot": ["eval/downstream_bpb/winogrande_rc_5shot_bpb_bpb"],
+    "openbookqa-5shot": ["eval/downstream_bpb/openbookqa_rc_5shot_bpb_bpb"],
+    "boolq-5shot": ["eval/downstream_bpb/boolq_rc_5shot_bpb_bpb"],
+    "sciq-0shot": ["eval/downstream_bpb/sciq_rc_0shot_bpb_bpb"],
+    "copa-0shot": ["eval/downstream_bpb/copa_rc_0shot_bpb_bpb"],
+    "csqa-5shot": ["eval/downstream_bpb/csqa_rc_5shot_bpb_bpb"],
+    "socialiqa-5shot": ["eval/downstream_bpb/socialiqa_rc_5shot_bpb_bpb"],
+}
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-k", "--key", type=str, default="", help="For avg metrics. Use one of [all-val-lm, all-bpb]"
     )
-    parser.add_argument("--keys", nargs="+", type=str, help="For individual metrics")
     parser.add_argument("--num_to_avg", type=int, default=1, help="Number of final ckpts to average (for final loss fitting)")
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
     args = parser.parse_args()
 
-    if args.key == "all-val-lm":
-        args.keys = [f"eval/{val}/CrossEntropyLoss" for val in validation]
-    elif args.key == "all-bpb":
-        args.keys = [f"eval/downstream_bpb/{task}_bpb" for task in downstream_bpb]
-    elif args.key == "mmlu-var-bpb":
-        args.keys = [
-            f"eval/downstream_bpb/{task}_bpb"
-            for task in [
-                "mmlu_stem_var_bpb",
-                "mmlu_humanities_var_bpb",
-                "mmlu_social_sciences_var_bpb",
-                "mmlu_other_var_bpb",
-            ]
-        ]
+    args.keys = KEYS_BY_KEY[args.key]
 
     return args
 
