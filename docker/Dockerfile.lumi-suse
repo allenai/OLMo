@@ -268,7 +268,7 @@ RUN $WITH_CONDA; set -eux ; \
   VERBOSE=1 \
   V=1 \
   USE_ROCM=1 \
-  python3 setup.py bdist_wheel ; \
+  nice python3 setup.py bdist_wheel ; \
   cp -rf /opt/pytorch-build/dist/* /opt/wheels ; \
   cd / ; rm -rf /opt/pytorch-build
   
