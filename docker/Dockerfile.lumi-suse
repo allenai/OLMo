@@ -287,9 +287,9 @@ RUN $WITH_CONDA; set -eux ; \
 # Pytorch dependees
 #
 
-# ubuntu|pytorch|apex|master|4d04ae6760a53b856b972528adcc1cc1ef0a57c8|https://github.com/ROCmSoftwarePlatform/apex
-# ubuntu|pytorch|torchvision|release/0.19|61943691d3390bd3148a7003b4a501f0e2b7ac6e|https://github.com/pytorch/vision
-# ubuntu|pytorch|torchaudio|release/2.4|e8cbe17769796ce963fbc71b8990f1474774e6d2|https://github.com/pytorch/audio
+# ubuntu|pytorch|apex|release/1.4.0|ac13eaffb8a3dd8d574979263aa24bce2a5966a4|https://github.com/ROCm/apex
+# ubuntu|pytorch|torchvision|release/0.19|fab848869c0f88802297bad43c0ad80f33ecabb4|https://github.com/ROCm/vision
+# ubuntu|pytorch|torchaudio|release/2.4|69d40773dc4ed86643820c21a8a880e4d074a46e|https://github.com/pytorch/audio
 
 RUN $WITH_CONDA; set -eux ; \
   \  
@@ -300,7 +300,7 @@ RUN $WITH_CONDA; set -eux ; \
   \  
   git clone --recursive https://github.com/ROCmSoftwarePlatform/apex /opt/mybuild ; \
   cd /opt/mybuild ; \
-  git checkout -b mydev 4d04ae6760a53b856b972528adcc1cc1ef0a57c8 ; \
+  git checkout -b mydev ac13eaffb8a3dd8d574979263aa24bce2a5966a4 ; \
   git submodule sync ; \
   git submodule update --init --recursive --jobs 0 ; \
   sed -i "s#/opt/rocm-5.0.0#$ROCM_PATH#g" setup.py ; \
@@ -312,7 +312,7 @@ RUN $WITH_CONDA; set -eux ; \
   \  
   git clone https://github.com/pytorch/vision /opt/mybuild ; \
   cd /opt/mybuild ; \
-  git checkout -b mydev 61943691d3390bd3148a7003b4a501f0e2b7ac6e ; \
+  git checkout -b mydev fab848869c0f88802297bad43c0ad80f33ecabb4 ; \
   git submodule sync ; \
   git submodule update --init --recursive --jobs 0 ; \
   CC=gcc-10 CXX=g++-10 FORCE_CUDA=1 nice python3 setup.py bdist_wheel ; \
@@ -323,7 +323,7 @@ RUN $WITH_CONDA; set -eux ; \
   \
   git clone https://github.com/pytorch/audio /opt/mybuild ; \
   cd /opt/mybuild ; \
-  git checkout -b mydev e8cbe17769796ce963fbc71b8990f1474774e6d2 ; \
+  git checkout -b mydev 69d40773dc4ed86643820c21a8a880e4d074a46e ; \
   git submodule sync ; \
   git submodule update --init --recursive --jobs 0 ; \
   ln -s $ROCM_PATH/.info/version $ROCM_PATH/.info/version-dev ; \
