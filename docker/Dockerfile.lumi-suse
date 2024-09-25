@@ -124,7 +124,7 @@ RUN cd /opt && \
 
 # Install libfabric
 RUN set -eux ; \
-  zypper --no-gpg-checks -n install libfabric
+  zypper --no-gpg-checks -n install libfabric-devel
 
 RUN set -eux ; \
   git clone -b cxi https://github.com/ROCmSoftwarePlatform/aws-ofi-rccl /opt/mybuild ; \
