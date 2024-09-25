@@ -189,6 +189,7 @@ ENV WITH_CONDA="source /opt/miniconda3/bin/activate pytorch"
 #
 # Install magma
 # 
+RUN ln -s ${ROCM_PATH} /opt/rocm
 RUN $WITH_CONDA; set -eux ; \
   \
   export MKLROOT=$CONDA_PREFIX ; \
