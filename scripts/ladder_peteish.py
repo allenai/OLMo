@@ -45,7 +45,7 @@ from olmo.util import (
 
 log = logging.getLogger("train")
 
-MODEL_CONFIG_150M = ModelConfig(
+MODEL_CONFIG_190M = ModelConfig(
     d_model=768,
     n_heads=12,
     n_layers=12,
@@ -80,13 +80,13 @@ MODEL_CONFIG_150M = ModelConfig(
 )
 
 MODEL_CONFIGS = {
-    "150M": MODEL_CONFIG_150M,
-    "320M": MODEL_CONFIG_150M.update_with(d_model=1024, n_heads=16, n_layers=16, mlp_ratio=8),
-    "530M": MODEL_CONFIG_150M.update_with(d_model=1344, n_heads=16, n_layers=16, mlp_ratio=8),
-    "680M": MODEL_CONFIG_150M.update_with(d_model=1536, n_heads=16, n_layers=16, mlp_ratio=8),
-    "1B": MODEL_CONFIG_150M.update_with(d_model=2048, n_heads=16, n_layers=16, mlp_ratio=8),
-    "3B": MODEL_CONFIG_150M.update_with(d_model=3328, n_heads=16, n_layers=16, mlp_ratio=8),
-    "7B": MODEL_CONFIG_150M.update_with(
+    "190M": MODEL_CONFIG_190M,
+    "370M": MODEL_CONFIG_190M.update_with(d_model=1024, n_heads=16, n_layers=16, mlp_ratio=8),
+    "600M": MODEL_CONFIG_190M.update_with(d_model=1344, n_heads=16, n_layers=16, mlp_ratio=8),
+    "760M": MODEL_CONFIG_190M.update_with(d_model=1536, n_heads=16, n_layers=16, mlp_ratio=8),
+    "1B": MODEL_CONFIG_190M.update_with(d_model=2048, n_heads=16, n_layers=16, mlp_ratio=8),
+    "3B": MODEL_CONFIG_190M.update_with(d_model=3328, n_heads=16, n_layers=16, mlp_ratio=8),
+    "7B": MODEL_CONFIG_190M.update_with(
         d_model=4096, n_heads=32, n_layers=32, mlp_ratio=0, mlp_hidden_size=22016, init_device="meta"
     ),
 }
@@ -203,10 +203,10 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
     default_device_batch_size = {
-        "150M": 8,
-        "320M": 8,
-        "530M": 4,
-        "680M": 4,
+        "190M": 8,
+        "370M": 8,
+        "600M": 4,
+        "760M": 4,
         "1B": 2,
         "3B": 2,
         "7B": 1,
