@@ -298,8 +298,8 @@ RUN $WITH_CONDA; set -eux ; \
 RUN set -eux; \
   zypper -n refresh ; \
   zypper --no-gpg-checks -n install -y --force-resolution \
-    git cmake gcc10 gcc10-c++
- 
+    git cmake gcc11 gcc11-c++
+
 RUN $WITH_CONDA; set -eux ; \
   rm -rf $CONDA_PREFIX/lib/libstdc++.so* ; \
   \  
