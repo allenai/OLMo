@@ -96,11 +96,12 @@ MODEL_CONFIGS = {
 #     key: flops_for_model(val) for key, val in MODEL_CONFIGS.items()
 # }
 
+# TODO: Update these numbers with actual Peteish count
 MODEL_GFLOPS = {
-    "150M": 1518912000,
-    "320M": 2931234816,
-    "530M": 4507848576,
-    "680M": 5604811776,
+    "190M": 1518912000,
+    "370M": 2931234816,
+    "600M": 4507848576,
+    "760M": 5604811776,
     "1B": 9083695104,
     "3B": 21304118784,
     "7B": 47360532480,
@@ -111,16 +112,16 @@ MODEL_GFLOPS = {
 #     key: size_for_model(val)[1] for key, val in MODEL_CONFIGS.items()
 # }
 
+# These are updated with actual Peteish count
 MODEL_PARAMS = {
-    "150M": 151898880,
-    "320M": 319980544,
-    "530M": 530074944,
-    "680M": 681297408,
-    "1B": 1176832000,
-    "3B": 3002871040,
-    "7B": 6682316800,
+    "190M": 190354176,
+    "370M": 371262464,
+    "600M": 597382464,
+    "760M": 758220288,
+    "1B": 1279395840,
+    "3B": 3169537280,
+    "7B": 6887575552,
 }
-# TODO: Update these numbers with actual Peteish count
 
 
 _number_unit_re = re.compile(r"^([0-9]+)([a-zA-Z]+)$")
@@ -555,6 +556,7 @@ if __name__ == "__main__":
         save_interval=1,
         eval_interval=1,
         alpha_f=0.1,
+        batch_size_divisor=32,
     )
 
     nodecounts_parser = subparsers.add_parser("nodecounts")
