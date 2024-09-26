@@ -338,8 +338,6 @@ RUN $WITH_CONDA; set -eux ; \
   rm -rf /opt/mybuild /opt/mytools
   
 RUN $WITH_CONDA; set -eux ; \
-  pip install /opt/wheels/apex-*.whl
-RUN $WITH_CONDA; set -eux ; \
   pip install /opt/wheels/torchvision-*.whl
 RUN $WITH_CONDA; set -eux ; \
   pip install /opt/wheels/torchaudio-*.whl
