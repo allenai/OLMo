@@ -294,17 +294,21 @@ RUN $WITH_CONDA; set -eux ; \
 RUN $WITH_CONDA; set -eux ; \
   \  
   pip install packaging
+
+RUN set -eux; \
+  zypper -n refresh ; \
+  zypper --no-gpg-checks -n install -y --force-resolution \
+    git cmake gcc10 gcc10-c++
  
 RUN $WITH_CONDA; set -eux ; \
-  conda install -y -c conda-forge libstdcxx-ng=10.4.0 ;
-
-RUN $WITH_CONDA; set -eux ; \ 
+  rm -rf $CONDA_PREFIX/lib/libstdc++.so* ; \
+  \  
   git clone --recursive https://github.com/ROCmSoftwarePlatform/apex /opt/mybuild ; \
   cd /opt/mybuild ; \
   git checkout -b mydev ac13eaffb8a3dd8d574979263aa24bce2a5966a4 ; \
   git submodule sync ; \
   git submodule update --init --recursive --jobs 0 ; \
-  CC=gcc-10 CXX=g++-10 nice pip install -v --no-build-isolation --config-settings "--build-option=--cpp_ext" --config-settings "--build-option=--cuda_ext" ./ ; \
+  CC=gcc-11 CXX=g++-11 nice pip install -v --no-build-isolation --config-settings "--build-option=--cpp_ext" --config-settings "--build-option=--cuda_ext" ./ ; \
   rm -rf /opt/mybuild 
 
 RUN $WITH_CONDA; set -eux ; \
@@ -314,7 +318,7 @@ RUN $WITH_CONDA; set -eux ; \
   git checkout -b mydev fab848869c0f88802297bad43c0ad80f33ecabb4 ; \
   git submodule sync ; \
   git submodule update --init --recursive --jobs 0 ; \
-  CC=gcc-10 CXX=g++-10 FORCE_CUDA=1 nice python3 setup.py bdist_wheel ; \
+  CC=gcc-11 CXX=g++-11 FORCE_CUDA=1 nice python3 setup.py bdist_wheel ; \
   cp -rf dist/* /opt/wheels ; \
   rm -rf /opt/mybuild 
  
@@ -327,9 +331,9 @@ RUN $WITH_CONDA; set -eux ; \
   git submodule update --init --recursive --jobs 0 ; \
   ln -s $ROCM_PATH/.info/version $ROCM_PATH/.info/version-dev ; \
   mkdir /opt/mytools ; \
-  ln -s /usr/bin/gcc-10 /opt/mytools/gcc ; \
-  ln -s /usr/bin/g++-10 /opt/mytools/g++ ; \
-  PATH=$PATH:/opt/mytools CC=gcc-10 CXX=g++-10 FORCE_CUDA=1 nice python3 setup.py bdist_wheel ; \
+  ln -s /usr/bin/gcc-11 /opt/mytools/gcc ; \
+  ln -s /usr/bin/g++-11 /opt/mytools/g++ ; \
+  PATH=$PATH:/opt/mytools CC=gcc-11 CXX=g++-11 FORCE_CUDA=1 nice python3 setup.py bdist_wheel ; \
   cp -rf dist/* /opt/wheels ; \
   rm -rf /opt/mybuild /opt/mytools
   
