@@ -313,7 +313,7 @@ RUN $WITH_CONDA; set -eux ; \
 
 RUN $WITH_CONDA; set -eux ; \
   \  
-  git clone https://github.com/pytorch/vision /opt/mybuild ; \
+  git clone https://github.com/ROCm/vision /opt/mybuild ; \
   cd /opt/mybuild ; \
   git checkout -b mydev fab848869c0f88802297bad43c0ad80f33ecabb4 ; \
   git submodule sync ; \
