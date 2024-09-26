@@ -41,7 +41,6 @@ Note that the following items should be updated in the above slurm script skelet
 * Conda environment name that you just created - `conda activate </path/to/your/PLMo/conda-environment>`
 * Path to the folder to save the checkpoints - `export CHECKPOINTS_PATH=</path/to/save/checkpoints`
 ***
-***
 
 <div align="center">
   <!-- <img src="https://github.com/allenai/OLMo/assets/8812459/774ac485-a535-4768-8f7c-db7be20f5cc3" width="300"/> -->
