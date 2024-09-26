@@ -24,7 +24,7 @@ cd OLMo
 pip install -e .[all]
 ```
 ## 2. Run OLMo on the Kempner Institute HPC Cluster
-Now that we have the Conda environment ready, it's time to run OLMo. To do that, we need a config file to pass it to the training script to specify all OLMo configs and hyperparameters as well as a slurm script to submit the it on the HPC cluster. 
+Now that we have the Conda environment ready, it's time to run OLMo. To do that, we need a config file to pass it to the training script to specify all OLMo configs and hyperparameters as well as a slurm script to submit the job on the HPC cluster. 
 
 ### 2.1. Config file
  A config file has been provided in [configs/kempner_dev/7b_Olmo.yaml](configs/kempner_dev/7b_Olmo.yaml) which enables running of a 7b OLMo model training on 4 GPUs using the `c4` data which is tokenized by `t5-base` tokenizer. You can take this config file and may adjust its different hyperparameters based on your need.
