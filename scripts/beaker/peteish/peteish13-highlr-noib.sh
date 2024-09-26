@@ -31,7 +31,7 @@ export TORCH_DIST_INIT_BARRIER=1
 export OLMO_SHARED_FS=1
 
 export NCCL_DEBUG=INFO
-export NCCL_IB_HCA="^mlx"
+export NCCL_IB_HCA="=mlx5_0,mlx5_1,mlx5_2,mlx5_3"
 export NCCL_SOCKET_IFNAME="=bond0"
 # export NCCL_IB_GID_INDEX=0
 
