@@ -98,6 +98,12 @@ class ICLMetric(Metric):
             if doc_id.item() not in label_dict:
                 label_dict[doc_id.item()] = label_id.item()
 
+        log.info(f"len of self.loglikelihoods: {len(self.loglikelihoods)}")
+        log.info(f"len of self.ctx_lens: {len(self.ctx_lens)}")
+        log.info(f"len of self.cont_lens: {len(self.cont_lens)}")
+        log.info(f"len of self.cont_str_lens: {len(self.cont_str_lens)}")
+        log.info(f"len of self.cont_byte_lens: {len(self.cont_byte_lens)}")
+
         for values_list, key in zip([self.loglikelihoods, self.ctx_lens, self.cont_lens, self.cont_str_lens, self.cont_byte_lens], ["loglikelihoods", "ctx_lens", "cont_lens", "cont_str_lens", "cont_byte_lens"]):
             for doc_id, cont_id, value in values_list:
                 d = batches_dict_values[key]
