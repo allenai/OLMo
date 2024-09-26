@@ -296,7 +296,9 @@ RUN $WITH_CONDA; set -eux ; \
   pip install packaging
  
 RUN $WITH_CONDA; set -eux ; \
-  conda install -y -c conda-forge gcc=10.4.0 ; \
+  conda install -y -c conda-forge libstdcxx-ng=10.4.0 ;
+
+RUN $WITH_CONDA; set -eux ; \ 
   git clone --recursive https://github.com/ROCmSoftwarePlatform/apex /opt/mybuild ; \
   cd /opt/mybuild ; \
   git checkout -b mydev ac13eaffb8a3dd8d574979263aa24bce2a5966a4 ; \
