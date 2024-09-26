@@ -33,6 +33,10 @@ class ICLMetric(Metric):
 
         self.add_state("loglikelihoods", default=[], dist_reduce_fx=None)
         self.add_state("labels", default=[], dist_reduce_fx=None)
+        self.add_state("ctx_lens", default=[], dist_reduce_fx=None)
+        self.add_state("cont_lens", default=[], dist_reduce_fx=None)
+        self.add_state("cont_str_lens", default=[], dist_reduce_fx=None)
+        self.add_state("cont_byte_lens", default=[], dist_reduce_fx=None)
 
     def reset(
         self,
