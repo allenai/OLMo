@@ -296,8 +296,6 @@ RUN $WITH_CONDA; set -eux ; \
   pip install packaging
  
 RUN $WITH_CONDA; set -eux ; \
-  rm -rf $CONDA_PREFIX/lib/libstdc++.so* ; \
-  \  
   git clone --recursive https://github.com/ROCmSoftwarePlatform/apex /opt/mybuild ; \
   cd /opt/mybuild ; \
   git checkout -b mydev ac13eaffb8a3dd8d574979263aa24bce2a5966a4 ; \
