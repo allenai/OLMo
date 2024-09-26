@@ -47,8 +47,7 @@ torchrun \
     configs/peteish13-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=200 \
-      --fsdp.sharding_strategy=HYBRID_SHARD \
-      --fsdp.hybrid_sharding_num_model_replicas=$NUM_NODES \
+      --fsdp.sharding_strategy=FULL_SHARD \
       --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/${GANTRY_TASK_NAME}" \
       --remote_save_folder=null \
       --wandb=null \
