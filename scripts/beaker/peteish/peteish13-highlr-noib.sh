@@ -50,6 +50,9 @@ torchrun \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas=$NUM_NODES \
       --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/${GANTRY_TASK_NAME}" \
+      --remote_save_folder=null \
+      --wandb=null \
+      --no_pre_train_checkpoint \
       --save_overwrite \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=4 \
