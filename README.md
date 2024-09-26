@@ -46,6 +46,7 @@ pip install -e .[all]
 ```
 ## Run OLMo on the Kempner Institute HPC Cluster
 Now that we have the Conda environment ready, it's time to run OLMo. To do that, OLMo need a config file to specify all configs and hyperparameters. One can use [configs/kempner_dev/7b_Olmo.yaml](configs/kempner_dev/7b_Olmo.yaml) which provides the config to run 7b OLMo on 4 GPUs. For this, the `c4` data which is tokenized by `t5-base` tokenizer has been used.
+
 Note that one can adjust the config file to try different hyperparameters and configs. One should at least modify the wandb section of the config file according to their wandb account.
 ```{code} bash
 wandb:
