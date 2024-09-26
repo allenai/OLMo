@@ -1016,6 +1016,10 @@ class Trainer:
                 if evaluator.subset_num_batches is not None
                 else self.cfg.eval_subset_num_batches
             )
+            log.info(f"Running evaluation on {num_eval_batches} batches...")
+            log.info(f"(eval_loader has {len(evaluator.eval_loader)} batches)")
+            log.info(f"(evaluator.subset_num_batches={evaluator.subset_num_batches})")
+            log.info(f"(cfg.eval_subset_num_batches={self.cfg.eval_subset_num_batches})")
             if num_eval_batches > 0:
                 num_eval_batches = min(num_eval_batches, len(evaluator.eval_loader))
                 eval_batches = islice(eval_batches, num_eval_batches)
