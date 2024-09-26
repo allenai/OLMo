@@ -182,7 +182,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
 
     global_batch_size = 16
     device_batch_size = 16
-    device_eval_batch_size = 16
+    device_eval_batch_size = 16*8
     eval_subset_num_batches = 100
     eval_interval = 50
     no_pre_train_checkpoint = True

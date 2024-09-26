@@ -126,6 +126,9 @@ class ICLMetric(Metric):
             cont_str_lens = torch.tensor(list(batches_dict_values["cont_str_lens"][doc_id].values()))
             cont_byte_lens = torch.tensor(list(batches_dict_values["cont_byte_lens"][doc_id].values()))
 
+            log.info(f"doc_id: {doc_id}, keys of loglikelihoods: {batches_dict_values['loglikelihoods'][doc_id].keys()}")
+            log.info(f"doc_id: {doc_id}, keys of cont_str_lens: {batches_dict_values['cont_str_lens'][doc_id].keys()}")
+
             if skip_document:
                 continue
             if "ce_loss" in self.metric_type:
