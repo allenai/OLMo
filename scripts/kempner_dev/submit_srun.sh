@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=7b_olmo_1n4g
-#SBATCH --account=kempner_dev
+#SBATCH --account=<account_name>
 #SBATCH --output /path/to/your/run_results/%x_%j/output_%j.out  # File to which STDOUT will be written, %j inserts jobid
 #SBATCH --error /path/to/your/run_results/%x_%j/error_%j.out  # File to which STDERR will be written, %j inserts jobid
 #SBATCH --nodes=1              # Total number of nodes
