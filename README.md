@@ -47,14 +47,12 @@ pip install -e .[all]
 ## Run OLMo on the Kempner Institute HPC Cluster
 Now that we have the Conda environment ready, it's time to run OLMo. To do that, OLMo need a config file to specify all configs and hyperparameters. One can use [configs/kempner_dev/7b_Olmo.yaml](configs/kempner_dev/7b_Olmo.yaml) which provides the config to run 7b OLMo on 4 GPUs. For this, the `c4` data which is tokenized by `t5-base` tokenizer has been used.
 
-To run OLMo on the HPC cluster using slurm, one can use slurm skeleton in [scripts/kempner_dev/submit_srun.sh](scripts/kempner_dev/submit_srun.sh). This will run the 7b OLMo using 4 GPUs on a single node.
-```{note}
-You need to update the following in the script
+To run OLMo on the HPC cluster using slurm, one can use slurm script skeleton in [scripts/kempner_dev/submit_srun.sh](scripts/kempner_dev/submit_srun.sh). This will run the 7b OLMo using 4 GPUs on a single node.
+Note that the following items should be updated in the above slurm script skeleton:
 * Put your account name to use the cluster - `#SBATCH --account=<account_name>`
 * Path for slurm output files - `#SBATCH --output <output_path>` and `#SBATCH --error <error_output_path>`
 * Conda environment name that you just created - `conda activate </path/to/your/PLMo/conda-environment>`
 * Path to the folder to save the checkpoints - `export CHECKPOINTS_PATH=</path/to/save/checkpoints`
-```
 
 ## Models
 
