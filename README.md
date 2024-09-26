@@ -1,28 +1,7 @@
-<div align="center">
-  <!-- <img src="https://github.com/allenai/OLMo/assets/8812459/774ac485-a535-4768-8f7c-db7be20f5cc3" width="300"/> -->
-  <img src="https://allenai.org/olmo/olmo-7b-animation.gif" alt="OLMo Logo" width="800" style="margin-left:'auto' margin-right:'auto' display:'block'"/>
-  <br>
-  <br>
-  <h1>OLMo: Open Language Model</h1>
-</div>
-<p align="center">
-  <a href="https://github.com/allenai/OLMo/blob/main/LICENSE">
-    <img alt="GitHub License" src="https://img.shields.io/github/license/allenai/OLMo">
-  </a>
-  <a href="https://github.com/allenai/OLMo/releases">
-    <img alt="GitHub release" src="https://img.shields.io/github/release/allenai/OLMo.svg">
-  </a>
-  <a href="https://arxiv.org/pdf/2402.00838.pdf">
-    <img alt="Paper URL" src="https://img.shields.io/badge/arxiv-2402.00838-blue">
-  </a>
-</p>
-
-OLMo is a repository for training and using AI2's state-of-the-art open language models. 
-It is built by scientists, for scientists.
-
-## Installation On the Kempner Institute HPC Cluster 
-
-### 1. Create conda environment and activate it
+# OLMo On The Kempner Institute HPC Cluster
+This section has been added to OLMo `README` page for Kempner Community to help them with a step by step guideline to run OLMo on the HPC cluster and start exploring.
+## Installation on The HPC Cluster 
+### 1. Create Conda Environment and Activate it
 First create your conda environment using the following command:
 ```bash
 conda create --prefix [path_to_your_env] python=3.10
@@ -36,7 +15,7 @@ First install [PyTorch](https://pytorch.org) according to the instructions speci
 ```bash
 pip3 install torch
 ```
-### 3. Install OLMo from source code 
+### 3. Install OLMo from Source Code 
 To install from source (recommended for training/fine-tuning) run:
 
 ```bash
@@ -61,6 +40,48 @@ Note that the following items should be updated in the above slurm script skelet
 * Path for slurm output files - `#SBATCH --output <output_path>` and `#SBATCH --error <error_output_path>`
 * Conda environment name that you just created - `conda activate </path/to/your/PLMo/conda-environment>`
 * Path to the folder to save the checkpoints - `export CHECKPOINTS_PATH=</path/to/save/checkpoints`
+***
+***
+
+<div align="center">
+  <!-- <img src="https://github.com/allenai/OLMo/assets/8812459/774ac485-a535-4768-8f7c-db7be20f5cc3" width="300"/> -->
+  <img src="https://allenai.org/olmo/olmo-7b-animation.gif" alt="OLMo Logo" width="800" style="margin-left:'auto' margin-right:'auto' display:'block'"/>
+  <br>
+  <br>
+  <h1>OLMo: Open Language Model</h1>
+</div>
+<p align="center">
+  <a href="https://github.com/allenai/OLMo/blob/main/LICENSE">
+    <img alt="GitHub License" src="https://img.shields.io/github/license/allenai/OLMo">
+  </a>
+  <a href="https://github.com/allenai/OLMo/releases">
+    <img alt="GitHub release" src="https://img.shields.io/github/release/allenai/OLMo.svg">
+  </a>
+  <a href="https://arxiv.org/pdf/2402.00838.pdf">
+    <img alt="Paper URL" src="https://img.shields.io/badge/arxiv-2402.00838-blue">
+  </a>
+</p>
+
+OLMo is a repository for training and using AI2's state-of-the-art open language models. 
+It is built by scientists, for scientists.
+
+## Installation
+
+First install [PyTorch](https://pytorch.org) according to the instructions specific to your operating system.
+
+To install from source (recommended for training/fine-tuning) run:
+
+```bash
+git clone https://github.com/allenai/OLMo.git
+cd OLMo
+pip install -e .[all]
+```
+
+Otherwise you can install the model code by itself directly from PyPI with:
+
+```bash
+pip install ai2-olmo
+```
 
 ## Models
 
