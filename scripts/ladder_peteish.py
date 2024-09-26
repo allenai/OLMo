@@ -156,7 +156,7 @@ def parse_run_name(name: str):
     return name, size, length
 
 
-def get_batch_size(model_config, model_size):
+def get_batch_size(model_config, model_size, batch_size_divisor):
     # calculate batch size according to
     # https://www.semanticscholar.org/reader/5585191b1b479346ecf173be3b35c8313b77d457
     # holds only for a sequence length of 2048 (but could probably be easily adapted)
@@ -168,9 +168,9 @@ def get_batch_size(model_config, model_size):
     #     global_batch_size = 160 * ((model_size + 2048 * model_config.n_layers * model_config.d_model) / 108000000) ** (2 / 3)
     # else:
     #     raise RuntimeError("`max_sequence_length needs` to be 2048 or 4096")
-    global_batch_size /= 8 * 4  # 8 GPUs per node, microbatch size 4
+    global_batch_size /= batch_size_divisor
     global_batch_size = round(global_batch_size)
-    global_batch_size *= 8 * 4
+    global_batch_size *= batch_size_divisor
     return global_batch_size
 
 
@@ -199,15 +199,10 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
 
     assert model_config.max_sequence_length in [2048, 4096]
 
-    if args.batch_size < 0:
-        global_batch_size = get_batch_size(model_config, model_size)
-    else:
-        global_batch_size = args.batch_size  # 128, 256, 512, 1024
-
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
     default_device_batch_size = {
-        "150M": 16,
+        "150M": 8,
         "320M": 8,
         "530M": 4,
         "680M": 4,
@@ -217,6 +212,11 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     }.get(args.model, 4)
 
     device_batch_size = args.device_batch_size if args.device_batch_size > 0 else default_device_batch_size
+
+    if args.batch_size < 0:
+        global_batch_size = get_batch_size(model_config, model_size, args.batch_size_divisor)
+    else:
+        global_batch_size = args.batch_size  # 128, 256, 512, 1024
 
     assert global_batch_size % device_batch_size == 0
 
@@ -589,6 +589,13 @@ if __name__ == "__main__":
         subparser.add_argument("--length", type=str, default="2xC")
         subparser.add_argument("--name", type=str, required=True)
         subparser.add_argument("--batch_size", type=int, required=False, default=-1)
+        subparser.add_argument(
+            "--batch_size_divisor",
+            type=int,
+            required=False,
+            default=32,
+            help="Global batch size should be divisible by this number",
+        )
         subparser.add_argument("--device_batch_size", type=int, required=False, default=-1)
         subparser.add_argument(
             "--s3",
