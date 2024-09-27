@@ -35,6 +35,7 @@ use std::fmt;
 use std::iter;
 use std::slice;
 use std::u64;
+use std::collections::HashMap;
 
 use self::SuffixType::{Ascending, Descending, Valley};
 
@@ -695,7 +696,7 @@ impl PartialEq for SuffixType {
 
 struct Bins {
     alphas: Vec<u64>,
-    sizes: Vec<u64>,
+    sizes: HashMap<u64, u64>,
     ptrs: Vec<u64>,
 }
 
@@ -703,7 +704,7 @@ impl Bins {
     fn new() -> Bins {
         Bins {
             alphas: Vec::with_capacity(10_000),
-            sizes: Vec::with_capacity(10_000),
+            sizes: HashMap::with_capacity(10_000),
             ptrs: Vec::new(), // re-allocated later, no worries
         }
     }
@@ -713,9 +714,7 @@ impl Bins {
         I: Iterator<Item = u64>,
     {
         self.alphas.clear();
-        for size in self.sizes.iter_mut() {
-            *size = 0;
-        }
+        self.sizes.clear();
         for c in chars {
             self.inc_size(c);
             if self.size(c) == 1 {
@@ -762,15 +761,12 @@ impl Bins {
 
     #[inline]
     fn inc_size(&mut self, c: u64) {
-        if c as usize >= self.sizes.len() {
-            self.sizes.resize(1 + (c as usize), 0);
-        }
-        self.sizes[c as usize] += 1;
+        *self.sizes.entry(c).or_insert(0) += 1;
     }
 
     #[inline]
     fn size(&self, c: u64) -> u64 {
-        self.sizes[c as usize]
+        *self.sizes.get(&c).unwrap_or(&0)
     }
 }
 

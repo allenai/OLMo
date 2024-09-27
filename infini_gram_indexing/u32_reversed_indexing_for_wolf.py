@@ -34,7 +34,7 @@ def tokenize(args):
             byte_arr = f.read()
         arr = np.frombuffer(byte_arr, dtype=np.uint32)
         if arr[-1] != eos_id:
-            arr = np.concatenate((arr, [eos_id]))
+            arr = np.concatenate((arr, np.array([eos_id], dtype=np.uint32)))
         arr = arr[::-1].copy()
         indices = np.where(arr == eos_id)[0]
         for i in indices:
