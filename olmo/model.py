@@ -737,6 +737,8 @@ class OLMoSequentialBlock(OLMoBlock):
                 qkv = self._activation_checkpoint_fn(self.attn_norm, x)
             else:
                 qkv = self.attn_norm(x)
+        else:
+            qkv = x
 
         qkv = self.att_proj(qkv)
 
