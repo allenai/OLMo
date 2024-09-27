@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 class InfiniGramEngine:
 
-    def __init__(self, cfg, max_batch_size_per_device, max_seq_len, local_rank, global_rank, local_world_size, world_size):
+    def __init__(self, cfg, eos_token_id, max_batch_size_per_device, max_seq_len, local_rank, global_rank, local_world_size, world_size):
 
         log.info(f'[infini-gram] Initializing engine ...')
 
@@ -52,10 +52,9 @@ class InfiniGramEngine:
                 max_batch_size = (self.nnodes * max_batch_size_per_device) if cfg.sharded else max_batch_size_per_device
                 if cfg.dtype == 'u16':
                     os.popen(f'g++ -std=c++20 -O3 -pthread -Wno-stringop-overread infini_gram/infini_gram.cpp -o infini_gram/infini_gram').read()
-                    subprocess.Popen(f'./infini_gram/infini_gram {cfg.index_dir} {local_world_size} {max_batch_size} {max_seq_len} {cfg.support} {cfg.mode} >> {cfg.cpp_log_path} 2>&1', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 else:
-                    os.popen(f'g++ -std=c++20 -O3 -pthread -Wno-stringop-overread infini_gram/infini_gram_u32.cpp -o infini_gram/infini_gram_u32').read()
-                    subprocess.Popen(f'./infini_gram/infini_gram_u32 {cfg.index_dir} {local_world_size} {max_batch_size} {max_seq_len} {cfg.support} {cfg.mode} >> {cfg.cpp_log_path} 2>&1', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    os.popen(f'g++ -std=c++20 -O3 -pthread -Wno-stringop-overread infini_gram/infini_gram.cpp -o infini_gram/infini_gram -D USE_U32').read()
+                subprocess.Popen(f'./infini_gram/infini_gram {cfg.index_dir} {local_world_size} {max_batch_size} {max_seq_len} {cfg.support} {cfg.mode} {eos_token_id} >> {cfg.cpp_log_path} 2>&1', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             except Exception as e:
                 log.error(f'[infini-gram] Engine failed to initialize: {e}')
                 exit(1)

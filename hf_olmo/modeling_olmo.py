@@ -58,6 +58,7 @@ class OLMoForCausalLM(PreTrainedModel):
         if config.infgram:
             self.infinigram_engine = InfiniGramEngine(
                 cfg=config.infgram,
+                eos_token_id=config.eos_token_id,
                 max_batch_size_per_device=max_batch_size_per_device,
                 max_seq_len=config.max_sequence_length,
                 local_rank=local_rank,

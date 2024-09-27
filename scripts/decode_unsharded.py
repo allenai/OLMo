@@ -15,6 +15,7 @@ def main(cfg: TrainConfig) -> None:
     )
     infinigram_engine = InfiniGramEngine(
         cfg=infgram_config,
+        eos_token_id=cfg.model.eos_token_id,
         max_batch_size_per_device=1024,
         max_seq_len=cfg.model.max_sequence_length,
         local_rank=0,

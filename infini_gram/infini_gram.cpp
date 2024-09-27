@@ -10,8 +10,8 @@ void rank_processor(const size_t rank, const U64 MAX_BATCH_SIZE, const U64 MAX_S
     ofstream fifo_response("/tmp/infini_gram_response_" + to_string(rank), ios::binary);
 
     U64 batch_size, seq_len, support, method, min_cnt;
-    vector<U16> input_ids(MAX_BATCH_SIZE * MAX_SEQ_LEN);
-    vector<U16> output_ids(MAX_BATCH_SIZE * MAX_SEQ_LEN * MAX_SUPPORT);
+    vector<TokenId> input_ids(MAX_BATCH_SIZE * MAX_SEQ_LEN);
+    vector<TokenId> output_ids(MAX_BATCH_SIZE * MAX_SEQ_LEN * MAX_SUPPORT);
 
     while (true) {
         auto start_time = chrono::high_resolution_clock::now();
@@ -34,7 +34,7 @@ void rank_processor(const size_t rank, const U64 MAX_BATCH_SIZE, const U64 MAX_S
             cerr << "Error: support = " << support << " > " << MAX_SUPPORT << endl;
             exit(1);
         }
-        fifo_query.read(reinterpret_cast<char*>(input_ids.data()), batch_size * seq_len * sizeof(U16));
+        fifo_query.read(reinterpret_cast<char*>(input_ids.data()), batch_size * seq_len * sizeof(TokenId));
         if (MODE == "debug") {
             string print_str = "[rank " + to_string(rank) + "] Request: B = " + to_string(batch_size) + ", L = " + to_string(seq_len) + ", support = " + to_string(support) + ", min_cnt = " + to_string(min_cnt) + ", input_ids = ";
             for (int i = 0; i < 10; i++) print_str += to_string(input_ids[i]) + " "; print_str += "...";
@@ -45,7 +45,7 @@ void rank_processor(const size_t rank, const U64 MAX_BATCH_SIZE, const U64 MAX_S
         auto latency_us_read = chrono::duration_cast<chrono::microseconds>(end_time_read - start_time_read).count();
 
         auto start_time_decode = chrono::high_resolution_clock::now();
-        vector<vector<U16>> input_idss(batch_size, vector<U16>(seq_len));
+        vector<vector<TokenId>> input_idss(batch_size, vector<TokenId>(seq_len));
         for (auto b = 0; b < batch_size; b++) {
             copy(input_ids.begin() + b * seq_len, input_ids.begin() + (b+1) * seq_len, input_idss[b].begin());
         }
@@ -75,7 +75,7 @@ void rank_processor(const size_t rank, const U64 MAX_BATCH_SIZE, const U64 MAX_S
             for (int i = 0; i < 10; i++) print_str += " " + to_string(output_ids[batch_size * seq_len * support - 10 + i]);
             cout << print_str << endl;
         }
-        fifo_response.write(reinterpret_cast<const char*>(output_ids.data()), batch_size * seq_len * support * sizeof(U16));
+        fifo_response.write(reinterpret_cast<const char*>(output_ids.data()), batch_size * seq_len * support * sizeof(TokenId));
         fifo_response.flush();
         auto end_time_write = chrono::high_resolution_clock::now();
         auto latency_us_write = chrono::duration_cast<chrono::microseconds>(end_time_write - start_time_write).count();
@@ -94,8 +94,8 @@ int main(int argc, char const *argv[]) {
     cout << endl;
     cout << "C++ engine rebooting" << endl;
 
-    if (argc != 7) {
-        cerr << "Usage: " << argv[0] << " <index_dir> <local_world_size> <MAX_BATCH_SIZE> <MAX_SEQ_LEN> <MAX_SUPPORT> <MODE>" << endl;
+    if (argc != 8) {
+        cerr << "Usage: " << argv[0] << " <index_dir> <local_world_size> <MAX_BATCH_SIZE> <MAX_SEQ_LEN> <MAX_SUPPORT> <MODE> <EOS_TOKEN_ID>" << endl;
         exit(1);
     }
     const string index_dir = argv[1];
@@ -104,8 +104,8 @@ int main(int argc, char const *argv[]) {
     const U64 MAX_SEQ_LEN = std::stoi(argv[4]);
     const U64 MAX_SUPPORT = std::stoi(argv[5]);
     const string MODE = argv[6];
+    const TokenId eos_token_id = std::stoi(argv[7]);
 
-    const U16 eos_token_id = 50279;
     shared_ptr<NGramLanguageModeling> lm = make_shared<NGramLanguageModeling>(index_dir, eos_token_id);
 
     cout << "C++ engine rebooted" << endl;

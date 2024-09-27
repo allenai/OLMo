@@ -240,6 +240,7 @@ class Trainer:
     def __post_init__(self):
         self.infinigram_engine = InfiniGramEngine(
             cfg=self.cfg.infgram,
+            eos_token_id=self.cfg.model.eos_token_id,
             max_batch_size_per_device=self.cfg.global_train_batch_size // get_world_size(),
             max_seq_len=self.cfg.model.max_sequence_length,
             local_rank=get_local_rank(),

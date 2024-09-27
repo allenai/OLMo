@@ -12,7 +12,7 @@ cfg = InfgramConfig(index_dir=index_dir, dtype='u32')
 max_batch_size = 1024
 max_seq_len = 4096
 
-engine = InfiniGramEngine(cfg, max_batch_size_per_device=max_batch_size, max_seq_len=max_seq_len, local_rank=0, global_rank=0, local_world_size=1, world_size=1)
+engine = InfiniGramEngine(cfg, eos_token_id=100257, max_batch_size_per_device=max_batch_size, max_seq_len=max_seq_len, local_rank=0, global_rank=0, local_world_size=1, world_size=1)
 
 tokenizer = AutoTokenizer.from_pretrained("allenai/dolma2-tokenizer", add_bos_token=False, add_eos_token=False, trust_remote_code=True)
 
