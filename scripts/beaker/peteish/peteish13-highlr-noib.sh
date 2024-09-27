@@ -55,7 +55,7 @@ torchrun \
       --save_overwrite \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=4 \
-      --activation_checkpointing=null \
+      --activation_checkpointing=one_in_three \
       --fused_loss=true \
       --model.flash_attention=true \
       --data.num_workers=8 \
