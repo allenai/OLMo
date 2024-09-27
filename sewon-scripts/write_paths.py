@@ -1,11 +1,17 @@
 
 
+old_path = "/weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0.1/"
+new_path = "/weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/books3/"
 
-with open("output.txt", "w") as f:
-    for repeat_idx in range(10):
-        f.write("    # {}\n".format(repeat_idx))
-        for shard_idx in range(5):
-            for file_idx in range(10):
-                f.write("    - /weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/SD-B34v0/shard{}/part-{}-00000.npy\n".format(shard_idx, str(file_idx).zfill(2)))
-        f.write("\n")
+with open("sewon-configs/peteish7-anneal-B3x50-weka.yaml", "r") as f:
+    lines = f.readlines()
+
+for i, line in enumerate(lines):
+    lines[i] = line.replace(old_path, new_path)
+
+with open("sewon-configs/peteish7-anneal-B3x50-weka.yaml", "w") as f:
+    for line in lines:
+        f.write(line)
+
+
 
