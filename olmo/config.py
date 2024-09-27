@@ -243,6 +243,7 @@ class InfgramConfig(BaseConfig):
     prefetch: Optional[bool] = False
     method_train: Optional[int] = 2
     method_eval: Optional[int] = 2
+    dtype: Optional[str] = 'u16'
 
 
 @dataclass

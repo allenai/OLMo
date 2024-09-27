@@ -1,1 +1,1 @@
-from .infini_gram import InfinigramEngine
+from .infini_gram import InfiniGramEngine

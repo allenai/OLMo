@@ -1,0 +1,19 @@
+[package]
+name = "suffix_array_u32" # the name of the package
+version = "1.0.0"    # the current version, obeying semver
+
+authors = ["Jiacheng (Gary) Liu <liujc@cs.washington.edu>"]
+
+[profile.dev]
+opt-level = 3
+overflow-checks = false  # Go FAAASSTTT!
+
+[profile.release]
+opt-level = 3
+overflow-checks = false  # Go FAAASSTTT!
+
+[dependencies]
+zstd = "0.5"
+crossbeam = "0.3"
+filebuffer = "0.4"
+clap = { version = "3.1.1", features = ["derive"] }

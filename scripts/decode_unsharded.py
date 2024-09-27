@@ -6,14 +6,14 @@ from olmo.model import OLMo
 from olmo.checkpoint import load_state_dict
 from olmo.util import clean_opt
 from olmo.exceptions import OLMoCliError
-from infini_gram import InfinigramEngine
+from infini_gram import InfiniGramEngine
 
 def main(cfg: TrainConfig) -> None:
     infgram_config = InfgramConfig(
         index_dir='/net/nfs.cirrascale/allennlp/jiachengl/hb-wolf/index/v5_dolma-v1_7-wiki_olmo',
         mode='debug', separate_wte=True, support=1,
     )
-    infinigram_engine = InfinigramEngine(
+    infinigram_engine = InfiniGramEngine(
         cfg=infgram_config,
         max_batch_size_per_device=1024,
         max_seq_len=cfg.model.max_sequence_length,

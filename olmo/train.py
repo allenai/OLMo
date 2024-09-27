@@ -57,7 +57,7 @@ from .torch_util import (
     synchronize_value,
 )
 from .util import upload
-from infini_gram import InfinigramEngine
+from infini_gram import InfiniGramEngine
 
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 
@@ -238,7 +238,7 @@ class Trainer:
     last_unsharded_checkpoint_step: Optional[int] = None
 
     def __post_init__(self):
-        self.infinigram_engine = InfinigramEngine(
+        self.infinigram_engine = InfiniGramEngine(
             cfg=self.cfg.infgram,
             max_batch_size_per_device=self.cfg.global_train_batch_size // get_world_size(),
             max_seq_len=self.cfg.model.max_sequence_length,

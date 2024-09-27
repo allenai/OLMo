@@ -12,7 +12,7 @@ assert sys.byteorder == 'little'
 
 log = logging.getLogger(__name__)
 
-class InfinigramEngine:
+class InfiniGramEngine:
 
     def __init__(self, cfg, max_batch_size_per_device, max_seq_len, local_rank, global_rank, local_world_size, world_size):
 
@@ -50,8 +50,12 @@ class InfinigramEngine:
             try:
                 log.info(f'Loading index from {cfg.index_dir}')
                 max_batch_size = (self.nnodes * max_batch_size_per_device) if cfg.sharded else max_batch_size_per_device
-                os.popen(f'g++ -std=c++20 -O3 -pthread -Wno-stringop-overread infini_gram/infini_gram.cpp -o infini_gram/infini_gram').read()
-                subprocess.Popen(f'./infini_gram/infini_gram {cfg.index_dir} {local_world_size} {max_batch_size} {max_seq_len} {cfg.support} {cfg.mode} >> {cfg.cpp_log_path} 2>&1', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                if cfg.dtype == 'u16':
+                    os.popen(f'g++ -std=c++20 -O3 -pthread -Wno-stringop-overread infini_gram/infini_gram.cpp -o infini_gram/infini_gram').read()
+                    subprocess.Popen(f'./infini_gram/infini_gram {cfg.index_dir} {local_world_size} {max_batch_size} {max_seq_len} {cfg.support} {cfg.mode} >> {cfg.cpp_log_path} 2>&1', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                else:
+                    os.popen(f'g++ -std=c++20 -O3 -pthread -Wno-stringop-overread infini_gram/infini_gram_u32.cpp -o infini_gram/infini_gram_u32').read()
+                    subprocess.Popen(f'./infini_gram/infini_gram_u32 {cfg.index_dir} {local_world_size} {max_batch_size} {max_seq_len} {cfg.support} {cfg.mode} >> {cfg.cpp_log_path} 2>&1', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             except Exception as e:
                 log.error(f'[infini-gram] Engine failed to initialize: {e}')
                 exit(1)
@@ -92,8 +96,8 @@ class InfinigramEngine:
 
         start_time_encode = time.time()
         B, L = input_idss.size()
-        query_buf = input_idss.numpy().astype(np.uint16).tobytes()
-        assert len(query_buf) == B * L * 2
+        query_buf = input_idss.numpy().astype(np.uint16 if self.cfg.dtype == 'u16' else np.uint32).tobytes()
+        assert len(query_buf) == B * L * (2 if self.cfg.dtype == 'u16' else 4)
         latency_ms_encode = (time.time() - start_time_encode) * 1000
         log.info(f'[infini-gram] Encode lantency: {latency_ms_encode:.3f} ms')
 
@@ -109,14 +113,14 @@ class InfinigramEngine:
         log.info(f'[infini-gram] Write lantency: {latency_ms_write:.3f} ms')
 
         start_time_read = time.time()
-        response_buf_size = B * L * self.cfg.support * 2
+        response_buf_size = B * L * self.cfg.support * (2 if self.cfg.dtype == 'u16' else 4)
         response_buf = self.fifo_response.read(response_buf_size)
         assert len(response_buf) == response_buf_size
         latency_ms_read = (time.time() - start_time_read) * 1000
         log.info(f'[infini-gram] Read lantency: {latency_ms_read:.3f} ms')
 
         start_time_decode = time.time()
-        infgram_ntd = torch.tensor(np.frombuffer(response_buf, dtype=np.uint8).view(np.uint16).astype(np.int64)).view(B, L, self.cfg.support)
+        infgram_ntd = torch.tensor(np.frombuffer(response_buf, dtype=np.uint8).view(np.uint16 if self.cfg.dtype == 'u16' else np.uint32).astype(np.int64)).view(B, L, self.cfg.support)
         latency_ms_decode = (time.time() - start_time_decode) * 1000
         log.info(f'[infini-gram] Decode lantency: {latency_ms_decode:.3f} ms')
 

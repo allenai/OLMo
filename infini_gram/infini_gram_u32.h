@@ -47,7 +47,7 @@ struct FindResult {
     vector<pair<U64, U64>> segment_by_shard;
 };
 struct DistResult {
-    vector<U16> tokens;
+    vector<U32> tokens;
 };
 
 pair<U8*, U64> mmap_file(const string &path) {
@@ -80,7 +80,7 @@ public:
 
     NGramLanguageModeling(): _index_dir(""), _eos_token_id(0) {}
 
-    NGramLanguageModeling(const string index_dir, const U16 eos_token_id)
+    NGramLanguageModeling(const string index_dir, const U32 eos_token_id)
         : _index_dir(index_dir), _eos_token_id(eos_token_id) {
 
         assert_little_endian();
@@ -105,8 +105,8 @@ public:
             auto [ds, ds_size] = load_file(ds_paths[s]);
             auto [sa, sa_size] = load_file(sa_paths[s]);
 
-            assert (ds_size % sizeof(U16) == 0);
-            U64 tok_cnt = ds_size / sizeof(U16);
+            assert (ds_size % sizeof(U32) == 0);
+            U64 tok_cnt = ds_size / sizeof(U32);
             assert (sa_size % tok_cnt == 0);
             U8 ptr_size = (U8)(sa_size / tok_cnt);
 
@@ -124,7 +124,7 @@ public:
         }
     }
 
-    virtual FindResult find(const vector<U16> &input_ids, const size_t start, const size_t end, vector<pair<U64, U64>> hint_segment_by_shard = {}) const {
+    virtual FindResult find(const vector<U32> &input_ids, const size_t start, const size_t end, vector<pair<U64, U64>> hint_segment_by_shard = {}) const {
 
         assert (start <= end);
         assert (end <= input_ids.size());
@@ -142,16 +142,16 @@ public:
                 }
             }
             assert (hint_segment_by_shard.size() == _num_shards);
-            vector<U16> reversed_input_ids;
+            vector<U32> reversed_input_ids;
             const U8* input_buf;
             if (_version == 4) {
                 input_buf = reinterpret_cast<const U8*>(input_ids.data() + start);
             } else if (_version == 5) {
-                reversed_input_ids = vector<U16>(input_ids.begin() + start, input_ids.begin() + end);
+                reversed_input_ids = vector<U32>(input_ids.begin() + start, input_ids.begin() + end);
                 reverse(reversed_input_ids.begin(), reversed_input_ids.end());
                 input_buf = reinterpret_cast<const U8*>(reversed_input_ids.data());
             }
-            U64 num_bytes = (end - start) * sizeof(U16);
+            U64 num_bytes = (end - start) * sizeof(U32);
 
             for (auto s = 0; s < _num_shards; s++) {
                 const auto &shard = _shards[s];
@@ -218,7 +218,7 @@ public:
         return FindResult{cnt, segment_by_shard};
     }
 
-    virtual DistResult ntd(const vector<U16> &input_ids, const size_t start, const size_t end, const size_t support, const FindResult &prompt_find_result) const {
+    virtual DistResult ntd(const vector<U32> &input_ids, const size_t start, const size_t end, const size_t support, const FindResult &prompt_find_result) const {
 
         assert (start <= end);
         assert (end <= input_ids.size());
@@ -227,8 +227,8 @@ public:
             return DistResult{{}};
         }
 
-        U64 num_bytes = (end - start) * sizeof(U16);
-        vector<U16> tokens(support);
+        U64 num_bytes = (end - start) * sizeof(U32);
+        vector<U32> tokens(support);
         for (U64 i = 0; i < support; i++) {
             U64 ix = (prompt_find_result.cnt * i + prompt_find_result.cnt / 2) / support;
             size_t s = 0;
@@ -244,7 +244,7 @@ public:
             U64 rank = l + ix;
             U64 ptr = _convert_rank_to_ptr(shard, rank);
             U64 offset = ptr + num_bytes;
-            U16 token_id = _convert_offset_to_token_id(shard, offset);
+            U32 token_id = _convert_offset_to_token_id(shard, offset);
             tokens[i] = token_id;
         }
 
@@ -258,7 +258,7 @@ public:
         }
 
         U64 cnt = find_result.cnt - find_result_exclude.cnt;
-        vector<U16> tokens(support);
+        vector<U32> tokens(support);
         for (U64 i = 0; i < support; i++) {
             U64 ix = (cnt * i + cnt / 2) / support;
             size_t s = 0;
@@ -278,15 +278,15 @@ public:
             U64 rank = (ix < l_exclude - l) ? (l + ix) : (r_exclude + (ix - (l_exclude - l)));
             U64 ptr = _convert_rank_to_ptr(shard, rank);
             assert (ptr > 0); // because the first token is always \xff\xff and ptr cannot land there
-            U64 offset = ptr - sizeof(U16);
-            U16 token_id = _convert_offset_to_token_id(shard, offset);
+            U64 offset = ptr - sizeof(U32);
+            U32 token_id = _convert_offset_to_token_id(shard, offset);
             tokens[i] = token_id;
         }
 
         return DistResult{tokens};
     }
 
-    virtual void find_5gram_dense(const vector<U16> input_ids, vector<FindResult>* results) const {
+    virtual void find_5gram_dense(const vector<U32> input_ids, vector<FindResult>* results) const {
         results->resize(input_ids.size());
         auto tot_duration_us = 0;
         auto thread_start_time = chrono::high_resolution_clock::now();
@@ -305,7 +305,7 @@ public:
         cerr << "thread duration = " << thread_duration_ms << " ms" << endl;
     }
 
-    virtual void ntd_dense(const vector<U16> input_ids, const U64 method, const U64 min_cnt, const size_t support, const bool debug, vector<DistResult>* results, vector<U16>* lfns) const {
+    virtual void ntd_dense(const vector<U32> input_ids, const U64 method, const U64 min_cnt, const size_t support, const bool debug, vector<DistResult>* results, vector<U16>* lfns) const {
         auto thread_start_time = chrono::high_resolution_clock::now();
         auto tot_duration_us = 0;
         results->resize(input_ids.size());
@@ -370,7 +370,7 @@ public:
         }
     }
 
-    virtual vector<vector<DistResult>> ntd_dense_batch(const vector<vector<U16>> &input_idss, const U64 method, const U64 min_cnt, const size_t support, const bool debug = false, vector<vector<U16>>* lfnss = nullptr) const {
+    virtual vector<vector<DistResult>> ntd_dense_batch(const vector<vector<U32>> &input_idss, const U64 method, const U64 min_cnt, const size_t support, const bool debug = false, vector<vector<U16>>* lfnss = nullptr) const {
         size_t B = input_idss.size();
         vector<vector<DistResult>> resultss(B);
         vector<thread> threads;
@@ -385,17 +385,17 @@ public:
 
 public:
 
-    inline U16 _convert_offset_to_token_id(const DatastoreShard &shard, const U64 offset) const {
+    inline U32 _convert_offset_to_token_id(const DatastoreShard &shard, const U64 offset) const {
         assert (offset % 2 == 0);
         assert (offset <= shard.ds_size);
         if (offset == shard.ds_size) {
             // This happens when we matched the very end of the ds.
             return _eos_token_id;
         }
-        U16 token_id; // no need to initialize
-        memcpy(&token_id, shard.ds + offset, sizeof(U16));
+        U32 token_id; // no need to initialize
+        memcpy(&token_id, shard.ds + offset, sizeof(U32));
         // If you see \xff\xff, this actually means we're at the very end of a document.
-        if (token_id == (U16)(-1)) token_id = _eos_token_id;
+        if (token_id == (U32)(-1)) token_id = _eos_token_id;
         return token_id;
     }
 
@@ -407,7 +407,7 @@ public:
     }
 
     const string _index_dir;
-    const U16 _eos_token_id;
+    const U32 _eos_token_id;
     size_t _version;
     size_t _num_shards;
     vector<DatastoreShard> _shards;

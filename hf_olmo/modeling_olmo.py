@@ -16,7 +16,7 @@ from olmo.model import OLMo
 
 from .configuration_olmo import OLMoConfig
 
-from infini_gram import InfinigramEngine
+from infini_gram import InfiniGramEngine
 
 log = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class OLMoForCausalLM(PreTrainedModel):
             self.model = model
 
         if config.infgram:
-            self.infinigram_engine = InfinigramEngine(
+            self.infinigram_engine = InfiniGramEngine(
                 cfg=config.infgram,
                 max_batch_size_per_device=max_batch_size_per_device,
                 max_seq_len=config.max_sequence_length,

@@ -4,14 +4,14 @@ import time
 import numpy as np
 import torch
 from olmo.config import InfgramConfig
-from infini_gram import InfinigramEngine
+from infini_gram import InfiniGramEngine
 
 index_dir = '../hb-wolf/index/v5_dolma-v1_7-wiki_olmo'
 cfg = InfgramConfig(index_dir=index_dir)
 max_batch_size = 1024
 max_seq_len = 4096
 
-engine = InfinigramEngine(cfg, max_batch_size_per_device=max_batch_size, max_seq_len=max_seq_len, local_rank=0, global_rank=0, local_world_size=1, world_size=1)
+engine = InfiniGramEngine(cfg, max_batch_size_per_device=max_batch_size, max_seq_len=max_seq_len, local_rank=0, global_rank=0, local_world_size=1, world_size=1)
 
 with open(os.path.join(index_dir, 'tokenized.0'), 'rb') as f:
     ds = f.read()

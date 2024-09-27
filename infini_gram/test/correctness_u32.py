@@ -7,14 +7,14 @@ from transformers import AutoTokenizer
 from olmo.config import InfgramConfig
 from infini_gram import InfiniGramEngine
 
-index_dir = '../hb-wolf/index/v5_dolma-v1_7-wiki_olmo'
-cfg = InfgramConfig(index_dir=index_dir)
+index_dir = '../hb-wolf/index/v5_olmoe-mix-0924-wiki_dolma2'
+cfg = InfgramConfig(index_dir=index_dir, dtype='u32')
 max_batch_size = 1024
 max_seq_len = 4096
 
 engine = InfiniGramEngine(cfg, max_batch_size_per_device=max_batch_size, max_seq_len=max_seq_len, local_rank=0, global_rank=0, local_world_size=1, world_size=1)
 
-tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-7B", add_bos_token=False, add_eos_token=False, trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained("allenai/dolma2-tokenizer", add_bos_token=False, add_eos_token=False, trust_remote_code=True)
 
 input_texts = [
     # 'Paul G. Allen School of Computer Science and Engineering',
