@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Added ability to try loading latest checkpoint from save folder using `--try_load_latest_save`.
+- Added support for flash attention and gradient checkpointing to `hf_olmo`.
+
+## [v0.5.0](https://github.com/allenai/OLMo/releases/tag/v0.5.0) - 2024-08-26
+
 - Fixed conversion to HuggingFace model for DDP-trained models.
 - Added support for remote source and destination for HuggingFace model conversion.
 
@@ -21,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added downstream eval task for requests dumped from oe-eval tasks
 - Added `CosLinearEnvelope` scheduler, which is a pointwise product of a cosine schedule and a linear decay.
 - Added ability to save outputs of submodules for debugging purposes.
+- Added a number of tasks from oe-eval to the downstream eval tasks.
+- Version dolma flan change in named_data_mix.py
 
 ### Changed
 
