@@ -60,6 +60,6 @@ torchrun \
       --model.flash_attention=true \
       --data.num_workers=8 \
       --optimizer.learning_rate=9.0e-4 \
-      --device_train_microbatch_size=8
+      --device_train_microbatch_size=16
 
      # '--load_path=${path.last_checkpoint:${save_folder}}' \
