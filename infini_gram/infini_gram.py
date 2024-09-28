@@ -73,7 +73,7 @@ class InfiniGramEngine:
             print(f'[infini-gram] Size of input_idss: {input_idss.size()}')
         assert input_idss.size(0) <= self.max_batch_size_per_device
         assert input_idss.size(1) <= self.max_seq_len
-        assert type(method) == int and method in [2, 5]
+        assert type(method) == int and method in [2, 5, 7]
 
         start_time = time.time()
 

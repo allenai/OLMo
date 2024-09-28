@@ -313,7 +313,6 @@ public:
 
     virtual void ntd_dense(const vector<TokenId> input_ids, const U64 method, const U64 min_cnt, const size_t support, const bool debug, vector<DistResult>* results, vector<TokenId>* lfns) const {
         auto thread_start_time = chrono::high_resolution_clock::now();
-        auto tot_duration_us = 0;
         results->resize(input_ids.size());
         if (lfns) lfns->resize(input_ids.size());
 
@@ -322,7 +321,6 @@ public:
             size_t j = 0;
             FindResult find_result;
             for (size_t i = 1; i <= input_ids.size(); i++) {
-                auto start_time = chrono::high_resolution_clock::now();
                 if (i == 1) {
                     find_result = find(input_ids, j, i);
                 } else {
@@ -334,44 +332,99 @@ public:
                 }
                 (*results)[i-1] = ntd(input_ids, j, i, support, find_result);
                 if (lfns) (*lfns)[i-1] = i - j;
-                auto end_time = chrono::high_resolution_clock::now();
-                auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
-                tot_duration_us += duration;
             }
         } else if (_version == 5) {
-            size_t j = 0;
-            for (size_t i = 1; i <= input_ids.size(); i++) {
-                auto start_time = chrono::high_resolution_clock::now();
-                FindResult find_result = find(input_ids, j, i);
-                while (find_result.cnt < min_cnt && j < i) {
-                    j++;
-                    find_result = find(input_ids, j, i);
-                }
-                FindResult find_result_exclude;
-                if (method == 5 && j > 0) {
-                    find_result_exclude = find(input_ids, j-1, i, find_result.segment_by_shard);
-                } else {
+            if (method == 2) {
+                size_t j = 0;
+                for (size_t i = 1; i <= input_ids.size(); i++) {
+                    FindResult find_result = find(input_ids, j, i);
+                    while (find_result.cnt < min_cnt && j < i) {
+                        j++;
+                        find_result = find(input_ids, j, i);
+                    }
+                    FindResult find_result_exclude;
                     find_result_exclude.cnt = 0;
                     auto segment_by_shard = find_result.segment_by_shard;
                     for (auto &segment : segment_by_shard) {
                         segment.first = segment.second;
                     }
                     find_result_exclude.segment_by_shard = segment_by_shard;
+                    (*results)[i-1] = ntd_v5(support, find_result, find_result_exclude);
+                    if (lfns) (*lfns)[i-1] = i - j;
                 }
-                (*results)[i-1] = ntd_v5(support, find_result, find_result_exclude);
-                if (lfns) (*lfns)[i-1] = i - j;
-                auto end_time = chrono::high_resolution_clock::now();
-                auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
-                tot_duration_us += duration;
+            } else if (method == 5) {
+                size_t j = 0;
+                for (size_t i = 1; i <= input_ids.size(); i++) {
+                    FindResult find_result = find(input_ids, j, i);
+                    while (find_result.cnt < min_cnt && j < i) {
+                        j++;
+                        find_result = find(input_ids, j, i);
+                    }
+                    FindResult find_result_exclude;
+                    if (j > 0) {
+                        find_result_exclude = find(input_ids, j-1, i, find_result.segment_by_shard);
+                    } else {
+                        find_result_exclude.cnt = 0;
+                        auto segment_by_shard = find_result.segment_by_shard;
+                        for (auto &segment : segment_by_shard) {
+                            segment.first = segment.second;
+                        }
+                        find_result_exclude.segment_by_shard = segment_by_shard;
+                    }
+                    (*results)[i-1] = ntd_v5(support, find_result, find_result_exclude);
+                    if (lfns) (*lfns)[i-1] = i - j;
+                }
+            } else if (method == 7) {
+                size_t j = input_ids.size(); // at end of for loop, cnt[j-1, i) == cnt[j-2, i)
+                for (size_t i = input_ids.size(); i > 0; i--) {
+                    j = min(j, i);
+                    FindResult find_result = find(input_ids, j, i);
+                    FindResult find_result_1, find_result_2;
+                    if (j <= 1) {
+                        if (j == 0) {
+                            find_result_1.cnt = 0;
+                            auto segment_by_shard = find_result.segment_by_shard;
+                            for (auto &segment : segment_by_shard) {
+                                segment.first = segment.second;
+                            }
+                            find_result_1.segment_by_shard = segment_by_shard;
+                        } else {
+                            find_result_1 = find(input_ids, j-1, i, find_result.segment_by_shard);
+                        }
+                        find_result_2.cnt = 0;
+                        auto segment_by_shard = find_result_1.segment_by_shard;
+                        for (auto &segment : segment_by_shard) {
+                            segment.first = segment.second;
+                        }
+                        find_result_2.segment_by_shard = segment_by_shard;
+                    } else {
+                        find_result_1 = find(input_ids, j-1, i, find_result.segment_by_shard);
+                        find_result_2 = find(input_ids, j-2, i, find_result_1.segment_by_shard);
+                    }
+                    while (j > 0 && find_result_1.cnt != find_result_2.cnt) {
+                        j--;
+                        find_result = find_result_1;
+                        find_result_1 = find_result_2;
+                        if (j <= 1) {
+                            find_result_2.cnt = 0;
+                            auto segment_by_shard = find_result_1.segment_by_shard;
+                            for (auto &segment : segment_by_shard) {
+                                segment.first = segment.second;
+                            }
+                            find_result_2.segment_by_shard = segment_by_shard;
+                        } else {
+                            find_result_2 = find(input_ids, j-2, i, find_result_1.segment_by_shard);
+                        }
+                    }
+                    (*results)[i-1] = ntd_v5(support, find_result, find_result_1);
+                    if (lfns) (*lfns)[i-1] = i - j;
+                }
             }
         }
 
-        auto avg_duration_us = tot_duration_us / input_ids.size();
-        auto tot_duration_ms = tot_duration_us / 1000;
         auto thread_end_time = chrono::high_resolution_clock::now();
         auto thread_duration_ms = chrono::duration_cast<chrono::milliseconds>(thread_end_time - thread_start_time).count();
         if (debug) {
-            cerr << "ntd_dense: total = " << tot_duration_ms << " ms, avg = " << avg_duration_us << " us" << endl;
             cerr << "thread duration = " << thread_duration_ms << " ms" << endl;
         }
     }
@@ -392,7 +445,7 @@ public:
 public:
 
     inline TokenId _convert_offset_to_token_id(const DatastoreShard &shard, const U64 offset) const {
-        assert (offset % 2 == 0);
+        assert (offset % sizeof(TokenId) == 0);
         assert (offset <= shard.ds_size);
         if (offset == shard.ds_size) {
             // This happens when we matched the very end of the ds.

@@ -25,7 +25,7 @@ input_idss = tokenizer(input_texts, padding='longest', truncation=False, return_
 print(input_idss)
 print()
 
-infgram_ntd = engine.get_infgram_ntd(input_idss, method=5)['infgram_ntd']
+infgram_ntd = engine.get_infgram_ntd(input_idss, method=7)['infgram_ntd']
 for input_ids, output_idss in zip(input_idss, infgram_ntd):
     for input_id, output_ids in zip(input_ids, output_idss):
         print(tokenizer._convert_id_to_token(input_id), tokenizer.convert_ids_to_tokens(output_ids))

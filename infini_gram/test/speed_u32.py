@@ -28,7 +28,7 @@ for batch_size in [1024, 512, 256, 128, 64, 32, 16, 8, 4, 2, 1]:
         if 'v5' in index_dir:
             input_idss = input_idss.flip(1)
         start_time = time.time()
-        result = engine.get_infgram_ntd(input_idss, method=2)
+        result = engine.get_infgram_ntd(input_idss, method=7)
         # print(f'all = {result["latency_ms"]} ms, encode = {result["latency_ms_encode"]} ms, write = {result["latency_ms_write"]} ms, read = {result["latency_ms_read"]} ms, decode = {result["latency_ms_decode"]} ms')
         end_time = time.time()
         latency_ms = (end_time - start_time) * 1000
