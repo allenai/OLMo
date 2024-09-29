@@ -8,7 +8,7 @@ from olmo.config import InfgramConfig
 from infini_gram import InfiniGramEngine
 
 index_dir = '../hb-wolf/index/v5_olmoe-mix-0924-wiki_dolma2'
-cfg = InfgramConfig(index_dir=index_dir, dtype='u32')
+cfg = InfgramConfig(index_dir=index_dir, dtype='u32', min_cnt=5)
 max_batch_size = 1024
 max_seq_len = 4096
 

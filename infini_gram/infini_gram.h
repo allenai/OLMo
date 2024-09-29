@@ -375,48 +375,40 @@ public:
                     if (lfns) (*lfns)[i-1] = i - j;
                 }
             } else if (method == 7) {
-                size_t j = input_ids.size(); // at end of for loop, cnt[j-1, i) == cnt[j-2, i)
+                size_t j = input_ids.size(); // at end of for loop, cnt[j-1, i) == ... == cnt[j-min_cnt, i)
                 for (size_t i = input_ids.size(); i > 0; i--) {
                     j = min(j, i);
-                    FindResult find_result = find(input_ids, j, i);
-                    FindResult find_result_1, find_result_2;
-                    if (j <= 1) {
-                        if (j == 0) {
-                            find_result_1.cnt = 0;
-                            auto segment_by_shard = find_result.segment_by_shard;
+                    vector<FindResult> find_results(min_cnt + 1);
+                    find_results[0] = find(input_ids, j, i);
+                    for (size_t jj = 1; jj <= min_cnt; jj++) {
+                        if (jj <= j) {
+                            find_results[jj] = find(input_ids, j-jj, i, find_results[jj-1].segment_by_shard);
+                        } else {
+                            find_results[jj].cnt = 0;
+                            auto segment_by_shard = find_results[jj-1].segment_by_shard;
                             for (auto &segment : segment_by_shard) {
                                 segment.first = segment.second;
                             }
-                            find_result_1.segment_by_shard = segment_by_shard;
-                        } else {
-                            find_result_1 = find(input_ids, j-1, i, find_result.segment_by_shard);
+                            find_results[jj].segment_by_shard = segment_by_shard;
                         }
-                        find_result_2.cnt = 0;
-                        auto segment_by_shard = find_result_1.segment_by_shard;
-                        for (auto &segment : segment_by_shard) {
-                            segment.first = segment.second;
-                        }
-                        find_result_2.segment_by_shard = segment_by_shard;
-                    } else {
-                        find_result_1 = find(input_ids, j-1, i, find_result.segment_by_shard);
-                        find_result_2 = find(input_ids, j-2, i, find_result_1.segment_by_shard);
                     }
-                    while (j > 0 && find_result_1.cnt != find_result_2.cnt) {
+                    while (j > 0 && find_results[1].cnt != find_results[min_cnt].cnt) {
                         j--;
-                        find_result = find_result_1;
-                        find_result_1 = find_result_2;
-                        if (j <= 1) {
-                            find_result_2.cnt = 0;
-                            auto segment_by_shard = find_result_1.segment_by_shard;
+                        for (size_t jj = 0; jj < min_cnt; jj++) {
+                            find_results[jj] = find_results[jj+1];
+                        }
+                        if (min_cnt <= j) {
+                            find_results[min_cnt] = find(input_ids, j-min_cnt, i, find_results[min_cnt-1].segment_by_shard);
+                        } else {
+                            find_results[min_cnt].cnt = 0;
+                            auto segment_by_shard = find_results[min_cnt-1].segment_by_shard;
                             for (auto &segment : segment_by_shard) {
                                 segment.first = segment.second;
                             }
-                            find_result_2.segment_by_shard = segment_by_shard;
-                        } else {
-                            find_result_2 = find(input_ids, j-2, i, find_result_1.segment_by_shard);
+                            find_results[min_cnt].segment_by_shard = segment_by_shard;
                         }
                     }
-                    (*results)[i-1] = ntd_v5(support, find_result, find_result_1);
+                    (*results)[i-1] = ntd_v5(support, find_results[0], find_results[1]);
                     if (lfns) (*lfns)[i-1] = i - j;
                 }
             }
