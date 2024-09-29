@@ -233,7 +233,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             metrics_log_interval=10,
         ),
         scheduler=SchedulerConfig(
-            name=SchedulerType.cosine_with_warmup,
+            name=args.scheduler_type,
             alpha_f=args.alpha_f,
             warmup_min_lr=0.0,
             t_warmup=round(model_size / (global_batch_size * model_config.max_sequence_length)),
@@ -612,6 +612,7 @@ if __name__ == "__main__":
         subparser.add_argument("--save_interval", type=int, default=1000)
         subparser.add_argument("--eval_interval", type=int, default=200)
         subparser.add_argument("--alpha_f", type=float, default=0.1)
+        subparser.add_argument("--scheduler_type", type=str, default=SchedulerType.cosine_with_warmup)
 
     args = parser.parse_args()
     args.func(args)
