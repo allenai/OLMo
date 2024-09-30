@@ -6,12 +6,12 @@ check_s3_path() {
   return $?
 }
 
-#for m in dense dense_wo_paywall dense_wo_unk ; do \
-for m in dense_wo_paywall_wo_tos ; do \
-	
-	CHECKPOINT="s3://ai2-llm/ds-olmo/checkpoints/baselines/$m"
-	
-# Check if the provided path exists
+base_dir="s3://ai2-lucas-archival/checkpoints"
+
+for m in peteish7-anneal-B3x50 peteish7-init ; do \
+	CHECKPOINT="${base_dir}/$m/latest"
+
+	# Check if the provided path exists
 	if check_s3_path "$CHECKPOINT"; then
 	  echo "Path exists: $CHECKPOINT"
 	else
@@ -23,19 +23,13 @@ for m in dense_wo_paywall_wo_tos ; do \
 	python hf_olmo/convert_olmo_to_hf.py \
 	    --checkpoint-dir $CHECKPOINT \
 	    --destination-dir ${CHECKPOINT}-hf \
-	    --keep-olmo-artifact
+	    --keep-olmo-artifact \
+	    --tokenizer allenai/dolma2-tokenizer
 
 done
 
-cd ../oe-eval-internal
+#cd ../oe-eval-internal
+#bash sewon-scripts/run.sh
 
-#for m in dense dense_wo_paywall dense_wo_unk ; do \
-for m in dense_wo_paywall_wo_tos ; do \
-
-	CHECKPOINT="s3://ai2-llm/ds-olmo/checkpoints/baselines/$m-hf"
-
-	bash sewon-scripts/eval_checkpoint.sh $CHECKPOINT
-
-done
 
 
