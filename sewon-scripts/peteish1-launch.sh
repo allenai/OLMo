@@ -30,10 +30,12 @@ gantry run \
   --env R2_PROFILE=R2 \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
-  --env-secret AWS_CONFIG=WEIJIAS_AWS_CONFIG \
   --env-secret AWS_CREDENTIALS=WEIJIAS_AWS_CREDENTIALS \
   --env-secret WANDB_API_KEY=WEIJIAS_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
   -- /bin/bash -c "sewon-scripts/peteish1.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+
+
+  # --env-secret AWS_CONFIG=WEIJIAS_AWS_CONFIG \
