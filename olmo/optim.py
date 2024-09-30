@@ -998,7 +998,7 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             ),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             warmup_steps=int(sched_cfg.t_warmup),
-            decay_steps=int(10 * sched_cfg.t_warmup),
+            decay_steps=int(20 * sched_cfg.t_warmup),
             alpha_f=sched_cfg.alpha_f,
             t_max=None if sched_cfg.t_max is None else int(sched_cfg.t_max),
             warmup_min_lr=sched_cfg.warmup_min_lr,
