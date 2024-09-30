@@ -186,7 +186,7 @@ def make_local_checkpoint(checkpoint_dir: str) -> str:
     # temp_dir = os.path.join(tempfile.gettempdir(), md5(checkpoint_dir.encode()).hexdigest())
     temp_dir = os.path.join("local_checkpoints", "/".join(checkpoint_dir.split("/")[-2:]))
     print ("Saving to", temp_dir)
-    
+   
     if os.path.exists(temp_dir):
         return temp_dir
     try:
