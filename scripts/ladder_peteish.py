@@ -161,14 +161,11 @@ def get_batch_size(model_config, model_size, batch_size_divisor):
     # calculate batch size according to
     # https://www.semanticscholar.org/reader/5585191b1b479346ecf173be3b35c8313b77d457
     # holds only for a sequence length of 2048 (but could probably be easily adapted)
-    # assert model_config.max_sequence_length == 2048
+    assert model_config.max_sequence_length in [2048, 4096]
     # if model_config.max_sequence_length == 2048:
     global_batch_size = 160 * (model_size / 108000000) ** (2 / 3)
-    # elif model_config.max_sequence_length == 4096:
-    #     # TODO: confirm back-of-the-napkin calculation
-    #     global_batch_size = 160 * ((model_size + 2048 * model_config.n_layers * model_config.d_model) / 108000000) ** (2 / 3)
-    # else:
-    #     raise RuntimeError("`max_sequence_length needs` to be 2048 or 4096")
+    if model_config.max_sequence_length == 4096:
+        global_batch_size /= 2
     global_batch_size /= batch_size_divisor
     global_batch_size = round(global_batch_size)
     global_batch_size *= batch_size_divisor
@@ -224,8 +221,8 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # calculate the learning rate according to the same paper
     # if model_config.max_sequence_length == 2048:
     lr = 0.0047 * (model_size / 108000000) ** (-1 / 3)
-    # else:
-    #    lr = 0.0047 * ((model_size + 2048 * model_config.n_layers * model_config.d_model) / 108000000) ** (-1 / 3)
+    if model_config.max_sequence_length == 4096:
+        lr /= 4
 
     save_interval = args.save_interval
 
