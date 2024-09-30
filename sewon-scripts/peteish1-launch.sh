@@ -32,6 +32,7 @@ gantry run \
   --env WEKA_PROFILE=WEKA \
   --env-secret AWS_CREDENTIALS=WEIJIAS_AWS_CREDENTIALS \
   --env-secret WANDB_API_KEY=WEIJIAS_WANDB_API_KEY \
+  --env-secret AWS_CONFIG=WEIJIAS_AWS_CONFIG \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
