@@ -4,7 +4,7 @@ dry_run: false
 
 wandb:
   name: ${run_name}
-  project: peteish1-dclm
+  project: swj_test
   group: ${run_name}
 
 model:
