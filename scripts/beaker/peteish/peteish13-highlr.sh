@@ -46,8 +46,8 @@ torchrun \
   scripts/train.py \
     configs/peteish13-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --save_interval_ephemeral=200 \
-      --fsdp.sharding_strategy=HYBRID_SHARD \
+      --save_interval_ephemeral=500 \
+      --fsdp.sharding_strategy=FULL_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas=$NUM_NODES \
       --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/${GANTRY_TASK_NAME}" \
       --remote_save_folder="s3://ai2-llm/checkpoints/OLMo-medium/${GANTRY_TASK_NAME}/" \
@@ -55,7 +55,7 @@ torchrun \
       '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=4 \
-      --activation_checkpointing=whole_layer \
+      --activation_checkpointing=three_in_four \
       --fused_loss=true \
       --model.flash_attention=true \
       --data.num_workers=8 \
