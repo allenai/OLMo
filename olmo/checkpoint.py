@@ -250,6 +250,7 @@ def save_state_dict(
     upload_to: Optional[str] = None,
     save_overwrite: bool = False,
     synchronize: bool = True,
+    num_retries: int = 5,
 ):
     """
     Save a regular state dict to the file ``fname`` within ``checkpoint_dir`` using :func:`torch.save()`.
@@ -263,6 +264,7 @@ def save_state_dict(
     :param save_overwrite: Overwrite existing files.
     :param synchronize: If ``False``, don't do any distributed synchronization. Use this when only calling
         this function from a single rank.
+    :param num_retries: Temporary. Added as check against filesystem failures.
 
     :raises FileExistsError: If the ``fname`` already exists within ``checkpoint_dir`` and ``save_overwrite=False``.
     """
@@ -277,7 +279,17 @@ def save_state_dict(
     target_path.parent.mkdir(exist_ok=True, parents=True)
     if synchronize:
         barrier()
-    torch.save(state_dict, target_path)
+
+    for num_try in range(num_retries):
+        try:
+            log.info(f"Trying to save ({num_try} / {num_retries} tries) ...")
+            torch.save(state_dict, target_path)
+            log.info("Finished saving")
+            break
+        except:  # noqa:E722
+            import traceback
+            traceback.print_exc()
+
     if upload_to is not None:
         upload_target = f"{upload_to.rstrip('/')}/{fname}"
         log.info(f"Uploading {target_path} to {upload_target}...")
@@ -650,7 +662,7 @@ class FullCheckpointer(Checkpointer):
                 # First, get the model state dict from DDP wrapped model
                 model_state_dict = dist_model.module.state_dict()
                 self._write_model_dict(
-                    model_state_dict, checkpoint_dir, upload_to, save_overwrite=self.cfg.save_overwrite
+                    model_state_dict, checkpoint_dir, upload_to, save_overwrite=self.cfg.save_overwrite,
                 )
 
                 # Then get the optimizer state dict
