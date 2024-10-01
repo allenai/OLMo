@@ -59,7 +59,7 @@ srun \
     -B"$PROJECT_DIR:$PROJECT_DIR" \
     -B"$FLASH_DIR:$FLASH_DIR" \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
-    -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
+    -B /var/spool/slurmd,/opt/cray/,/usr/lib64/libcxi.so.1,/usr/lib64/libjansson.so.4,/usr/lib64/libjson-c.so.3 \
     $SIF_CONTAINER \
     $CONDA_SETUP python scripts/train.py configs/peteish13-s3.yaml \
       --run_name=peteish13-lumi_${SLURM_JOB_ID} \
