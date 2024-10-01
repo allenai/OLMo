@@ -8,7 +8,7 @@ gantry run \
   --workspace ai2/13B \
   --task-name peteish13-highlr \
   --description "Pete-ish 13B High LR" \
-  --priority high \
+  --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
