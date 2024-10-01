@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 
 DATA_SOURCES = {
     "gutenberg_books": [
@@ -1076,6 +1076,90 @@ EXTRA_DATA_SOURCES = {
 }
 
 
+SOURCES_SIZES = {
+    "gutenberg_books": {
+        "avg_file_size": 1_751_930_702,
+        "num_files": 3,
+        "total_size": 5_255_792_107
+    },
+    "pes20_stem_papers": {
+        "avg_file_size": 2_200_375_105,
+        "num_files": 26,
+        "total_size": 57_209_752_742
+    },
+    "wikipedia_wikibooks": {
+        "avg_file_size": 1_844_602_262,
+        "num_files": 4,
+        "total_size": 7_378_409_050
+    },
+    "megawika": {
+        "avg_file_size": 74_788_560,
+        "num_files": 61,
+        "total_size": 4_562_102_218
+    },
+    "stackexchange": {
+        "avg_file_size": 754_983_975,
+        "num_files": 26,
+        "total_size": 19_629_583_356
+    },
+    "arxiv": {
+        "avg_file_size": 874_176_955,
+        "num_files": 32,
+        "total_size": 27_973_662_590
+    },
+    "algebraic_stack": {
+        "avg_file_size": 788_911_033,
+        "num_files": 16,
+        "total_size": 12_622_576_536
+    },
+    "openwebmath": {
+        "avg_file_size": 979_561_584,
+        "num_files": 13,
+        "total_size": 12_734_300_603
+    },
+    "tulu": {
+        "avg_file_size": 250_559_206,
+        "num_files": 66,
+        "total_size": 16_536_907_601
+    },
+    "cc_news": {
+        "avg_file_size": 432_164_138,
+        "num_files": 33,
+        "total_size": 14_261_416_567
+    },
+    "starcoder": {
+        "avg_file_size": 2_836_293_600,
+        "num_files": 93,
+        "total_size": 263_775_304_843
+    },
+    "c4": {
+        "avg_file_size": 809_597_532,
+        "num_files": 171,
+        "total_size": 138_441_178_003
+    },
+    "reddit": {
+        "avg_file_size": 1_024_923_244,
+        "num_files": 78,
+        "total_size": 79_944_013_060
+    },
+    "falcon": {
+        "avg_file_size": 2_427_685_952,
+        "num_files": 188,
+        "total_size": 456_404_959_027
+    },
+    "web_rest": {
+        "avg_file_size": 2_683_509_681,
+        "num_files": 223,
+        "total_size": 598_422_659_025
+    },
+    "all_red_pajama": {
+        "avg_file_size": 39_103_276_091,
+        "num_files": 32,
+        "total_size": 1_251_304_834_921
+    }
+}
+
+
 DATA_PATHS = {}
 
 
@@ -1101,6 +1185,16 @@ def build_collection_exclude(corpora: List[str]):
             collection.extend(DATA_SOURCES[corpus])
     return collection
 
+def build_collection_with_weights(corpora: List[str], weights: Dict[str, float]=None):
+    # the weights are used to sample the corpora. If none are provided, all corpora are sampled uniformly
+    if weights is None:
+        weights = {corpus: 1.0/len(corpora) for corpus in corpora}
+
+    total_tokens = sum([SOURCES_SIZES[corpus]["total_size"] for corpus in corpora])
+    current_weights = {corpus: SOURCES_SIZES[corpus]["total_size"] / total_tokens for corpus in corpora}
+
+    #print current_weights with 2 decimal places
+    print({k: round(v, 2) for k, v in current_weights.items()})
 
 DATA_PATHS["no_math"] = build_collection_exclude(["pes20_stem_papers", "algebraic_stack", "openwebmath"])
 DATA_PATHS["no_code"] = build_collection_exclude(["stackexchange", "starcoder"])
@@ -1112,6 +1206,8 @@ DATA_PATHS["redpajama"] = build_collection_include(["all_red_pajama"])
 DATA_PATHS["falcon"] = build_collection_include(["falcon"])
 DATA_PATHS["falcon_and_cc"] = build_collection_include(["falcon", "web_rest"])
 DATA_PATHS["c4"] = build_collection_include(["c4"])
+
+# DATA_PATHS["dolma17_uniform"] = build_collection_with_weights(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
 
 # web_instruct instead of openwebmath, 2x sampled (openwebmath is roughly 2.4x larger than web_instruct)
 DATA_PATHS["web_instruct_2x"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'web_instruct', 'web_instruct', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
