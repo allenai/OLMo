@@ -2382,5 +2382,8 @@ DATA_PATHS = {
     ],
     "arc_paraphrased_direct_qa": [
         f"ptqa/tokenized/paraphrased_direct_qa/part-{str(i).zfill(3)}-00000.npy" for i in range(100)
+    ],
+    "arc_paraphrased_direct_qa100": [
+        f"ptqa/tokenized/paraphrased_direct_qa100/part-{str(i).zfill(3)}-00000.npy" for i in range(500)
     ]
 }
