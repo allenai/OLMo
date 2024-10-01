@@ -11,11 +11,12 @@
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
-module load LUMI/23.09 partition/G
+module load LUMI/24.03 partition/G
 
-export OLMO_CONTAINER=llm-lumi-torch22_latest.sif
+export OLMO_CONTAINER=lumi-torch25rc-rocm62-py312.sif
 export SIF_CONTAINER=$PROJECT_DIR/containers/$OLMO_CONTAINER
 #export SIF_CONTAINER=$SIF
+export CONDA_ENV=pytorch
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
@@ -34,7 +35,7 @@ export FI_CXI_DEFAULT_CQ_SIZE=131072
 #export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
 export ROCM_PATH=/opt/rocm
-export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64:/opt/rocm/lib
+#export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64:/opt/rocm/lib
 export SINGULARITYENV_TORCH_DIST_INIT_BARRIER=1
 
 # Try playing with max_split_size_mb if you run into OOM errors.
@@ -51,25 +52,26 @@ srun \
     -B"$PROJECT_DIR:$PROJECT_DIR" \
     -B"$FLASH_DIR:$FLASH_DIR" \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
-    -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
+    -B /var/spool/slurmd,/opt/cray/,/usr/lib64/libcxi.so.1,/usr/lib64/libjansson.so.4,/usr/lib64/libjson-c.so.3 \
     $SIF_CONTAINER \
-    python scripts/train.py configs/peteish13-lumi.yaml \
+    scripts/lumi/run-in-container.sh \
+      python scripts/train.py configs/peteish13-lumi.yaml \
       --run_name=peteish13-highlr_${SLURM_JOB_ID} \
       --wandb.name=peteish13-highlr_${SLURM_JOB_ID} \
       --wandb.group=peteish13-highlr \
-      --data.num_workers=$SLURM_CPUS_PER_TASK \
-      --data.prefetch_factor=2 \
+        --data.num_workers=$SLURM_CPUS_PER_TASK \
+        --data.prefetch_factor=2 \
       --save_folder=$CHECKPOINTS_PATH/peteish13-highlr/${SLURM_JOB_ID} \
       --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/peteish13-highlr/ \
-      --fused_loss=false \
-      --model.flash_attention=false \
-      --device_train_microbatch_size=2 \
-      --activation_checkpointing=whole_layer \
-      --fsdp.sharding_strategy=HYBRID_SHARD \
-      --fsdp.hybrid_sharding_num_model_replicas=$SLURM_NNODES \
-      --sharded_checkpointer=olmo_core \
-      --save_overwrite \
+        --fused_loss=false \
+        --model.flash_attention=false \
+        --device_train_microbatch_size=2 \
+        --activation_checkpointing=whole_layer \
+        --fsdp.sharding_strategy=HYBRID_SHARD \
+        --fsdp.hybrid_sharding_num_model_replicas=$SLURM_NNODES \
+        --sharded_checkpointer=olmo_core \
+        --save_overwrite \
       --time_limit=$((8 * 60 * 60)) \
-      '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
+        '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
       --optimizer.learning_rate=9.0e-4 \
-      "${@}"
+        "${@}"
