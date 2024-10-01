@@ -11,11 +11,12 @@
 #SBATCH --mem=0			# All memory on the node
 #SBATCH --partition=standard-g
 
-module load LUMI/23.09 partition/G
+module load LUMI/24.03 partition/G
 
-export OLMO_CONTAINER=llm-lumi-torch22_latest.sif
+export OLMO_CONTAINER=lumi-torch25rc-rocm62-py312.sif
 export SIF_CONTAINER=$PROJECT_DIR/containers/$OLMO_CONTAINER
 #export SIF_CONTAINER=$SIF
+export CONDA_ENV=pytorch
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export MPICH_GPU_SUPPORT_ENABLED=1
@@ -37,6 +38,13 @@ export ROCM_PATH=/opt/rocm
 export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64:/opt/rocm/lib
 export SINGULARITYENV_TORCH_DIST_INIT_BARRIER=1
 
+# Put setup of conda in an env variable if conda is needed
+if [[ ! -z "${CONDA_ENV}" ]]; then
+  export CONDA_SETUP="source /opt/miniconda3/bin/activate ${CONDA_ENV} &&"
+else
+  export CONDA_SETUP=""
+fi
+
 # Try playing with max_split_size_mb if you run into OOM errors.
 #export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
 
@@ -53,7 +61,7 @@ srun \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
     -B /usr/lib64/libjson-c.so.3:/usr/lib64/libjson-c.so.3 \
     $SIF_CONTAINER \
-    python scripts/train.py configs/peteish13-s3.yaml \
+    $CONDA_SETUP python scripts/train.py configs/peteish13-s3.yaml \
       --run_name=peteish13-lumi_${SLURM_JOB_ID} \
       --wandb.name=peteish13-lumi_${SLURM_JOB_ID} \
       --wandb.group=peteish13-lumi \
