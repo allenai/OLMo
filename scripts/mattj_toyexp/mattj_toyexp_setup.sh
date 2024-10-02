@@ -49,7 +49,7 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    simple_beaker_exp/mattj_toyexp_config.yaml \
+    scripts/mattj_toyexp/mattj_toyexp_config.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=500 \
       --save_overwrite
