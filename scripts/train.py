@@ -82,6 +82,8 @@ def main(cfg: TrainConfig) -> None:
         cfg.optimizer.decay_embeddings = not cfg.optimizer.no_decay_norm_and_bias
         cfg.optimizer.no_decay_norm_and_bias = None  # So nobody uses this by accident.
 
+    if cfg.save_folder.startswith("s3:/") and not cfg.save_folder.startswith("s3://"):
+        cfg.save_folder = cfg.save_folder.replace("s3:/", "s3://")
     # Display and save configuration.
     if get_global_rank() == 0:
         if cfg.data.paths is not None and len(cfg.data.paths) < 50:
