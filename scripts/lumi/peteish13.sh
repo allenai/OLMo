@@ -35,15 +35,8 @@ export FI_CXI_DEFAULT_CQ_SIZE=131072
 #export NCCL_DEBUG=INFO
 export PYTHONPATH=.:${PYTHONPATH}
 export ROCM_PATH=/opt/rocm
-export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64:/opt/rocm/lib
+#export SINGULARITYENV_LD_LIBRARY_PATH=/usr/local/lib:/opt/cray/libfabric/1.15.2.0/lib64:/opt/rocm/lib
 export SINGULARITYENV_TORCH_DIST_INIT_BARRIER=1
-
-# Put setup of conda in an env variable if conda is needed
-if [[ ! -z "${CONDA_ENV}" ]]; then
-  export CONDA_SETUP="source /opt/miniconda3/bin/activate ${CONDA_ENV} &&"
-else
-  export CONDA_SETUP=""
-fi
 
 # Try playing with max_split_size_mb if you run into OOM errors.
 #export PYTORCH_HIP_ALLOC_CONF=max_split_size_mb:128
@@ -61,22 +54,23 @@ srun \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
     -B /var/spool/slurmd,/opt/cray/,/usr/lib64/libcxi.so.1,/usr/lib64/libjansson.so.4,/usr/lib64/libjson-c.so.3 \
     $SIF_CONTAINER \
-    $CONDA_SETUP python scripts/train.py configs/peteish13-s3.yaml \
-      --run_name=peteish13-lumi_${SLURM_JOB_ID} \
-      --wandb.name=peteish13-lumi_${SLURM_JOB_ID} \
-      --wandb.group=peteish13-lumi \
-      --data.num_workers=$SLURM_CPUS_PER_TASK \
-      --data.prefetch_factor=2 \
-      --save_folder=$CHECKPOINTS_PATH/peteish13/${SLURM_JOB_ID} \
-      --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/peteish13-lumi/ \
-      --fused_loss=false \
-      --model.flash_attention=false \
-      --device_train_microbatch_size=2 \
-      --activation_checkpointing=whole_layer \
-      --fsdp.sharding_strategy=HYBRID_SHARD \
-      --fsdp.hybrid_sharding_num_model_replicas=$SLURM_NNODES \
-      --sharded_checkpointer=olmo_core \
-      --save_overwrite \
-      --time_limit=$((47 * 60 * 60)) \
-      '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
-      "${@}"
+    scripts/lumi/run-in-container.sh \
+      python scripts/train.py configs/peteish13-s3.yaml \
+        --run_name=peteish13-lumi_${SLURM_JOB_ID} \
+        --wandb.name=peteish13-lumi_${SLURM_JOB_ID} \
+        --wandb.group=peteish13-lumi \
+        --data.num_workers=$SLURM_CPUS_PER_TASK \
+        --data.prefetch_factor=2 \
+        --save_folder=$CHECKPOINTS_PATH/peteish13/${SLURM_JOB_ID} \
+        --remote_save_folder=s3://ai2-llm/checkpoints/OLMo-medium/peteish13-lumi/ \
+        --fused_loss=false \
+        --model.flash_attention=false \
+        --device_train_microbatch_size=2 \
+        --activation_checkpointing=whole_layer \
+        --fsdp.sharding_strategy=HYBRID_SHARD \
+        --fsdp.hybrid_sharding_num_model_replicas=$SLURM_NNODES \
+        --sharded_checkpointer=olmo_core \
+        --save_overwrite \
+        --time_limit=$((47 * 60 * 60)) \
+        '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
+        "${@}"
