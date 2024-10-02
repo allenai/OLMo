@@ -4,7 +4,7 @@ set -ex
 
 NUM_NODES=2
 
-export CONFIG_PATH="${CONFIG_PATH}"
+CONFIG_PATH="${CONFIG_PATH}"
 
 gantry run \
   --workspace ai2/reddit \
