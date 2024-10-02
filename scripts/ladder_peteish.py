@@ -181,7 +181,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     read_location = args.read_location
     if read_location is None:
         if args.s3:
-            read_location = "s3://ai2-llm"
+            read_location = "s3:///ai2-llm"
         else:
             read_location = "/weka/oe-training-default/ai2-llm"
     read_location.rstrip("/")
