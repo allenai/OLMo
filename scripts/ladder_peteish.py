@@ -187,6 +187,11 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     read_location.rstrip("/")
 
     save_folder = f"{read_location}/checkpoints/OLMo-ladder/{run_name}"
+    if args.s3:
+        remote_save_folder = save_folder
+    else:
+        remote_save_folder = None
+
     log.info(f"save folder: {save_folder}")
     load_path = args.load_path
     if load_path is None:
@@ -264,6 +269,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         global_train_batch_size=global_batch_size,
         tokenizer=TokenizerConfig(identifier="allenai/dolma2-tokenizer"),
         save_folder=save_folder,
+        remote_save_folder=remote_save_folder,
         save_overwrite=args.save_overwrite,
         save_interval_unsharded=save_interval,
         save_num_unsharded_checkpoints_to_keep=-1,
