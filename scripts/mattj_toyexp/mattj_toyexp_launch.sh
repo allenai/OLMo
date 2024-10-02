@@ -36,4 +36,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- echo $(git status); echo $(ls .); echo $(ls scripts/*); /bin/bash -c "scripts/mattj_toyexp/mattj_toyexp_setup.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- echo $(git status); echo $(ls .); echo $(ls scripts/*); echo $(printenv); /bin/bash -c "scripts/mattj_toyexp/mattj_toyexp_setup.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
