@@ -17,9 +17,9 @@ def find_domain(line):
     else:
         raise NotImplementedError()
 
-def main():
+def main(args):
     # get config other than paths
-    default_config_file = "sewon-configs/dclm/peteish7-anneal-dclmx1.yaml"
+    default_config_file = f"sewon-configs/dclm/{args.prefix}-dclmx1.yaml"
     with open(default_config_file, "r") as f:
         config_text = f.read()
     assert config_text.count("paths:")==1
@@ -42,7 +42,7 @@ def main():
     # 3) dclmx1_booksx50
     # 4) dclmx1_mathx30
 
-    out_path = f"sewon-configs/dclm/peteish7-anneal-{args.config}.yaml"
+    out_path = f"sewon-configs/dclm/{args.prefix}-{args.config}.yaml"
     default_config_text = default_config_text.replace("peteish-anneal-dclmx1", f"peteish-anneal-{args.config}")
 
     with open(out_path, "w") as f:
@@ -61,8 +61,9 @@ def main():
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', type=str, required=True)
+    parser.add_argument('--prefix', type=str, default="peteish7-anneal")
     args = parser.parse_args()
-    main()
+    main(args)
 
 
 
