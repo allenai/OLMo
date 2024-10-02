@@ -37,4 +37,4 @@ gantry run \
   --yes \
   --timeout=-1 \
   --no-logs \
-  -- CONFIG_PATH="${CONFIG_PATH}" /bin/bash -c "scripts/beaker/reddit/base_training_script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- export CONFIG_PATH="${CONFIG_PATH}" /bin/bash -c "scripts/beaker/reddit/base_training_script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
