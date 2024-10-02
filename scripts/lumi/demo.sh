@@ -3,7 +3,7 @@
 # Demo script for running multinode jobs on LUMI. You can run this as a batch job using
 # sbatch or as part of an interactive session by running this script as an executable.
 #
-#SBATCH --job-name=peteish13-highlr
+#SBATCH --job-name=demo
 #SBATCH --account=project_462000229
 #SBATCH --output=/scratch/project_462000229/logs/%j.log
 #SBATCH --nodes=128              # Total number of nodes
