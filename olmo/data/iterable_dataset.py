@@ -80,8 +80,8 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             global_indices = self._build_global_indices()
             log.info(f"dataset 0: {self.dataset[0]}")
             log.info(f"dataset 1: {self.dataset[1]}")
-            log.info("global indices 0", global_indices[0])
-            log.info("global indices 1", global_indices[1])
+            log.info(f"global indices 0: {global_indices[0]}")
+            log.info(f"global indices 1: {global_indices[1]}")
             global_indices_mmap = np.memmap(
                 self.global_indices_file, dtype=np.uint32, mode="w+", shape=(len(global_indices),)
             )
