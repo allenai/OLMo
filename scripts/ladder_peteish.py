@@ -187,6 +187,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     read_location.rstrip("/")
 
     save_folder = f"{read_location}/checkpoints/OLMo-ladder/{run_name}"
+    log.info("save folder", save_folder)
     load_path = args.load_path
     if load_path is None:
         load_path = find_latest_checkpoint(save_folder)
@@ -520,6 +521,7 @@ def dump_cmd(args: argparse.Namespace):
 
 def train_cmd(args: argparse.Namespace):
     cfg = config_from_args(args)
+    log.info("save folder from config", cfg.save_folder)
 
     try:
         mp.set_start_method("spawn", force=True)
