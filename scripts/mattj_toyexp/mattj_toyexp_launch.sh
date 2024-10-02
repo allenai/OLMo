@@ -17,7 +17,7 @@ gantry run \
   --host-networking \
   --budget ai2/oe-data \
   --no-nfs \
-  --weka oe-data-default:/weka/oe-data-default \
+  --weka oe-training-default:/weka/oe-training-default \
   --propagate-failure \
   --propagate-preemption \
   --synchronized-start-timeout 90m \

@@ -245,14 +245,21 @@ data:
     repetition_min_period: 1
     repetition_max_count: 32
   paths:
-    - /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-000-00000.npy
-    - /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-001-00000.npy
-    - /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-002-00000.npy
-    - /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-003-00000.npy
-    - /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-004-00000.npy
-    - /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-005-00000.npy
-    - /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-006-00000.npy
-    - /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-007-00000.npy
-    - /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-008-00000.npy
-    - /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-009-00000.npy
-    - /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-010-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-06-00000.npy    
+    #- /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-000-00000.npy
+    #- /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-001-00000.npy
+    #- /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-002-00000.npy
+    #- /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-003-00000.npy
+    #- /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-004-00000.npy
+    #- /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-005-00000.npy
+    #- /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-006-00000.npy
+    #- /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-007-00000.npy
+    #- /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-008-00000.npy
+    #- /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-009-00000.npy
+    #- /weka/oe-data-default/mattj/data/dclm_40b_split_dolma2Tokens/part-010-00000.npy
