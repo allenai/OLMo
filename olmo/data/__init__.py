@@ -103,8 +103,8 @@ def build_train_dataloader(
     )
 
     if fs_local_rank == 0:
-        log.info("memmap dataset 0", dataset[0])
-        log.info("memmap dataset 1", dataset[1])
+        log.info(f"memmap dataset 0: {dataset[0]}")
+        log.info(f"memmap dataset 1: {dataset[1]}")
 
     work_dir = Path(train_config.save_folder) / "train_data"
     if get_global_rank() == 0:
