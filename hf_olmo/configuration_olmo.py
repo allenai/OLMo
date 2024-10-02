@@ -6,6 +6,7 @@ from transformers import AutoConfig, PretrainedConfig
 from transformers.utils import logging
 
 from olmo.config import ModelConfig
+from olmo.exceptions import OLMoConfigurationError
 
 logger = logging.get_logger(__name__)
 
@@ -55,7 +56,7 @@ class OLMoConfig(PretrainedConfig):
             else:
                 raise OLMoConfigurationError(
                     "You can't set `multi_query_attention` and `n_kv_heads` at the same time."
-                ) 
+                )
 
 
 # Register the config class so that it is available for transformer pipelines, auto-loading etc.
