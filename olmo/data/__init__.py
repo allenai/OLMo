@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
@@ -12,6 +13,8 @@ from .iterable_dataset import IterableDataset
 from .memmap_dataset import MemMapDataset
 
 __all__ = ["MemMapDataset", "DataCollator", "IterableDataset", "build_eval_dataloader", "build_train_dataloader"]
+
+log = logging.getLogger(__name__)
 
 
 def build_memmap_dataset(
@@ -98,6 +101,11 @@ def build_train_dataloader(
     dataset = build_memmap_dataset(
         train_config, train_config.data, include_instance_metadata=include_instance_metadata
     )
+
+    if fs_local_rank == 0:
+        log.info("memmap dataset 0", dataset[0])
+        log.info("memmap dataset 1", dataset[1])
+
     work_dir = Path(train_config.save_folder) / "train_data"
     if get_global_rank() == 0:
         if work_dir.is_dir() and not train_config.save_overwrite:
