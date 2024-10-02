@@ -16,6 +16,14 @@ __all__ = ["IterableDataset"]
 log = logging.getLogger(__name__)
 
 
+def _read_global_indices(path):
+    try:
+        return np.load(path, mmap_mode="r+")
+    except ValueError:
+        # To maintain backwards compatibility.
+        return np.memmap(path, mode="r+", dtype=np.uint32)
+
+
 class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
     """
     Adapted from PyTorch's DistributedSampler, this wraps a Dataset or arbitrary sequence
@@ -90,8 +98,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             with open(self.global_indices_file, "wb") as f:
                 np.save(f, global_indices)
 
-            #sanity = np.memmap(self.global_indices_file, mode="r+", dtype=np.uint32)
-            sanity = np.load(self.global_indices_file, mmap_mode='r')
+            sanity = _read_global_indices(self.global_indices_file)
             log.info(f"sanity check: {sanity}")
             del sanity
             log.info("Global data order indices saved to '%s'", self.global_indices_file)
@@ -124,8 +131,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
 
     def get_global_indices(self) -> np.ndarray:
         if self.global_indices_file is not None:
-            #return np.memmap(self.global_indices_file, mode="r", dtype=np.uint32)  # type: ignore
-            return np.load(self.global_indices_file, mmap_mode="r")
+            return _read_global_indices(self.global_indices_file)
         else:
             return self._build_global_indices()
 
