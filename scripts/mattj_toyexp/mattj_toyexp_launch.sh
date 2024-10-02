@@ -3,7 +3,6 @@
 set -ex
 
 NUM_NODES=2
-
 gantry run \
   --workspace ai2/mattj \
   --task-name mattj_toyexp \
@@ -37,4 +36,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/mattj_toyexp_setup.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- echo $(git status); /bin/bash -c "scripts/mattj_toyexp_setup.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
