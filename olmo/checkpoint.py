@@ -250,7 +250,7 @@ def save_state_dict(
     upload_to: Optional[str] = None,
     save_overwrite: bool = False,
     synchronize: bool = True,
-    num_retries: int = 5,
+    num_retries: int = 10,
 ):
     """
     Save a regular state dict to the file ``fname`` within ``checkpoint_dir`` using :func:`torch.save()`.
