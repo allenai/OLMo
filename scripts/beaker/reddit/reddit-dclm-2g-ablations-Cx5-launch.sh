@@ -4,6 +4,8 @@ set -ex
 
 NUM_NODES=2
 
+export CONFIG_PATH="${CONFIG_PATH}"
+
 gantry run \
   --workspace ai2/reddit \
   --allow-dirty \
@@ -36,4 +38,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/reddit/base_training_script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK  \$CONFIG_PATH"
+  -- /bin/bash -c "scripts/beaker/reddit/base_training_script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK  ${CONFIG_PATH}"
