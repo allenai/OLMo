@@ -134,6 +134,15 @@ def main(cfg: TrainConfig) -> None:
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
 
+    # Compile one block at a time.
+    if cfg.compile is not None:
+        if cfg.model.block_group_size != 1:
+            raise OLMoConfigurationError("Compile is only supported with block_group_size 1.")
+        for i in range(len(olmo_model.transformer.blocks)):
+            block = olmo_model.transformer.blocks[i]
+            block = torch.compile(block, **cfg.compile.asdict())
+            olmo_model.transformer.blocks[i] = block
+
     olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
 
     if cfg.distributed_strategy == DistributedStrategy.ddp:
@@ -301,17 +310,6 @@ def main(cfg: TrainConfig) -> None:
             log.info("Saving unsharded checkpoint...")
             checkpoint_path, _ = trainer.save_checkpoint(checkpoint_type=CheckpointType.unsharded)
             log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
-
-        if cfg.compile is not None:
-            # TODO (epwalsh): trying to compile the whole train step results in a compile-time error from within
-            # the optimizer. We should investigate this further at some point.
-            #  trainer.train_step = torch.compile(trainer.train_step, **cfg.compile.asdict())
-            trainer.train_batch = torch.compile(trainer.train_batch, **cfg.compile.asdict())  # type: ignore
-            # TODO (epwalsh): compiling the `eval_batch()` method is a little sketchy since the inputs will look
-            # different for different eval tasks. That might be okay, but it might not be.
-            #  trainer.eval_batch = torch.compile(trainer.eval_batch, **cfg.compile.asdict())  # type: ignore
-            # Alternatively, could just do this:
-            #  trainer.fsdp_model = torch.compile(trainer.fsdp_model, **cfg.compile.asdict())
 
         if not cfg.dry_run:
             log.info("Starting training...")
