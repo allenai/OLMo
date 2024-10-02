@@ -36,4 +36,5 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
+  --no-logs \
   -- /bin/bash -c "scripts/beaker/reddit/base_training_script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
