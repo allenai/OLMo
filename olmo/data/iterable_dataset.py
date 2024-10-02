@@ -81,13 +81,17 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             log.info(f"dataset 0: {self.dataset[0]}")
             log.info(f"dataset 1: {self.dataset[1]}")
             log.info(f"global indices: {global_indices}")
-            global_indices_mmap = np.memmap(
-                self.global_indices_file, dtype=np.uint32, mode="w+", shape=(len(global_indices),)
-            )
-            global_indices_mmap[:] = global_indices
-            global_indices_mmap.flush()
-            del global_indices_mmap
-            sanity = np.memmap(self.global_indices_file, mode="r+", dtype=np.uint32)
+            # global_indices_mmap = np.memmap(
+            #     self.global_indices_file, dtype=np.uint32, mode="w+", shape=(len(global_indices),)
+            # )
+            # global_indices_mmap[:] = global_indices
+            # global_indices_mmap.flush()
+            # del global_indices_mmap
+            with open(self.global_indices_file, "wb") as f:
+                np.save(f, global_indices)
+
+            #sanity = np.memmap(self.global_indices_file, mode="r+", dtype=np.uint32)
+            sanity = np.load(self.global_indices_file, mmap_mode='r')
             log.info(f"sanity check: {sanity}")
             del sanity
             log.info("Global data order indices saved to '%s'", self.global_indices_file)
@@ -120,7 +124,8 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
 
     def get_global_indices(self) -> np.ndarray:
         if self.global_indices_file is not None:
-            return np.memmap(self.global_indices_file, mode="r", dtype=np.uint32)  # type: ignore
+            #return np.memmap(self.global_indices_file, mode="r", dtype=np.uint32)  # type: ignore
+            return np.load(self.global_indices_file, mmap_mode="r")
         else:
             return self._build_global_indices()
 
