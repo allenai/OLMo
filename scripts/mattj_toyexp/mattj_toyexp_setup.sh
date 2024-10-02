@@ -37,7 +37,7 @@ export OLMO_SHARED_FS=1
 
 export NCCL_DEBUG=INFO
 export NCCL_IB_HCA="^=mlx5_bond_0"
-export NCCL_SOCKET_IFNAME=eno0,eno1
+export NCCL_SOCKET_IFNAME=en
 # export NCCL_IB_GID_INDEX=0
 
 torchrun \
