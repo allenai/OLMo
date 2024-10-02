@@ -30,8 +30,8 @@ gantry run \
   --env R2_PROFILE=R2 \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
-  --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
-  --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
+  --env-secret AWS_CONFIG=AWS_CONFIG \
+  --env-secret AWS_CREDENTIALS=AWS_CREDENTIALS \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
