@@ -12,6 +12,9 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+CONFIG_PATH=$1
+shift
+
 # Setup Python environment.
 conda shell.bash activate base
 
