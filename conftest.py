@@ -96,3 +96,8 @@ def lorem_ipsum_docs() -> List[str]:
 @pytest.fixture(scope="function")
 def model_path() -> str:
     return "test_fixtures/test-olmo-model"
+
+
+@pytest.fixture(scope="function")
+def xtiny_model_path() -> str:
+    return "test_fixtures/test-olmo-model-xtiny"

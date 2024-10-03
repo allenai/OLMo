@@ -51,6 +51,7 @@ from .torch_util import (
     get_fs_local_rank,
     get_global_rank,
     get_world_size,
+    is_distributed,
     move_to_device,
     peak_gpu_memory,
     synchronize_flag,
@@ -319,7 +320,7 @@ class Trainer:
             raise NotImplementedError(self.cfg.scheduler.units)
 
     def trainer_state_dict(self) -> Dict[str, Any]:
-        return {
+        state_dict = {
             "epoch": self.epoch or 0,
             "global_step": self.global_step,
             "global_train_examples_seen_this_epoch": self.global_train_examples_seen_this_epoch,
@@ -332,9 +333,13 @@ class Trainer:
                 "python": random.getstate(),
                 "numpy": np.random.get_state(),
                 "torch": torch.random.get_rng_state(),
-                "cuda": torch.cuda.get_rng_state(),
             },
         }
+
+        if torch.cuda.is_available():
+            state_dict["rng"]["cuda"] = torch.cuda.get_rng_state()
+
+        return state_dict
 
     def load_trainer_state_dict(self, state_dict: Dict[str, Any]) -> None:
         # Checkpoint paths.
@@ -429,7 +434,8 @@ class Trainer:
         random.setstate(rng_state["python"])
         np.random.set_state(rng_state["numpy"])
         torch.set_rng_state(rng_state["torch"])
-        torch.cuda.set_rng_state(rng_state["cuda"])
+        if "cuda" in rng_state:
+            torch.cuda.set_rng_state(rng_state["cuda"])
 
     def _save_checkpoint(
         self, checkpointer: Checkpointer, checkpoint_type: CheckpointType
@@ -674,9 +680,12 @@ class Trainer:
                 )
         trace_save_folder.mkdir(parents=True)
 
+        module_num = 0
         def trace_outputs_hook(
             module_name: str, _: torch.nn.Module, args: Tuple[torch.Tensor, ...], output: torch.Tensor
         ) -> None:
+            nonlocal module_num
+
             if len(args) == 0:
                 log.info("No input args for module %s, output %s", module_name, output)
 
@@ -684,15 +693,13 @@ class Trainer:
             trace_save_folder = Path(self.cfg.save_folder) / f"traces/step{self.global_step}"
             trace_save_folder.mkdir(parents=True, exist_ok=True)
 
-            module_occurence_num = 0
-            while (
-                module_input_filepath := trace_save_folder / f"{module_name}_{module_occurence_num}_input.pt"
-            ).exists():
-                module_occurence_num += 1
+            module_input_filepath = trace_save_folder / f"{module_name}_{module_num}_input.pt"
             torch.save(module_input, module_input_filepath)
 
-            module_output_filepath = trace_save_folder / f"{module_name}_{module_occurence_num}_output.pt"
+            module_output_filepath = trace_save_folder / f"{module_name}_{module_num}_output.pt"
             torch.save(output, module_output_filepath)
+
+            module_num += 1
 
         output_hooks = []
         for module_name, module in self.model.named_modules(prefix="model"):
@@ -838,7 +845,7 @@ class Trainer:
         ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
         # Collect loss, potentially reducing over all ranks.
-        if reduce_global_loss:
+        if reduce_global_loss and get_world_size() > 1:
             dist.reduce(ce_batch_loss, 0)
             ce_batch_loss.div_(get_world_size())
             if z_batch_loss is not None:
@@ -852,7 +859,7 @@ class Trainer:
             collect_param_metrics=should_log_optim_metrics_this_step,
             # passing this process group here ensures metrics are reduced correctly when we're using
             # HYBRID sharding.
-            process_group=self.dist_model.process_group,
+            process_group=self.dist_model.process_group if is_distributed() else None,
         )
 
         # Adjust the learning rate.

@@ -1,0 +1,101 @@
+run_name: test-olmo-model-xtiny
+seed: 12345
+dry_run: false
+
+wandb: null
+
+model:
+  d_model: 32
+  n_heads: 4
+  n_layers: 2
+  mlp_ratio: 4
+  weight_tying: false
+  alibi: false
+  rope: true
+  rope_theta: 500000
+  flash_attention: true
+  attention_dropout: 0.0
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  bias_for_layer_norm: false
+  attention_layer_norm: true
+  attention_layer_norm_with_affine: true
+  norm_after: true
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 1024
+  vocab_size: 100
+  embedding_size: 128
+  eos_token_id: 1
+  pad_token_id: 2
+  init_device: meta
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3
+
+softmax_auxiliary_loss: true
+auxiliary_loss_multiplier: 1e-5
+fused_loss: false
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 4.0e-4
+  weight_decay: 0.1
+  eps: 1e-8
+  decay_norm_and_bias: true
+  decay_embeddings: false
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 1
+
+scheduler:
+  name: cosine_with_warmup
+  units: steps
+  t_warmup: 1
+  t_max: 1000
+  alpha_f: 0.1
+  warmup_min_lr: 0.0
+
+tokenizer:
+  identifier: allenai/dolma2-tokenizer
+  truncate_direction: right
+
+save_folder: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/${run_name}
+save_overwrite: false
+
+save_interval: null
+save_num_checkpoints_to_keep: -1
+sharded_checkpointer: olmo_core
+
+save_interval_unsharded: null
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+max_duration: 1ep
+global_train_batch_size: 4
+device_train_microbatch_size: 2
+
+precision: amp_bf16
+
+fsdp:
+  wrapping_strategy: null
+  sharding_strategy: SHARD_GRAD_OP
+  precision: mixed
+
+# activation_checkpointing: whole_layer
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 1
+
+gen1_gc_interval: 10
