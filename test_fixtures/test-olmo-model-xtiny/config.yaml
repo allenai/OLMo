@@ -13,7 +13,7 @@ model:
   alibi: false
   rope: true
   rope_theta: 500000
-  flash_attention: true
+  flash_attention: false
   attention_dropout: 0.0
   include_bias: false
   block_type: sequential
