@@ -92,6 +92,7 @@ precision: amp_bf16
 fsdp:
   wrapping_strategy: by_block_and_size
   precision: mixed
+  sharding_strategy: HYBRID_SHARD, 
 
 # activation_checkpointing: whole_layer
 
