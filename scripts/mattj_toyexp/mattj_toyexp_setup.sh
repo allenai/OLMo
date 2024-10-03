@@ -51,6 +51,6 @@ torchrun \
     scripts/mattj_toyexp/mattj_toyexp_config.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=500 \
-      --save_overwrite
-
+      --save_overwrite \
+      --fsdp.hybrid_sharding_num_model_replicas=${NUM_NODES}
      # '--load_path=${path.last_checkpoint:${save_folder}}' \
