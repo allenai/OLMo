@@ -23,11 +23,8 @@ mkdir -p ~/.aws
 printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
 
-export EXPERIMENT=llamaish7-normal-final
-# export NCCL_IB_HCA=^mlx5_bond
-export NCCL_DEBUG=TRACE
-export NCCL_IB_HCA=mlx5_0:1,mlx5_1:1,mlx5_2:1,mlx5_3:1,mlx5_4:1,mlx5_5:1,mlx5_6:1,mlx5_7:1
 
+export EXPERIMENT=llamaish1-normal-final
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -38,21 +35,19 @@ torchrun \
   --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
   scripts/train.py \
-  configs/llamaish7-normal-weka.yaml \
+  configs/llamaish1-normal-weka.yaml \
     --run_name=$EXPERIMENT \
     --wandb.name=$EXPERIMENT \
     --wandb.group=$EXPERIMENT \
     --fsdp.wrapping_strategy=by_block_and_size \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --save_folder=runs/ \
-    --activation_checkpointing=fine_grained \
-    --device_train_microbatch_size=2 \
-    --global_train_batch_size=1024 \
+    --device_train_microbatch_size=4 \
+    --global_train_batch_size=512 \
     --save_interval=250 \
     --eval_interval=250 \
     --optimizer.metrics_log_interval=1 \
     --save_overwrite \
     --save_num_checkpoints_to_keep=3 \
-    --data.num_workers=64 \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal-final/}'
-    #--load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal/step2000
+    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-final/}'
+    #--load_path=s3://ai2-llm/checkpoints/OLMo-small/llamaish1-normal-shard/step2000

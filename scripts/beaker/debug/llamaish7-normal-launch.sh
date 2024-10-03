@@ -2,12 +2,12 @@
 
 set -ex
 
-NUM_NODES=16
+NUM_NODES=32
 
 gantry run \
   --workspace ai2/OLMo-training \
-  --task-name llamaish7-normal \
-  --description "OLMo medium - 7B - Llamaish Normal" \
+  --task-name llamaish7-normal-spike-debug \
+  --description "OLMo medium - 7B - Llamaish Normal Spike Debug" \
   --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
@@ -20,7 +20,7 @@ gantry run \
   --no-nfs \
   --weka oe-training-default:/weka/oe-training-default \
   --propagate-failure \
-  --synchronized-start-timeout 15m \
+  --synchronized-start-timeout 60m \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
@@ -38,4 +38,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/llamaish7-normal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/debug/llamaish7-normal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"

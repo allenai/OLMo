@@ -23,11 +23,7 @@ mkdir -p ~/.aws
 printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
 
-export EXPERIMENT=llamaish7-normal-final
-# export NCCL_IB_HCA=^mlx5_bond
-export NCCL_DEBUG=TRACE
-export NCCL_IB_HCA=mlx5_0:1,mlx5_1:1,mlx5_2:1,mlx5_3:1,mlx5_4:1,mlx5_5:1,mlx5_6:1,mlx5_7:1
-
+export EXPERIMENT=llamaish7-normal-final-spike-rerun-2
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -54,5 +50,5 @@ torchrun \
     --save_overwrite \
     --save_num_checkpoints_to_keep=3 \
     --data.num_workers=64 \
-    '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal-final/}'
-    #--load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal/step2000
+    --fast_forward_batches=1 \
+    --load_path=s3://ai2-llm/checkpoints/OLMo-medium/llamaish7-normal-final/step96750
