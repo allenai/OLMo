@@ -658,11 +658,14 @@ class OLMoBlock(nn.Module):
     @classmethod
     def build(cls, layer_id: int, config: ModelConfig, cache: BufferCache) -> OLMoBlock:
         if config.block_type == BlockType.sequential:
-            return OLMoSequentialBlock(layer_id, config, cache)
+            r = OLMoSequentialBlock(layer_id, config, cache)
         elif config.block_type == BlockType.llama:
-            return OLMoLlamaBlock(layer_id, config, cache)
+            r = OLMoLlamaBlock(layer_id, config, cache)
         else:
             raise NotImplementedError(f"Unknown block type: '{config.block_type}'")
+
+        r = torch.compile(r, fullgraph=False)
+        return r
 
 
 class OLMoSequentialBlock(OLMoBlock):
