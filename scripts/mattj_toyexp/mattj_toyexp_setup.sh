@@ -36,8 +36,8 @@ export TORCH_DIST_INIT_BARRIER=1
 export OLMO_SHARED_FS=1
 
 export NCCL_DEBUG=INFO
-export NCCL_IB_HCA="^=mlx5_bond_0"
-export NCCL_SOCKET_IFNAME="=enp70s0f0np0,enp70s0f1np1"
+export NCCL_IB_HCA="^=mlx5_1,mlx5_2"
+export NCCL_SOCKET_IFNAME="bond0"
 # export NCCL_IB_GID_INDEX=0
 
 torchrun \
