@@ -138,10 +138,8 @@ def main(cfg: TrainConfig) -> None:
     if cfg.compile is not None:
         if cfg.model.block_group_size != 1:
             raise OLMoConfigurationError("Compile is only supported with block_group_size 1.")
-        for i in range(len(olmo_model.transformer.blocks)):
-            block = olmo_model.transformer.blocks[i]
-            block = torch.compile(block, **cfg.compile.asdict())
-            olmo_model.transformer.blocks[i] = block
+        for block in olmo_model.transformer.blocks:
+            block.compile()
 
     olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
 
