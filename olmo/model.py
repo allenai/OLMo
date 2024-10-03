@@ -1255,15 +1255,8 @@ class OLMo(nn.Module):
                 ln_f=LayerNorm.build(config),
             )
         )
-        if self.config.moe_interleave:
-            blocks = []
-            for i in range(config.n_layers):
-                if i % 2 == 0:
-                    blocks.append(OLMoSequentialBlock(i, config, self.__cache))
-                else:
-                    blocks.append(OLMoEBlock(i, config, self.__cache))
-        else:
-            blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
+
+        blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
         if self.config.block_group_size > 1:
             block_groups = [
                 OLMoBlockGroup(config, i, blocks[i : i + config.block_group_size])

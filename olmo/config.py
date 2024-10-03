@@ -493,11 +493,6 @@ class ModelConfig(BaseConfig):
     Whether to perform load balancing in FP32.
     """
 
-    moe_interleave: Optional[bool] = False
-    """
-    Interleave sequential with MoE blocks starting with sequential.
-    """
-
     moe_loss_weight: Optional[float] = 0.1
     """
     The weight to use for the MoE load balancing loss.
@@ -1355,7 +1350,6 @@ def config_to_moe_args(config: ModelConfig) -> Dict[str, Any]:
         config.mlp_hidden_size if config.mlp_hidden_size is not None else config.mlp_ratio * config.d_model
     )
     act = Activation.build(config)
-    num_layers = config.n_layers // 2 if config.moe_interleave else config.n_layers
     kwargs = {
         "activation_fn": F.silu if "swiglu" in config.activation_type.lower() else Activation.build(config),
         "mlp_type": "glu" if "glu" in config.activation_type.lower() else "mlp",
@@ -1363,7 +1357,7 @@ def config_to_moe_args(config: ModelConfig) -> Dict[str, Any]:
         "hidden_size": config.d_model,
         "ffn_hidden_size": int(act.output_multiplier * hidden_size),
         "moe_num_experts": config.moe_num_experts,
-        "num_layers": num_layers,
+        "num_layers": config.n_layers,
         # Handled by FSDP (https://github.com/databricks/megablocks/issues/57#issuecomment-1854594483)
         "moe_weight_parallelism": False,
         "moe_expert_model_parallelism": False,
