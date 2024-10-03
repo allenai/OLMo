@@ -35,7 +35,8 @@ def main(args):
     stop_at_to_write = [str(round(float(n) / (1024 * 4096)) + 10) for n in max_duration_to_write]
     file_names = ["scitech", "edu", "history", "health", "entertainment"]
 
-    default_config_file = f"sewon-configs/dclm/peteish7-anneal-from-1T-dclmx1.yaml"
+    postfix = "" # "-from-1T"
+    default_config_file = f"sewon-configs/dclm/peteish7-anneal{postfix}-dclmx1.yaml"
     with open(default_config_file, "r") as f:
         config_text = f.read()
     assert config_text.count("paths:")==1
@@ -70,7 +71,7 @@ def main(args):
         curr_config_text = curr_config_text.replace("50e9T", max_duration+"T")
         curr_config_text = curr_config_text.replace("11931", stop_at)
 
-        config_path = f"sewon-configs/dclm_v0.2/peteish7-anneal-from-1T-{file_name}.yaml"
+        config_path = f"sewon-configs/dclm_v0.2/peteish7-anneal{postfix}-{file_name}.yaml"
         with open(config_path, "w") as f:
             f.write(curr_config_text)
             for domain in domains:

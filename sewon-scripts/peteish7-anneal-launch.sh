@@ -10,8 +10,7 @@ set -ex
 # bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-edu
 # bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-history
 # bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-health
-# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-edu
-
+# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-entertainment
 
 CONFIG_NAME=$1
 NUM_NODES=$2
