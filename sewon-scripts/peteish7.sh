@@ -49,7 +49,7 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    "sewon-configs/dclm/${GANTRY_TASK_NAME}.yaml" \
+    "sewon-configs/dclm_v0.2/${GANTRY_TASK_NAME}.yaml" \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=500 \
       --save_overwrite \
