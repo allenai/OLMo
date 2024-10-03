@@ -681,6 +681,7 @@ class Trainer:
         trace_save_folder.mkdir(parents=True)
 
         module_num = 0
+
         def trace_outputs_hook(
             module_name: str, _: torch.nn.Module, args: Tuple[torch.Tensor, ...], output: torch.Tensor
         ) -> None:

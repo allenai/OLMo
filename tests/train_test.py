@@ -1,13 +1,15 @@
 import shutil
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Union
 
 import numpy as np
 import pytest
 import torch
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.testing import assert_close
 
-from olmo.config import TrainConfig
+from olmo.config import DistributedStrategy, TrainConfig
 from olmo.data import build_train_dataloader
 from olmo.model import OLMo
 from olmo.optim import build_optimizer, build_scheduler
@@ -143,10 +145,40 @@ def _get_train_config(model_path: Path, save_folder: Path) -> TrainConfig:
     return cfg
 
 
+def _get_dist_model(
+    cfg: TrainConfig, olmo_model: OLMo, distributed_strategy: Optional[DistributedStrategy]
+) -> Union[FSDP, DDP, OLMo]:
+    if distributed_strategy is None:
+        return olmo_model
+    if distributed_strategy == DistributedStrategy.fsdp:
+        assert cfg.fsdp is not None
+
+        def dummy_init_fn(module: torch.nn.Module) -> None:
+            module.to_empty(device=torch.device("cuda:0"))
+
+        param_init_fn = dummy_init_fn
+
+        return FSDP(
+            olmo_model,
+            sharding_strategy=cfg.fsdp.sharding_strategy,
+            mixed_precision=cfg.fsdp_precision,
+            auto_wrap_policy=olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy),
+            use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
+            limit_all_gathers=True,
+            device_id=0,
+            param_init_fn=param_init_fn,
+        )
+    if distributed_strategy == DistributedStrategy.ddp:
+        return DDP(olmo_model.to(torch.device("cuda:0")))
+
+    raise NotImplementedError
+
+
 def _train_model(
     model_path: str,
     cfg: TrainConfig,
     *,
+    distributed_strategy: Optional[DistributedStrategy] = None,
     cuda: bool = False,
     replace_existing_model: bool = False,
 ):
@@ -154,7 +186,7 @@ def _train_model(
 
     olmo_model = OLMo(cfg.model).to_empty(device=device)
     olmo_model.reset_parameters()
-    dist_model = olmo_model
+    dist_model = _get_dist_model(cfg, olmo_model, distributed_strategy)
 
     optim = build_optimizer(cfg, dist_model)
     scheduler = build_scheduler(cfg)
@@ -183,18 +215,19 @@ def _train_model(
 
     if replace_existing_model:
         # Replace existing trace files
-        model_traces_path = Path(model_path) / "traces"
+        model_traces_path = Path(model_path) / ("traces_cuda" if cuda else "traces_cpu")
         if model_traces_path.is_dir():
             shutil.rmtree(model_traces_path)
         shutil.copytree(Path(cfg.save_folder) / "traces", model_traces_path)
 
 
 @pytest.mark.parametrize(
-    "cuda",
+    "cuda, distributed_strategy",
     [
-        pytest.param(False),
+        pytest.param(False, None),
         pytest.param(
             True,
+            DistributedStrategy.fsdp,
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
@@ -202,8 +235,12 @@ def _train_model(
         ),
     ],
 )
-def test_train_first_step_forward_unchanged(
-    xtiny_model_path: str, tmp_path: Path, cuda: bool, update_test: bool = False
+def test_train_forward_unchanged(
+    xtiny_model_path: str,
+    tmp_path: Path,
+    cuda: bool,
+    distributed_strategy: Optional[DistributedStrategy],
+    update_test: bool = False,
 ):
     """
     This test checks that the output of model forward of the 1st step has not changed (relative to an existing checkpoint).
@@ -215,17 +252,19 @@ def test_train_first_step_forward_unchanged(
     cfg.stop_at = 2
 
     if update_test:
-        np.save("test_fixtures/random_data.npy", np.random.randint(0, cfg.model.vocab_size, 2 ** 16))
+        np.save("test_fixtures/random_data.npy", np.random.randint(0, cfg.model.vocab_size, 2**16))
 
     _train_model(
         xtiny_model_path,
         cfg,
+        distributed_strategy=distributed_strategy,
         cuda=cuda,
         replace_existing_model=update_test,
     )
 
-    assert (Path(cfg.save_folder) / "traces/step1").is_dir()
-    _compare_module_outputs(Path(xtiny_model_path) / "traces/step1", Path(cfg.save_folder) / "traces/step1")
+    assert (Path(cfg.save_folder) / "traces/step1").is_dir(), "Output traces not found for newly trained model"
+    original_traces_dir = Path(xtiny_model_path) / ("traces_cuda" if cuda else "traces_cpu")
+    _compare_module_outputs(original_traces_dir / "step1", Path(cfg.save_folder) / "traces/step1")
 
     assert not update_test, "Test successfully updated, please disable update_test"
 
@@ -243,9 +282,7 @@ def test_train_first_step_forward_unchanged(
         ),
     ],
 )
-def test_train_second_step_forward_unchanged(
-    xtiny_model_path: str, tmp_path: Path, cuda: bool, update_test: bool = False
-):
+def test_train_second_step_unchanged(xtiny_model_path: str, tmp_path: Path, cuda: bool, update_test: bool = False):
     """
     This test checks that the output of model forward of the 2nd step has not changed (relative to an existing checkpoint).
 
@@ -256,7 +293,7 @@ def test_train_second_step_forward_unchanged(
     cfg.stop_at = 2
 
     if update_test:
-        np.save("test_fixtures/random_data.npy", np.random.randint(0, cfg.model.vocab_size, 2 ** 16))
+        np.save("test_fixtures/random_data.npy", np.random.randint(0, cfg.model.vocab_size, 2**16))
 
     _train_model(
         xtiny_model_path,
