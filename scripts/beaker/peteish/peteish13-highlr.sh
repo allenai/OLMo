@@ -54,8 +54,10 @@ torchrun \
       --save_overwrite \
       '--load_path=${path.last_checkpoint:${save_folder}}' \
       --sharded_checkpointer=olmo_core \
-      --device_train_microbatch_size=4 \
-      --activation_checkpointing=three_in_four \
+      --device_train_microbatch_size=1 \
+      --activation_checkpointing=null \
+      --compile.mode=default \
+      --compile.fullgraph=false \
       --fused_loss=true \
       --model.flash_attention=true \
       --data.num_workers=8 \
