@@ -13,7 +13,7 @@
 # It will first, though, check that the weka directory doesn't exist AND that s3 doesn't have a corresponding directory (so as not to replicate what conversions already made)
 #
 # ASSUMPTIONS
-# - INPUT must be on s3
+# - INPUT must be on s3. Multiple wildcards allowed
 # - OUTPUT to weka is saved to the path as found on s3 with "-hf" suffix appended to the path
 # - Assumes tokenizer allenai/gpt-neox-olmo-dolma-v1_5.json
 #
@@ -46,5 +46,5 @@ gantry run \
     --shared-memory 10GiB \
     --weka=oe-eval-default:/data/input \
     --yes \
-    -- /bin/bash -c "python scripts/convert_checkpoints_batch.py --checkpoint-path $CHECKPOINT_PATH --weka-load-dir '/data/input' --weka-prefix 'weka://oe-eval-default'"
+    -- /bin/bash -c "python scripts/convert_checkpoints_batch.py --checkpoint-path $CHECKPOINT_PATH --weka-load-dir '/data/input' --weka-prefix 'weka://oe-eval-default' --save_to_weka"
 
