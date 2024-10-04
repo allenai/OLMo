@@ -256,6 +256,7 @@ def test_train_forward_unchanged(
     tmp_path: Path,
     cuda: bool,
     distributed_strategy: Optional[DistributedStrategy],
+    make_process_group,
     update_test: bool = False,
 ):
     """
@@ -266,6 +267,9 @@ def test_train_forward_unchanged(
     cfg = _get_train_config(Path(xtiny_model_path), tmp_path / "test_forward")
     cfg.module_outputs_save_steps = [1, 2]
     cfg.stop_at = 2
+
+    if cuda:
+        make_process_group()
 
     if update_test:
         np.save("test_fixtures/random_data.npy", np.random.randint(0, cfg.model.vocab_size, 2**16))
@@ -304,6 +308,7 @@ def test_train_second_step_unchanged(
     tmp_path: Path,
     cuda: bool,
     distributed_strategy: Optional[DistributedStrategy],
+    make_process_group,
     update_test: bool = False,
 ):
     """
@@ -314,6 +319,9 @@ def test_train_second_step_unchanged(
     cfg = _get_train_config(Path(xtiny_model_path), tmp_path / "test_forward")
     cfg.module_outputs_save_steps = [1, 2]
     cfg.stop_at = 2
+
+    if cuda:
+        make_process_group()
 
     if update_test:
         np.save("test_fixtures/random_data.npy", np.random.randint(0, cfg.model.vocab_size, 2**16))
