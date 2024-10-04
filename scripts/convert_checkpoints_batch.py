@@ -13,7 +13,6 @@ import os
 import time
 import boto3
 import json
-import sys
 from pathlib import Path
 
 from gantry import RESULTS_DIR
@@ -28,7 +27,7 @@ WEKA_CHECK_LOCATIONS_PREFIXES = {
     "{}/ianm/{}-hf/pytorch_model.bin": "ian's"
 }
 
-def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_prefix="/weka"):
+def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_prefix="/weka", save_to_weka=False):
     s3_client = boto3.client('s3')
     s3_resource = boto3.resource('s3')
 
@@ -38,40 +37,61 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
 
     processed = {}
 
+    # Convert to old-style checkpoint.
     for checkpoint_path in cps:
-        # Convert to old-style checkpoint.
-        retain_path_name = checkpoint_path.replace('s3://', '').strip('/')
-        weka_loc = f"{load_dir}/{retain_path_name}-hf/"
-        check_locs = [l.format(load_dir,retain_path_name) for l in WEKA_CHECK_LOCATIONS_PREFIXES]
-
         print(f"\n\n------------------------------------------------------------", flush=True)
-        print(f"\nProcessing Checkpoint: {retain_path_name}\n", flush=True)
-        error = ""
+        print(f"\nProcessing Checkpoint: {checkpoint_path}\n", flush=True)
 
-        path_found = None
-        for loc in check_locs:
+        error = ""
+        converted_path = ""
+        existing_location = ""
+        conversion_status = ""
+
+        # sort out paths, bucket names, and so on ...
+        path_bits = checkpoint_path.strip('/').replace('s3://', '').split('/')
+        s3_bucket_name = path_bits[0]
+        s3_prefix = '/'.join(path_bits[1:])
+        temp_path = '/'.join(path_bits) #checkpoint_path.replace('s3://', '').strip('/')
+        local_path = f"{load_dir}/{temp_path}-hf/"
+
+        # the converted model may already exist in local_path or in
+        path_found = False
+        potential_existing_locations = [l.format(load_dir,temp_path) for l in WEKA_CHECK_LOCATIONS_PREFIXES]
+        for loc in potential_existing_locations:
             if os.path.exists(loc):
-                path_found = loc.replace('/pytorch_model.bin','')
+                existing_location = loc.replace('/pytorch_model.bin','')
+                path_found = True
                 break
 
-        # Check if the output location is already there in s3. If so then skip conversion
-        s3_hf_exists = s3_path_exists(checkpoint_path, s3_resource)
-        if s3_hf_exists is not None:
-            conversion = 'existing'
-            converted_path = s3_hf_exists # checkpoint_path + '-hf'
+        # if one of the potential existing location has converted model in it then use that
+        if path_found:
+            # then there is no conversion to do.
+            conversion_status = 'existing'
+            converted_path = existing_location
             print(f"Converted Checkpoint Found: {converted_path}\n", flush=True)
-
-        # Check if the output location is in weka. If so then skip conversion
-        elif path_found is not None:
-            conversion = 'existing'
-            converted_path = path_found
-            print(f"Converted Checkpoint Found: {converted_path}\n", flush=True)
-
-        # Do conversion and save to Weka
         else:
-            conversion = 'new'
-            converted_path = weka_loc
-            conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{weka_loc}' --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5'  --cleanup-local-dir"
+            s3_bucket = s3_resource.Bucket(s3_bucket_name)
+            s3_hf_exists = s3_path_exists(s3_bucket, s3_prefix, s3_resource)
+
+            # if s3 already has a location for converted model then use that
+            if s3_hf_exists is not None:
+                path_found = True
+                print(f"Converted Checkpoint Found: {s3_hf_exists}", flush=True)
+
+                # if save to weka flag is passed, then download the s3 converted model to the local path
+                if save_to_weka:
+                    copy_s3_to_local(s3_hf_exists, local_path, s3_resource, sanity_check)
+                    conversion_status = 'existing-downloaded'
+                    converted_path = local_path
+                else:
+                    conversion_status = 'existing'
+                    converted_path = s3_hf_exists
+
+        # if no existing conversions are found then process and save to local path
+        if not path_found:
+            conversion_status = 'new'
+            converted_path = local_path
+            conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{local_path}' --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5'  --cleanup-local-dir"
 
             if sanity_check:
                 print('SANITY CHECK MODE (not running the conversion)')
@@ -81,14 +101,14 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
                     subprocess.run(conversion_cmd, shell=True, check=True)
                 except subprocess.CalledProcessError as e:
                     error = e.output ### NOT ACTUALLY WORKING CORRECTLY. FIX THIS (not catching config not found error)
-                    conversion = 'error'
+                    conversion_status = 'error'
                     converted_path = ""
 
         # Keep info for log.jsonl
         local_log = {
             'unprocessed_path': checkpoint_path,
             'converted_path': converted_path.replace(load_dir,weka_prefix),
-            'conversion': conversion,
+            'conversion': conversion_status,
             'date_time': time.strftime('%b-%d-%Y_%H%M', time.localtime()),
             'error': error
         }
@@ -113,21 +133,26 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
     # Output checkpoint location for eval scripts
     if not sanity_check:
         with open(os.path.join(RESULTS_DIR, 'model_checkpoints.jsonl'), 'w') as fout:
-            for _,p in processed.items():
+            for _, p in processed.items():
                 fout.write(json.dumps(p) + '\n')
 
 
-def s3_path_exists(cp, s3):
-    b = cp.split('/')[2]
-    bucket = s3.Bucket(b)
-    prefix = cp.replace('s3://'+b+'/', '')
-    # print(bucket, prefix)
+def s3_path_exists(bucket, prefix, s3_resource):
+    # look for pytorch_model.bin in directories ending with -hf or -hf-olmo.
     objs = list(bucket.objects.filter(Prefix=prefix + '-hf/pytorch_model.bin'))
     if len(objs) > 0:
-        return cp + '-hf'
+        return f"s3://{bucket}/{prefix}-hf"
     else:
         objs2 = list(bucket.objects.filter(Prefix=prefix + '-hf-olmo/pytorch_model.bin'))
-        return cp + '-hf-olmo' if (len(objs2) > 0) else None
+        return f"s3://{bucket}/{prefix}-hf-olmo" if (len(objs2) > 0) else None
+
+
+def copy_s3_to_local(bucket, prefix, local_path, s3_resource, sanity_check):
+    if not os.path.exists(os.path.dirname(local_path)):
+        print(f"Downloading checkpoint to weka://{bucket}/{prefix}\n", flush=True)
+        if not sanity_check:
+            os.makedirs(local_path)
+            bucket.download_file(prefix, local_path)  # save to same path
 
 
 def expand_paths(cps, s3):
@@ -145,7 +170,6 @@ def expand_paths(cps, s3):
         page_iterator = paginator.paginate(Bucket=bucket, Prefix=prefix)
         contents = {obj["Key"]:str(Path(obj['Key']).parent) for page in page_iterator for obj in page['Contents']}
         paths = set(contents.values())
-        # print(contents)
 
         for path in contents:
             p = Path(path)
@@ -164,25 +188,7 @@ def expand_paths(cps, s3):
             elif p.name == 'model.pt':
                 relevant_dirs.append(parent)
 
-
-        # for page in page_iterator:
-        #     for obj in page['Contents']:
-        #         p = Path(obj["Key"])
-        #         if p.parent.name in ['optim', 'train','model']:
-        #             grand_parent = str(p.parent.parent)
-        #             if '-unsharded' not in grand_parent:
-        #                 objs = list(s3_resource.Bucket(bucket).objects.filter(Prefix=grand_parent + '-unsharded'))
-        #                 if len(objs) > 0:
-        #                     continue
-        #             relevant_dirs.append(str(p.parent.parent))
-        #         elif p.name == 'model.pt':
-        #             relevant_dirs.append(str(p.parent))
-        #         # if 'model.pt' in obj["Key"]:
-        #         #     relevant_dirs.append(obj["Key"].replace('/model.pt',''))
-
         search_segs = [seg for i, seg in enumerate(segs) if i > 0 and seg != ""]
-
-        # print(f"search segments: {search_segs}")
 
         # subselect the directory with remaining segments (for multiple wildcard *)
         temp_dirs = relevant_dirs
@@ -211,13 +217,14 @@ def main():
     parser.add_argument("--weka-load-dir", help='mounted location of weka bucket', default='/data/input', type=str)
     parser.add_argument("--weka-prefix", help='weka directory prefix for output', default='/weka', type=str)
     parser.add_argument("--sanity-check", help='print what would be run; do not actually run conversion', action='store_true')
+    parser.add_argument("--save-to-weka", help='if checkpoints are found on s3, save them to loaded weka dir', action='store_true')
 
     args = parser.parse_args()
 
     if args.checkpoint_path is not None:
-        convert_checkpoint([args.checkpoint_path], load_dir=args.weka_load_dir, sanity_check=args.sanity_check, weka_prefix=args.weka_prefix)
+        convert_checkpoint([args.checkpoint_path], load_dir=args.weka_load_dir, sanity_check=args.sanity_check, weka_prefix=args.weka_prefix, save_to_weka=args.save_to_weka)
     else:
-        convert_checkpoint(read_checkpoints(args.checkpoint_path_file), load_dir=args.weka_load_dir, sanity_check=args.sanity_check, weka_prefix=args.weka_prefix)
+        convert_checkpoint(read_checkpoints(args.checkpoint_path_file), load_dir=args.weka_load_dir, sanity_check=args.sanity_check, weka_prefix=args.weka_prefix, save_to_weka=args.save_to_weka)
 
 
 if __name__ == "__main__":
