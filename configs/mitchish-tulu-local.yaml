@@ -1,0 +1,149 @@
+run_name: mitchish-tulu
+seed: 6198
+epoch: 0
+dry_run: false
+model:
+  d_model: 4096
+  n_heads: 32
+  n_layers: 32
+  mlp_ratio: 4
+  mlp_hidden_size: 22016
+  activation_type: swiglu
+  block_type: sequential
+  block_group_size: 1
+  alibi: false
+  alibi_bias_max: 8.0
+  rope: true
+  rope_full_precision: true
+  flash_attention: true
+  attention_dropout: 0.0
+  multi_query_attention: false
+  attention_layer_norm: false
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  layer_norm_type: default
+  layer_norm_with_affine: false
+  attention_layer_norm_with_affine: false
+  max_sequence_length: 2048
+  include_bias: false
+  bias_for_layer_norm: false
+  scale_logits: false
+  vocab_size: 50280
+  embedding_size: 50304
+  weight_tying: false
+  eos_token_id: 0
+  pad_token_id: 1
+  init_device: meta
+  init_fn: mitchell
+  init_std: 0.02
+  init_cutoff_factor: null
+  precision: amp_bf16
+optimizer:
+  name: adamw
+  learning_rate: 2.3e-05
+  weight_decay: 0.1
+  betas:
+  - 0.9
+  - 0.95
+  no_decay_norm_and_bias: null
+  decay_norm_and_bias: false
+  decay_embeddings: false
+  metrics_log_interval: 10
+scheduler:
+  name: linear_with_warmup
+  t_warmup: 556000
+  t_max: 558223
+  alpha_f: 0.001
+  grad_clip_warmup_steps: null
+  grad_clip_warmup_factor: null
+data:
+  paths:
+  - s3://ai2-llm/preprocessed/tulu-v2-sft-mixture/gpt-neox-20b-pii-special/data.npy
+  - s3://ai2-llm/preprocessed/olmo-mix/v1_5-sample-9B/gpt-neox-20b-pii-special/data.npy
+  datasets: null
+  pad_direction: right
+  num_workers: 16
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 1
+  persistent_workers: true
+  timeout: 0
+restore_dataloader: false
+fast_forward_batches: null
+evaluators:
+- label: rte
+  type: downstream
+  data:
+    paths: null
+    datasets: null
+    pad_direction: right
+    num_workers: 0
+    drop_last: false
+    pin_memory: false
+    prefetch_factor: null
+    persistent_workers: false
+    timeout: 0
+  device_eval_batch_size: null
+  subset_num_batches: null
+eval_interval: 100
+tokenizer:
+  identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
+  truncate_direction: right
+save_folder: runs/mitchish-tulu
+remote_save_folder: s3://ai2-llm/checkpoints/7b/v1_5-mix-mitch-ish-final-tulu
+canceled_check_interval: 50
+save_interval: 500
+save_interval_unsharded: null
+save_interval_ephemeral: null
+save_num_checkpoints_to_keep: -1
+save_num_unsharded_checkpoints_to_keep: -1
+save_overwrite: true
+force_save_unsharded: false
+no_pre_train_checkpoint: false
+load_path: /net/nfs.cirrascale/allennlp/petew/checkpoints/v1_5-mix-mitch-ish/step556000-unsharded
+load_path_sharded_checkpointer: null
+reset_optimizer_state: false
+sharded_checkpointer: torch_legacy
+new_style_checkpoints: null
+max_duration: 476837
+global_train_batch_size: 2048
+device_train_batch_size: 64
+device_train_microbatch_size: 4
+device_eval_batch_size: 4
+eval_subset_num_batches: -1
+eval_on_load: false
+device_train_grad_accum: 16
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+precision: amp_bf16
+wandb:
+  project: olmo-medium
+  entity: ai2-llm
+  group: v1_5-mix
+  name: v1_5-mix-mitch-ish-mcli-final-tulu
+  tags:
+  - watching
+  log_artifacts: false
+  rank_zero_only: true
+  log_interval: 1
+speed_monitor:
+  window_size: 20
+  gpu_flops_available: null
+console_log_interval: 1
+compile:
+  mode: null
+  fullgraph: false
+  backend: inductor
+fsdp:
+  use_orig_params: true
+  sharding_strategy: FULL_SHARD
+  wrapping_strategy: by_block
+  precision: mixed
+softmax_auxiliary_loss: false
+time_limit: null
+early_stopping_factor: null
+save_data_indices: true
+python_profiling: false
+torch_profiling: false
+stop_at: 558223
+activation_checkpointing: null
