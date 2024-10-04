@@ -81,7 +81,7 @@ def _compare_module_output(
             mismatching_element_count == 0
         ), f"Number of {module_name} mis-matching inputs: {mismatching_element_count}"
 
-    if (norm := torch.linalg.vector_norm(new_input - original_input)) > 1e-8:
+    if (norm := torch.linalg.vector_norm((new_input - original_input).float())) > 1e-8:
         logger.info("Difference of norm of %s input is non-trivial: %f", module_name, norm)
     assert_close(
         new_input, original_input, msg=lambda msg: f"{module_name} inputs are not sufficiently close.\n{msg}"
@@ -94,7 +94,7 @@ def _compare_module_output(
         assert (
             original_output.dtype == new_output.dtype
         ), f"{module_name} output dtype is different for new model. Original {original_output.dtype}, new {new_output.dtype}"
-        if (norm := torch.linalg.vector_norm(new_output - original_input)) > 1e-8:
+        if (norm := torch.linalg.vector_norm((new_output - original_input).float())) > 1e-8:
             logger.info("Difference of norm of %s output is non-trivial: %f", module_name, norm)
         assert_close(
             new_output,
