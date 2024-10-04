@@ -189,6 +189,7 @@ def _train_model(
     distributed_strategy: Optional[DistributedStrategy] = None,
     cuda: bool = False,
     replace_existing_model: bool = False,
+    replace_existing_traces: bool = False,
 ):
     device = torch.device("cuda") if cuda else torch.device("cpu")
 
@@ -221,7 +222,7 @@ def _train_model(
         trainer.restore_unsharded_checkpoint(model_path)
         trainer.fit()
 
-    if replace_existing_model:
+    if replace_existing_traces:
         # Replace existing trace files
         model_traces_path = Path(model_path) / ("traces_cuda" if cuda else "traces_cpu")
         if model_traces_path.is_dir():
@@ -249,12 +250,14 @@ def test_train_forward_unchanged(
     cuda: bool,
     distributed_strategy: Optional[DistributedStrategy],
     make_process_group,
-    update_test: bool = False,
+    replace_existing_model: bool = False,
+    replace_existing_traces: bool = False,
 ):
     """
     This test checks that the output of model forward of the 1st step has not changed (relative to an existing checkpoint).
 
-    Set update_test to True if a non-backwards-compatible change is being intentionally made and so this test needs to be updated.
+    Set replace_existing_model and/or replace_existing_traces to True if a non-backwards-compatible change is being
+    intentionally made and so this test needs to be updated.
     """
     cfg = _get_train_config(Path(xtiny_model_path), tmp_path / "test_forward")
     cfg.module_outputs_save_steps = [1, 2]
@@ -268,14 +271,16 @@ def test_train_forward_unchanged(
         cfg,
         distributed_strategy=distributed_strategy,
         cuda=cuda,
-        replace_existing_model=update_test,
+        replace_existing_model=replace_existing_model,
+        replace_existing_traces=replace_existing_traces,
     )
 
     assert (Path(cfg.save_folder) / "traces/step1").is_dir(), "Output traces not found for newly trained model"
     original_traces_dir = Path(xtiny_model_path) / ("traces_cuda" if cuda else "traces_cpu")
     _compare_module_outputs(original_traces_dir / "step1", Path(cfg.save_folder) / "traces/step1")
 
-    assert not update_test, "Test successfully updated, please disable update_test"
+    assert not replace_existing_model, "Test successfully updated, please disable replace_existing_model"
+    assert not replace_existing_traces, "Test successfully updated, please disable replace_existing_traces"
 
 
 @pytest.mark.parametrize(
@@ -298,12 +303,14 @@ def test_train_second_step_unchanged(
     cuda: bool,
     distributed_strategy: Optional[DistributedStrategy],
     make_process_group,
-    update_test: bool = False,
+    replace_existing_model: bool = False,
+    replace_existing_traces: bool = False,
 ):
     """
     This test checks that the output of model forward of the 2nd step has not changed (relative to an existing checkpoint).
 
-    Set update_test to True if a non-backwards-compatible change is being intentionally made and so this test needs to be updated.
+    Set replace_existing_model and/or replace_existing_traces to True if a non-backwards-compatible change is being
+    intentionally made and so this test needs to be updated.
     """
     cfg = _get_train_config(Path(xtiny_model_path), tmp_path / "test_forward")
     cfg.module_outputs_save_steps = [1, 2]
@@ -317,11 +324,13 @@ def test_train_second_step_unchanged(
         cfg,
         distributed_strategy=distributed_strategy,
         cuda=cuda,
-        replace_existing_model=update_test,
+        replace_existing_model=replace_existing_model,
+        replace_existing_traces=replace_existing_traces,
     )
 
     assert (Path(cfg.save_folder) / "traces/step2").is_dir(), "Output traces not found for newly trained model"
     original_traces_dir = Path(xtiny_model_path) / ("traces_cuda" if cuda else "traces_cpu")
     _compare_module_outputs(original_traces_dir / "step2", Path(cfg.save_folder) / "traces/step2")
 
-    assert not update_test, "Test successfully updated, please disable update_test"
+    assert not replace_existing_model, "Test successfully updated, please disable replace_existing_model"
+    assert not replace_existing_traces, "Test successfully updated, please disable replace_existing_traces"
