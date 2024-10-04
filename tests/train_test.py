@@ -1,10 +1,13 @@
 import shutil
+from datetime import timedelta
 from pathlib import Path
 from typing import List, Optional, Union
 
 import numpy as np
 import pytest
 import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.testing import assert_close
@@ -151,6 +154,17 @@ def _get_dist_model(
     if distributed_strategy is None:
         return olmo_model
     if distributed_strategy == DistributedStrategy.fsdp:
+        try:
+            mp.set_start_method("spawn", force=True)
+        except RuntimeError as e:
+            print(f"failed to set multiprocessing start method: {e}")
+
+        # Set CUDA device.
+        torch.cuda.set_device("cuda:0")
+
+        # Initialize process group.
+        dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30))
+
         assert cfg.fsdp is not None
 
         def dummy_init_fn(module: torch.nn.Module) -> None:
