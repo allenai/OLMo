@@ -1,12 +1,9 @@
 import shutil
-from datetime import timedelta
 from pathlib import Path
 from typing import List, Optional, Union
 
-import numpy as np
 import pytest
 import torch
-import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -219,7 +216,7 @@ def _train_model(
             # Save model and move *.pt files to right place
             trainer.save_unsharded_checkpoint()
             for path in (Path(cfg.save_folder) / "step0-unsharded/").glob("*.pt"):
-                path.rename(Path(model_path) / path.name)
+                shutil.copy(path, Path(model_path) / path.name)
 
         trainer.restore_unsharded_checkpoint(model_path)
         trainer.fit()
@@ -265,9 +262,6 @@ def test_train_forward_unchanged(
 
     if cuda:
         make_process_group()
-
-    if update_test:
-        np.save("test_fixtures/random_data.npy", np.random.randint(0, cfg.model.vocab_size, 2**16))
 
     _train_model(
         xtiny_model_path,
@@ -317,9 +311,6 @@ def test_train_second_step_unchanged(
 
     if cuda:
         make_process_group()
-
-    if update_test:
-        np.save("test_fixtures/random_data.npy", np.random.randint(0, cfg.model.vocab_size, 2**16))
 
     _train_model(
         xtiny_model_path,
