@@ -163,7 +163,7 @@ def _get_dist_model(
         torch.cuda.set_device("cuda:0")
 
         # Initialize process group.
-        dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30))
+        dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30), world_size=1, rank=0)
 
         assert cfg.fsdp is not None
 
