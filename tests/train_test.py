@@ -97,7 +97,7 @@ def _compare_module_output(
         assert (
             original_output.shape == new_output.shape
         ), f"{module_name} output shape is different for new model. Original {original_output.shape}, new {new_output.shape}"
-        if (norm := torch.linalg.vector_norm((new_output - original_input).float())) > 1e-8:
+        if (norm := torch.linalg.vector_norm((new_output - original_output).float())) > 1e-8:
             logger.info("Difference of norm of %s output is non-trivial: %f", module_name, norm)
         assert_close(
             new_output,
