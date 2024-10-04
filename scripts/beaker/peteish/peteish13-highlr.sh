@@ -58,6 +58,7 @@ torchrun \
       --activation_checkpointing=null \
       --compile.mode=default \
       --compile.fullgraph=false \
+      --compile.dynamic=false \
       --fused_loss=true \
       --model.flash_attention=true \
       --data.num_workers=8 \
