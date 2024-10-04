@@ -270,11 +270,12 @@ def test_train_forward_unchanged(
 
 
 @pytest.mark.parametrize(
-    "cuda",
+    "cuda, distributed_strategy",
     [
-        pytest.param(False),
+        pytest.param(False, None),
         pytest.param(
             True,
+            DistributedStrategy.fsdp,
             marks=(
                 pytest.mark.gpu,
                 pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device"),
@@ -282,7 +283,13 @@ def test_train_forward_unchanged(
         ),
     ],
 )
-def test_train_second_step_unchanged(xtiny_model_path: str, tmp_path: Path, cuda: bool, update_test: bool = False):
+def test_train_second_step_unchanged(
+    xtiny_model_path: str,
+    tmp_path: Path,
+    cuda: bool,
+    distributed_strategy: Optional[DistributedStrategy],
+    update_test: bool = False,
+):
     """
     This test checks that the output of model forward of the 2nd step has not changed (relative to an existing checkpoint).
 
@@ -298,11 +305,13 @@ def test_train_second_step_unchanged(xtiny_model_path: str, tmp_path: Path, cuda
     _train_model(
         xtiny_model_path,
         cfg,
+        distributed_strategy=distributed_strategy,
         cuda=cuda,
         replace_existing_model=update_test,
     )
 
-    assert (Path(cfg.save_folder) / "traces/step2").is_dir()
-    _compare_module_outputs(Path(xtiny_model_path) / "traces/step2", Path(cfg.save_folder) / "traces/step2")
+    assert (Path(cfg.save_folder) / "traces/step2").is_dir(), "Output traces not found for newly trained model"
+    original_traces_dir = Path(xtiny_model_path) / ("traces_cuda" if cuda else "traces_cpu")
+    _compare_module_outputs(original_traces_dir / "step2", Path(cfg.save_folder) / "traces/step2")
 
     assert not update_test, "Test successfully updated, please disable update_test"
