@@ -29,6 +29,9 @@ mkdir -p ~/.aws
 printenv AWS_CONFIG > ~/.aws/config
 printenv AWS_CREDENTIALS > ~/.aws/credentials
 
+cat ~/.aws/config
+cat ~/.aws/credentials
+
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
 
