@@ -694,6 +694,17 @@ class CompilerConfig(BaseConfig):
     The backend to use.
     """
 
+    dynamic: Optional[bool] = None
+    """
+    From the torch docs:
+    
+    Use dynamic shape tracing. When this is True, we will up-front attempt to generate a kernel that is as dynamic
+    as possible to avoid recompilations when sizes change. This may not always work as some
+    operations/optimizations will force specialization; use TORCH_LOGS=dynamic to debug overspecialization. When
+    this is False, we will NEVER generate dynamic kernels, we will always specialize. By default (None), we
+    automatically detect if dynamism has occurred and compile a more dynamic kernel upon recompile.
+    """
+
 
 class DistributedStrategy(StrEnum):
     ddp = "ddp"
