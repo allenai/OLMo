@@ -71,7 +71,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
             print(f"Converted Checkpoint Found: {converted_path}\n", flush=True)
         else:
             s3_bucket = s3_resource.Bucket(s3_bucket_name)
-            s3_hf_exists = s3_path_exists(s3_bucket, s3_prefix, s3_resource)
+            s3_hf_exists = s3_path_exists(s3_bucket, s3_prefix, s3_bucket_name)
 
             # if s3 already has a location for converted model then use that
             if s3_hf_exists is not None:
@@ -80,7 +80,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
 
                 # if save to weka flag is passed, then download the s3 converted model to the local path
                 if save_to_weka:
-                    copy_s3_to_local(s3_hf_exists, local_path, s3_resource, sanity_check)
+                    copy_s3_to_local(s3_bucket, s3_prefix, local_path, local_path.replace(load_dir,weka_prefix), sanity_check)
                     conversion_status = 'existing-downloaded'
                     converted_path = local_path
                 else:
@@ -137,19 +137,19 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
                 fout.write(json.dumps(p) + '\n')
 
 
-def s3_path_exists(bucket, prefix, s3_resource):
+def s3_path_exists(bucket, prefix, bucket_name):
     # look for pytorch_model.bin in directories ending with -hf or -hf-olmo.
     objs = list(bucket.objects.filter(Prefix=prefix + '-hf/pytorch_model.bin'))
     if len(objs) > 0:
-        return f"s3://{bucket}/{prefix}-hf"
+        return f"s3://{bucket_name}/{prefix}-hf"
     else:
         objs2 = list(bucket.objects.filter(Prefix=prefix + '-hf-olmo/pytorch_model.bin'))
-        return f"s3://{bucket}/{prefix}-hf-olmo" if (len(objs2) > 0) else None
+        return f"s3://{bucket_name}/{prefix}-hf-olmo" if (len(objs2) > 0) else None
 
 
-def copy_s3_to_local(bucket, prefix, local_path, s3_resource, sanity_check):
+def copy_s3_to_local(bucket, prefix, local_path, display_name, sanity_check):
     if not os.path.exists(os.path.dirname(local_path)):
-        print(f"Downloading checkpoint to weka://{bucket}/{prefix}\n", flush=True)
+        print(f"Downloading checkpoint to {display_name}\n", flush=True)
         if not sanity_check:
             os.makedirs(local_path)
             bucket.download_file(prefix, local_path)  # save to same path
