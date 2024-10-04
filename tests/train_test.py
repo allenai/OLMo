@@ -1,3 +1,4 @@
+import logging
 import shutil
 from pathlib import Path
 from typing import List, Optional, Union
@@ -14,6 +15,8 @@ from olmo.data import build_train_dataloader
 from olmo.model import OLMo
 from olmo.optim import build_optimizer, build_scheduler
 from olmo.train import Trainer, cross_entropy_loss, fused_loss_fn
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.mark.skipif(torch.cuda.device_count() < 1, reason="Requires CUDA device")
@@ -74,7 +77,12 @@ def _compare_module_output(
     ), f"{module_name} input shape is different for new model. Original {original_input.shape}, new {new_input.shape}"
     if "wte" in module_name:
         mismatching_element_count = torch.sum(torch.logical_not(torch.eq(original_input, new_input)))
-        assert mismatching_element_count == 0, f"Number of {module_name} mis-matching inputs: %d"
+        assert (
+            mismatching_element_count == 0
+        ), f"Number of {module_name} mis-matching inputs: {mismatching_element_count}"
+
+    if (norm := torch.linalg.vector_norm(new_input - original_input)) > 1e-8:
+        logger.info("Difference of norm of %s input is non-trivial: %f", module_name, norm)
     assert_close(
         new_input, original_input, msg=lambda msg: f"{module_name} inputs are not sufficiently close.\n{msg}"
     )
@@ -86,6 +94,8 @@ def _compare_module_output(
         assert (
             original_output.dtype == new_output.dtype
         ), f"{module_name} output dtype is different for new model. Original {original_output.dtype}, new {new_output.dtype}"
+        if (norm := torch.linalg.vector_norm(new_output - original_input)) > 1e-8:
+            logger.info("Difference of norm of %s output is non-trivial: %f", module_name, norm)
         assert_close(
             new_output,
             original_output,
