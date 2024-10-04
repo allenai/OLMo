@@ -817,14 +817,13 @@ class Trainer:
         moe_z_batch_loss = (
             None if not self.model.config.moe_zloss_weight else torch.tensor(0.0, device=self.device)
         )
-        # Keep this one on CPU to save memory
         expert_assignments = (
             None
             if (
                 (self.model.config.block_type != BlockType.moe)
                 or (self.model.config.moe_log_expert_assignment is False)
             )
-            else torch.zeros((self.model.config.n_layers, self.model.config.moe_num_experts))
+            else torch.zeros((self.model.config.n_layers, self.model.config.moe_num_experts), device=self.device)
         )
         num_micro_batches = len(micro_batches)
 
@@ -868,7 +867,7 @@ class Trainer:
                             tokens_per_expert, _, _ = zip(*get_load_balancing_loss())
                         else:
                             tokens_per_expert, _ = zip(*get_load_balancing_loss())
-                        expert_assignments += torch.stack(tokens_per_expert, dim=0).cpu()
+                        expert_assignments += torch.stack(tokens_per_expert, dim=0)
                     clear_load_balancing_loss()
                     if self.model.config.moe_loss_weight:
                         loss += lb_loss
