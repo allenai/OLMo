@@ -25,15 +25,29 @@ def main(args):
     # main_v0(args)
 
     # v0.2
-    domains_to_write = ["Science,_Math_n_Technology", # 29.2M tokens
-            "Education_n_Jobs", # 12.4M tokens
-            ["History_n_Geography", "Travel_n_Tourism"], # 15.0M tokens
-            "Health", # 27.4M tokens
-            ["Entertainment", "Art_n_Design", "Social_Life"], # 52.5M tokens
-            ]
-    max_duration_to_write = ["30e9", "15e9", "15e9", "30e9", "50e9"]
-    stop_at_to_write = [str(round(float(n) / (1024 * 4096)) + 10) for n in max_duration_to_write]
-    file_names = ["scitech", "edu", "history", "health", "entertainment"]
+    type_ == "domain"
+    if type_ == "domain":
+        domains_to_write = [
+                "Science,_Math_n_Technology", # 29.2M tokens
+                "Education_n_Jobs", # 12.4M tokens
+                ["History_n_Geography", "Travel_n_Tourism"], # 15.0M tokens
+                "Health", # 27.4M tokens
+                ["Entertainment", "Art_n_Design", "Social_Life"], # 52.5M tokens
+        ]
+        max_duration_to_write = ["30e9", "15e9", "15e9", "30e9", "50e9"]
+        stop_at_to_write = [str(round(float(n) / (1024 * 4096)) + 10) for n in max_duration_to_write]
+        file_names = ["scitech", "edu", "history", "health", "entertainment"]
+    elif type_ == "format":
+        domains_to_Write = [
+                ["Structured_Data", "Content_Listing", "Listicle", "Incomplete_Content"],
+                ["FAQs", "QnA_Forum", "Interview", "Discussion_Forum", "Personal_About_Page"],
+                ["Academic_Writing", "Knowledge_Article", "Organizational_About_Page"],
+        ]
+        max_duration_to_write = []
+        stop_at_to_write = [str(round(float(n) / (1024 * 4096)) + 10) for n in max_duration_to_write]
+        file_names = ["structured", "qna", "knowledge"]
+    else:
+        raise NotImplementedError()
 
     postfix = "" # "-from-1T"
     default_config_file = f"sewon-configs/dclm/peteish7-anneal{postfix}-dclmx1.yaml"
@@ -46,7 +60,7 @@ def main(args):
     out_base_dir = "/weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains"
     
     domain_name_to_paths = {}
-    for domain_dir in glob_path(os.path.join(base_dir, "low0", "domains_v3.8_tokens")):
+    for domain_dir in glob_path(os.path.join(base_dir, "low0", f"{type_}s_v3.8_tokens")):
         domain_name = domain_dir.split("/")[-1] 
         try:
             token_paths1 = list(glob_path(os.path.join(domain_dir, "*.npy")))

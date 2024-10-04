@@ -9,7 +9,8 @@ check_s3_path() {
 base_dir="s3://ai2-lucas-archival/checkpoints"
 
 #for m in peteish7-anneal-B3x50 peteish7-init ; do \
-for m in peteish7-anneal-dclmx1_codex20 peteish7-anneal-dclmx1_mathx30 peteish7-anneal-dclmx1_booksx50 ; do \
+#for m in peteish7-anneal-dclmx1_codex20 peteish7-anneal-dclmx1_mathx30 peteish7-anneal-dclmx1_booksx50 ; do \
+for m in peteish7-anneal-edu ; do \
 
 	CHECKPOINT="${base_dir}/$m/latest"
 
