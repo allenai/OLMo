@@ -325,8 +325,9 @@ if __name__ == "__main__":
     log.info(f"Multiprocessing start method set to '{mp.get_start_method()}'")
 
     # Initialize process group.
-    torch.cuda.set_device(f"cuda:{get_local_rank()}")   # Set this early to prevent GPU 0 from picking up a bunch of tensors it shouldn't have.
-    dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30), device_id=get_local_rank())
+    device_as_string = f"cuda:{get_local_rank()}"
+    torch.cuda.set_device(device_as_string)   # Set this early to prevent GPU 0 from picking up a bunch of tensors it shouldn't have.
+    dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30), device_id=device_as_string)
     log.info("Process group initialized")
 
     prepare_cli_environment()
