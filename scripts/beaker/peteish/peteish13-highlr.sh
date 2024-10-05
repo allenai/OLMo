@@ -58,11 +58,11 @@ torchrun \
       --activation_checkpointing=null \
       --compile.mode=default \
       --compile.fullgraph=false \
+      --compile.dynamic=true \
       --fused_loss=true \
       --model.flash_attention=true \
       --data.num_workers=8 \
       --optimizer.learning_rate=9.0e-4 \
-      --eval_on_load \
-      --stop_at=85000
+      --stop_at=85050
 
      # '--load_path=${path.last_checkpoint:${save_folder}}' \
