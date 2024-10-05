@@ -6,12 +6,12 @@ set -ex
 # CONFIG_NAME="peteish7-anneal-B34v0x10"
 # CONFIG_NAME="peteish7-anneal-B34v0.1x50"
 
-# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-scitech+sw
+# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-scitech_sw
 # bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-edu
-# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-history
-
 # bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-health
-# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-entertainment+sports
+
+# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-history
+# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-ent_sports
 # bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-lit
 
 # bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-politics

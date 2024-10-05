@@ -1,4 +1,4 @@
-run_name: peteish7-anneal-scitech+sw
+run_name: peteish7-anneal-from-1T-scitech_sw
 seed: 7201
 dry_run: false
 
@@ -48,7 +48,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 0.00020709 # learning rate at 2T
+  learning_rate: 0.00027464 # learning rate at 1T
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
@@ -78,7 +78,7 @@ sharded_checkpointer: olmo_core
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
-load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step477000
+load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step238000
 
 restore_dataloader: false
 no_pre_train_checkpoint: true

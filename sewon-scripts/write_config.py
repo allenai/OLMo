@@ -52,8 +52,8 @@ def main(args):
             "50e9", "15e9", "50e9", "50e9", "50e9", "12.5e9", "20e9", "27.5e9", "25e9"
         ]
         file_names = [
-            "lit", "history", "entertainment+sports",
-            "scitech+sw", "politics", "edu",
+            "lit", "history", "ent_sports",
+            "scitech_sw", "politics", "edu",
             "fin", "health", "others"
         ] 
     elif type_ == "format":
