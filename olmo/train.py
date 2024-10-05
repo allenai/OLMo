@@ -942,40 +942,41 @@ class Trainer:
         self.optim.zero_grad(set_to_none=True)
         self.dist_model.eval()
 
-        eval_metrics = {}
-        for evaluator in self.evaluators:
-            log.info(f"Running evaluation for '{evaluator.label}'...")
+        with torch.compiler.disable():
+            eval_metrics = {}
+            for evaluator in self.evaluators:
+                log.info(f"Running evaluation for '{evaluator.label}'...")
 
-            # Reset metrics.
-            evaluator.reset_metrics()
+                # Reset metrics.
+                evaluator.reset_metrics()
 
-            # Initialize data loader iterator.
-            eval_batches = iter(evaluator.eval_loader)
+                # Initialize data loader iterator.
+                eval_batches = iter(evaluator.eval_loader)
 
-            # Adjust how many batches to evaluate on.
-            num_eval_batches = (
-                evaluator.subset_num_batches
-                if evaluator.subset_num_batches is not None
-                else self.cfg.eval_subset_num_batches
-            )
-            if num_eval_batches > 0:
-                num_eval_batches = min(num_eval_batches, len(evaluator.eval_loader))
-                eval_batches = islice(eval_batches, num_eval_batches)
+                # Adjust how many batches to evaluate on.
+                num_eval_batches = (
+                    evaluator.subset_num_batches
+                    if evaluator.subset_num_batches is not None
+                    else self.cfg.eval_subset_num_batches
+                )
+                if num_eval_batches > 0:
+                    num_eval_batches = min(num_eval_batches, len(evaluator.eval_loader))
+                    eval_batches = islice(eval_batches, num_eval_batches)
 
-            # Run model over batches.
-            for eval_step, eval_batch in enumerate(eval_batches):
-                self.eval_step(eval_batch, evaluator)
+                # Run model over batches.
+                for eval_step, eval_batch in enumerate(eval_batches):
+                    self.eval_step(eval_batch, evaluator)
 
-                # Log to console.
-                if eval_step + 1 == num_eval_batches or (eval_step + 1) % self.cfg.console_log_interval == 0:
-                    log.info(f"[eval_step={eval_step + 1}/{num_eval_batches}]")
+                    # Log to console.
+                    if eval_step + 1 == num_eval_batches or (eval_step + 1) % self.cfg.console_log_interval == 0:
+                        log.info(f"[eval_step={eval_step + 1}/{num_eval_batches}]")
 
-            # Get final metrics.
-            metrics = evaluator.compute_metrics()
-            eval_metrics.update(metrics)
-            self.log_metrics_to_console(f"{evaluator.label}", metrics)
+                # Get final metrics.
+                metrics = evaluator.compute_metrics()
+                eval_metrics.update(metrics)
+                self.log_metrics_to_console(f"{evaluator.label}", metrics)
 
-            del eval_batches
+                del eval_batches
 
         return eval_metrics
 
