@@ -62,6 +62,7 @@ torchrun \
       --model.flash_attention=true \
       --data.num_workers=8 \
       --optimizer.learning_rate=9.0e-4 \
-      --eval_on_load
+      --eval_on_load \
+      --stop_at=85000
 
      # '--load_path=${path.last_checkpoint:${save_folder}}' \
