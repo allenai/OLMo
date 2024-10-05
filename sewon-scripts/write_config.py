@@ -25,9 +25,9 @@ def main(args):
     # main_v0(args)
 
     # v0.2
-    type_ == "domain"
+    type_ = "domain"
     if type_ == "domain":
-        domains_to_write = [
+        '''domains_to_write = [
                 "Science,_Math_n_Technology", # 29.2M tokens
                 "Education_n_Jobs", # 12.4M tokens
                 ["History_n_Geography", "Travel_n_Tourism"], # 15.0M tokens
@@ -35,8 +35,27 @@ def main(args):
                 ["Entertainment", "Art_n_Design", "Social_Life"], # 52.5M tokens
         ]
         max_duration_to_write = ["30e9", "15e9", "15e9", "30e9", "50e9"]
-        stop_at_to_write = [str(round(float(n) / (1024 * 4096)) + 10) for n in max_duration_to_write]
         file_names = ["scitech", "edu", "history", "health", "entertainment"]
+        '''
+        domains_to_write = [
+            ["Adult_Content", "Social_Life", "Literature", "Religion"], # 64.7M tokens literature
+            ["History_n_Geography", "Travel_n_Tourism"], # 15.0M tokens history
+            ["Art_n_Design", "Entertainment", "Games", "Sports_n_Fitness"], # 64.8M tokens entertainment
+            ["Software_Development", "Electronics_n_Hardare", "Science,_Math_n_Technology", "Software"], # 57.9M tokens scitect+sw
+            ["Crime_n_Law", "Politics"], # 54.3M tokens politics
+            ["Education_n_Jobs"], # 12.4M tokens
+            ["Finance_n_Business"], # 21.4M tokens
+            ["Health"], # 27.4M tokens
+            ["Industrial", "Transportation", "Fashion_n_Beauty", "Food_n_Dining", "Home_n_Hobbies"]
+        ]
+        max_duration_to_write = [
+            "50e9", "15e9", "50e9", "50e9", "50e9", "12.5e9", "20e9", "27.5e9", "25e9"
+        ]
+        file_names = [
+            "lit", "history", "entertainment+sports",
+            "scitech+sw", "politics", "edu",
+            "fin", "health", "others"
+        ] 
     elif type_ == "format":
         domains_to_Write = [
                 ["Structured_Data", "Content_Listing", "Listicle", "Incomplete_Content"],
@@ -44,12 +63,13 @@ def main(args):
                 ["Academic_Writing", "Knowledge_Article", "Organizational_About_Page"],
         ]
         max_duration_to_write = []
-        stop_at_to_write = [str(round(float(n) / (1024 * 4096)) + 10) for n in max_duration_to_write]
         file_names = ["structured", "qna", "knowledge"]
     else:
         raise NotImplementedError()
-
-    postfix = "" # "-from-1T"
+    assert len(domains_to_write)==len(max_duration_to_write)==len(file_names)
+    stop_at_to_write = [str(round(float(n) / (1024 * 4096)) + 10) for n in max_duration_to_write]
+      
+    postfix = "-from-1T"
     default_config_file = f"sewon-configs/dclm/peteish7-anneal{postfix}-dclmx1.yaml"
     with open(default_config_file, "r") as f:
         config_text = f.read()

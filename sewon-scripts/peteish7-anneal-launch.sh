@@ -6,14 +6,20 @@ set -ex
 # CONFIG_NAME="peteish7-anneal-B34v0x10"
 # CONFIG_NAME="peteish7-anneal-B34v0.1x50"
 
-# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-scitech
+# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-scitech+sw
 # bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-edu
 # bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-history
+
 # bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-health
-# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-entertainment
+# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-entertainment+sports
+# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-lit
+
+# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-politics
+# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-fin
+# bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-others
 
 CONFIG_NAME=$1
-NUM_NODES=$2
+NUM_NODES=8
 
 gantry run \
   --workspace ai2/ds-olmo \

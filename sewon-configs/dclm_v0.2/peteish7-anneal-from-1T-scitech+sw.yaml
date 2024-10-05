@@ -1,0 +1,452 @@
+run_name: peteish7-anneal-from-1T-scitech+sw
+seed: 7201
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: sewonm-peteish7-anneal
+  group: ${run_name}
+
+model:
+  d_model: 4096
+  n_heads: 32
+  n_layers: 32
+  mlp_hidden_size: 22016
+  weight_tying: false
+  alibi: false
+  rope: true
+  rope_theta: 500000
+  flash_attention: true
+  attention_dropout: 0.0
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  bias_for_layer_norm: false
+  attention_layer_norm: true
+  attention_layer_norm_with_affine: true
+  norm_after: true
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 4096
+  vocab_size: 100278
+  embedding_size: 100352
+  eos_token_id: 100257
+  pad_token_id: 100277
+  init_device: meta
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3
+
+softmax_auxiliary_loss: true
+auxiliary_loss_multiplier: 1e-5
+fused_loss: true
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 0.00027464 # learning rate at 1T
+  weight_decay: 0.1
+  eps: 1e-8
+  decay_norm_and_bias: true
+  decay_embeddings: false
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 1
+
+scheduler:
+  name: linear_with_warmup
+  t_warmup: 0
+  alpha_f: 0
+
+tokenizer:
+  identifier: allenai/dolma2-tokenizer
+  truncate_direction: right
+
+save_folder: /weka/oe-training-default/ai2-llm/checkpoints/sewonm-peteish7-anneal/${run_name}
+save_overwrite: false
+
+save_interval: 1000
+save_interval_ephemeral: 100
+save_num_checkpoints_to_keep: -1
+sharded_checkpointer: olmo_core
+
+save_interval_unsharded: null
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step238000
+
+restore_dataloader: false
+no_pre_train_checkpoint: true
+
+max_duration: 50e9T
+stop_at: 11931                  # round(50e9 / (1024 * 4096)) + 10
+global_train_batch_size: 1024
+device_train_microbatch_size: 2
+
+precision: amp_bf16
+
+fsdp:
+  wrapping_strategy: by_block_and_size
+  precision: mixed
+
+activation_checkpointing: one_in_four
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 1
+
+gen1_gc_interval: 1
+
+eval_interval: 1000
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  # - label: all-small-ppl-validation
+  #   data:
+  #     num_workers: 0
+  #     drop_last: true
+  #     # generate_doc_lengths: true
+  #     memmap_dtype: uint32
+  #     datasets:
+  #       c4_en-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
+  #       dolma_books-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
+  #       dolma_common-crawl-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
+  #       dolma_pes2o-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
+  #       dolma_reddit-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
+  #       dolma_stack-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
+  #       dolma_wiki-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
+  #       ice-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
+  #       m2d2_s2orc-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
+  #       pile-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
+  #       wikitext_103-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
+
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: piqa
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+  - label: winogrande
+    type: downstream
+
+  - label: openbook_qa
+    type: downstream
+
+  - label: boolq
+    type: downstream
+
+  - label: sciq
+    type: downstream
+
+  - label: arc_easy
+    type: downstream
+
+  - label: arc_challenge
+    type: downstream
+
+  - label: copa
+    type: downstream
+
+  #- label: rte
+  #  type: downstream
+
+  #- label: commitment_bank
+  #  type: downstream
+
+  #- label: sst2
+  #  type: downstream
+
+  - label: commonsense_qa
+    type: downstream
+
+  - label: social_iqa
+    type: downstream
+
+  - label: mmlu_stem_var
+    type: downstream
+
+  - label: mmlu_humanities_var
+    type: downstream
+
+  - label: mmlu_social_sciences_var
+    type: downstream
+
+  - label: mmlu_other_var
+    type: downstream
+
+  - label: mmlu_stem_mc_5shot
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot
+    type: downstream
+
+  - label: mmlu_other_mc_5shot
+    type: downstream
+
+  - label: mmlu_stem_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_other_mc_5shot_test
+    type: downstream
+
+  - label: basic_arithmetic
+    type: downstream
+
+  - label: trivia_qa_wiki_ppl
+    type: downstream
+
+  - label: natural_qs_open_ppl
+    type: downstream
+
+  - label: arc_easy_ppl
+    type: downstream
+
+data:
+  pad_direction: right
+  # generate_doc_lengths: true
+  num_workers: 32
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 8
+  persistent_workers: true
+  memmap_dtype: uint32
+  timeout: 0
+  instance_filter:
+    repetition_max_period: 13
+    repetition_min_period: 1
+    repetition_max_count: 32
+  paths:
+    # Software_Development
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software_Development/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-16-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-17-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-18-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-19-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-20-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-21-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-22-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-23-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-24-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-25-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-26-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-27-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-28-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-29-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-30-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software_Development/part-31-00000.npy
+
+
+    # Electronics_n_Hardare
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Electronics_n_Hardare/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-16-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-17-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-18-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-19-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-20-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-21-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-22-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-23-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-24-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-25-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-26-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-27-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-28-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-29-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-30-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Electronics_n_Hardare/part-31-00000.npy
+
+
+    # Science,_Math_n_Technology
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Science,_Math_n_Technology/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-16-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-17-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-18-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-19-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-20-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-21-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-22-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-23-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-24-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-25-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-26-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-27-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-28-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-29-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-30-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Science,_Math_n_Technology/part-31-00000.npy
+
+
+    # Software
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/low0/domains_v3.8_tokens/Software/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-00-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-01-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-02-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-03-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-04-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-05-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-06-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-07-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-08-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-09-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-10-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-11-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-12-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-13-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-14-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-15-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-16-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-17-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-18-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-19-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-20-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-21-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-22-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-23-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-24-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-25-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-26-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-27-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-28-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-29-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-30-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains/high0/domains_v3.8_tokens/Software/part-31-00000.npy
+
+

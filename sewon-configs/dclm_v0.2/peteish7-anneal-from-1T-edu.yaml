@@ -83,8 +83,8 @@ load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/st
 restore_dataloader: false
 no_pre_train_checkpoint: true
 
-max_duration: 15e9T
-stop_at: 3586                  # round(50e9 / (1024 * 4096)) + 10
+max_duration: 12.5e9T
+stop_at: 2990                  # round(50e9 / (1024 * 4096)) + 10
 global_train_batch_size: 1024
 device_train_microbatch_size: 2
 
