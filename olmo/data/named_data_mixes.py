@@ -1191,7 +1191,7 @@ DATA_SOURCES = {
         "preprocessed/olmo-mix/eli5_oh_top10p/gpt-neox-olmo-dolma-v1_5/part-59-00000.npy",
         "preprocessed/olmo-mix/eli5_oh_top10p/gpt-neox-olmo-dolma-v1_5/part-59-00001.npy"
     ],
-    "falcon_eli5_oh_top10p": [f"preprocessed/falcon-refinedweb/eli5_oh_top10p/part-000-{i:05d}.npy" for i in range(1, 150)],
+    "falcon_eli5_oh_top10p": [f"preprocessed/falcon-refinedweb/eli5_oh_top10p/part-{i:03d}-00000.npy" for i in range(1, 150)],
 }
 
 EXTRA_DATA_SOURCES = {
