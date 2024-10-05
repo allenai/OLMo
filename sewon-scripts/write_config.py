@@ -25,7 +25,7 @@ def main(args):
     # main_v0(args)
 
     # v0.2
-    type_ = "domain"
+    type_ = "format" #"domain"
     if type_ == "domain":
         '''domains_to_write = [
                 "Science,_Math_n_Technology", # 29.2M tokens
@@ -57,13 +57,24 @@ def main(args):
             "fin", "health", "others"
         ] 
     elif type_ == "format":
-        domains_to_Write = [
-                ["Structured_Data", "Content_Listing", "Listicle", "Incomplete_Content"],
-                ["FAQs", "QnA_Forum", "Interview", "Discussion_Forum", "Personal_About_Page"],
-                ["Academic_Writing", "Knowledge_Article", "Organizational_About_Page"],
+        domains_to_write = [
+                ["Structured_Data", "Content_Listing", "Listicle", "Organizational_About_Page"], # 23.3M
+                ["QnA_Forum", "Discussion_Forum"], # 50.5M
+                ["Academic_Writing", "Knowledge_Article"], # 43.4M
+                ["News_Article", "Nonfiction_Writing", "Organizational_Announcement"], # 57.7M
+                ["Personal_Blog"], # 82.2M
+                ["Creative_Writing", "Personal_About_Page", "Interview"], # 40.2M
+                ["Product_Page", "Incomplete_Content", "User_Reviews", "Ads"], # 20.2M
+                ["Customer_Support_Page", "FAQs", "Legal_Notices", "Technical_Writing", "Tutorial"] # 28.4
         ]
-        max_duration_to_write = []
-        file_names = ["structured", "qna", "knowledge"]
+        max_duration_to_write = [
+                "25e9", "50e9", "45e9", "50e9",
+                "50e9", "40e9", "20e9", "30e9"
+        ]
+        file_names = [
+                "structured", "forum", "knowledge", "news",
+                "blog", "creative", "product", "tutorial"
+        ]
     else:
         raise NotImplementedError()
     assert len(domains_to_write)==len(max_duration_to_write)==len(file_names)
@@ -80,15 +91,14 @@ def main(args):
     out_base_dir = "/weka/oe-training-default/ai2-llm/preprocessed/categorized-dclm/v0.2_domains"
     
     domain_name_to_paths = {}
-    for domain_dir in glob_path(os.path.join(base_dir, "low0", f"{type_}s_v3.8_tokens")):
+    low_dir = "low0" if type_=="domain" else "low1"
+    high_dir = "high0" if type_=="domain" else "high1"
+    for domain_dir in glob_path(os.path.join(base_dir, low_dir, f"{type_}s_v3.8_tokens")):
         domain_name = domain_dir.split("/")[-1] 
-        try:
-            token_paths1 = list(glob_path(os.path.join(domain_dir, "*.npy")))
-            assert len(token_paths1)==16
-            token_paths2 = list(glob_path(os.path.join(domain_dir.replace("low0", "high0"), "*.npy")))
-            assert len(token_paths2)==32
-        except Exception:
-            print (f"{domain_name} not done, skip...")
+        token_paths1 = list(glob_path(os.path.join(domain_dir, "*.npy")))
+        assert len(token_paths1)==16, (domain_name, len(token_paths1))
+        token_paths2 = list(glob_path(os.path.join(domain_dir.replace(low_dir, high_dir), "*.npy")))
+        assert len(token_paths2)==32, (domain_name, len(token_paths2))
         token_paths = token_paths1 + token_paths2
         token_paths = [token_path.replace(base_dir, out_base_dir) for token_path in token_paths]
         domain_name_to_paths[domain_name] = token_paths
