@@ -48,16 +48,16 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=1000 \
       --eval_interval=200 \
-      --fsdp.sharding_strategy=HYBRID_SHARD \
+      --fsdp.sharding_strategy=FULL_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas=$NUM_NODES \
       --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/${GANTRY_TASK_NAME}" \
       --remote_save_folder="s3://ai2-llm/checkpoints/OLMo-medium/${GANTRY_TASK_NAME}/" \
       --save_overwrite \
       '--load_path=${path.last_checkpoint:${save_folder}}' \
       --sharded_checkpointer=olmo_core \
-      --device_train_microbatch_size=4 \
-      --activation_checkpointing=whole_layer \
-      --compile.mode=default \
+      --device_train_microbatch_size=1 \
+      --activation_checkpointing=null \
+      --compile=default \
       --compile.fullgraph=false \
       --fused_loss=true \
       --model.flash_attention=true \
