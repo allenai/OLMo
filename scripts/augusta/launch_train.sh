@@ -13,7 +13,7 @@ mpirun \
   --mca btl self,tcp \
   --mca btl_tcp_if_include enp0s12 \
   --hostfile ~/hostfile \
-  -N $NUM_NODES \
+  -np $NUM_NODES \
   -npernode 1 \
   -x ${HOST_VARS} \
   -x WANDB_ENTITY \
