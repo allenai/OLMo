@@ -6,12 +6,14 @@ NCCL_LIB_DIR=/var/lib/tcpxo/lib64 source /var/lib/tcpxo/lib64/nccl-env-profile.s
 
 set -euxo pipefail
 
+NUM_NODES=$1
+
 HOST_VARS=$(sed 's/ \{1,\}/ -x /g' <<<"${!NCCL*} LD_LIBRARY_PATH")
 mpirun \
   --mca btl self,tcp \
   --mca btl_tcp_if_include enp0s12 \
   --hostfile ~/hostfile \
-  -N 2 \
+  -N $NUM_NODES \
   -npernode 1 \
   -x ${HOST_VARS} \
   -x WANDB_ENTITY \
