@@ -680,9 +680,13 @@ class Trainer:
                 )
         trace_save_folder.mkdir(parents=True)
 
+        module_num = 0
+
         def trace_outputs_hook(
             module_name: str, _: torch.nn.Module, args: Tuple[torch.Tensor, ...], output: torch.Tensor
         ) -> None:
+            nonlocal module_num
+
             if len(args) == 0:
                 log.info("No input args for module %s, output %s", module_name, output)
 
@@ -690,15 +694,13 @@ class Trainer:
             trace_save_folder = Path(self.cfg.save_folder) / f"traces/step{self.global_step}"
             trace_save_folder.mkdir(parents=True, exist_ok=True)
 
-            module_occurence_num = 0
-            while (
-                module_input_filepath := trace_save_folder / f"{module_name}_{module_occurence_num}_input.pt"
-            ).exists():
-                module_occurence_num += 1
+            module_input_filepath = trace_save_folder / f"{module_name}_{module_num}_input.pt"
             torch.save(module_input, module_input_filepath)
 
-            module_output_filepath = trace_save_folder / f"{module_name}_{module_occurence_num}_output.pt"
+            module_output_filepath = trace_save_folder / f"{module_name}_{module_num}_output.pt"
             torch.save(output, module_output_filepath)
+
+            module_num += 1
 
         output_hooks = []
         for module_name, module in self.model.named_modules(prefix="model"):
