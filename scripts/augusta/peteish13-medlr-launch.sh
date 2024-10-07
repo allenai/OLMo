@@ -16,7 +16,7 @@ RUN_NAME=peteish13-medlr-$(date -u +"%Y%m%d_%H%M%S")
     --save_folder=/mnt/localssd/runs/$RUN_NAME \
     --remote_save_folder="s3://ai2-llm/checkpoints/OLMo-medium/peteish13-medlr/" \
     --save_overwrite \
-    '--load_path=${path.last_checkpoint:${save_folder}}' \
+    '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
     --sharded_checkpointer=olmo_core \
     --device_train_microbatch_size=2 \
     --activation_checkpointing=three_in_four \
