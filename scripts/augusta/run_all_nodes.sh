@@ -10,6 +10,7 @@ mpirun \
   --mca btl_tcp_if_include enp0s12 \
   --mca orte_base_help_aggregate 0 \
   --hostfile ~/hostfile \
+  -tag-output \
   -npernode 1 \
   -x ${HOST_VARS} \
   -x WANDB_ENTITY \
@@ -18,4 +19,4 @@ mpirun \
   -x AWS_ACCESS_KEY_ID \
   -x AWS_SECRET_ACCESS_KEY \
   -x DEBIAN_FRONTEND=noninteractive \
-  "$@"
+  "$@" | sort -t: -k 1,1 --stable
