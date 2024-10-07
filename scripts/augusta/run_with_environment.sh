@@ -20,4 +20,7 @@ export NODENAME=$(hostname -s)
 exec > >(trap "" INT TERM; sed -u "s/^/$NODENAME out: /")
 exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME err: /" >&2)
 
+# kill all other processes consuming GPUs
+nvidia-smi --query-compute-apps=pid --format=csv,noheader | xargs -r kill
+
 torchrun --nproc_per_node=8 --nnodes=$NUM_NODES --rdzv-backend=c10d --rdzv-endpoint=$HOST_NODE_ADDR scripts/train.py "$@"
