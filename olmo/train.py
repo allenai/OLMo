@@ -320,7 +320,7 @@ class Trainer:
             raise NotImplementedError(self.cfg.scheduler.units)
 
     def trainer_state_dict(self) -> Dict[str, Any]:
-        state_dict = {
+        state_dict: Dict[str, Any] = {
             "epoch": self.epoch or 0,
             "global_step": self.global_step,
             "global_train_examples_seen_this_epoch": self.global_train_examples_seen_this_epoch,
