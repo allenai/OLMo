@@ -25,7 +25,6 @@ gantry run \
   --propagate-failure \
   --propagate-preemption \
   --no-python \
-  --synchronized-start-timeout 20m \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
@@ -39,3 +38,6 @@ gantry run \
   --yes \
   --timeout=-1 \
   -- /bin/bash -c "scripts/beaker/reddit/base_training_script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK  ${CONFIG_PATH}"
+
+
+# --synchronized-start-timeout 20m \
