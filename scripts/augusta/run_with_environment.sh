@@ -13,7 +13,7 @@ export NCCL_NET=FasTrak
 HOST_NODE_ADDR=augusta-vms-0001:12345
 export OMP_NUM_THREADS=16
 export GOOGLE_CLOUD_PROJECT=h100-cluster-owner
-export NCCL_DEBUG=INFO
+#export NCCL_DEBUG=INFO
 
 # Redirect stdout and stderr so that we get a prefix with the node name
 export NODENAME=$(hostname -s)
