@@ -237,10 +237,12 @@ def _train_model(
 
     if replace_existing_traces:
         # Replace existing trace files
-        model_traces_path = Path(model_path) / ("traces_cuda" if cuda else "traces_cpu")
-        if model_traces_path.is_dir():
-            shutil.rmtree(model_traces_path)
-        shutil.copytree(Path(cfg.save_folder) / "traces", model_traces_path)
+        model_traces_path = Path(model_path) / ("traces_cuda.tar.gz" if cuda else "traces_cpu.tar.gz")
+        model_traces_path.unlink(missing_ok=True)
+        archive_path = shutil.make_archive(
+            Path(cfg.save_folder).name, "gztar", root_dir=Path(cfg.save_folder), base_dir="traces"
+        )
+        Path(archive_path).rename(model_traces_path)
 
 
 @pytest.mark.parametrize(
@@ -289,8 +291,11 @@ def test_train_forward_unchanged(
     )
 
     assert (Path(cfg.save_folder) / "traces/step1").is_dir(), "Output traces not found for newly trained model"
-    original_traces_dir = Path(xtiny_model_path) / ("traces_cuda" if cuda else "traces_cpu")
-    _compare_module_outputs(original_traces_dir / "step1", Path(cfg.save_folder) / "traces/step1")
+    original_traces_archive = Path(xtiny_model_path) / ("traces_cuda.tar.gz" if cuda else "traces_cpu.tar.gz")
+    shutil.unpack_archive(original_traces_archive, tmp_path / "test_forward_baseline")
+    _compare_module_outputs(
+        tmp_path / "test_forward_baseline/traces/step1", Path(cfg.save_folder) / "traces/step1"
+    )
 
     assert not replace_existing_model, "Test successfully updated, please disable replace_existing_model"
     assert not replace_existing_traces, "Test successfully updated, please disable replace_existing_traces"
