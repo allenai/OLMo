@@ -51,6 +51,7 @@ from .torch_util import (
     get_fs_local_rank,
     get_global_rank,
     get_world_size,
+    is_distributed,
     move_to_device,
     peak_gpu_memory,
     synchronize_flag,
@@ -208,7 +209,7 @@ except ImportError:
 class Trainer:
     cfg: TrainConfig
     model: OLMo
-    dist_model: Union[DDP, FSDP]
+    dist_model: Union[DDP, FSDP, OLMo]
     optim: Optimizer
     scheduler: Scheduler
     train_loader: DataLoader
@@ -319,7 +320,7 @@ class Trainer:
             raise NotImplementedError(self.cfg.scheduler.units)
 
     def trainer_state_dict(self) -> Dict[str, Any]:
-        return {
+        state_dict = {
             "epoch": self.epoch or 0,
             "global_step": self.global_step,
             "global_train_examples_seen_this_epoch": self.global_train_examples_seen_this_epoch,
@@ -332,9 +333,13 @@ class Trainer:
                 "python": random.getstate(),
                 "numpy": np.random.get_state(),
                 "torch": torch.random.get_rng_state(),
-                "cuda": torch.cuda.get_rng_state(),
             },
         }
+
+        if torch.cuda.is_available():
+            state_dict["rng"]["cuda"] = torch.cuda.get_rng_state()
+
+        return state_dict
 
     def load_trainer_state_dict(self, state_dict: Dict[str, Any]) -> None:
         # Checkpoint paths.
@@ -429,7 +434,8 @@ class Trainer:
         random.setstate(rng_state["python"])
         np.random.set_state(rng_state["numpy"])
         torch.set_rng_state(rng_state["torch"])
-        torch.cuda.set_rng_state(rng_state["cuda"])
+        if "cuda" in rng_state:
+            torch.cuda.set_rng_state(rng_state["cuda"])
 
     def _save_checkpoint(
         self, checkpointer: Checkpointer, checkpoint_type: CheckpointType
@@ -838,7 +844,7 @@ class Trainer:
         ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
         # Collect loss, potentially reducing over all ranks.
-        if reduce_global_loss:
+        if reduce_global_loss and get_world_size() > 1:
             dist.reduce(ce_batch_loss, 0)
             ce_batch_loss.div_(get_world_size())
             if z_batch_loss is not None:
@@ -852,7 +858,7 @@ class Trainer:
             collect_param_metrics=should_log_optim_metrics_this_step,
             # passing this process group here ensures metrics are reduced correctly when we're using
             # HYBRID sharding.
-            process_group=self.dist_model.process_group,
+            process_group=self.dist_model.process_group if is_distributed() else None,
         )
 
         # Adjust the learning rate.
