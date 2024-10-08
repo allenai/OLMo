@@ -104,7 +104,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=20, metavar="N", help="batch size")
 
     parser.add_argument("--cuda", action="store_true", help="use CUDA")
-    parser.add_argument("--legend", type="str", help="'auto', 'brief', 'full', or False. This is passed to `seaborn.lineplot`.")
+    parser.add_argument("--legend", type=str, help="'auto', 'brief', 'full', or False. This is passed to `seaborn.lineplot`.")
 
     parser.add_argument(
         "--coord_check",
