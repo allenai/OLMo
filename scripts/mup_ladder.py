@@ -36,14 +36,13 @@ from olmo.config import (
     SpeedMonitorConfig,
 )
 from olmo.data import named_data_mixes
+from olmo.scaling.mup_olmo.mup_utils import save_base_shapes
 from olmo.util import (
     add_cached_path_clients,
     find_latest_checkpoint,
     flatten_dict,
     prepare_cli_environment,
 )
-
-from olmo.scaling.mup_olmo.mup_utils import save_base_shapes
 
 log = logging.getLogger("train")
 
@@ -84,6 +83,7 @@ if not os.path.exists(BASE_SHAPES):
     os.makedirs(os.path.dirname(BASE_SHAPES), exist_ok=True)
     save_base_shapes(model_config=MODEL_CONFIG_150M.update_with(init_device="cpu"), output_path=BASE_SHAPES)
     import sys
+
     sys.exit()
 
 
