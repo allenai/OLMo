@@ -151,13 +151,13 @@ def copy_s3_to_local(bucket, prefix, local_path, display_name, sanity_check):
     # if not os.path.exists(os.path.dirname(local_path)):
     print(f"Downloading checkpoint to {display_name}\n", flush=True)
     if not sanity_check:
-        try:
-            os.makedirs(local_path)
-        except:
-            pass
-        print(prefix)
-        print(local_path)
-        bucket.download_file(bucket, prefix, local_path)  # save to same path
+        for obj in bucket.objects.filter(Prefix=prefix):
+            target = os.path.join(local_path, os.path.relpath(obj.key, os.path.dirname(prefix)))
+            if not os.path.exists(os.path.dirname(target)):
+                os.makedirs(os.path.dirname(target))
+            if obj.key[-1] == '/':
+                continue
+            bucket.download_file(obj.key, target)
 
 
 def expand_paths(cps, s3):
@@ -227,9 +227,9 @@ def main():
     args = parser.parse_args()
 
     if args.checkpoint_path is not None:
-        convert_checkpoint([args.checkpoint_path], load_dir=args.weka_load_dir, sanity_check=args.sanity_check, weka_prefix=args.weka_prefix, save_to_weka=args.save_to_weka)
+        convert_checkpoint([args.checkpoint_path], load_dir=args.weka_load_dir.rstrip('/'), sanity_check=args.sanity_check, weka_prefix=args.weka_prefix, save_to_weka=args.save_to_weka)
     else:
-        convert_checkpoint(read_checkpoints(args.checkpoint_path_file), load_dir=args.weka_load_dir, sanity_check=args.sanity_check, weka_prefix=args.weka_prefix, save_to_weka=args.save_to_weka)
+        convert_checkpoint(read_checkpoints(args.checkpoint_path_file), load_dir=args.weka_load_dir.rstrip('/'), sanity_check=args.sanity_check, weka_prefix=args.weka_prefix, save_to_weka=args.save_to_weka)
 
 
 if __name__ == "__main__":
