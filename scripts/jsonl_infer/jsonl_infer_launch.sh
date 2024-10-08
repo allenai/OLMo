@@ -17,7 +17,7 @@ gantry run \
   --priority normal \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
-  --cluster ai2/saturn-cirrascale \
+  --cluster ai2/neptune-cirrascale \
   --gpus 1 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
