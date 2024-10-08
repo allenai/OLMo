@@ -1,4 +1,5 @@
 import argparse
+import os
 from typing import List, Optional
 
 import numpy as np
@@ -103,6 +104,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=20, metavar="N", help="batch size")
 
     parser.add_argument("--cuda", action="store_true", help="use CUDA")
+    parser.add_argument("--legend", action="store_true", help="show legend")
 
     parser.add_argument(
         "--coord_check",
@@ -150,6 +152,6 @@ if __name__ == "__main__":
                 nseeds=args.coord_check_nseeds,
                 cuda=args.cuda,
                 output_dir=args.coord_check_save_path,
-                legend=False,
+                legend=args.legend,
                 load_base_shapes=args.load_base_shapes,
             )
