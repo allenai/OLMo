@@ -18,6 +18,7 @@ mpirun \
   -npernode 1 \
   -x ${HOST_VARS} \
   -x WANDB_ENTITY \
+  -x WANDB_API_KEY \
   -x S3_ACCESS_KEY_ID \
   -x S3_SECRET_ACCESS_KEY \
   -x AWS_ACCESS_KEY_ID \
