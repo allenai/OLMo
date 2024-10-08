@@ -45,7 +45,6 @@ def coord_check(
 
             if standparam:
                 config.mup_base_shapes = None
-                model.set_base_shapes()
             else:
                 assert load_base_shapes, "load_base_shapes needs to be nonempty"
                 config.mup_base_shapes = load_base_shapes
