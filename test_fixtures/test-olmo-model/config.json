@@ -32,6 +32,8 @@
   "mlp_ratio": 4,
   "model_type": "hf_olmo",
   "multi_query_attention": false,
+  "mup_base_shapes": null,
+  "mup_query_zero_init": false,
   "n_heads": 1,
   "n_kv_heads": null,
   "n_layers": 1,
@@ -44,8 +46,9 @@
   "rope_theta": 10000,
   "scale_emb_init": false,
   "scale_logits": false,
-  "transformers_version": "4.44.2",
+  "transformers_version": "4.40.2",
   "use_cache": true,
+  "use_mup": false,
   "vocab_size": 50257,
   "weight_tying": true
 }
