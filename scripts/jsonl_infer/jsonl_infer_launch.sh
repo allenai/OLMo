@@ -9,6 +9,14 @@
 # 5: model
 set -ex
 
+INPUT_DIR=$1
+shift
+OUTPUT_DIR=$1
+shift
+NUM_PARTS=$1
+shift
+PART=$1
+
 NUM_NODES=1
 gantry run \
   --workspace ai2/mattj \
@@ -44,4 +52,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/jsonl_infer/jsonl_infer_setup.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK \$1 \$2 \$3 \$4"
+  -- /bin/bash -c "scripts/jsonl_infer/jsonl_infer_setup.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${INPUT_DIR} ${OUTPUT_DIR} ${NUM_PARTS} ${PART}"
