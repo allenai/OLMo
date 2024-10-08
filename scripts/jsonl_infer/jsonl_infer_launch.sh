@@ -41,7 +41,7 @@ gantry run \
   --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
   --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
   --env-secret WANDB_API_KEY=MATTJ_WANDB_API_KEY \
-  --env-secret HF_TOKEN=MATT_HF_TOKEN \
+  --env-secret HF_TOKEN=MATTJ_HF_TOKEN \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
