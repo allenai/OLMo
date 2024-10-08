@@ -9,7 +9,7 @@
 # 5: model
 set -ex
 
-NUM_NODES= $4
+NUM_NODES=1
 gantry run \
   --workspace ai2/mattj \
   --task-name mattj_toyexp \
