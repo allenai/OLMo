@@ -732,10 +732,10 @@ class OLMoSequentialBlock(OLMoBlock):
             raise NotImplementedError(self.config.init_fn)
 
         init_normal(self.att_proj, std, cutoff_factor, use_mup=self.config.use_mup)
-        # if not self.config.use_mup:
-        #     # if mup, don't reset readout weights.
-        #     init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
-        init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
+        if not self.config.use_mup:
+            # if mup, don't reset readout weights since we init them to 0 intentionally.
+            init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
+        # init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
 
         if self.config.use_mup and self.config.mup_query_zero_init:
             with torch.distributed.fsdp.FullyShardedDataParallel.summon_full_params(self):
@@ -1284,10 +1284,14 @@ class OLMo(nn.Module):
             else:
                 raise NotImplementedError(self.config.init_fn)
 
-            # if not self.config.use_mup:
-            #     # if mup, don't reset readout weights.
-            #     init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor, use_mup=self.config.use_mup)
-            init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor, use_mup=self.config.use_mup)
+            if not (self.config.use_mup and getattr(self.transformer.ff_out, "readout_zero_init", False)):
+                # if mup, don't reset readout weights since we init them to 0 intentionally.
+
+                if self.config.weight_tying:
+                    nn.init.zeros_(self.transformer.ff_out.bias)
+                else:
+                    init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor, use_mup=self.config.use_mup)
+            # init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor, use_mup=self.config.use_mup)
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:
