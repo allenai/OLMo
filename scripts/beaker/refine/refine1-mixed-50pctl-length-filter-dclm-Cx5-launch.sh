@@ -7,7 +7,7 @@ NUM_NODES=2
 gantry run \
   --workspace ai2/oe-data-model-based-cleanup \
   --allow-dirty \
-  --task-name refine1-mixed-length-filter-dclm-cx5-20241008 \
+  --task-name refine1-mixed-50pctl-length-filter-dclm-cx5-20241008 \
   --description "OLMo refine 1B" \
   --priority high \
   --preemptible \
@@ -36,4 +36,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/refine/refine1-mixed-length-filter-dclm-Cx5.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/refine/refine1-mixed-50pctl-length-filter-dclm-Cx5.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
