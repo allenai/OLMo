@@ -223,12 +223,10 @@ def test_olmo_sequential_block_init_normal(seed: int):
         set_base_shapes(block, base=None)
         block.reset_parameters()
 
-        check_distribution(block, 0.00, 0.02, ignore_params=["attn_norm", "ff_norm", "ff_proj"])
+        check_distribution(block, 0.00, 0.02, ignore_params=["attn_norm", "ff_norm"])
         # if parametric layer norm
         check_distribution(block.attn_norm, 1.00, 0.00)
         check_distribution(block.ff_norm, 1.00, 0.00)
-        # mup sets this to 0
-        check_distribution(block.ff_proj, 0.00, 0.00)
 
 
 @pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
@@ -440,11 +438,10 @@ def test_olmo_init_normal(seed: int):
     # For the main module, reset_parameters is called during init, and set_base_shapes is called there.
     module = OLMo(config=base_config, init_params=True)
 
-    check_distribution(module, 0.0, 0.02, ignore_params=["ln_f", "attn_norm", "ff_norm", "ff_out", "ff_proj"])
+    check_distribution(module, 0.0, 0.02, ignore_params=["ln_f", "attn_norm", "ff_norm", "ff_out"])
     for i in range(n_layers):
         check_distribution(module.transformer.blocks[i].attn_norm, 1.00, 0.00)
         check_distribution(module.transformer.blocks[i].ff_norm, 1.00, 0.00)
-        check_distribution(module.transformer.blocks[i].ff_proj, 0.00, 0.00)
     check_distribution(module.transformer.ln_f, 1.00, 0.00)
     check_distribution(module.transformer.ff_out, 0.00, 0.00)
 
@@ -461,11 +458,10 @@ def test_olmo_init_normal(seed: int):
     # For the main module, reset_parameters is called during init, and set_base_shapes is called there.
     module = OLMo(config=base_config, init_params=True)
 
-    check_distribution(module, 0.0, 0.02, ignore_params=["ln_f", "attn_norm", "ff_norm", "ff_proj"])
+    check_distribution(module, 0.0, 0.02, ignore_params=["ln_f", "attn_norm", "ff_norm"])
     for i in range(n_layers):
         check_distribution(module.transformer.blocks[i].attn_norm, 1.00, 0.00)
         check_distribution(module.transformer.blocks[i].ff_norm, 1.00, 0.00)
-        check_distribution(module.transformer.blocks[i].ff_proj, 0.00, 0.00)
     check_distribution(module.transformer.ln_f, 1.00, 0.00)
 
 

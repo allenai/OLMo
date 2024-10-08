@@ -703,10 +703,9 @@ class OLMoSequentialBlock(OLMoBlock):
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
         # Feed-forward input projection.
-        layer_func = MuReadout if config.use_mup else nn.Linear
-        kwargs = {"readout_zero_init": True} if config.use_mup else {}
+        layer_func = MuReadout if config.use_mup and self.config.mlp_hidden_size is not None else nn.Linear
         self.ff_proj = layer_func(
-            config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device, **kwargs
+            config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device,
         )
 
         # Layer norms.
@@ -732,9 +731,7 @@ class OLMoSequentialBlock(OLMoBlock):
             raise NotImplementedError(self.config.init_fn)
 
         init_normal(self.att_proj, std, cutoff_factor, use_mup=self.config.use_mup)
-        if not self.config.use_mup:
-            # if mup, don't reset readout weights since we init them to 0 intentionally.
-            init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
+        init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
         # init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
 
         if self.config.use_mup and self.config.mup_query_zero_init:
