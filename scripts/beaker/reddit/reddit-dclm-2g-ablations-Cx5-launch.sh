@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=1
+NUM_NODES=2
 
 CONFIG_PATH="${CONFIG_PATH}"
 
