@@ -732,9 +732,10 @@ class OLMoSequentialBlock(OLMoBlock):
             raise NotImplementedError(self.config.init_fn)
 
         init_normal(self.att_proj, std, cutoff_factor, use_mup=self.config.use_mup)
-        if not self.config.use_mup:
-            # if mup, don't reset readout weights.
-            init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
+        # if not self.config.use_mup:
+        #     # if mup, don't reset readout weights.
+        #     init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
+        init_normal(self.ff_proj, std, cutoff_factor, use_mup=self.config.use_mup)
 
         if self.config.use_mup and self.config.mup_query_zero_init:
             with torch.distributed.fsdp.FullyShardedDataParallel.summon_full_params(self):
@@ -1088,6 +1089,7 @@ class OLMo(nn.Module):
         self.config = config
         self.__cache = BufferCache()
         self.__mup_rescale_params = mup_rescale_params
+        self.__base_shapes_set = False
 
         # Validate config.
         if self.config.alibi and self.config.flash_attention:
@@ -1208,17 +1210,19 @@ class OLMo(nn.Module):
             return device
 
     def reset_parameters(self):
-        # In case of muP, we need to have called set_base_shapes beforehand
-        if self.config.use_mup:
+        # Top-level embeddings / linear layers.
+        log.info("Initializing model parameters...")
+
+        # In case of muP, we need to call set_base_shapes before initializing model weights for the
+        # first time but after FSDP (if relevant) has been applied.
+        if self.config.use_mup and not self.__base_shapes_set:
             from mup import set_base_shapes
 
             # TODO: make sure that fsdp/ddp plays nice with this
             # TODO: add cached_path
             set_base_shapes(self, self.config.mup_base_shapes, rescale_params=self.__mup_rescale_params)
             self.__mup_rescale_params = False
-
-        log.info("Initializing model parameters...")
-        # Top-level embeddings / linear layers.
+            self.__base_shapes_set = True
 
         if self.config.init_fn == InitFnType.normal:
             # Note: We may potentially want to multiply the std by a factor of sqrt(d) in case of `scale_logits`
@@ -1280,9 +1284,10 @@ class OLMo(nn.Module):
             else:
                 raise NotImplementedError(self.config.init_fn)
 
-            if not self.config.use_mup:
-                # if mup, don't reset readout weights.
-                init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor, use_mup=self.config.use_mup)
+            # if not self.config.use_mup:
+            #     # if mup, don't reset readout weights.
+            #     init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor, use_mup=self.config.use_mup)
+            init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor, use_mup=self.config.use_mup)
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:
