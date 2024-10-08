@@ -1081,12 +1081,10 @@ class OLMoBlockGroup(nn.ModuleList):
 
 
 class OLMo(nn.Module):
-    def __init__(self, config: ModelConfig, init_params: bool = True, mup_rescale_params: bool = True):
+    def __init__(self, config: ModelConfig, init_params: bool = True):
         super().__init__()
         self.config = config
         self.__cache = BufferCache()
-        self.__mup_rescale_params = mup_rescale_params
-        self.__base_shapes_set = False
 
         # Validate config.
         if self.config.alibi and self.config.flash_attention:
@@ -1206,20 +1204,21 @@ class OLMo(nn.Module):
         else:
             return device
 
-    def reset_parameters(self):
-        # Top-level embeddings / linear layers.
-        log.info("Initializing model parameters...")
-
+    def set_base_shapes(self, *, rescale_params: bool = True):
         # In case of muP, we need to call set_base_shapes before initializing model weights for the
         # first time but after FSDP (if relevant) has been applied.
-        if self.config.use_mup and not self.__base_shapes_set:
-            from mup import set_base_shapes
+        assert self.config.use_mup
+        assert not self.__base_shapes_set, "Cannot set base shapes more than once"
 
-            # TODO: make sure that fsdp/ddp plays nice with this
-            # TODO: add cached_path
-            set_base_shapes(self, self.config.mup_base_shapes, rescale_params=self.__mup_rescale_params)
-            self.__mup_rescale_params = False
-            self.__base_shapes_set = True
+        from mup import set_base_shapes
+
+        # TODO: make sure that ddp plays nice with this
+        # TODO: add cached_path
+        set_base_shapes(self, self.config.mup_base_shapes, rescale_params=rescale_params)
+
+    def reset_parameters(self):
+        log.info("Initializing model parameters...")
+        # Top-level embeddings / linear layers.
 
         if self.config.init_fn == InitFnType.normal:
             # Note: We may potentially want to multiply the std by a factor of sqrt(d) in case of `scale_logits`

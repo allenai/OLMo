@@ -6,9 +6,9 @@ from olmo.config import ModelConfig
 from olmo.model import OLMo
 
 
-def load_mu_model(config: ModelConfig, mup_rescale_params: bool = True):
+def load_mu_model(config: ModelConfig):
     config.use_mup = True
-    model = OLMo(config, init_params=False, mup_rescale_params=mup_rescale_params)
+    model = OLMo(config, init_params=False)
     return model
 
 

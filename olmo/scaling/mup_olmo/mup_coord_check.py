@@ -3,7 +3,6 @@ import os
 from typing import List, Optional
 
 import numpy as np
-from mup import set_base_shapes
 from mup.coord_check import plot_coord_data
 from torch.utils.data import DataLoader
 
@@ -42,14 +41,16 @@ def coord_check(
         def f():
             config = ModelConfig.load(config_path, key="model")
             config.d_model = d_model
-            model = load_mu_model(config, mup_rescale_params=False)
+            model = load_mu_model(config)
 
             if standparam:
-                set_base_shapes(model, None)
+                config.mup_base_shapes = None
+                model.set_base_shapes()
             else:
                 assert load_base_shapes, "load_base_shapes needs to be nonempty"
-                set_base_shapes(model, load_base_shapes)
+                config.mup_base_shapes = load_base_shapes
 
+            model.set_base_shapes()
             model.reset_parameters()  # to apply mup init
             return model
 
