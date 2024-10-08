@@ -1208,7 +1208,6 @@ class OLMo(nn.Module):
         # In case of muP, we need to call set_base_shapes before initializing model weights for the
         # first time but after FSDP (if relevant) has been applied.
         assert self.config.use_mup
-        assert not self.__base_shapes_set, "Cannot set base shapes more than once"
 
         from mup import set_base_shapes
 
