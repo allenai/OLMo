@@ -148,11 +148,16 @@ def s3_path_exists(bucket, prefix, bucket_name):
 
 
 def copy_s3_to_local(bucket, prefix, local_path, display_name, sanity_check):
-    if not os.path.exists(os.path.dirname(local_path)):
-        print(f"Downloading checkpoint to {display_name}\n", flush=True)
-        if not sanity_check:
+    # if not os.path.exists(os.path.dirname(local_path)):
+    print(f"Downloading checkpoint to {display_name}\n", flush=True)
+    if not sanity_check:
+        try:
             os.makedirs(local_path)
-            bucket.download_file(prefix, local_path)  # save to same path
+        except:
+            pass
+        print(prefix)
+        print(local_path)
+        bucket.download_file(bucket, prefix, local_path)  # save to same path
 
 
 def expand_paths(cps, s3):
