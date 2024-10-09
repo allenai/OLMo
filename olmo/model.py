@@ -1514,8 +1514,11 @@ class OLMo(nn.Module):
             logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
         else:
             logits = self.transformer.ff_out(x)  # type: ignore
+
         if self.config.scale_logits:
             logits.mul_(1 / math.sqrt(self.config.d_model))
+        if self.config.use_mup:
+            logits.div_(self.config.d_model)
 
         return OLMoOutput(
             logits=logits,
