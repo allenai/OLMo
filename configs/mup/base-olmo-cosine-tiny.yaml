@@ -69,7 +69,7 @@ scheduler:
   alpha_f: 0.01
   warmup_min_lr: 0.0
 
-save_folder: /weka/oe-training-default/ai2-llm/checkpoints/olmo-mup/${run_name}
+save_folder: "/tmp/olmo-train-tiny"
 save_overwrite: false
 
 save_interval: 1000
