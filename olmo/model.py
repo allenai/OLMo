@@ -1204,9 +1204,13 @@ class OLMo(nn.Module):
         else:
             return device
 
-    def set_base_shapes(self, *, rescale_params: bool = True):
+    def set_base_shapes(self, *, rescale_params: bool = False):
         # In case of muP, we need to call set_base_shapes before initializing model weights for the
-        # first time but after FSDP (if relevant) has been applied.
+        # first time but after FSDP (if relevant) has been applied. The "before initializing model weights"
+        # condition is because we are using mup functions rather torch functions to initialize weights.
+        # If we switch (back) to torch and want to use mup then we should run set_base_shapes _after_
+        # initializing model weights and should set `rescale_params` to True when initializing weights
+        # (and keep it off for loading models from checkpoints).
         assert self.config.use_mup
 
         from mup import set_base_shapes
@@ -1517,8 +1521,6 @@ class OLMo(nn.Module):
 
         if self.config.scale_logits:
             logits.mul_(1 / math.sqrt(self.config.d_model))
-        if self.config.use_mup:
-            logits.div_(self.config.d_model)
 
         return OLMoOutput(
             logits=logits,
