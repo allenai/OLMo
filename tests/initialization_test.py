@@ -435,8 +435,9 @@ def test_olmo_init_normal(seed: int):
         use_mup=True,
     )
 
-    # For the main module, reset_parameters is called during init, and set_base_shapes is called there.
-    module = OLMo(config=base_config, init_params=True)
+    module = OLMo(config=base_config, init_params=False)
+    module.set_base_shapes()
+    module.reset_parameters()
 
     check_distribution(module, 0.0, 0.02, ignore_params=["ln_f", "attn_norm", "ff_norm", "ff_out"])
     for i in range(n_layers):
@@ -455,8 +456,9 @@ def test_olmo_init_normal(seed: int):
         use_mup=True,
     )
 
-    # For the main module, reset_parameters is called during init, and set_base_shapes is called there.
-    module = OLMo(config=base_config, init_params=True)
+    module = OLMo(config=base_config, init_params=False)
+    module.set_base_shapes()
+    module.reset_parameters()
 
     check_distribution(module, 0.0, 0.02, ignore_params=["ln_f", "attn_norm", "ff_norm"])
     for i in range(n_layers):

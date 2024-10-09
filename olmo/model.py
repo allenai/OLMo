@@ -1279,14 +1279,14 @@ class OLMo(nn.Module):
             else:
                 raise NotImplementedError(self.config.init_fn)
 
-            if not (self.config.use_mup and getattr(self.transformer.ff_out, "readout_zero_init", False)):
-                # if mup, don't reset readout weights since we init them to 0 intentionally.
+            if self.config.use_mup and self.config.weight_tying and self.transformer.ff_out.bias is not None:
+                # With muP weight tying, weights are tied but biases are not. We set biases to 0.
+                nn.init.zeros_(self.transformer.ff_out.bias)
 
-                if self.config.weight_tying:
-                    nn.init.zeros_(self.transformer.ff_out.bias)
-                else:
-                    init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor, use_mup=self.config.use_mup)
-            # init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor, use_mup=self.config.use_mup)
+            if self.config.use_mup and getattr(self.transformer.ff_out, "readout_zero_init", False):
+                nn.init.zeros_(self.transformer.ff_out.weight)
+            else:
+                init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor, use_mup=self.config.use_mup)
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:
@@ -1812,7 +1812,7 @@ class OLMo(nn.Module):
         if checkpoint_type == CheckpointType.unsharded:
             # Initialize model (always on CPU to start with so we don't run out of GPU memory).
             model_config.init_device = "cpu"
-            model = OLMo(model_config, mup_rescale_params=False)
+            model = OLMo(model_config)
 
             # Load state dict directly to target device.
             state_dict_path = resource_path(checkpoint_dir, "model.pt")
@@ -1827,7 +1827,7 @@ class OLMo(nn.Module):
                 )
 
                 model_config.init_device = device
-                model = OLMo(model_config, mup_rescale_params=False)
+                model = OLMo(model_config)
                 load_model_and_optim_state(checkpoint_dir, model)
             else:
                 # train_config.sharded_checkpointer == ShardedCheckpointerType.torch_new
@@ -1836,7 +1836,7 @@ class OLMo(nn.Module):
                 # Initialize model on target device. In this case the state dict is loaded in-place
                 # so it's not necessary to start on CPU if the target device is a GPU.
                 model_config.init_device = device
-                model = OLMo(model_config, mup_rescale_params=False)
+                model = OLMo(model_config)
 
                 # Load state dict in place.
                 load_model_state(checkpoint_dir, model)
