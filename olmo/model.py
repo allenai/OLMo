@@ -704,8 +704,9 @@ class OLMoSequentialBlock(OLMoBlock):
         )
         # Feed-forward input projection.
         layer_func = MuReadout if config.use_mup and self.config.mlp_hidden_size is not None else nn.Linear
+        kwargs = {"readout_zero_init": True} if config.use_mup else {}
         self.ff_proj = layer_func(
-            config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device,
+            config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device, **kwargs
         )
 
         # Layer norms.
