@@ -22,7 +22,7 @@ mkdir -p $SAVE_FOLDER
     --sharded_checkpointer=olmo_core \
     --device_train_microbatch_size=4 \
     --activation_checkpointing=whole_layer \
-    --compile=null \
+    --compile.fullgraph=false \
     --fused_loss=true \
     --model.flash_attention=true \
     --data.num_workers=8 \
