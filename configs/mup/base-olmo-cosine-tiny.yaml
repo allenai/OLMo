@@ -70,7 +70,7 @@ scheduler:
   warmup_min_lr: 0.0
 
 save_folder: "/tmp/olmo-train-tiny"
-save_overwrite: false
+save_overwrite: true
 
 save_interval: 1000
 save_interval_ephemeral: 250
