@@ -2,12 +2,15 @@
 
 set -euxo pipefail
 
+HOSTFILE=$1
+shift
+
 NUM_NODES=32
 RUN_NAME=peteish13-medlr-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/mnt/localssd/runs/$RUN_NAME
 mkdir -p $SAVE_FOLDER
 
-./scripts/augusta/launch_train.sh $NUM_NODES \
+./scripts/augusta/launch_train.sh $HOSTFILE $NUM_NODES \
   configs/peteish13-google.yaml \
     --run_name=$RUN_NAME \
     --wandb.group=peteish13-medlr \
