@@ -77,6 +77,9 @@ def coord_check(
         show_progress=True,
     )
 
+    # Plot no more than 20 graphs
+    df = df[df["t"] % max(nsteps // 20, 1) == 0]
+
     prm = "mup" if mup else "sp"
     os.makedirs(output_dir, exist_ok=True)
     coords_file = os.path.join(output_dir, f"{prm}_olmo_{optimizer}_coord.csv")
