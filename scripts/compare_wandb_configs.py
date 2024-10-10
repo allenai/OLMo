@@ -17,12 +17,7 @@ from collections import Counter
 
 import click
 
-from olmo.util import (
-    build_file_tree,
-    file_tree_to_strings,
-    flatten_dict,
-    prepare_cli_environment,
-)
+from olmo.util import flatten_dict, prepare_cli_environment
 
 log = logging.getLogger(__name__)
 run_path_re = re.compile(r"^[^/]+/[^/]+/[^/]+$")
