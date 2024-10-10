@@ -948,7 +948,8 @@ class Trainer:
                 metrics["System/Peak GPU Memory (MB)"] = peak_gpu_mb
         return metrics
 
-    def log_metrics_to_console(self, prefix: str, metrics: Dict[str, float]):
+    @classmethod
+    def log_metrics_to_console(cls, prefix: str, metrics: Dict[str, float]):
         def format_float(value: float) -> str:
             if value < 0.0001:
                 return str(value)  # scientific notation
