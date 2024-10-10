@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added downstream eval task for requests dumped from oe-eval tasks
 - Added `CosLinearEnvelope` scheduler, which is a pointwise product of a cosine schedule and a linear decay.
 - Added ability to save outputs of submodules for debugging purposes.
+- Added scripts and notebooks for predicting loss from power laws.
 - Added a number of tasks from oe-eval to the downstream eval tasks.
 - Version dolma flan change in named_data_mix.py
 
@@ -42,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Swapped in correct flan data mix.
 - Fix bug where the attention norm, when applied before the attention block, was modifying the residual stream.
 - Fixed `OLMo.from_checkpoint()` so that it correctly loads `olmo_core` and `torch_new` style checkpoints.
-- Fixed `preserve_rng_state` being incorrectly set to False when doing gradient checkpointing with dropout 
+- Fixed `preserve_rng_state` being incorrectly set to False when doing gradient checkpointing with dropout
 
 
 ## [v0.4.0](https://github.com/allenai/OLMo/releases/tag/v0.4.0) - 2024-07-11
@@ -62,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `olmo_data`, a package holding data files like tokenizers.
 - Added ability to load tokenizers from `olmo_data` package data.
 - Added a script that can run a series of models with predictable scaling properties.
+
 
 ### Changed
 

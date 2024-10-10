@@ -1,0 +1,47 @@
+{
+  "builder_name": "json",
+  "citation": "",
+  "config_name": "default",
+  "dataset_size": 740508,
+  "description": "",
+  "download_checksums": {
+    "/mmfs1/gscratch/xlab/liujc/c-data/declarative/t5_v2/social_iqa/dev.json": {
+      "num_bytes": 943756,
+      "checksum": "39bd4e3a695b46f3c9660a7051beee7fbb87a4908608be0c2b6d2c2ac2998259"
+    }
+  },
+  "download_size": 943756,
+  "features": {
+    "golds": {
+      "feature": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    },
+    "distractors": {
+      "feature": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 1684264,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 740508,
+      "num_examples": 1954,
+      "dataset_name": "json"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

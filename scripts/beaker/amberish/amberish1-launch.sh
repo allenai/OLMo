@@ -5,9 +5,10 @@ set -ex
 NUM_NODES=16
 
 gantry run \
-  --workspace ai2/OLMo-pretraining-stability \
-  --task-name amberish1-doc-mask \
-  --description "Amberish 1B with document masking" \
+  --allow-dirty \
+  --workspace ai2/hb-wolf-olmo \
+  --task-name amberish1 \
+  --description "Amberish 1B train" \
   --priority urgent \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
@@ -26,15 +27,7 @@ gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
-  --env R2_PROFILE=R2 \
-  --env S3_PROFILE=S3 \
-  --env WEKA_PROFILE=WEKA \
-  --env-secret AWS_CONFIG=PETEW_AWS_CONFIG \
-  --env-secret AWS_CREDENTIALS=PETEW_AWS_CREDENTIALS \
-  --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
-  --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
-  --env-secret WANDB_API_KEY=PETEW_WANDB_API_KEY \
+  --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
-  --timeout=-1 \
   -- /bin/bash -c "scripts/beaker/amberish/amberish1.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
