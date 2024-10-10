@@ -8,13 +8,14 @@ import socket
 import sys
 import time
 import warnings
+from collections import defaultdict
 from datetime import datetime
 from enum import Enum
 from itertools import cycle, islice
 from pathlib import Path
 from queue import Queue
 from threading import Thread
-from typing import Any, Callable, Dict, MutableMapping, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, MutableMapping, Optional, Tuple, Union
 
 import boto3
 import botocore.exceptions as boto_exceptions
@@ -842,6 +843,19 @@ class WekaClient(SchemeClient):
 
 
 def flatten_dict(dictionary, parent_key="", separator=".", include_lists=False):
+    """
+    Flatten a nested dictionary into a single-level dictionary.
+
+    Args:
+        dictionary (dict): The nested dictionary to be flattened.
+        parent_key (str, optional): The parent key to be prepended to the keys of the flattened dictionary. Defaults to "".
+        separator (str, optional): The separator to be used between the parent key and the keys of the flattened dictionary. Defaults to ".".
+        include_lists (bool, optional): Whether to convert lists to dictionaries with integer keys. Defaults to False.
+
+    Returns:
+        dict: The flattened dictionary.
+
+    """
     d: Dict[str, Any] = {}
     for key, value in dictionary.items():
         new_key = parent_key + separator + key if parent_key else key
