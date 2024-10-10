@@ -1288,8 +1288,13 @@ class OLMo(nn.Module):
                 # With muP weight tying, weights are tied but biases are not. We set biases to 0.
                 nn.init.zeros_(self.transformer.ff_out.bias)
 
-            if self.config.use_mup and getattr(self.transformer.ff_out, "readout_zero_init", False):
-                nn.init.zeros_(self.transformer.ff_out.weight)
+            if (
+                self.config.use_mup
+                and isinstance(self.transformer.ff_out, MuReadout)
+                and getattr(self.transformer.ff_out, "readout_zero_init", False)
+            ):
+                # Resetting parameters will set weight to 0
+                self.transformer.ff_out.reset_parameters()
             else:
                 init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor, use_mup=self.config.use_mup)
 
