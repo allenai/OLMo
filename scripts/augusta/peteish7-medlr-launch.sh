@@ -19,7 +19,7 @@ mkdir -p $SAVE_FOLDER
     --fsdp.sharding_strategy=HYBRID_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas=$NUM_NODES \
     --save_folder=$SAVE_FOLDER \
-    --remote_save_folder="s3://ai2-llm/checkpoints/OLMo-medium/peteish7-medlr/" \
+    --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/peteish7-medlr/" \
     --save_overwrite \
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
     --load_path=gs://ai2-llm/checkpoints/OLMo-medium/peteish7/step0/ \
