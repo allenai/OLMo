@@ -8,14 +8,16 @@ Requires AWS CLI to be installed and configured.
 """
 
 import argparse
-import subprocess
-import os
-import time
-import boto3
 import json
-from pathlib import Path
+import os
+import subprocess
+import time
+
+import boto3
 
 from gantry import RESULTS_DIR
+from pathlib import Path
+from typing import Dict
 
 # possible converted locations.
 # "self" is the target location where the converted model would be saved
@@ -117,7 +119,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
         curr = Path(converted_path)
         parent = curr.parent
         if parent.name not in processed:
-            processed[parent.name] = {
+            processed[parent.name]: Dict = {
                 'model_name': parent.name,
                 'checkpoints_location': str(parent).replace(load_dir,weka_prefix),
                 'revisions': [curr.name]
