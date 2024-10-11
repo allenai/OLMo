@@ -39,7 +39,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
 
     # Convert to old-style checkpoint.
     for checkpoint_path in cps:
-        print(f"\n\n------------------------------------------------------------", flush=True)
+        print("\n\n------------------------------------------------------------", flush=True)
         print(f"\nProcessing Checkpoint: {checkpoint_path}\n", flush=True)
 
         error = ""
@@ -56,7 +56,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
 
         # the converted model may already exist in local_path or in
         path_found = False
-        potential_existing_locations = [l.format(load_dir,temp_path) for l in WEKA_CHECK_LOCATIONS_PREFIXES]
+        potential_existing_locations = [candidate_loc.format(load_dir,temp_path) for candidate_loc in WEKA_CHECK_LOCATIONS_PREFIXES]
         for loc in potential_existing_locations:
             if os.path.exists(loc):
                 existing_location = loc.replace('/pytorch_model.bin','')
