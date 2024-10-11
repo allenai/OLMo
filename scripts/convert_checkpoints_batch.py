@@ -12,12 +12,11 @@ import json
 import os
 import subprocess
 import time
+from pathlib import Path
+from typing import Dict, List
 
 import boto3
-
 from gantry import RESULTS_DIR
-from pathlib import Path
-from typing import List, Dict, Union
 
 # possible converted locations.
 # "self" is the target location where the converted model would be saved
