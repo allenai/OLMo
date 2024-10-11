@@ -8,14 +8,13 @@ import socket
 import sys
 import time
 import warnings
-from collections import defaultdict
 from datetime import datetime
 from enum import Enum
 from itertools import cycle, islice
 from pathlib import Path
 from queue import Queue
 from threading import Thread
-from typing import Any, Callable, Dict, List, MutableMapping, Optional, Tuple, Union
+from typing import Any, Callable, Dict, MutableMapping, Optional, Tuple, Union
 
 import boto3
 import botocore.exceptions as boto_exceptions

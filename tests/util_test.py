@@ -1,5 +1,3 @@
-from unittest import TestCase
-
 from olmo import util
 
 
