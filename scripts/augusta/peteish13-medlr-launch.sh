@@ -14,8 +14,8 @@ mkdir -p $SAVE_FOLDER
   configs/peteish13-google.yaml \
     --run_name=$RUN_NAME \
     --wandb.group=peteish13-medlr \
-    --save_interval_ephemeral=1000 \
-    --eval_interval=200 \
+    --save_interval_ephemeral=500 \
+    --eval_interval=500 \
     --fsdp.sharding_strategy=HYBRID_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas=$NUM_NODES \
     --save_folder=$SAVE_FOLDER \
