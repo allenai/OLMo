@@ -5,7 +5,7 @@ set -euxo pipefail
 HOSTFILE=$1
 shift
 
-NUM_NODES=32
+NUM_NODES=64
 RUN_NAME=peteish13-highlr-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/mnt/localssd/runs/$RUN_NAME
 mkdir -p $SAVE_FOLDER
