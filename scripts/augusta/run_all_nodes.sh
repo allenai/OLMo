@@ -13,6 +13,7 @@ mpirun \
   --mca btl_tcp_if_include enp0s12 \
   --mca orte_base_help_aggregate 0 \
   --hostfile $HOSTFILE \
+  --bind-to none \
   -tag-output \
   -npernode 1 \
   -x ${HOST_VARS} \
