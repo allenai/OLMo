@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `scripts/convert_checkpoints_batch.py` and `scripts/convert_checkpoints.sh` for processing many intermediate checkpoints in batches for offline evals. 
 - Added ability to try loading latest checkpoint from save folder using `--try_load_latest_save`.
 - Added support for flash attention and gradient checkpointing to `hf_olmo`.
 

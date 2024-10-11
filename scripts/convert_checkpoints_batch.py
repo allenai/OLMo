@@ -17,6 +17,7 @@ import boto3
 
 from gantry import RESULTS_DIR
 from pathlib import Path
+from typing import List, Dict, Union
 
 # possible converted locations.
 # "self" is the target location where the converted model would be saved
@@ -36,7 +37,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
 
     print(f">>> Total of {len(cps)} paths to process. <<<", flush=True)
 
-    processed = {}
+    processed: Dict = {}
 
     # Convert to old-style checkpoint.
     for checkpoint_path in cps:
@@ -118,13 +119,11 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
         curr = Path(converted_path)
         parent = curr.parent
         if parent.name not in processed:
-            processed[parent.name] = {
+            processed[parent.name]= {
                 'model_name': parent.name,
                 'checkpoints_location': str(parent).replace(load_dir,weka_prefix),
                 'revisions': [curr.name]
             }
-        elif 'revisions' not in processed[parent.name]: # not sure if this would ever occur, but trying to get the error check happy
-            processed[parent.name]['revisions'] = [curr.name]
         else:
             processed[parent.name]['revisions'].append(curr.name)
 
@@ -164,7 +163,7 @@ def copy_s3_to_local(bucket, prefix, local_path, display_name, sanity_check):
 
 
 def expand_paths(cps, s3):
-    expanded = []
+    expanded: List[str] = []
 
     for cp in cps:
         bucket = cp.split('/')[2]
