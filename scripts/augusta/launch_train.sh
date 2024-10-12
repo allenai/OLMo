@@ -10,7 +10,7 @@ HOSTFILE=$1
 shift
 
 NUM_NODES=$1
-FIRST_HOST=$(sort $HOSTFILE | head -1 | cut -f 1 -d" ")
+FIRST_HOST=$(sed -e "s/#.*//" -e '/^$/d' $HOSTFILE | sort | head -1 | cut -f 1 -d" ")
 
 HOST_VARS=$(sed 's/ \{1,\}/ -x /g' <<<"${!NCCL*} LD_LIBRARY_PATH")
 mpirun \
