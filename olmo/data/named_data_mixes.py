@@ -1768,7 +1768,9 @@ DATA_SOURCES = {
         "preprocessed/fineweb-edu-dedup/v0/gpt-neox-olmo-dolma-v1_5/part-126-00001.npy",
         "preprocessed/fineweb-edu-dedup/v0/gpt-neox-olmo-dolma-v1_5/part-127-00000.npy",
         "preprocessed/fineweb-edu-dedup/v0/gpt-neox-olmo-dolma-v1_5/part-127-00001.npy"
-    ]
+    ],
+    "cc_tulu_qc_top10": [f"preprocessed/olmo-mix/tulu_qc_top10/part-{i:03d}-00000.csv.gz" for i in range(120)],
+    "falcon_tulu_qc_top10": [f"preprocessed/falcon-refinedweb/tulu_qc_top10/part-{i:03d}-00000.csv.gz" for i in range(120)],
 }
 
 EXTRA_DATA_SOURCES = {
@@ -1913,6 +1915,7 @@ DATA_PATHS["fineweb_edu_dedup"] = build_collection_include(["fineweb_edu_dedup"]
 DATA_PATHS["falcon_and_cc_eli5_oh_top10p"] = build_collection_include(["cc_eli5_oh_top10p", "falcon_eli5_oh_top10p"])
 DATA_PATHS["falcon_and_cc_eli5_oh_top20p"] = build_collection_include(["cc_eli5_oh_top20p", "falcon_eli5_oh_top20p"])
 DATA_PATHS["falcon_and_cc_og_eli5_oh_top10p"] = build_collection_include(["cc_og_eli5_oh_top10p", "falcon_og_eli5_oh_top10p"])
+DATA_PATHS["falcon_and_cc_tulu_qc_top10"] = build_collection_include(["cc_tulu_qc_top10", "falcon_tulu_qc_top10"])
 
 # DATA_PATHS["dolma17_uniform"] = build_collection_with_weights(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
 
