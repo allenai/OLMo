@@ -53,7 +53,7 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=null \
       --save_overwrite \
-      --restore_dataloader=true \
+      --restore_dataloader=false \
       --reset_optimizer_state=false \
       --reset_trainer_state=false
 
