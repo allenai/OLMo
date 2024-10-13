@@ -28,9 +28,8 @@ gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
-  --env R2_PROFILE=R2 \
-  --env S3_PROFILE=S3 \
-  --env WEKA_PROFILE=WEKA \
+  --env S3_PROFILE=default \
+  --env WEKA_PROFILE=default \
   --env-secret AWS_CONFIG=SEWONM_AWS_CONFIG \
   --env-secret AWS_CREDENTIALS=SEWONM_AWS_CREDENTIALS \
   --env-secret WANDB_API_KEY=SEWONM_WANDB_API_KEY \
