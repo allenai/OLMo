@@ -1,4 +1,4 @@
-run_name: peteish7-anneal-from-928646-50B-nowup-dclm07-fw2-debug
+run_name: peteish7-anneal-from-928646-50B-nowup-dclm07-fw2-reprod
 seed: 7201
 dry_run: false
 
@@ -72,7 +72,7 @@ save_folder: /weka/tianhua/checkpoint/${run_name}
 
 save_overwrite: false
 
-save_interval: 10
+save_interval: 1000
 save_interval_ephemeral: 250
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: olmo_core
@@ -80,9 +80,9 @@ sharded_checkpointer: olmo_core
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
-# load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646
-# load_path: /weka/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646
-load_path: /weka/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-50B-nowup-dclm07-fw2/step11000
+# load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646 # old path
+load_path: /weka/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646
+# load_path: /weka/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-50B-nowup-dclm07-fw2/step11000
 
 
 restore_dataloader: false
