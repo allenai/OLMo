@@ -1,4 +1,4 @@
-run_name: peteish7-run001
+run_name: peteish7-backfill
 seed: 6198
 dry_run: false
 
@@ -107,35 +107,35 @@ eval_interval: 1000
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
-  # - label: all-small-ppl-validation
-  #   data:
-  #     num_workers: 0
-  #     drop_last: true
-  #     # generate_doc_lengths: true
-  #     memmap_dtype: uint32
-  #     datasets:
-  #       c4_en-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
-  #       dolma_books-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
-  #       dolma_common-crawl-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
-  #       dolma_pes2o-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
-  #       dolma_reddit-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
-  #       dolma_stack-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
-  #       dolma_wiki-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
-  #       ice-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
-  #       m2d2_s2orc-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
-  #       pile-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
-  #       wikitext_103-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
+  - label: all-small-ppl-validation
+    data:
+      num_workers: 0
+      drop_last: true
+      # generate_doc_lengths: true
+      memmap_dtype: uint32
+      datasets:
+        c4_en-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
+        dolma_books-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
+        dolma_common-crawl-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
+        dolma_pes2o-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
+        dolma_reddit-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
+        dolma_stack-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
+        dolma_wiki-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
+        ice-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
+        m2d2_s2orc-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
+        pile-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
+        wikitext_103-validation:
+          - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
 
   ##########################
   # Downstream evaluations #
@@ -154,7 +154,7 @@ evaluators:
 
   - label: boolq
     type: downstream
- 
+
   - label: sciq
     type: downstream
 
@@ -228,6 +228,228 @@ evaluators:
     type: downstream
 
   - label: arc_easy_ppl
+    type: downstream
+
+  - label: piqa_rc_0shot
+    type: downstream
+
+  - label: piqa_rc_0shot_bpb
+    type: downstream
+
+  - label: piqa_rc_5shot
+    type: downstream
+
+  - label: piqa_rc_5shot_bpb
+    type: downstream
+
+  - label: piqa_mc_5shot
+    type: downstream
+
+  - label: piqa_mc_5shot_bpb
+    type: downstream
+
+  - label: hellaswag_rc_0shot
+    type: downstream
+
+  - label: hellaswag_rc_0shot_bpb
+    type: downstream
+
+  - label: hellaswag_rc_5shot
+    type: downstream
+
+  - label: hellaswag_rc_5shot_bpb
+    type: downstream
+
+  - label: hellaswag_mc_5shot
+    type: downstream
+
+  - label: hellaswag_mc_5shot_bpb
+    type: downstream
+
+  - label: winogrande_rc_0shot
+    type: downstream
+
+  - label: winogrande_rc_0shot_bpb
+    type: downstream
+
+  - label: winogrande_rc_5shot
+    type: downstream
+
+  - label: winogrande_rc_5shot_bpb
+    type: downstream
+
+  - label: winogrande_mc_5shot
+    type: downstream
+
+  - label: winogrande_mc_5shot_bpb
+    type: downstream
+
+  - label: openbookqa_rc_0shot
+    type: downstream
+
+  - label: openbookqa_rc_0shot_bpb
+    type: downstream
+
+  - label: openbookqa_rc_5shot
+    type: downstream
+
+  - label: openbookqa_rc_5shot_bpb
+    type: downstream
+
+  - label: openbookqa_mc_5shot
+    type: downstream
+
+  - label: openbookqa_mc_5shot_bpb
+    type: downstream
+
+  - label: boolq_rc_0shot
+    type: downstream
+
+  - label: boolq_rc_0shot_bpb
+    type: downstream
+
+  - label: boolq_rc_5shot
+    type: downstream
+
+  - label: boolq_rc_5shot_bpb
+    type: downstream
+
+  - label: boolq_mc_5shot
+    type: downstream
+
+  - label: boolq_mc_5shot_bpb
+    type: downstream
+
+  - label: sciq_rc_0shot
+    type: downstream
+
+  - label: sciq_rc_0shot_bpb
+    type: downstream
+
+  # - label: sciq_rc_5shot
+  #   type: downstream
+
+  # - label: sciq_rc_5shot_bpb
+  #   type: downstream
+
+  # - label: sciq_mc_5shot
+  #   type: downstream
+
+  # - label: sciq_mc_5shot_bpb
+  #   type: downstream
+
+  - label: arc_easy_rc_0shot
+    type: downstream
+
+  - label: arc_easy_rc_0shot_bpb
+    type: downstream
+
+  - label: arc_easy_rc_5shot
+    type: downstream
+
+  - label: arc_easy_rc_5shot_bpb
+    type: downstream
+
+  - label: arc_easy_mc_5shot
+    type: downstream
+
+  - label: arc_easy_mc_5shot_bpb
+    type: downstream
+
+  - label: arc_challenge_rc_0shot
+    type: downstream
+
+  - label: arc_challenge_rc_0shot_bpb
+    type: downstream
+
+  - label: arc_challenge_rc_5shot
+    type: downstream
+
+  - label: arc_challenge_rc_5shot_bpb
+    type: downstream
+
+  - label: arc_challenge_mc_5shot
+    type: downstream
+
+  - label: arc_challenge_mc_5shot_bpb
+    type: downstream
+
+  - label: copa_rc_0shot
+    type: downstream
+
+  - label: copa_rc_0shot_bpb
+    type: downstream
+
+  # - label: copa_rc_5shot
+  #   type: downstream
+
+  # - label: copa_rc_5shot_bpb
+  #   type: downstream
+
+  # - label: copa_mc_5shot
+  #   type: downstream
+
+  # - label: copa_mc_5shot_bpb
+  #   type: downstream
+
+  - label: csqa_rc_0shot
+    type: downstream
+
+  - label: csqa_rc_0shot_bpb
+    type: downstream
+
+  - label: csqa_rc_5shot
+    type: downstream
+
+  - label: csqa_rc_5shot_bpb
+    type: downstream
+
+  - label: csqa_mc_5shot
+    type: downstream
+
+  - label: csqa_mc_5shot_bpb
+    type: downstream
+
+  - label: socialiqa_rc_0shot
+    type: downstream
+
+  - label: socialiqa_rc_0shot_bpb
+    type: downstream
+
+  - label: socialiqa_rc_5shot
+    type: downstream
+
+  - label: socialiqa_rc_5shot_bpb
+    type: downstream
+
+  - label: socialiqa_mc_5shot
+    type: downstream
+
+  - label: socialiqa_mc_5shot_bpb
+    type: downstream
+
+  - label: mmlu_stem_var_bpb
+    type: downstream
+
+  - label: mmlu_humanities_var_bpb
+    type: downstream
+
+  - label: mmlu_social_sciences_var_bpb
+    type: downstream
+
+  - label: mmlu_other_var_bpb
+    type: downstream
+
+  - label: mmlu_stem_bpb
+    type: downstream
+
+  - label: mmlu_humanities_bpb
+    type: downstream
+
+  - label: mmlu_social_sciences_bpb
+    type: downstream
+
+  - label: mmlu_other_bpb
     type: downstream
 
 data:
