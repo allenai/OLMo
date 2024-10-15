@@ -30,4 +30,5 @@ mkdir -p $SAVE_FOLDER
     --fused_loss=true \
     --model.flash_attention=true \
     --data.num_workers=8 \
+    --optimizer.metrics_log_interval=10 \
     --optimizer.learning_rate=9.0e-4 2>&1 | tee $SAVE_FOLDER/log.txt
