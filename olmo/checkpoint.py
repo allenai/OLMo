@@ -781,11 +781,12 @@ class FullCheckpointer(Checkpointer):
             )
 
         # Load other state.
-        try:
-            trainer_state = load_state_dict(load_path, "train.pt", local_cache=local_cache)
-        except FileNotFoundError:
-            # for backwards compatibility
-            trainer_state = load_state_dict(load_path, "other.pt", local_cache=local_cache)
+        trainer_state = None
+        # try:
+        #     trainer_state = load_state_dict(load_path, "train.pt", local_cache=local_cache)
+        # except FileNotFoundError:
+        #     # for backwards compatibility
+        #     trainer_state = load_state_dict(load_path, "other.pt", local_cache=local_cache)
         barrier()
         return trainer_state
 
