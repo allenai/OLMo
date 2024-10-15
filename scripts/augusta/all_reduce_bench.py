@@ -138,8 +138,9 @@ def run(local_rank):
         )
 
 def init_processes(local_rank, fn, backend='nccl'):
-    torch.cuda.set_device(local_rank)
-    dist.init_process_group(backend)
+    device_as_string = f"cuda:{local_rank}"
+    torch.cuda.set_device(device_as_string)
+    dist.init_process_group(backend, device_id=torch.device(device_as_string))
     fn(local_rank)
 
 
