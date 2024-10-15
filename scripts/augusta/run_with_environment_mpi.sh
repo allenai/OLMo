@@ -1,6 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
+source ~/venv/OLMo/bin/activate
+
+cd ~/OLMo
+NCCL_LIB_DIR=/var/lib/tcpxo/lib64 source /var/lib/tcpxo/lib64/nccl-env-profile.sh
+export NCCL_NET=FasTrak
+export OMP_NUM_THREADS=16
+export GOOGLE_CLOUD_PROJECT=h100-cluster-owner
+export NCCL_DEBUG=WARN
+
 export NODENAME=$(hostname -s)
 export MASTER_ADDR=$1
 export MASTER_PORT=39591
