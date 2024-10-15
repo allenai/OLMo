@@ -31,4 +31,4 @@ else
   sleep 2
 fi
 
-exec python scripts/train.py "$@"
+exec "$@"
