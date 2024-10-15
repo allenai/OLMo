@@ -14,8 +14,8 @@ mkdir -p $SAVE_FOLDER
   configs/peteish13-google.yaml \
     --run_name=$RUN_NAME \
     --wandb.group=peteish13-highlr \
-    --save_interval_ephemeral=500 \
-    --eval_interval=500 \
+    --save_interval_ephemeral=1000 \
+    --eval_interval=1000 \
     --fsdp.sharding_strategy=HYBRID_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas=$NUM_NODES \
     --save_folder=$SAVE_FOLDER \
@@ -24,8 +24,8 @@ mkdir -p $SAVE_FOLDER
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
     --load_path=gs://ai2-llm/checkpoints/OLMo-medium/peteish13-highlr/step113550/ \
     --sharded_checkpointer=olmo_core \
-    --device_train_microbatch_size=4 \
-    --activation_checkpointing=whole_layer \
+    --device_train_microbatch_size=2 \
+    --activation_checkpointing=one_in_two \
     --compile.fullgraph=false \
     --fused_loss=true \
     --model.flash_attention=true \
