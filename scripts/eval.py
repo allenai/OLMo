@@ -221,12 +221,12 @@ def main(cfg: TrainConfig) -> None:
 
     # Data indices file.
     indices_file: Optional[TextIO] = None
-    if cfg.save_data_indices:
-        indices_file_path = Path(cfg.save_folder) / f"data-indices/rank{get_global_rank()}.tsv.gz"
-        if indices_file_path.exists() and not cfg.save_overwrite:
-            raise OLMoConfigurationError(f"{indices_file_path} already exists, use --save_overwrite to overwrite")
-        indices_file_path.parent.mkdir(exist_ok=True, parents=True)
-        indices_file = gzip.open(indices_file_path, "wt")
+    # if cfg.save_data_indices:
+    #     indices_file_path = Path(cfg.save_folder) / f"data-indices/rank{get_global_rank()}.tsv.gz"
+    #     if indices_file_path.exists() and not cfg.save_overwrite:
+    #         raise OLMoConfigurationError(f"{indices_file_path} already exists, use --save_overwrite to overwrite")
+    #     indices_file_path.parent.mkdir(exist_ok=True, parents=True)
+    #     indices_file = gzip.open(indices_file_path, "wt")
 
     # Consolidate components into `Trainer` object.
     with Trainer(

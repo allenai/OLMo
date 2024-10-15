@@ -25,7 +25,7 @@ pip install '.[train]'
 pip freeze
 
 # Move AWS credentials from env to relevant files
-mkdir -p ~/.aws
+# mkdir -p ~/.aws
 # printenv AWS_CONFIG > ~/.aws/config
 # printenv AWS_CREDENTIALS > ~/.aws/credentials
 
