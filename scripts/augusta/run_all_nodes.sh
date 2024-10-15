@@ -4,15 +4,22 @@ NCCL_LIB_DIR=/var/lib/tcpxo/lib64 source /var/lib/tcpxo/lib64/nccl-env-profile.s
 
 set -euxo pipefail
 
-HOSTFILE=$1
+HOSTPATTERN=$1
 shift
 
+HOSTS=$(
+  grep -E $HOSTPATTERN ~/hostfiles/hosts | \
+  fgrep -hv \# | \
+  paste -sd,
+)
+
 HOST_VARS=$(sed 's/ \{1,\}/ -x /g' <<<"${!NCCL*} LD_LIBRARY_PATH")
+
 mpirun \
   --mca btl self,tcp \
   --mca btl_tcp_if_include enp0s12 \
   --mca orte_base_help_aggregate 0 \
-  --hostfile $HOSTFILE \
+  -H $HOSTS \
   --bind-to none \
   -tag-output \
   -npernode 1 \

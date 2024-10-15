@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# This runs only on the first host.
-
 NCCL_LIB_DIR=/var/lib/tcpxo/lib64 source /var/lib/tcpxo/lib64/nccl-env-profile.sh
 
 set -euxo pipefail
@@ -9,8 +7,7 @@ set -euxo pipefail
 HOSTS=$1
 shift
 
-FIRST_HOST=$(echo "$HOSTS" | tr ',' '\n' | sort | head -1)
-NUM_NODES=$((1 + $(echo "$HOSTS" | tr -cd ',' | wc -c)))
+HOSTS=$(echo "$HOSTS" | tr ',' '\n' | awk '{print $0":8"}' | paste -sd,)
 HOST_VARS=$(sed 's/ \{1,\}/ -x /g' <<<"${!NCCL*} LD_LIBRARY_PATH")
 
 mpirun \
@@ -18,7 +15,7 @@ mpirun \
   --mca btl_tcp_if_include enp0s12 \
   --bind-to none \
   -H $HOSTS \
-  -npernode 1 \
+  -npernode 8 \
   -x ${HOST_VARS} \
   -x WANDB_ENTITY \
   -x WANDB_API_KEY \
