@@ -2,15 +2,27 @@
 
 set -euxo pipefail
 
-HOSTFILE=$1
+HOSTPATTERN=$1
 shift
 
-NUM_NODES=64
+NUM_NODES=$1
+shift
+
+HOSTS=$(
+  grep -E $HOSTPATTERN ~/hostfiles/hosts | \
+  fgrep -hv \# | \
+  parallel 'echo {} $(ssh {} curl -s http://metadata.google.internal/computeMetadata/v1/instance/attributes/physical_host -H \"Metadata-Flavor: Google\")' | \
+  sort -k 2 | \
+  head -$NUM_NODES | \
+  cut -f 1 -d" " | \
+  paste -sd,
+)
+
 RUN_NAME=peteish13-highlr-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/mnt/localssd/runs/$RUN_NAME
 mkdir -p $SAVE_FOLDER
 
-./scripts/augusta/launch_train.sh $HOSTFILE $NUM_NODES \
+./scripts/augusta/launch_train.sh $HOSTS \
   configs/peteish13-google.yaml \
     --run_name=$RUN_NAME \
     --wandb.group=peteish13-highlr \

@@ -6,19 +6,18 @@ NCCL_LIB_DIR=/var/lib/tcpxo/lib64 source /var/lib/tcpxo/lib64/nccl-env-profile.s
 
 set -euxo pipefail
 
-HOSTFILE=$1
+HOSTS=$1
 shift
 
-NUM_NODES=$1
-FIRST_HOST=$(sed -e "s/#.*//" -e '/^$/d' $HOSTFILE | sort | head -1 | cut -f 1 -d" ")
-
+FIRST_HOST=$(echo "$HOSTS" | tr ',' '\n' | sort | head -1)
+NUM_NODES=$((1 + $(echo "$HOSTS" | tr -cd ',' | wc -c)))
 HOST_VARS=$(sed 's/ \{1,\}/ -x /g' <<<"${!NCCL*} LD_LIBRARY_PATH")
+
 mpirun \
   --mca btl self,tcp \
   --mca btl_tcp_if_include enp0s12 \
-  --hostfile $HOSTFILE \
   --bind-to none \
-  -np $NUM_NODES \
+  -H $HOSTS \
   -npernode 1 \
   -x ${HOST_VARS} \
   -x WANDB_ENTITY \
@@ -28,4 +27,4 @@ mpirun \
   -x AWS_ACCESS_KEY_ID \
   -x AWS_SECRET_ACCESS_KEY \
   -x NCCL_DEBUG=INFO \
-  bash ~/OLMo/scripts/augusta/run_with_environment.sh $FIRST_HOST "$@"
+  bash ~/OLMo/scripts/augusta/run_with_environment.sh $FIRST_HOST $NUM_NODES "$@"
