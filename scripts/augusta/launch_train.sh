@@ -7,7 +7,7 @@ set -euxo pipefail
 HOSTS=$1
 shift
 
-FIRST_HOST=$(echo "$HOSTS" | tr ',' '\n' | sort | head -1)
+FIRST_HOST=$(echo "$HOSTS" | tr ',' '\n' | head -1)
 HOSTS=$(echo "$HOSTS" | tr ',' '\n' | awk '{print $0":8"}' | paste -sd,)
 HOST_VARS=$(sed 's/ \{1,\}/ -x /g' <<<"${!NCCL*} LD_LIBRARY_PATH")
 
