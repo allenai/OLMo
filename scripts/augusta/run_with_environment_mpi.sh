@@ -1,5 +1,8 @@
 #!/bin/bash
-set -euo pipefail
+set -exuo pipefail
+
+FIRST_HOST=$1
+shift
 
 source ~/venv/OLMo/bin/activate
 
@@ -10,7 +13,7 @@ export OMP_NUM_THREADS=16
 export GOOGLE_CLOUD_PROJECT=h100-cluster-owner
 
 export NODENAME=$(hostname -s)
-export MASTER_ADDR=$1
+export MASTER_ADDR=$FIRST_HOST
 export MASTER_PORT=39591
 export WORLD_SIZE=$OMPI_COMM_WORLD_SIZE
 export RANK=$OMPI_COMM_WORLD_RANK

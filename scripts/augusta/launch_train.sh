@@ -7,6 +7,7 @@ set -euxo pipefail
 HOSTS=$1
 shift
 
+FIRST_HOST=$(echo "$HOSTS" | tr ',' '\n' | sort | head -1)
 HOSTS=$(echo "$HOSTS" | tr ',' '\n' | awk '{print $0":8"}' | paste -sd,)
 HOST_VARS=$(sed 's/ \{1,\}/ -x /g' <<<"${!NCCL*} LD_LIBRARY_PATH")
 
@@ -24,4 +25,4 @@ mpirun \
   -x AWS_ACCESS_KEY_ID \
   -x AWS_SECRET_ACCESS_KEY \
   -x NCCL_DEBUG=WARN \
-  bash ~/OLMo/scripts/augusta/run_with_environment_mpi.sh "$@"
+  bash ~/OLMo/scripts/augusta/run_with_environment_mpi.sh $FIRST_HOST "$@"
