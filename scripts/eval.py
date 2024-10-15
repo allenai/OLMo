@@ -121,8 +121,7 @@ def main(cfg: TrainConfig) -> None:
     seed_all(cfg.seed)
 
     # # Construct data loader.
-    # train_loader = build_train_dataloader(cfg)
-    train_loader = None
+    train_loader = build_train_dataloader(cfg)
 
     # Construct evaluators.
     evaluators = build_evaluators(cfg, device)
