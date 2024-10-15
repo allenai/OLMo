@@ -121,7 +121,8 @@ def main(cfg: TrainConfig) -> None:
     seed_all(cfg.seed)
 
     # # Construct data loader.
-    train_loader = build_train_dataloader(cfg)
+    # train_loader = build_train_dataloader(cfg)
+    train_loader = None
 
     # Construct evaluators.
     evaluators = build_evaluators(cfg, device)
@@ -295,11 +296,16 @@ def main(cfg: TrainConfig) -> None:
 
         if cfg.load_path is not None:
             log.info(f"Loading checkpoint from {cfg.load_path}...")
-            trainer.restore_checkpoint(
+            # trainer.restore_checkpoint(
+            #     cfg.load_path,
+            #     load_optimizer_state=not cfg.reset_optimizer_state,
+            #     load_trainer_state=not cfg.reset_trainer_state,
+            #     sharded_checkpointer=cfg.load_path_sharded_checkpointer,
+            # )
+            trainer.restore_unsharded_checkpoint(
                 cfg.load_path,
-                load_optimizer_state=not cfg.reset_optimizer_state,
-                load_trainer_state=not cfg.reset_trainer_state,
-                sharded_checkpointer=cfg.load_path_sharded_checkpointer,
+                load_optimizer_state=False,
+                load_trainer_state=False,
             )
             log.info("Checkpoint successfully loaded")
 
