@@ -23,5 +23,5 @@ mpirun \
   -x S3_SECRET_ACCESS_KEY \
   -x AWS_ACCESS_KEY_ID \
   -x AWS_SECRET_ACCESS_KEY \
-  -x NCCL_DEBUG=INFO \
+  -x NCCL_DEBUG=WARN \
   bash ~/OLMo/scripts/augusta/run_with_environment_mpi.sh "$@"
