@@ -22,7 +22,7 @@ mkdir -p $SAVE_FOLDER
     --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/peteish13-lumi/" \
     --save_overwrite \
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
-    --load_path=gs://ai2-llm/checkpoints/OLMo-medium/peteish13-lumi/step9750 \
+    --load_path=gs://ai2-llm/checkpoints/OLMo-medium/peteish13-lumi/step12500 \
     --sharded_checkpointer=olmo_core \
     --device_train_microbatch_size=4 \
     --activation_checkpointing=whole_layer \
