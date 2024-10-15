@@ -4,15 +4,7 @@ NCCL_LIB_DIR=/var/lib/tcpxo/lib64 source /var/lib/tcpxo/lib64/nccl-env-profile.s
 
 set -euxo pipefail
 
-HOSTPATTERN=$1
-shift
-
-HOSTS=$(
-  grep -E $HOSTPATTERN ~/hostfiles/hosts | \
-  fgrep -hv \# | \
-  paste -sd,
-)
-
+HOSTS=$(fgrep -hv \#  ~/hostfiles/hosts | paste -sd,)
 HOST_VARS=$(sed 's/ \{1,\}/ -x /g' <<<"${!NCCL*} LD_LIBRARY_PATH")
 
 mpirun \
