@@ -27,4 +27,4 @@ mpirun \
   -x AWS_ACCESS_KEY_ID \
   -x AWS_SECRET_ACCESS_KEY \
   -x NCCL_DEBUG=INFO \
-  bash ~/OLMo/scripts/augusta/run_with_environment.sh $FIRST_HOST $NUM_NODES "$@"
+  bash ~/OLMo/scripts/augusta/run_with_environment_mpi.sh "$@"

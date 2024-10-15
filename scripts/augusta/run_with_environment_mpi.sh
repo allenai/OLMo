@@ -20,4 +20,4 @@ else
   sleep 2
 fi
 
-exec $*
+exec python scripts/train.py "$@"
