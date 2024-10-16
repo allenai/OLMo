@@ -35,7 +35,7 @@ srun \
   --distribution=block:block \
   --kill-on-bad-exit \
   scripts/run_with_environment.sh \
-    python -u scripts/train.py configs/kempner_dev/7b_Olmo.yaml \
+    python -u scripts/train.py configs/kempner_institute/7b_Olmo.yaml \
       --run_name=${SLURM_JOB_NAME}_${SLURM_JOB_ID} \
       --data.num_workers=16 \
       --data.prefetch_factor=4 \
