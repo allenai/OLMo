@@ -1372,6 +1372,9 @@ class MMLU(ICLMultiChoiceTaskDataset):
             return choices
 
     def doc_to_label(self, doc):
+        if self.metric_type in ["ce_loss", "bpb"]:
+            # Only the correct answer is provided for these metrics
+            return 0
         return doc["answer"]
 
     def doc_to_domain_conditional(self, doc):
