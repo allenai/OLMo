@@ -453,7 +453,16 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
 @cache
 def _get_gcs_client():
     from google.cloud import storage as gcs
-    return gcs.Client()
+    from google.api_core.retry import Retry
+
+    return gcs.Client(
+        client_options={"retry": Retry(
+            initial=1.0,
+            maximum=10.0,
+            multiplier=2.0,
+            deadline=500.0
+        )}
+    )
 
 
 def _get_s3_profile_name(scheme: str) -> Optional[str]:
