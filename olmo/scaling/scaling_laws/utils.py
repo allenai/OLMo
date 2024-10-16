@@ -150,7 +150,6 @@ downstream_newline = [
     "mmlu_newline_stem_mc_5shot_len_norm",
     "mmlu_newline_social_sciences_mc_5shot_test_len_norm",
     "mmlu_newline_other_mc_5shot_len_norm",
-
     "hellaswag_newline_rc_0shot_len_norm",
     "hellaswag_newline_rc_5shot_len_norm",
     "hellaswag_newline_mc_5shot_acc",
@@ -190,7 +189,6 @@ downstream_newline_bpb = [
     "mmlu_newline_humanities_bpb",
     "mmlu_newline_social_sciences_bpb",
     "mmlu_newline_other_bpb",
-
     "piqa_newline_rc_0shot_bpb",
     "piqa_newline_rc_5shot_bpb",
     "piqa_newline_mc_5shot_bpb",
@@ -282,6 +280,11 @@ class FinalConfig:
     The color for this curve.
     """
 
+    use_last_n_percentage: int = 100
+    """
+    The percent of data points used. Defaults to 100%.
+    """
+
 
 KEYS_BY_KEY = {
     "all-val-lm": [f"eval/{val}/CrossEntropyLoss" for val in validation],
@@ -315,7 +318,9 @@ def parse_args():
     parser.add_argument(
         "-k", "--key", type=str, default="", help="For avg metrics. Use one of [all-val-lm, all-bpb]"
     )
-    parser.add_argument("--num_to_avg", type=int, default=1, help="Number of final ckpts to average (for final loss fitting)")
+    parser.add_argument(
+        "--num_to_avg", type=int, default=1, help="Number of final ckpts to average (for final loss fitting)"
+    )
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
     args = parser.parse_args()
@@ -346,10 +351,10 @@ def get_data_by_name(configs, keys, min_step=None):
                 batch_size = int(row["batch_size_in_tokens"])
                 steps = (d - last_d) / batch_size
                 lr = float(row["optim/learning_rate_group0"])
-                if lr > last_lr: # warmup phase
+                if lr > last_lr:  # warmup phase
                     fake_lr = float(row["learning_rate_peak"])
                     last_fake_lr = float(row["learning_rate_peak"])
-                else: # anneal phase
+                else:  # anneal phase
                     fake_lr = lr
                 h = lr / float(row["learning_rate_peak"])
                 s1 += fake_lr * steps
@@ -541,14 +546,19 @@ def grad_chinchilla_n_d_lr_power_minus_fit(x, p):
     grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
     grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
     grad_E = 1
-    grad_F = - (1 - x[2]) * x[0] ** p[6]
-    grad_r = - p[5] * (1 - x[2]) * x[0] ** p[6] * np.log(x[0])
+    grad_F = -(1 - x[2]) * x[0] ** p[6]
+    grad_r = -p[5] * (1 - x[2]) * x[0] ** p[6] * np.log(x[0])
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r]
 
 
 def chinchilla_n_d_lr_power_minus_powerd_fit(x, p):
     # return e**a / x[0]**alpha + e**b / x[1]**beta + E - F * (1 - x[2]) * x[0]**r * x[1]**s
-    return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4] - p[5] * (1 - x[2]) * x[0] ** p[6] * x[1] ** p[7]
+    return (
+        np.exp(p[0]) / x[0] ** p[2]
+        + np.exp(p[1]) / x[1] ** p[3]
+        + p[4]
+        - p[5] * (1 - x[2]) * x[0] ** p[6] * x[1] ** p[7]
+    )
 
 
 def grad_chinchilla_n_d_lr_power_minus_powerd_fit(x, p):
@@ -557,15 +567,20 @@ def grad_chinchilla_n_d_lr_power_minus_powerd_fit(x, p):
     grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
     grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
     grad_E = 1
-    grad_F = - (1 - x[2]) * x[0] ** p[6] * x[1] ** p[7]
-    grad_r = - p[5] * (1 - x[2]) * x[1] ** p[7] * x[0] ** p[6] * np.log(x[0])
-    grad_s = - p[5] * (1 - x[2]) * x[0] ** p[6] * x[1] ** p[7] * np.log(x[1])
+    grad_F = -(1 - x[2]) * x[0] ** p[6] * x[1] ** p[7]
+    grad_r = -p[5] * (1 - x[2]) * x[1] ** p[7] * x[0] ** p[6] * np.log(x[0])
+    grad_s = -p[5] * (1 - x[2]) * x[0] ** p[6] * x[1] ** p[7] * np.log(x[1])
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r, grad_s]
 
 
 def chinchilla_n_d_lr_power_minus_powertd_fit(x, p):
     # return e**a / x[0]**alpha + e**b / x[1]**beta + E - F * (1 - x[2]) * x[0]**r * (x[1]**s + t)
-    return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4] - p[5] * (1 - x[2]) * x[0] ** p[6] * (x[1] ** p[7] + np.exp(p[8]))
+    return (
+        np.exp(p[0]) / x[0] ** p[2]
+        + np.exp(p[1]) / x[1] ** p[3]
+        + p[4]
+        - p[5] * (1 - x[2]) * x[0] ** p[6] * (x[1] ** p[7] + np.exp(p[8]))
+    )
 
 
 def grad_chinchilla_n_d_lr_power_minus_powertd_fit(x, p):
@@ -574,16 +589,21 @@ def grad_chinchilla_n_d_lr_power_minus_powertd_fit(x, p):
     grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
     grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
     grad_E = 1
-    grad_F = - (1 - x[2]) * x[0] ** p[6] * (x[1] ** p[7] + np.exp(p[8]))
-    grad_r = - p[5] * (1 - x[2]) * (x[1] ** p[7] + np.exp(p[8])) * x[0] ** p[6] * np.log(x[0])
-    grad_s = - p[5] * (1 - x[2]) * x[0] ** p[6] * x[1] ** p[7] * np.log(x[1])
-    grad_t = - p[5] * (1 - x[2]) * x[0] ** p[6] * np.exp(p[8])
+    grad_F = -(1 - x[2]) * x[0] ** p[6] * (x[1] ** p[7] + np.exp(p[8]))
+    grad_r = -p[5] * (1 - x[2]) * (x[1] ** p[7] + np.exp(p[8])) * x[0] ** p[6] * np.log(x[0])
+    grad_s = -p[5] * (1 - x[2]) * x[0] ** p[6] * x[1] ** p[7] * np.log(x[1])
+    grad_t = -p[5] * (1 - x[2]) * x[0] ** p[6] * np.exp(p[8])
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r, grad_s, grad_t]
 
 
 def chinchilla_n_d_lr_power_minus_logtd_fit(x, p):
     # return e**a / x[0]**alpha + e**b / x[1]**beta + E - F * (1 - x[2]) * x[0]**r * (log(x[1]) + s)
-    return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4] - p[5] * (1 - x[2]) * x[0] ** p[6] * (np.log(x[1]) + p[7])
+    return (
+        np.exp(p[0]) / x[0] ** p[2]
+        + np.exp(p[1]) / x[1] ** p[3]
+        + p[4]
+        - p[5] * (1 - x[2]) * x[0] ** p[6] * (np.log(x[1]) + p[7])
+    )
 
 
 def grad_chinchilla_n_d_lr_power_minus_logtd_fit(x, p):
@@ -592,15 +612,20 @@ def grad_chinchilla_n_d_lr_power_minus_logtd_fit(x, p):
     grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
     grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
     grad_E = 1
-    grad_F = - (1 - x[2]) * x[0] ** p[6] * (np.log(x[1]) + p[7])
-    grad_r = - p[5] * (1 - x[2]) * (np.log(x[1]) + p[7]) * x[0] ** p[6] * np.log(x[0])
-    grad_s = - p[5] * (1 - x[2]) * x[0] ** p[6]
+    grad_F = -(1 - x[2]) * x[0] ** p[6] * (np.log(x[1]) + p[7])
+    grad_r = -p[5] * (1 - x[2]) * (np.log(x[1]) + p[7]) * x[0] ** p[6] * np.log(x[0])
+    grad_s = -p[5] * (1 - x[2]) * x[0] ** p[6]
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r, grad_s]
 
 
 def chinchilla_n_d_lr_logt_minus_logtd_fit(x, p):
     # return e**a / x[0]**alpha + e**b / x[1]**beta + E - F * (1 - x[2]) / (log(x[0]) + r) * (log(x[1]) + s)
-    return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4] - p[5] * (1 - x[2]) / (np.log(x[0]) + p[6]) * (np.log(x[1]) + p[7])
+    return (
+        np.exp(p[0]) / x[0] ** p[2]
+        + np.exp(p[1]) / x[1] ** p[3]
+        + p[4]
+        - p[5] * (1 - x[2]) / (np.log(x[0]) + p[6]) * (np.log(x[1]) + p[7])
+    )
 
 
 def grad_chinchilla_n_d_lr_logt_minus_logtd_fit(x, p):
@@ -609,9 +634,9 @@ def grad_chinchilla_n_d_lr_logt_minus_logtd_fit(x, p):
     grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
     grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
     grad_E = 1
-    grad_F = - (1 - x[2]) / (np.log(x[0]) + p[6]) * (np.log(x[1]) + p[7])
-    grad_r = - p[5] * (1 - x[2]) * (np.log(x[1]) + p[7]) * (-1 / (np.log(x[0]) + p[6])**2)
-    grad_s = - p[5] * (1 - x[2]) / (np.log(x[0]) + p[6])
+    grad_F = -(1 - x[2]) / (np.log(x[0]) + p[6]) * (np.log(x[1]) + p[7])
+    grad_r = -p[5] * (1 - x[2]) * (np.log(x[1]) + p[7]) * (-1 / (np.log(x[0]) + p[6]) ** 2)
+    grad_s = -p[5] * (1 - x[2]) / (np.log(x[0]) + p[6])
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r, grad_s]
 
 
@@ -693,9 +718,7 @@ def get_coefficients_huber_nolog(
     def loss_fn(p, train_xs, train_ys, delta):
         actuals = train_ys
         preds = [fitting_func(x, p) for x in train_xs]
-        loss = np.sum(
-            [huber_loss(pred - actual, delta=delta) for actual, pred in zip(actuals, preds)]
-        )
+        loss = np.sum([huber_loss(pred - actual, delta=delta) for actual, pred in zip(actuals, preds)])
         return loss
 
     def jac_fn(p, train_xs, train_ys, delta):

@@ -5,9 +5,9 @@ import os.path
 import re
 from typing import List
 
+import wandb
 from tqdm import tqdm
 
-import wandb
 from olmo.scaling.scaling_laws.utils import (
     downstream,
     downstream_bpb,
