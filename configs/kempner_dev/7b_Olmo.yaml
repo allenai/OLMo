@@ -2,6 +2,8 @@ run_name: OLMo-7B
 seed: 6198
 dry_run: false
 
+# Comment out the wandb section if you don't wish to use wandb for logging
+# Otherwise update it according to your account info and it's setup on the cluster
 wandb:
   name: ${run_name}
   project: olmo-medium
@@ -29,7 +31,7 @@ model:
   residual_dropout: 0.0
   embedding_dropout: 0.0
   max_sequence_length: 2048
-  vocab_size: 32100
+  vocab_size: 32100           # depends on the tokenizer
   embedding_size: 32128 
   eos_token_id: 1
   pad_token_id: 0
@@ -74,7 +76,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
 
-max_duration: 515  # 2T tokens
+max_duration: 515  # 135M tokens (global_train_batch_size * max_sequence_length * max_duration)
 global_train_batch_size: 128 # 4 GPUs * 32
 device_train_microbatch_size: 32
 time_limit: null
