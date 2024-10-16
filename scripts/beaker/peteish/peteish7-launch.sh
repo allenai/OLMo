@@ -7,7 +7,7 @@ NUM_NODES=8
 gantry run \
   --allow-dirty \
   --workspace ai2/hb-wolf-olmo \
-  --task-name peteish7 \
+  --task-name peteish7-eval \
   --description "Pete-ish 7B" \
   --priority high \
   --preemptible \
