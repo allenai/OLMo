@@ -288,6 +288,7 @@ def save_state_dict(
             break
         except:  # noqa:E722
             import traceback
+
             traceback.print_exc()
 
     if upload_to is not None:
@@ -662,7 +663,10 @@ class FullCheckpointer(Checkpointer):
                 # First, get the model state dict from DDP wrapped model
                 model_state_dict = dist_model.module.state_dict()
                 self._write_model_dict(
-                    model_state_dict, checkpoint_dir, upload_to, save_overwrite=self.cfg.save_overwrite,
+                    model_state_dict,
+                    checkpoint_dir,
+                    upload_to,
+                    save_overwrite=self.cfg.save_overwrite,
                 )
 
                 # Then get the optimizer state dict

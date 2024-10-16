@@ -40,7 +40,16 @@ def main():
         chinchilla_n_d_lr_power_minus_powerd_fit,
         grad_chinchilla_n_d_lr_power_minus_powerd_fit,
         p0=[3.0, 6.0, 0.1, 0.2, 1.0, 0.05, -0.05, 0.05],
-        bounds=[(None, None), (None, None), (0, None), (0, None), (0, None), (0, None), (None, None), (None, None)],
+        bounds=[
+            (None, None),
+            (None, None),
+            (0, None),
+            (0, None),
+            (0, None),
+            (0, None),
+            (None, None),
+            (None, None),
+        ],
     )
     a, b, alpha, beta, E, F, gamma, delta = coefficients
     A, B = np.exp(a), np.exp(b)

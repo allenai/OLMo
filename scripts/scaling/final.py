@@ -13,8 +13,7 @@ from olmo.scaling.scaling_laws.utils import (
     parse_args,
 )
 
-
-MARKERS = ['s', 'P', 'p', '*']
+MARKERS = ["s", "P", "p", "*"]
 
 
 def main():
@@ -105,7 +104,7 @@ def main():
 
     plt.legend(loc="upper right", ncols=1, fontsize=10)
     plt.xlabel("Tokens (D)")
-    plt.ylabel(f"Loss")
+    plt.ylabel("Loss")
     plt.title(args.key)
     plt.savefig(args.output_path, dpi=300, bbox_inches="tight")
 

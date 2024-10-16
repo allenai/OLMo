@@ -89,6 +89,9 @@ MODEL_CONFIGS = {
     "7B": MODEL_CONFIG_190M.update_with(
         d_model=4096, n_heads=32, n_layers=32, mlp_ratio=0, mlp_hidden_size=22016, init_device="meta"
     ),
+    "13B": MODEL_CONFIG_190M.update_with(
+        d_model=5120, n_heads=40, n_layers=40, mlp_ratio=0, mlp_hidden_size=27648, init_device="meta"
+    ),
 }
 
 
@@ -105,6 +108,7 @@ MODEL_GFLOPS = {
     "1B": 9083695104,
     "3B": 21304118784,
     "7B": 47360532480,
+    "13B": 91335915520,
 }
 
 
@@ -121,6 +125,7 @@ MODEL_PARAMS = {
     "1B": 1279395840,
     "3B": 3169537280,
     "7B": 6887575552,
+    "13B": 13202396160,
 }
 
 
@@ -213,6 +218,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         "1B": 2,
         "3B": 2,
         "7B": 1,
+        "13B": 1,
     }.get(args.model, 4)
 
     device_batch_size = args.device_batch_size if args.device_batch_size > 0 else default_device_batch_size

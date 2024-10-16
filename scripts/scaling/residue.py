@@ -8,9 +8,10 @@ import seaborn as sns
 from olmo.scaling.scaling_laws.utils import (
     ExtrapolateNConfig,
     get_ax,
-    get_data_by_name,
-    parse_args,
     get_coefficients_huber_nolog,
+    get_data_by_name,
+    validation,
+    downstream_bpb,
 )
 
 
@@ -45,24 +46,30 @@ def parse_args():
 
 
 MARKER_BY_C = {
-    1: 's',
-    2: 'P',
-    5: 'p',
-    10: '*',
+    1: "s",
+    2: "P",
+    5: "p",
+    10: "*",
 }
 
 NS = [151898880, 319980544, 530074944, 681297408, 1176832000]
 
-def func_pow_r(x, p): # x = (n, d), p = (U0, U1, U2, U3, U4, r)
+
+def func_pow_r(x, p):  # x = (n, d), p = (U0, U1, U2, U3, U4, r)
     return p[NS.index(x[0])] * x[1] ** p[5]
+
+
 def jac_pow_r(x, p):
     grad = [0] * 6
     grad[NS.index(x[0])] = x[1] ** p[5]
     grad[5] = p[NS.index(x[0])] * x[1] ** p[5] * np.log(x[1])
     return grad
 
-def func_pow_r_t(x, p): # x = (n, d), p = (U0, U1, U2, U3, U4, r, t)
+
+def func_pow_r_t(x, p):  # x = (n, d), p = (U0, U1, U2, U3, U4, r, t)
     return p[NS.index(x[0])] * (x[1] ** p[5] + p[6])
+
+
 def jac_pow_r_t(x, p):
     grad = [0] * 7
     grad[NS.index(x[0])] = x[1] ** p[5] + p[6]
@@ -70,8 +77,11 @@ def jac_pow_r_t(x, p):
     grad[6] = p[NS.index(x[0])]
     return grad
 
-def func_pow_r_splus_t(x, p): # x = (n, d), p = (U0, U1, U2, U3, U4, r, s, t)
+
+def func_pow_r_splus_t(x, p):  # x = (n, d), p = (U0, U1, U2, U3, U4, r, s, t)
     return p[NS.index(x[0])] * ((x[1] + np.exp(p[6])) ** p[5] + p[7])
+
+
 def jac_pow_r_splus_t(x, p):
     grad = [0] * 8
     grad[NS.index(x[0])] = (x[1] + np.exp(p[6])) ** p[5] + p[7]
@@ -80,8 +90,11 @@ def jac_pow_r_splus_t(x, p):
     grad[7] = p[NS.index(x[0])]
     return grad
 
-def func_pow_r_sminus_t(x, p): # x = (n, d), p = (U0, U1, U2, U3, U4, r, s, t)
+
+def func_pow_r_sminus_t(x, p):  # x = (n, d), p = (U0, U1, U2, U3, U4, r, s, t)
     return p[NS.index(x[0])] * ((x[1] - np.exp(p[6])) ** p[5] + p[7])
+
+
 def jac_pow_r_sminus_t(x, p):
     grad = [0] * 8
     grad[NS.index(x[0])] = (x[1] - np.exp(p[6])) ** p[5] + p[7]
@@ -90,23 +103,32 @@ def jac_pow_r_sminus_t(x, p):
     grad[7] = p[NS.index(x[0])]
     return grad
 
-def func_log(x, p): # x = (n, d), p = (U0, U1, U2, U3, U4)
+
+def func_log(x, p):  # x = (n, d), p = (U0, U1, U2, U3, U4)
     return p[NS.index(x[0])] * np.log(x[1])
+
+
 def jac_log(x, p):
     grad = [0] * 5
     grad[NS.index(x[0])] = np.log(x[1])
     return grad
 
-def func_log_t(x, p): # x = (n, d), p = (U0, U1, U2, U3, U4, t)
+
+def func_log_t(x, p):  # x = (n, d), p = (U0, U1, U2, U3, U4, t)
     return p[NS.index(x[0])] * (np.log(x[1]) + p[5])
+
+
 def jac_log_t(x, p):
     grad = [0] * 6
     grad[NS.index(x[0])] = np.log(x[1]) + p[5]
     grad[5] = p[NS.index(x[0])]
     return grad
 
-def func_log_splus_t(x, p): # x = (n, d), p = (U0, U1, U2, U3, U4, s, t)
+
+def func_log_splus_t(x, p):  # x = (n, d), p = (U0, U1, U2, U3, U4, s, t)
     return p[NS.index(x[0])] * (np.log(x[1] + np.exp(p[5])) + p[6])
+
+
 def jac_log_splus_t(x, p):
     grad = [0] * 7
     grad[NS.index(x[0])] = np.log(x[1] + np.exp(p[5])) + p[6]
@@ -114,8 +136,11 @@ def jac_log_splus_t(x, p):
     grad[6] = p[NS.index(x[0])]
     return grad
 
-def func_log_sminus_t(x, p): # x = (n, d), p = (U0, U1, U2, U3, U4, s, t)
+
+def func_log_sminus_t(x, p):  # x = (n, d), p = (U0, U1, U2, U3, U4, s, t)
     return p[NS.index(x[0])] * (np.log(x[1] - np.exp(p[5])) + p[6])
+
+
 def jac_log_sminus_t(x, p):
     grad = [0] * 7
     grad[NS.index(x[0])] = np.log(x[1] - np.exp(p[5])) + p[6]
@@ -123,16 +148,22 @@ def jac_log_sminus_t(x, p):
     grad[6] = p[NS.index(x[0])]
     return grad
 
-def u_func_pow_r(x, p): # x = n, p = (W, r)
+
+def u_func_pow_r(x, p):  # x = n, p = (W, r)
     return p[0] * x ** p[1]
+
+
 def u_jac_pow_r(x, p):
     grad = [0] * 2
     grad[0] = x ** p[1]
     grad[1] = p[0] * x ** p[1] * np.log(x)
     return grad
 
-def u_func_pow_r_t(x, p): # x = n, p = (W, r, t)
+
+def u_func_pow_r_t(x, p):  # x = n, p = (W, r, t)
     return p[0] * (x ** p[1] + p[2])
+
+
 def u_jac_pow_r_t(x, p):
     grad = [0] * 3
     grad[0] = x ** p[1] + p[2]
@@ -140,15 +171,21 @@ def u_jac_pow_r_t(x, p):
     grad[2] = p[0]
     return grad
 
-def u_func_log(x, p): # x = n, p = (W)
+
+def u_func_log(x, p):  # x = n, p = (W)
     return p[0] / np.log(x)
+
+
 def u_jac_log(x, p):
     grad = [0] * 1
     grad[0] = 1 / np.log(x)
     return grad
 
-def u_func_log_t(x, p): # x = n, p = (W, t)
+
+def u_func_log_t(x, p):  # x = n, p = (W, t)
     return p[0] / (np.log(x) + p[1])
+
+
 def u_jac_log_t(x, p):
     grad = [0] * 2
     grad[0] = 1 / (np.log(x) + p[1])
@@ -166,8 +203,15 @@ def main():
     data_by_name = get_data_by_name(configs, args.keys, min_step=3000)
     const_configs = {
         name: ExtrapolateNConfig(
-            path=config.path.replace('5shot', 'const').replace('1xC', '10xC').replace('2xC', '10xC').replace('5xC', '10xC'),
-            mode=config.mode, n=config.n, label=config.label, color=config.color)
+            path=config.path.replace("5shot", "const")
+            .replace("1xC", "10xC")
+            .replace("2xC", "10xC")
+            .replace("5xC", "10xC"),
+            mode=config.mode,
+            n=config.n,
+            label=config.label,
+            color=config.color,
+        )
         for name, config in configs.items()
     }
     const_data_by_name = get_data_by_name(const_configs, args.keys, min_step=3000)
@@ -183,16 +227,16 @@ def main():
         config = configs[name]
         data = data_by_name[name]
         const_data = const_data_by_name[name]
-        ds = [d for d in data['ds'] if d in const_data['ds']]
-        ys = [data['ys'][i] for i, d in enumerate(data['ds']) if d in ds]
-        const_ys = [const_data['ys'][i] for i, d in enumerate(const_data['ds']) if d in ds]
+        ds = [d for d in data["ds"] if d in const_data["ds"]]
+        ys = [data["ys"][i] for i, d in enumerate(data["ds"]) if d in ds]
+        const_ys = [const_data["ys"][i] for i, d in enumerate(const_data["ds"]) if d in ds]
         residues = np.array(ys) - np.array(const_ys)
 
         ax = axs[get_ax(name)]
         ax.scatter(
             ds,
             residues,
-            color='white',
+            color="white",
             edgecolors=config.color,
             label=config.label,
             s=5.0,
@@ -207,7 +251,7 @@ def main():
         }
 
         # overlay a cosine curve
-        dmin = WARMUP_D_BY_N[data['ns'][0]]
+        dmin = WARMUP_D_BY_N[data["ns"][0]]
         dmax = max(ds)
         half_period = dmax - dmin
         rangee = -np.mean(residues[-5:])
@@ -247,57 +291,74 @@ def main():
         #     linewidth=0.8,
         # )
 
-        c = int(name.split('-')[-1][:-2])
-        rangee_by_ndc[(data['ns'][0], ds[-1], c, name)] = rangee
+        c = int(name.split("-")[-1][:-2])
+        rangee_by_ndc[(data["ns"][0], ds[-1], c, name)] = rangee
 
     for ax in axs:
         ax.set_ylim(-0.20, 0.02)
         ax.legend(loc="upper right", ncols=1, fontsize=8)
         ax.set_xlabel("Tokens (D)")
-    axs[0].set_ylabel(f"Residue")
+    axs[0].set_ylabel("Residue")
     plt.suptitle("Residue of loss against curve of const LR schedule")
     plt.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
-
     # plot the rangee
-    if args.vfunc == '':
+    if args.vfunc == "":
         exit()
-    if args.vfunc == 'pow-r':
+    if args.vfunc == "pow-r":
         func = func_pow_r
         jac = jac_pow_r
         p0 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         bounds = [(None, None), (None, None), (None, None), (None, None), (None, None), (None, None)]
-    elif args.vfunc == 'pow-r-t':
+    elif args.vfunc == "pow-r-t":
         func = func_pow_r_t
         jac = jac_pow_r_t
         p0 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         bounds = [(None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None)]
-    elif args.vfunc == 'pow-r-splus-t':
+    elif args.vfunc == "pow-r-splus-t":
         func = func_pow_r_splus_t
         jac = jac_pow_r_splus_t
         p0 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 18.0, 0.0]
-        bounds = [(None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None)]
-    elif args.vfunc == 'pow-r-sminus-t':
+        bounds = [
+            (None, None),
+            (None, None),
+            (None, None),
+            (None, None),
+            (None, None),
+            (None, None),
+            (None, None),
+            (None, None),
+        ]
+    elif args.vfunc == "pow-r-sminus-t":
         func = func_pow_r_sminus_t
         jac = jac_pow_r_sminus_t
         p0 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 18.0, 0.0]
-        bounds = [(None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, 20.0), (None, None)]
-    elif args.vfunc == 'log':
+        bounds = [
+            (None, None),
+            (None, None),
+            (None, None),
+            (None, None),
+            (None, None),
+            (None, None),
+            (None, 20.0),
+            (None, None),
+        ]
+    elif args.vfunc == "log":
         func = func_log
         jac = jac_log
         p0 = [0.0, 0.0, 0.0, 0.0, 0.0]
         bounds = [(None, None), (None, None), (None, None), (None, None), (None, None)]
-    elif args.vfunc == 'log-t':
+    elif args.vfunc == "log-t":
         func = func_log_t
         jac = jac_log_t
         p0 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         bounds = [(None, None), (None, None), (None, None), (None, None), (None, None), (None, None)]
-    elif args.vfunc == 'log-splus-t':
+    elif args.vfunc == "log-splus-t":
         func = func_log_splus_t
         jac = jac_log_splus_t
         p0 = [0.0, 0.0, 0.0, 0.0, 0.0, 18.0, 0.0]
         bounds = [(None, None), (None, None), (None, None), (None, None), (None, None), (None, None), (None, None)]
-    elif args.vfunc == 'log-sminus-t':
+    elif args.vfunc == "log-sminus-t":
         func = func_log_sminus_t
         jac = jac_log_sminus_t
         p0 = [0.0, 0.0, 0.0, 0.0, 0.0, 18.0, 0.0]
@@ -318,78 +379,96 @@ def main():
             if config.n == n:
                 color = config.color
                 break
-        ax.plot(pred_ds, pred_vs, linestyle='--', color=color)
-        ax.annotate(f'U={coefficients[NS.index(n)]:.4f}', xy=(dmax, pred_vs[-1]), xycoords='data', textcoords='offset points', xytext=(5, 0), va="center", ha="left", fontsize=10, color=color)
-    if args.vfunc == 'pow-r':
-        anno = f'v(D) = D^r\nr={coefficients[5]:.4f}'
-    elif args.vfunc == 'pow-r-t':
-        anno = f'v(D) = D^r + t\nr={coefficients[5]:.4f}, t={coefficients[6]:.4f}'
-    elif args.vfunc == 'pow-r-splus-t':
-        anno = f'v(D) = (D + exp(s))^r + t\nr={coefficients[5]:.4f}, s={coefficients[6]:.4f}, t={coefficients[7]:.4f}'
-    elif args.vfunc == 'pow-r-sminus-t':
-        anno = f'v(D) = (D - exp(s))^r + t\nr={coefficients[5]:.4f}, s={coefficients[6]:.4f}, t={coefficients[7]:.4f}'
-    elif args.vfunc == 'log':
-        anno = f'v(D) = log(D)'
-    elif args.vfunc == 'log-t':
-        anno = f'v(D) = log(D) + t\nt={coefficients[5]:.4f}'
-    elif args.vfunc == 'log-splus-t':
-        anno = f'v(D) = log(D + exp(s)) + t\ns={coefficients[5]:.4f}, t={coefficients[6]:.4f}'
-    elif args.vfunc == 'log-sminus-t':
-        anno = f'v(D) = log(D - exp(s)) + t\ns={coefficients[5]:.4f}, t={coefficients[6]:.4f}'
-    anno += f'\nHuber loss = {loss:.4e}'
-    ax.annotate(anno, xy=(0.3, 0.2), xycoords='axes fraction', va="top", ha="left", fontsize=10)
+        ax.plot(pred_ds, pred_vs, linestyle="--", color=color)
+        ax.annotate(
+            f"U={coefficients[NS.index(n)]:.4f}",
+            xy=(dmax, pred_vs[-1]),
+            xycoords="data",
+            textcoords="offset points",
+            xytext=(5, 0),
+            va="center",
+            ha="left",
+            fontsize=10,
+            color=color,
+        )
+    if args.vfunc == "pow-r":
+        anno = f"v(D) = D^r\nr={coefficients[5]:.4f}"
+    elif args.vfunc == "pow-r-t":
+        anno = f"v(D) = D^r + t\nr={coefficients[5]:.4f}, t={coefficients[6]:.4f}"
+    elif args.vfunc == "pow-r-splus-t":
+        anno = (
+            f"v(D) = (D + exp(s))^r + t\nr={coefficients[5]:.4f}, s={coefficients[6]:.4f}, t={coefficients[7]:.4f}"
+        )
+    elif args.vfunc == "pow-r-sminus-t":
+        anno = (
+            f"v(D) = (D - exp(s))^r + t\nr={coefficients[5]:.4f}, s={coefficients[6]:.4f}, t={coefficients[7]:.4f}"
+        )
+    elif args.vfunc == "log":
+        anno = "v(D) = log(D)"
+    elif args.vfunc == "log-t":
+        anno = f"v(D) = log(D) + t\nt={coefficients[5]:.4f}"
+    elif args.vfunc == "log-splus-t":
+        anno = f"v(D) = log(D + exp(s)) + t\ns={coefficients[5]:.4f}, t={coefficients[6]:.4f}"
+    elif args.vfunc == "log-sminus-t":
+        anno = f"v(D) = log(D - exp(s)) + t\ns={coefficients[5]:.4f}, t={coefficients[6]:.4f}"
+    anno += f"\nHuber loss = {loss:.4e}"
+    ax.annotate(anno, xy=(0.3, 0.2), xycoords="axes fraction", va="top", ha="left", fontsize=10)
     ax.set_ylim(0.08, 0.23)
     ax.set_xlabel("Tokens (D)")
     ax.set_ylabel("Range of residue")
-    ax.set_title(f"Range of residue, V = U * v(D)")
-    ax.legend(ncol=5, fontsize=6, markerscale=0.5, loc='upper right')
-    plt.savefig(args.output_path.replace('residue', f'residue_rangee_{args.vfunc}'), dpi=300, bbox_inches="tight")
+    ax.set_title("Range of residue, V = U * v(D)")
+    ax.legend(ncol=5, fontsize=6, markerscale=0.5, loc="upper right")
+    plt.savefig(args.output_path.replace("residue", f"residue_rangee_{args.vfunc}"), dpi=300, bbox_inches="tight")
 
-    if args.ufunc == '':
+    if args.ufunc == "":
         exit()
-    if args.ufunc == 'pow-r':
+    if args.ufunc == "pow-r":
         func = u_func_pow_r
         jac = u_jac_pow_r
         p0 = [0.0, 0.0]
         bounds = [(None, None), (None, None)]
-    elif args.ufunc == 'pow-r-t':
+    elif args.ufunc == "pow-r-t":
         func = u_func_pow_r_t
         jac = u_jac_pow_r_t
         p0 = [0.0, 0.0, 0.0]
         bounds = [(None, None), (None, None), (None, None)]
-    elif args.ufunc == 'log':
+    elif args.ufunc == "log":
         func = u_func_log
         jac = u_jac_log
         p0 = [0.0]
         bounds = [(None, None)]
-    elif args.ufunc == 'log-t':
+    elif args.ufunc == "log-t":
         func = u_func_log_t
         jac = u_jac_log_t
         p0 = [0.0, 0.0]
         bounds = [(None, None), (None, None)]
     ns = NS
-    us = coefficients[:len(ns)]
+    us = coefficients[: len(ns)]
     coefficients, loss = get_coefficients_huber_nolog(ns, us, func, jac, p0=p0, bounds=bounds)
     fig, ax = plt.subplots(1, 1, figsize=(6, 4.5))
-    ax.scatter(ns, us, marker='o', s=80, color='black')
+    ax.scatter(ns, us, marker="o", s=80, color="black")
     nmin, nmax = min(ns), max(ns)
     pred_ns = np.linspace(nmin, nmax, 100)
     pred_us = [func(n, coefficients) for n in pred_ns]
-    ax.plot(pred_ns, pred_us, linestyle='--', color='black')
-    if args.ufunc == 'pow-r':
-        anno = f'u(N) = n^r\nW={coefficients[0]:.4f}, r={coefficients[1]:.4f}'
-    elif args.ufunc == 'pow-r-t':
-        anno = f'u(N) = n^r + t\nW={coefficients[0]:.4f}, r={coefficients[1]:.4f}, t={coefficients[2]:.4f}'
-    elif args.ufunc == 'log':
-        anno = f'u(N) = 1 / log(n)\nW={coefficients[0]:.4f}'
-    elif args.ufunc == 'log-t':
-        anno = f'u(N) = 1 / (log(n) + t)\nW={coefficients[0]:.4f}, t={coefficients[1]:.4f}'
-    anno += f'\nHuber loss = {loss:.4e}'
-    ax.annotate(anno, xy=(0.4, 0.6), xycoords='axes fraction', va="top", ha="left", fontsize=10)
+    ax.plot(pred_ns, pred_us, linestyle="--", color="black")
+    if args.ufunc == "pow-r":
+        anno = f"u(N) = n^r\nW={coefficients[0]:.4f}, r={coefficients[1]:.4f}"
+    elif args.ufunc == "pow-r-t":
+        anno = f"u(N) = n^r + t\nW={coefficients[0]:.4f}, r={coefficients[1]:.4f}, t={coefficients[2]:.4f}"
+    elif args.ufunc == "log":
+        anno = f"u(N) = 1 / log(n)\nW={coefficients[0]:.4f}"
+    elif args.ufunc == "log-t":
+        anno = f"u(N) = 1 / (log(n) + t)\nW={coefficients[0]:.4f}, t={coefficients[1]:.4f}"
+    anno += f"\nHuber loss = {loss:.4e}"
+    ax.annotate(anno, xy=(0.4, 0.6), xycoords="axes fraction", va="top", ha="left", fontsize=10)
     ax.set_xlabel("Model size (N)")
     ax.set_ylabel("U")
-    ax.set_title(f"U = W * u(N)")
-    plt.savefig(args.output_path.replace('residue', f'residue_rangee_{args.vfunc}_{args.ufunc}'), dpi=300, bbox_inches="tight")
+    ax.set_title("U = W * u(N)")
+    plt.savefig(
+        args.output_path.replace("residue", f"residue_rangee_{args.vfunc}_{args.ufunc}"),
+        dpi=300,
+        bbox_inches="tight",
+    )
 
 
 if __name__ == "__main__":

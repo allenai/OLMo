@@ -2133,7 +2133,6 @@ DATA_PATHS = {
         "preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-13-00000.npy",
         "preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-14-00000.npy",
         "preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-15-00000.npy",
-
         # ProofPile 2: Arxiv Data
         "preprocessed/proof-pile-2/v0_decontaminated/arxiv/train/allenai/dolma2-tokenizer/part-00-00000.npy",
         "preprocessed/proof-pile-2/v0_decontaminated/arxiv/train/allenai/dolma2-tokenizer/part-01-00000.npy",
@@ -2155,7 +2154,6 @@ DATA_PATHS = {
         "preprocessed/proof-pile-2/v0_decontaminated/arxiv/train/allenai/dolma2-tokenizer/part-17-00000.npy",
         "preprocessed/proof-pile-2/v0_decontaminated/arxiv/train/allenai/dolma2-tokenizer/part-18-00000.npy",
         "preprocessed/proof-pile-2/v0_decontaminated/arxiv/train/allenai/dolma2-tokenizer/part-19-00000.npy",
-
         # ProofPile 2: Open Web Math Data
         "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-00-00000.npy",
         "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-01-00000.npy",
@@ -2170,7 +2168,6 @@ DATA_PATHS = {
         "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-10-00000.npy",
         "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-11-00000.npy",
         "preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-12-00000.npy",
-
         # Pes2o Data
         "preprocessed/pes2o/allenai/dolma2-tokenizer/part-00-00000.npy",
         "preprocessed/pes2o/allenai/dolma2-tokenizer/part-01-00000.npy",
@@ -2198,7 +2195,6 @@ DATA_PATHS = {
         "preprocessed/pes2o/allenai/dolma2-tokenizer/part-23-00000.npy",
         "preprocessed/pes2o/allenai/dolma2-tokenizer/part-24-00000.npy",
         "preprocessed/pes2o/allenai/dolma2-tokenizer/part-25-00000.npy",
-
         # Starcoder Data (fixed!)
         "preprocessed/starcoder/v1-decon-100_to_20k-2star-top_token_030/allenai/dolma2-tokenizer/part-000-00000.npy",
         "preprocessed/starcoder/v1-decon-100_to_20k-2star-top_token_030/allenai/dolma2-tokenizer/part-001-00000.npy",
@@ -2300,7 +2296,6 @@ DATA_PATHS = {
         "preprocessed/starcoder/v1-decon-100_to_20k-2star-top_token_030/allenai/dolma2-tokenizer/part-097-00000.npy",
         "preprocessed/starcoder/v1-decon-100_to_20k-2star-top_token_030/allenai/dolma2-tokenizer/part-098-00000.npy",
         "preprocessed/starcoder/v1-decon-100_to_20k-2star-top_token_030/allenai/dolma2-tokenizer/part-099-00000.npy",
-
         # DCLM Data
         "preprocessed/dclm/text_openhermes_reddit_eli5_vs_rw_v2_bigram_200k_train/allenai/dolma2-tokenizer/part-000-00000.npy",
         "preprocessed/dclm/text_openhermes_reddit_eli5_vs_rw_v2_bigram_200k_train/allenai/dolma2-tokenizer/part-000-00001.npy",
@@ -3247,7 +3242,6 @@ DATA_PATHS = {
         "preprocessed/dclm/text_openhermes_reddit_eli5_vs_rw_v2_bigram_200k_train/allenai/dolma2-tokenizer/part-187-00002.npy",
         "preprocessed/dclm/text_openhermes_reddit_eli5_vs_rw_v2_bigram_200k_train/allenai/dolma2-tokenizer/part-187-00003.npy",
         "preprocessed/dclm/text_openhermes_reddit_eli5_vs_rw_v2_bigram_200k_train/allenai/dolma2-tokenizer/part-187-00004.npy",
-
         # Wikipedia
         "preprocessed/olmo-mix/danyh-compiled-v1_7/documents/wiki/allenai/dolma2-tokenizer/part-0-00000.npy",
         "preprocessed/olmo-mix/danyh-compiled-v1_7/documents/wiki/allenai/dolma2-tokenizer/part-1-00000.npy",

@@ -1,20 +1,23 @@
 import argparse
 import json
-import os
 
-from olmo.scaling.scaling_laws.stacked_predictions import get_downstream_predictions, DownstreamPredictionFeatures
-from olmo.scaling.scaling_laws.utils import FinalConfig
 import numpy as np
+
+from olmo.scaling.scaling_laws.stacked_predictions import (
+    DownstreamPredictionFeatures,
+    get_downstream_predictions,
+)
+from olmo.scaling.scaling_laws.utils import FinalConfig
 
 # We only include ce loss and the 6 dolma sets, as these are the sets we can include in the paper
 ce_columns = [
-    'eval/c4_en-validation/CrossEntropyLoss',
-    'eval/dolma_books-validation/CrossEntropyLoss',
-    'eval/dolma_common-crawl-validation/CrossEntropyLoss',
-    'eval/dolma_pes2o-validation/CrossEntropyLoss',
-    'eval/dolma_reddit-validation/CrossEntropyLoss',
-    'eval/dolma_stack-validation/CrossEntropyLoss',
-    'eval/dolma_wiki-validation/CrossEntropyLoss',
+    "eval/c4_en-validation/CrossEntropyLoss",
+    "eval/dolma_books-validation/CrossEntropyLoss",
+    "eval/dolma_common-crawl-validation/CrossEntropyLoss",
+    "eval/dolma_pes2o-validation/CrossEntropyLoss",
+    "eval/dolma_reddit-validation/CrossEntropyLoss",
+    "eval/dolma_stack-validation/CrossEntropyLoss",
+    "eval/dolma_wiki-validation/CrossEntropyLoss",
 ]
 
 mmlu_names = ["mmlu_stem", "mmlu_humanities", "mmlu_social_sciences", "mmlu_other"]
@@ -62,7 +65,7 @@ tasks = {
     "SocialIQA-5shot": {
         "bpb": ["eval/downstream_bpb/socialiqa_rc_5shot_bpb_bpb"],
         "score": ["eval/downstream/socialiqa_rc_5shot_len_norm"],
-    }
+    },
 }
 
 
@@ -133,11 +136,11 @@ def main():
         for target in stacked_error:
             mkdn += f"{prettify(stacked_error[target][task])} |"
 
-    mkdn += f"\n| **Avg signed error** | "
+    mkdn += "\n| **Avg signed error** | "
     for target in stacked_error:
         mkdn += f"**{prettify(np.mean(list(stacked_error[target].values())))}** |"
 
-    mkdn += f"\n| **Avg unsigned error** | "
+    mkdn += "\n| **Avg unsigned error** | "
     for target in stacked_error:
         mkdn += f"**{prettify(np.mean(np.abs(list(stacked_error[target].values()))))}** |"
     print(mkdn)

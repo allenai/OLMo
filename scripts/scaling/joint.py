@@ -62,7 +62,9 @@ def main():
     for name, data in data_by_name.items():
         config = configs[name]
         ax = axs[get_ax(name)]
-        ax.scatter(data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=5, alpha=0.4)
+        ax.scatter(
+            data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=5, alpha=0.4
+        )
 
     # plot the fitted curve
     for name, data in predicted_data_by_name.items():
@@ -87,17 +89,19 @@ def main():
         all_rel_errors += rel_errors
         rel_error = np.mean(rel_errors)
         ax.annotate(
-            f'err: {rel_error:.2%}',
+            f"err: {rel_error:.2%}",
             xy=(data["ds"][-1], pred_data["ys"][-1]),
-            xycoords='data',
+            xycoords="data",
             xytext=(-10, 8),
-            textcoords='offset points',
+            textcoords="offset points",
             fontsize=9,
             color=config.color,
         )
     axs[3].annotate(
-        f'L(N, D) = {A:.2f} / N^{alpha:.2f} + {B:.2f} / D^{beta:.2f} + {E:.2f}\nAvg err: {np.mean(all_rel_errors):.2%}',
-        xy=(0.15, 0.55), xycoords='axes fraction', fontsize=9,
+        f"L(N, D) = {A:.2f} / N^{alpha:.2f} + {B:.2f} / D^{beta:.2f} + {E:.2f}\nAvg err: {np.mean(all_rel_errors):.2%}",
+        xy=(0.15, 0.55),
+        xycoords="axes fraction",
+        fontsize=9,
     )
     plt.text(
         x=0.40,
@@ -111,7 +115,7 @@ def main():
         ax.legend(loc="upper right", ncols=2, fontsize=8)
         ax.set_xlabel("Tokens (D)")
     axs[0].set_ylabel(f"CE loss, {args.key if args.key != '' else args.keys}")
-    axs[3].set_ylabel(f'Loss')
+    axs[3].set_ylabel("Loss")
     axs[3].set_title(args.key)
     plt.suptitle("Fitting loss curves")
     plt.savefig(args.output_path, dpi=300, bbox_inches="tight")

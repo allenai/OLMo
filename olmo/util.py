@@ -410,7 +410,9 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
                 except ValueError:
                     continue
                 # We prioritize sharded checkpoints over unsharded checkpoints.
-                if step > latest_step or (step == latest_step and not path.name.endswith("-unsharded")):
+                if (
+                    step > latest_step or (step == latest_step and not path.name.endswith("-unsharded"))
+                ) and os.path.exists(os.path.join(path, "model.pt")):
                     latest_step = step
                     latest_checkpoint = path
         return latest_checkpoint

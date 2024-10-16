@@ -52,9 +52,7 @@ def main():
         predicted_data_by_name[name] = {
             "ds": data["ds"],
             "s2s": data["s2s"],
-            "ys": [
-                tissue_fit([n, d, s2], coefficients) for n, d, s2 in zip(data["ns"], data["ds"], data["s2s"])
-            ],
+            "ys": [tissue_fit([n, d, s2], coefficients) for n, d, s2 in zip(data["ns"], data["ds"], data["s2s"])],
         }
 
     # plot the actual data

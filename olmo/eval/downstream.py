@@ -85,10 +85,10 @@ class ICLMetric(Metric):
                     * LOG_2_OF_E
                 )
                 if log_likelihood > 100000000:
-                    log.info('Abnormally high log_likelihood!')
+                    log.info("Abnormally high log_likelihood!")
                     log.info(f'batch["cont_byte_len"][idx] = {batch["cont_byte_len"][idx]}')
-                    log.info(f'cont_tokens = {cont_tokens}')
-                    log.info(f'min(lm_cont_logits) = {min(lm_cont_logits)}')
+                    log.info(f"cont_tokens = {cont_tokens}")
+                    log.info(f"min(lm_cont_logits) = {min(lm_cont_logits)}")
                     log.info(f'ctx = {batch["ctx"][idx]}')
                     log.info(f'continuation = {batch["continuation"][idx]}')
             else:
@@ -1380,7 +1380,6 @@ class MMLU(ICLMultiChoiceTaskDataset):
 
 
 class MMLUWithNewline(MMLU):
-
     def prep_examples(self):
         """Append doc_ids to each example so that they are processed together in the metric"""
         doc_id = 0
@@ -1579,6 +1578,7 @@ class NaturalQuestionsCELoss(ICLMultiChoiceTaskDataset):
         del doc
         return "Answer:"
 
+
 class OEEvalTask(ICLMultiChoiceTaskDataset):
     """Generic class for OE evaluation tasks"""
 
@@ -1725,7 +1725,6 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
 
 
 class OEEvalTaskWithNewline(OEEvalTask):
-
     def prep_examples(self):
         current_doc_id_offset = 0
         max_doc_id = 0
@@ -1755,8 +1754,8 @@ class OEEvalTaskWithNewline(OEEvalTask):
 
                 request_dict = request["request"]
                 continuation_str = request_dict["continuation"]
-                if continuation_str.startswith(' '):
-                    continuation_str = continuation_str.lstrip(' ')
+                if continuation_str.startswith(" "):
+                    continuation_str = continuation_str.lstrip(" ")
                 label_id = request["label"]
                 cont_id = request["idx"]
                 if self.metric_type in ["ce_loss", "bpb"]:
@@ -1768,9 +1767,9 @@ class OEEvalTaskWithNewline(OEEvalTask):
                         cont_id = 0
                         label_id = 0
                 doc_text = request_dict["context"]
-                doc_text.replace('Answer: ', 'Answer:\n')
-                if not doc_text.endswith('\n'):
-                    doc_text += '\n'
+                doc_text.replace("Answer: ", "Answer:\n")
+                if not doc_text.endswith("\n"):
+                    doc_text += "\n"
                 ctx = self.token_encode(doc_text)
                 dc = self.token_encode(self.doc_to_domain_conditional(doc))
                 if self.log_instances > 0:
@@ -1818,7 +1817,6 @@ class OEEvalTaskWithNewline(OEEvalTask):
 
 
 class Vera(ICLMultiChoiceTaskDataset):
-
     metric_type = "len_norm"
 
     def __init__(
@@ -1831,13 +1829,13 @@ class Vera(ICLMultiChoiceTaskDataset):
             tokenizer=tokenizer,
             dataset_path=dataset_path,
             dataset_name=dataset_name,
-    )
+        )
 
     def doc_to_text(self, doc):
         return "<|endoftext|>"
 
     def doc_to_continuations(self, doc) -> List[str]:
-        return doc['golds'] + doc['distractors']
+        return doc["golds"] + doc["distractors"]
 
     def doc_to_label(self, doc) -> int:
         return 0
@@ -1918,7 +1916,6 @@ label_to_task_map = {
         MMLU,
         {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
     ),
-
     # Paste in all oe-eval tasks from output of scripts/list_evals_from_oe_eval.py
     "arc_challenge_mc_5shot": (
         OEEvalTask,
@@ -2111,7 +2108,6 @@ label_to_task_map = {
         OEEvalTask,
         {"dataset_path": "winogrande", "dataset_name": "rc_5shot", "metric_type": "bpb"},
     ),
-
     # MMLU with old newline format
     "mmlu_newline_stem_test": (MMLUWithNewline, {"dataset_name": "stem", "split": "test"}),
     "mmlu_newline_humanities_test": (MMLUWithNewline, {"dataset_name": "humanities", "split": "test"}),
@@ -2123,13 +2119,22 @@ label_to_task_map = {
     "mmlu_newline_other": (MMLUWithNewline, {"dataset_name": "other"}),
     "mmlu_newline_stem_bpb": (MMLUWithNewline, {"dataset_name": "stem", "metric_type": "bpb"}),
     "mmlu_newline_humanities_bpb": (MMLUWithNewline, {"dataset_name": "humanities", "metric_type": "bpb"}),
-    "mmlu_newline_social_sciences_bpb": (MMLUWithNewline, {"dataset_name": "social_sciences", "metric_type": "bpb"}),
+    "mmlu_newline_social_sciences_bpb": (
+        MMLUWithNewline,
+        {"dataset_name": "social_sciences", "metric_type": "bpb"},
+    ),
     "mmlu_newline_other_bpb": (MMLUWithNewline, {"dataset_name": "other", "metric_type": "bpb"}),
     "mmlu_newline_stem_var": (MMLUWithNewline, {"dataset_name": "stem", "prompt_variations": 1}),
     "mmlu_newline_humanities_var": (MMLUWithNewline, {"dataset_name": "humanities", "prompt_variations": 1}),
-    "mmlu_newline_social_sciences_var": (MMLUWithNewline, {"dataset_name": "social_sciences", "prompt_variations": 1}),
+    "mmlu_newline_social_sciences_var": (
+        MMLUWithNewline,
+        {"dataset_name": "social_sciences", "prompt_variations": 1},
+    ),
     "mmlu_newline_other_var": (MMLUWithNewline, {"dataset_name": "other", "prompt_variations": 1}),
-    "mmlu_newline_stem_var_bpb": (MMLUWithNewline, {"dataset_name": "stem", "prompt_variations": 1, "metric_type": "bpb"}),
+    "mmlu_newline_stem_var_bpb": (
+        MMLUWithNewline,
+        {"dataset_name": "stem", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
     "mmlu_newline_humanities_var_bpb": (
         MMLUWithNewline,
         {"dataset_name": "humanities", "prompt_variations": 1, "metric_type": "bpb"},
@@ -2138,14 +2143,26 @@ label_to_task_map = {
         MMLUWithNewline,
         {"dataset_name": "social_sciences", "prompt_variations": 1, "metric_type": "bpb"},
     ),
-    "mmlu_newline_other_var_bpb": (MMLUWithNewline, {"dataset_name": "other", "prompt_variations": 1, "metric_type": "bpb"}),
-    "mmlu_newline_stem_mc_5shot": (MMLUWithNewline, {"dataset_name": "stem", "prompt_variations": 2, "mc_labels": True}),
-    "mmlu_newline_humanities_mc_5shot": (MMLUWithNewline, {"dataset_name": "humanities", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_newline_other_var_bpb": (
+        MMLUWithNewline,
+        {"dataset_name": "other", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_newline_stem_mc_5shot": (
+        MMLUWithNewline,
+        {"dataset_name": "stem", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_newline_humanities_mc_5shot": (
+        MMLUWithNewline,
+        {"dataset_name": "humanities", "prompt_variations": 2, "mc_labels": True},
+    ),
     "mmlu_newline_social_sciences_mc_5shot": (
         MMLUWithNewline,
         {"dataset_name": "social_sciences", "prompt_variations": 2, "mc_labels": True},
     ),
-    "mmlu_newline_other_mc_5shot": (MMLUWithNewline, {"dataset_name": "other", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_newline_other_mc_5shot": (
+        MMLUWithNewline,
+        {"dataset_name": "other", "prompt_variations": 2, "mc_labels": True},
+    ),
     "mmlu_newline_stem_mc_5shot_test": (
         MMLUWithNewline,
         {"dataset_name": "stem", "split": "test", "prompt_variations": 2, "mc_labels": True},
@@ -2162,7 +2179,6 @@ label_to_task_map = {
         MMLUWithNewline,
         {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
     ),
-
     # oe-eval tasks with old newline format
     "arc_challenge_newline_mc_5shot": (
         OEEvalTaskWithNewline,
@@ -2212,23 +2228,38 @@ label_to_task_map = {
         OEEvalTaskWithNewline,
         {"dataset_path": "arc_easy", "dataset_name": "rc_5shot", "metric_type": "bpb"},
     ),
-    "boolq_newline_mc_5shot": (OEEvalTaskWithNewline, {"dataset_path": "boolq", "dataset_name": "mc_5shot", "metric_type": "acc"}),
+    "boolq_newline_mc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "boolq", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
     "boolq_newline_mc_5shot_bpb": (
         OEEvalTaskWithNewline,
         {"dataset_path": "boolq", "dataset_name": "mc_5shot", "metric_type": "bpb"},
     ),
-    "boolq_newline_rc_0shot": (OEEvalTaskWithNewline, {"dataset_path": "boolq", "dataset_name": "rc_0shot", "metric_type": "acc"}),
+    "boolq_newline_rc_0shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "boolq", "dataset_name": "rc_0shot", "metric_type": "acc"},
+    ),
     "boolq_newline_rc_0shot_bpb": (
         OEEvalTaskWithNewline,
         {"dataset_path": "boolq", "dataset_name": "rc_0shot", "metric_type": "bpb"},
     ),
-    "boolq_newline_rc_5shot": (OEEvalTaskWithNewline, {"dataset_path": "boolq", "dataset_name": "rc_5shot", "metric_type": "acc"}),
+    "boolq_newline_rc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "boolq", "dataset_name": "rc_5shot", "metric_type": "acc"},
+    ),
     "boolq_newline_rc_5shot_bpb": (
         OEEvalTaskWithNewline,
         {"dataset_path": "boolq", "dataset_name": "rc_5shot", "metric_type": "bpb"},
     ),
-    "copa_newline_rc_0shot": (OEEvalTaskWithNewline, {"dataset_path": "copa", "dataset_name": "rc_0shot", "metric_type": "acc"}),
-    "copa_newline_rc_0shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "copa", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
+    "copa_newline_rc_0shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "copa", "dataset_name": "rc_0shot", "metric_type": "acc"},
+    ),
+    "copa_newline_rc_0shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "copa", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
     "copycolors_10way": (
         OEEvalTaskWithNewline,
         {"dataset_path": "copycolors", "dataset_name": "10way", "metric_type": "acc"},
@@ -2245,12 +2276,30 @@ label_to_task_map = {
         OEEvalTaskWithNewline,
         {"dataset_path": "copycolors", "dataset_name": "xl_10way", "metric_type": "bpb"},
     ),
-    "csqa_newline_mc_5shot": (OEEvalTaskWithNewline, {"dataset_path": "csqa", "dataset_name": "mc_5shot", "metric_type": "acc"}),
-    "csqa_newline_mc_5shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "csqa", "dataset_name": "mc_5shot", "metric_type": "bpb"}),
-    "csqa_newline_rc_0shot": (OEEvalTaskWithNewline, {"dataset_path": "csqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"}),
-    "csqa_newline_rc_0shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "csqa", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
-    "csqa_newline_rc_5shot": (OEEvalTaskWithNewline, {"dataset_path": "csqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"}),
-    "csqa_newline_rc_5shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "csqa", "dataset_name": "rc_5shot", "metric_type": "bpb"}),
+    "csqa_newline_mc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "csqa", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
+    "csqa_newline_mc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "csqa", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "csqa_newline_rc_0shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "csqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"},
+    ),
+    "csqa_newline_rc_0shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "csqa", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "csqa_newline_rc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "csqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"},
+    ),
+    "csqa_newline_rc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "csqa", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
     "hellaswag_newline_mc_5shot": (
         OEEvalTaskWithNewline,
         {"dataset_path": "hellaswag", "dataset_name": "mc_5shot", "metric_type": "acc"},
@@ -2299,14 +2348,38 @@ label_to_task_map = {
         OEEvalTaskWithNewline,
         {"dataset_path": "openbookqa", "dataset_name": "rc_5shot", "metric_type": "bpb"},
     ),
-    "piqa_newline_mc_5shot": (OEEvalTaskWithNewline, {"dataset_path": "piqa", "dataset_name": "mc_5shot", "metric_type": "acc"}),
-    "piqa_newline_mc_5shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "piqa", "dataset_name": "mc_5shot", "metric_type": "bpb"}),
-    "piqa_newline_rc_0shot": (OEEvalTaskWithNewline, {"dataset_path": "piqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"}),
-    "piqa_newline_rc_0shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "piqa", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
-    "piqa_newline_rc_5shot": (OEEvalTaskWithNewline, {"dataset_path": "piqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"}),
-    "piqa_newline_rc_5shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "piqa", "dataset_name": "rc_5shot", "metric_type": "bpb"}),
-    "sciq_newline_rc_0shot": (OEEvalTaskWithNewline, {"dataset_path": "sciq", "dataset_name": "rc_0shot", "metric_type": "acc"}),
-    "sciq_newline_rc_0shot_bpb": (OEEvalTaskWithNewline, {"dataset_path": "sciq", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
+    "piqa_newline_mc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "piqa", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
+    "piqa_newline_mc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "piqa", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "piqa_newline_rc_0shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "piqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"},
+    ),
+    "piqa_newline_rc_0shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "piqa", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "piqa_newline_rc_5shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "piqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"},
+    ),
+    "piqa_newline_rc_5shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "piqa", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
+    "sciq_newline_rc_0shot": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "sciq", "dataset_name": "rc_0shot", "metric_type": "acc"},
+    ),
+    "sciq_newline_rc_0shot_bpb": (
+        OEEvalTaskWithNewline,
+        {"dataset_path": "sciq", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
     "socialiqa_newline_mc_5shot": (
         OEEvalTaskWithNewline,
         {"dataset_path": "socialiqa", "dataset_name": "mc_5shot", "metric_type": "acc"},

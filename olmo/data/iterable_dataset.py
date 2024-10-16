@@ -98,9 +98,14 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             with open(self.global_indices_file, "wb") as f:
                 np.save(f, global_indices)
 
-            sanity = _read_global_indices(self.global_indices_file)
-            log.info(f"sanity check: {sanity}")
-            del sanity
+            try:
+                sanity = _read_global_indices(self.global_indices_file)
+                log.info(f"sanity check: {sanity}")
+                del sanity
+            except EOFError:
+                import traceback
+
+                traceback.print_exc()
             log.info("Global data order indices saved to '%s'", self.global_indices_file)
         barrier()
 

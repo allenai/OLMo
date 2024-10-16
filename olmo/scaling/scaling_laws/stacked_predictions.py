@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -7,10 +6,10 @@ from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 
 from olmo.scaling.scaling_laws.utils import (
+    FinalConfig,
     chinchilla_n_d_fit,
     get_coefficients_huber,
     grad_chinchilla_n_d_fit,
-    FinalConfig,
 )
 
 # Fitting functions
@@ -18,12 +17,12 @@ from olmo.util import StrEnum
 
 
 def sigmoid(x, L, x0, k, b):
-    o = L / (1 + np.exp(- k * (x - x0))) + b
-    return (o)
+    o = L / (1 + np.exp(-k * (x - x0))) + b
+    return o
 
 
 def reverse_sigmoid(y, L, x0, k, b):
-    return x0 - 1/k * np.log((L / (y - b)) -1)
+    return x0 - 1 / k * np.log((L / (y - b)) - 1)
 
 
 # Error with using huber fit; possibly due to incorrect bounds (try later).
@@ -77,18 +76,18 @@ def reverse_sigmoid(y, L, x0, k, b):
 
 
 BASELINE_BY_TASK_NAME = {
-    'HellaSwag-0shot': 0.25,
-    'MMLU-Var': 0.25,
-    'HellaSwag-5shot': 0.25,
-    'ARC-Easy-5shot': 0.25,
-    'ARC-Challenge-5shot': 0.25,
-    'PiQA-5shot': 0.5,
-    'Winogrande-5shot': 0.5,
-    'OpenbookQA-5shot': 0.25,
-    'SciQ-0shot': 0.25,
-    'Copa-0shot': 0.5,
-    'CSQA-5shot': 0.2,
-    'SocialIQA-5shot': 1 / 3,
+    "HellaSwag-0shot": 0.25,
+    "MMLU-Var": 0.25,
+    "HellaSwag-5shot": 0.25,
+    "ARC-Easy-5shot": 0.25,
+    "ARC-Challenge-5shot": 0.25,
+    "PiQA-5shot": 0.5,
+    "Winogrande-5shot": 0.5,
+    "OpenbookQA-5shot": 0.25,
+    "SciQ-0shot": 0.25,
+    "Copa-0shot": 0.5,
+    "CSQA-5shot": 0.2,
+    "SocialIQA-5shot": 1 / 3,
 }
 
 
@@ -114,7 +113,9 @@ def size_length_from_path(path):
     return name.split("-")[:2]
 
 
-def get_dataframe_from_configs(x_dict: Dict[str, Dict], y_dict: Dict[str, Dict], configs: Dict[str, FinalConfig]) -> pd.DataFrame:
+def get_dataframe_from_configs(
+    x_dict: Dict[str, Dict], y_dict: Dict[str, Dict], configs: Dict[str, FinalConfig]
+) -> pd.DataFrame:
     df = pd.DataFrame()
     xs = []
     ys = []
@@ -151,11 +152,11 @@ def get_dataframe_from_configs(x_dict: Dict[str, Dict], y_dict: Dict[str, Dict],
 
 
 def get_predicted_error(df):
-    eval_row = df[df["mode"]=="eval"].iloc[-1]
+    eval_row = df[df["mode"] == "eval"].iloc[-1]
     y = eval_row["y"]
     y_pred = eval_row["predicted_y"]
     rel_error = (y_pred - y) / y
-    #rel_error = f"{rel_error * 100:+.1f}%"
+    # rel_error = f"{rel_error * 100:+.1f}%"
     return rel_error
 
 
@@ -163,8 +164,8 @@ def fit_step1(df: pd.DataFrame):
     df = df.dropna()
 
     # Fit
-    train_nds = list(df[df["mode"]=="train"][["params", "x"]].itertuples(index=False, name=None))
-    train_ys = df[df["mode"]=="train"]["y"]
+    train_nds = list(df[df["mode"] == "train"][["params", "x"]].itertuples(index=False, name=None))
+    train_ys = df[df["mode"] == "train"]["y"]
 
     # fit the parameters
     coefficients = get_coefficients_huber(
@@ -186,11 +187,10 @@ def predict_step1(n: int, d: int, coefficients: List[float]):
 
 
 def plot_step1(df, coefficients, ax, x_label=None, y_label=None, title="Fitting final score", do_label=True):
-
     a, b, alpha, beta, E = coefficients
     A, B = np.exp(a), np.exp(b)
 
-    eval_row = df[df["mode"]=="eval"].iloc[-1]
+    eval_row = df[df["mode"] == "eval"].iloc[-1]
     x = eval_row["x"]
     y = eval_row["y"]
     y_pred = eval_row["predicted_y"]
@@ -198,11 +198,20 @@ def plot_step1(df, coefficients, ax, x_label=None, y_label=None, title="Fitting 
     run_name = eval_row["run"]
 
     for label in df["size"].unique():
-        adf = df[df["size"]==label]
-        ax.scatter(adf["x"], adf["y"], color="white", edgecolors=adf["color"], s=7.0, label=label if do_label else None)
+        adf = df[df["size"] == label]
+        ax.scatter(
+            adf["x"], adf["y"], color="white", edgecolors=adf["color"], s=7.0, label=label if do_label else None
+        )
 
     ax.scatter(x, y, marker="x", color="blue", label=f"actual ({run_name})= {y:0.4f}" if do_label else None, s=50)
-    ax.scatter(x, y_pred, marker="^", color="black", label=f"predicted ({run_name}) = {y_pred:0.4}" if do_label else None, s=50)
+    ax.scatter(
+        x,
+        y_pred,
+        marker="^",
+        color="black",
+        label=f"predicted ({run_name}) = {y_pred:0.4}" if do_label else None,
+        s=50,
+    )
     ax.annotate(
         f"{eval_row['run']}: {rel_error * 100:+.1f}%",
         (x, y),
@@ -214,7 +223,7 @@ def plot_step1(df, coefficients, ax, x_label=None, y_label=None, title="Fitting 
     )
 
     for params in df["params"].unique():
-        plotted_xs = np.linspace(df[df["params"]==params]["x"].max(), df[df["params"]==params]["x"].min(), 100)
+        plotted_xs = np.linspace(df[df["params"] == params]["x"].max(), df[df["params"] == params]["x"].min(), 100)
         plotted_ys = [chinchilla_n_d_fit([params, x_val], coefficients) for x_val in plotted_xs]
 
         ax.plot(
@@ -246,8 +255,8 @@ def fit_step2(df: pd.DataFrame, baseline: float, add_ideal_points: bool = True):
 
     # Fit
 
-    train_xs = df[df["mode"]=="train"]["x"]
-    train_ys = df[df["mode"]=="train"]["y"]
+    train_xs = df[df["mode"] == "train"]["x"]
+    train_ys = df[df["mode"] == "train"]["y"]
 
     if add_ideal_points:
         train_xs = pd.concat([pd.Series([0.01]), train_xs, pd.Series([2.6])], ignore_index=True)
@@ -263,8 +272,16 @@ def predict_step2(bpb_loss: float, coefficients: List[float]):
     return sigmoid(bpb_loss, *coefficients)
 
 
-def plot_step2(df, coefficients, ax, x_label=None, y_label=None, title="Fitting final score", add_ideal_points=True,
-               do_label=True):
+def plot_step2(
+    df,
+    coefficients,
+    ax,
+    x_label=None,
+    y_label=None,
+    title="Fitting final score",
+    add_ideal_points=True,
+    do_label=True,
+):
     eval_row = df[df["mode"] == "eval"].iloc[-1]
     x = eval_row["x"]
     y = eval_row["y"]
@@ -274,12 +291,19 @@ def plot_step2(df, coefficients, ax, x_label=None, y_label=None, title="Fitting 
 
     for label in df["size"].unique():
         adf = df[df["size"] == label]
-        ax.scatter(adf["x"], adf["y"], color="white", edgecolors=adf["color"], s=7.0,
-                   label=label if do_label else None)
+        ax.scatter(
+            adf["x"], adf["y"], color="white", edgecolors=adf["color"], s=7.0, label=label if do_label else None
+        )
 
     ax.scatter(x, y, marker="x", color="blue", label=f"actual ({run_name}) = {y:0.4f}" if do_label else None, s=50)
-    ax.scatter(x, y_pred, marker="^", color="black",
-               label=f"predicted ({run_name}) = {y_pred:0.4}" if do_label else None, s=50)
+    ax.scatter(
+        x,
+        y_pred,
+        marker="^",
+        color="black",
+        label=f"predicted ({run_name}) = {y_pred:0.4}" if do_label else None,
+        s=50,
+    )
     ax.annotate(
         f"{eval_row['run']}: {rel_error * 100:+.1f}%",
         (x, y),
@@ -323,10 +347,7 @@ def plot_step2(df, coefficients, ax, x_label=None, y_label=None, title="Fitting 
 
 
 def plot_stacked(df, step2_df, ax, x_label=None, y_label=None, title=None, do_label=True, do_grey=False):
-    mode_colors = {
-        "train": "grey",
-        "eval": "lightgrey"
-    }
+    mode_colors = {"train": "grey", "eval": "lightgrey"}
 
     for label in df["size"].unique():
         adf = df[df["size"] == label]
@@ -336,7 +357,7 @@ def plot_stacked(df, step2_df, ax, x_label=None, y_label=None, title=None, do_la
             color="white",
             edgecolors=adf["mode"].apply(lambda x: mode_colors[x]) if do_grey else adf["color"],
             s=7.0,
-            label=label
+            label=label,
         )
 
     step2_df["tokens"] = df["x"]
@@ -361,7 +382,7 @@ def plot_stacked(df, step2_df, ax, x_label=None, y_label=None, title=None, do_la
     if do_label:
         ax.legend(loc="lower right", ncols=1)
     ax.set_xlabel(x_label or "tokens")
-    ax.set_ylabel(y_label or f"accuracy")
+    ax.set_ylabel(y_label or "accuracy")
     ax.set_title(title or "stacked prediction")
 
 
@@ -372,11 +393,11 @@ class DownstreamPredictionFeatures(StrEnum):
 
 
 def apply_moving_average(step_df, column: str, window: int = 20):
-    return step_df.groupby('run')[column].transform(lambda x: x.rolling(window=window).mean())
+    return step_df.groupby("run")[column].transform(lambda x: x.rolling(window=window).mean())
 
 
 def apply_exponential_moving_average(step_df, column: str, alpha: float = 0.5):
-    return step_df.groupby('run')[column].transform(lambda x: x.ewm(alpha=alpha).mean())
+    return step_df.groupby("run")[column].transform(lambda x: x.ewm(alpha=alpha).mean())
 
 
 def get_downstream_predictions(
@@ -388,7 +409,6 @@ def get_downstream_predictions(
     save_figures: Optional[str] = None,
     **feature_kwargs,
 ):
-
     assert 0.0 <= use_last_n_percentage <= 1.0
     do_plot = save_figures is not None
 
@@ -402,8 +422,8 @@ def get_downstream_predictions(
 
     for i, (task_name, task) in enumerate(tasks.items()):
         tokens = get_all_data_by_name(configs, ["throughput/total_tokens"])
-        bpb_loss = get_all_data_by_name(configs, task['bpb'])
-        downstream_loss = get_all_data_by_name(configs, task['score'])
+        bpb_loss = get_all_data_by_name(configs, task["bpb"])
+        downstream_loss = get_all_data_by_name(configs, task["score"])
 
         step1_df = get_dataframe_from_configs(tokens, bpb_loss, configs)
 
@@ -412,7 +432,7 @@ def get_downstream_predictions(
         elif feature_type == DownstreamPredictionFeatures.exponential_moving_average:
             step1_df["y"] == apply_exponential_moving_average(step1_df, "y", **feature_kwargs)
 
-        step1_df = step1_df.groupby('run').apply(lambda rows: rows.iloc[-1], include_groups=False).reset_index()
+        step1_df = step1_df.groupby("run").apply(lambda rows: rows.iloc[-1], include_groups=False).reset_index()
         step1_df, coefficients = fit_step1(step1_df)
 
         if do_plot:
@@ -429,8 +449,11 @@ def get_downstream_predictions(
 
         step2_df = get_dataframe_from_configs(bpb_loss, downstream_loss, configs)
 
-        step2_df = step2_df.groupby('run').apply(lambda x: x.iloc[-int(np.ceil(use_last_n_percentage * len(x))):],
-                                                 include_groups=False).reset_index()
+        step2_df = (
+            step2_df.groupby("run")
+            .apply(lambda x: x.iloc[-int(np.ceil(use_last_n_percentage * len(x))) :], include_groups=False)
+            .reset_index()
+        )
 
         if feature_type == DownstreamPredictionFeatures.moving_average:
             step2_df["x"] = apply_moving_average(step2_df, "x", **feature_kwargs)
@@ -438,14 +461,15 @@ def get_downstream_predictions(
             step2_df["x"] == apply_exponential_moving_average(step2_df, "x", **feature_kwargs)
 
         last_match_idx = step2_df.loc[step2_df["mode"] == "eval"].tail(1).index
-        step2_df.loc[last_match_idx, 'x'] = step1_df[step1_df["mode"] == "eval"].predicted_y.values[0]
+        step2_df.loc[last_match_idx, "x"] = step1_df[step1_df["mode"] == "eval"].predicted_y.values[0]
 
         step2_df, coefficients = fit_step2(step2_df, BASELINE_BY_TASK_NAME[task_name])
         if do_plot:
             plot_step2(
                 step2_df,
                 coefficients,
-                axes[i][1], x_label="task loss",
+                axes[i][1],
+                x_label="task loss",
                 y_label="task accuracy",
                 title=f"predicting task_accuracy ({task_name})",
                 do_label=True,
@@ -454,10 +478,17 @@ def get_downstream_predictions(
 
         if do_plot:
             df = get_dataframe_from_configs(tokens, downstream_loss, configs)
-            plot_stacked(df, step2_df, axes[i][2], title=f"Stacked predictions using {feature_type} ({feature_kwargs})", do_label=True, do_grey=True)
+            plot_stacked(
+                df,
+                step2_df,
+                axes[i][2],
+                title=f"Stacked predictions using {feature_type} ({feature_kwargs})",
+                do_label=True,
+                do_grey=True,
+            )
 
     if do_plot:
-        fig.suptitle('Combined 2-step downstream predictions', fontsize=12)
+        fig.suptitle("Combined 2-step downstream predictions", fontsize=12)
         fig.tight_layout()
         fig.subplots_adjust(top=0.95)
         fig.savefig(save_figures, dpi=300)

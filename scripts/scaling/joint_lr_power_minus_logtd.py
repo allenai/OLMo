@@ -9,7 +9,6 @@ from olmo.scaling.scaling_laws.utils import (
     chinchilla_n_d_lr_power_minus_logtd_fit,
     get_ax,
     get_coefficients_huber,
-    get_coefficients_huber_nolog,
     get_data_by_name,
     grad_chinchilla_n_d_lr_power_minus_logtd_fit,
     parse_args,
@@ -46,7 +45,16 @@ def main():
         p0=[3.0, 6.0, 0.1, 0.2, 1.0, 0.01, -0.05, 0.0],
         # p0=[0.5, 0.5, 0.2, 0.2, 0.0, 0.0, -0.5, 0.0],
         # p0=[1.8, 0.7, 0.13, 0.06, 0.0, 0.2, -0.25, 0.0],
-        bounds=[(None, None), (None, None), (0, None), (0, None), (0, None), (0, None), (None, None), (None, None)],
+        bounds=[
+            (None, None),
+            (None, None),
+            (0, None),
+            (0, None),
+            (0, None),
+            (0, None),
+            (None, None),
+            (None, None),
+        ],
     )
     a, b, alpha, beta, E, F, gamma, delta = coefficients
     A, B = np.exp(a), np.exp(b)
@@ -91,11 +99,11 @@ def main():
         rel_errors = [np.abs((pred_y - y) / y) for y, pred_y in zip(data["ys"], pred_data["ys"])]
         rel_error = np.mean(rel_errors)
         ax.annotate(
-            f'{rel_error:.2%}',
+            f"{rel_error:.2%}",
             xy=(data["ds"][-1], pred_data["ys"][-1]),
-            xycoords='data',
+            xycoords="data",
             xytext=(-4, 8),
-            textcoords='offset points',
+            textcoords="offset points",
             fontsize=9,
             color=config.color,
         )
@@ -103,8 +111,10 @@ def main():
     for ax in axs:
         ax.legend(loc="upper right", ncols=1, fontsize=9)
         ax.set_xlabel("Tokens (D)")
-    axs[0].set_ylabel(f"Loss")
-    plt.suptitle(f"{args.key}\nL(N, D, H) = {A:.2f} / N^{alpha:.2f} + {B:.2f} / D^{beta:.2f} + {E:.2f} - {F:.2f} * H * N^{gamma:.2f} * (log(D) + {delta:.2f})")
+    axs[0].set_ylabel("Loss")
+    plt.suptitle(
+        f"{args.key}\nL(N, D, H) = {A:.2f} / N^{alpha:.2f} + {B:.2f} / D^{beta:.2f} + {E:.2f} - {F:.2f} * H * N^{gamma:.2f} * (log(D) + {delta:.2f})"
+    )
     plt.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
 
