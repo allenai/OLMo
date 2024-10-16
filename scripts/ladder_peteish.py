@@ -156,7 +156,7 @@ def parse_length(length: str, model_size: int) -> int:
 
 
 def parse_run_name(name: str):
-    name, size, length = _run_name_re.match(name).groups()
+    name, size, length = _run_name_re.match(name).groups()  # type: ignore
     size = parse_size(size)
     length = parse_length(length, size)
     return name, size, length

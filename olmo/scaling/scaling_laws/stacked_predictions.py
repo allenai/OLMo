@@ -96,7 +96,7 @@ from collections import defaultdict
 
 
 def get_all_data_by_name(configs, keys) -> Dict:
-    data_by_name = defaultdict(lambda: defaultdict(lambda: []))
+    data_by_name: Dict = defaultdict(lambda: defaultdict(lambda: []))
     for name, config in configs.items():
         for path in config.paths:
             with open(path) as file_ref:
@@ -417,8 +417,8 @@ def get_downstream_predictions(
         fig, axes = plt.subplots(rows, 3, figsize=(20, 5 * rows))
 
     target = [run_name for run_name in configs if configs[run_name].mode == "eval"][0]
-    step1_error = {target: {}}
-    stacked_error = {target: {}}
+    step1_error: Dict = {target: {}}
+    stacked_error: Dict = {target: {}}
 
     for i, (task_name, task) in enumerate(tasks.items()):
         tokens = get_all_data_by_name(configs, ["throughput/total_tokens"])

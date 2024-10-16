@@ -1,5 +1,6 @@
 import argparse
 import json
+from typing import Any, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,11 +8,11 @@ import seaborn as sns
 
 from olmo.scaling.scaling_laws.utils import (
     ExtrapolateNConfig,
+    downstream_bpb,
     get_ax,
     get_coefficients_huber_nolog,
     get_data_by_name,
     validation,
-    downstream_bpb,
 )
 
 
@@ -302,6 +303,7 @@ def main():
     plt.suptitle("Residue of loss against curve of const LR schedule")
     plt.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
+    bounds: List[Tuple[Any, Any]]
     # plot the rangee
     if args.vfunc == "":
         exit()

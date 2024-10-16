@@ -107,7 +107,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    configs = {name: ExtrapolateNConfig(**config) for name, config in CONFIGS.items()}
+    configs = {name: ExtrapolateNConfig(**config) for name, config in CONFIGS.items()}  # type: ignore
 
     os.makedirs(args.output_path, exist_ok=True)
     fit_curves(configs, args.output_path)

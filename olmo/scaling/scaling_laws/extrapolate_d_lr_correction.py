@@ -49,7 +49,7 @@ def plot_d_scaling_at_n(
 ):
     train_dhs = [[d, h] for d, h in zip(train_ds, train_hs)]
     eval_dhs = [[d, h] for d, h in zip(eval_ds, eval_hs)]
-    coefficients = get_coefficients_huber(train_dhs, train_ys, fitting_func, grad_func, p0=p0)
+    coefficients = get_coefficients_huber(train_dhs, train_ys, fitting_func, grad_func, p0=p0, bounds=None)
 
     plt.plot(
         train_ds + eval_ds,

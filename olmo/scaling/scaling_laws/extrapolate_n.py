@@ -89,8 +89,8 @@ def plot_n_scaling_at_d(train_ns, train_ys, eval_ns, fitting_func, p0, **plot_kw
 
 
 def get_data_forall_d(configs: Dict[str, ExtrapolateNConfig]):
-    data_by_d = defaultdict(lambda: {"train_ns": [], "train_ys": [], "eval_ns": [], "eval_ys": []})
-    data_by_n = defaultdict(lambda: {"ds": [], "ys": []})
+    data_by_d: Dict = defaultdict(lambda: {"train_ns": [], "train_ys": [], "eval_ns": [], "eval_ys": []})
+    data_by_n: Dict = defaultdict(lambda: {"ds": [], "ys": []})
     for name, config in configs.items():
         n = config.n
         with open(config.path) as file_ref:
@@ -114,7 +114,7 @@ def plot_n_scaling_forall_d(data_by_d, data_by_n, configs, fitting_func, p0=[20,
         config = get_config_by_n(configs, n)
         plt.plot(data["ds"], data["ys"], color=config.color, linestyle="-", label=config.label, **plot_kwargs)
 
-    predicted_data_by_n = defaultdict(lambda: {"ds": [], "ys": []})
+    predicted_data_by_n: Dict = defaultdict(lambda: {"ds": [], "ys": []})
     for d, data in data_by_d.items():
         train_ns, train_ys, eval_ns = data["train_ns"], data["train_ys"], data["eval_ns"]
         if len(train_ns) < 3:

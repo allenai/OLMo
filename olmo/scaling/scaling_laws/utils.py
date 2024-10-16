@@ -2,7 +2,7 @@ import argparse
 import csv
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import List
+from typing import Dict, List, Optional
 
 import numpy as np
 import scipy
@@ -330,18 +330,18 @@ def parse_args():
     return args
 
 
-def get_data_by_name(configs, keys, min_step=None):
-    data_by_name = defaultdict(lambda: {"ns": [], "ds": [], "hs": [], "s1s": [], "s2s": [], "ys": []})
+def get_data_by_name(configs: Dict[str, ExtrapolateNConfig], keys: List[str], min_step: Optional[int] = None):
+    data_by_name: Dict = defaultdict(lambda: {"ns": [], "ds": [], "hs": [], "s1s": [], "s2s": [], "ys": []})
     for name, config in configs.items():
         n = config.n
         with open(config.path) as file_ref:
             reader = csv.DictReader(file_ref)
             lam = 0.999
-            s1 = 0
-            s2 = 0
+            s1 = 0.0
+            s2 = 0.0
             s2_momentum = 0
-            last_lr = 0
-            last_fake_lr = 0
+            last_lr = 0.0
+            last_fake_lr = 0.0
             last_d = 0
             encountered_ds = set()
             for row in reader:
@@ -377,7 +377,7 @@ def get_data_by_name(configs, keys, min_step=None):
 
 
 def get_final_data_by_name(configs, keys, num_to_avg=1):
-    data_by_name = defaultdict(lambda: {"ns": [], "ds": [], "ys": []})
+    data_by_name: Dict = defaultdict(lambda: {"ns": [], "ds": [], "ys": []})
     for name, config in configs.items():
         n = config.n
         for path in config.paths:

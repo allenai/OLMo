@@ -54,6 +54,11 @@ train = [
 all = [
     "ai2-olmo[dev,train]",
 ]
+visualize = [
+    "matplotlib",
+    "notebook",
+    "seaborn",
+]
 
 [project.urls]
 Homepage = "https://github.com/allenai/OLMo"
