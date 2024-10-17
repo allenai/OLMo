@@ -1,0 +1,554 @@
+run_name: redDC-5050-dolma-new2fw-mix-Cx5-20241017
+seed: 6198
+dry_run: false
+no_pre_train_checkpoint: true
+
+wandb:
+  name: ${run_name}
+  project: reddit-2g-ablations
+  group: ${run_name}
+
+model:
+  d_model: 2048
+  n_heads: 16
+  n_layers: 16
+  mlp_ratio: 8
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: true
+  attention_dropout: 0.0
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  attention_layer_norm: true
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 2048
+  vocab_size: 100278
+  embedding_size: 100352
+  eos_token_id: 100257
+  pad_token_id: 100277
+  init_device: cuda
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 0.002
+  eps: 1.0e-8
+  weight_decay: 0.05
+  decay_norm_and_bias: true
+  decay_embeddings: true
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 10
+
+scheduler:
+  name: cosine_with_warmup
+  units: tokens
+  t_warmup: 5e9
+  t_max: 130e9
+  alpha_f: 0.01
+
+tokenizer:
+  identifier: allenai/dolma2-tokenizer
+  truncate_direction: right
+
+save_folder: runs/${run_name}
+remote_save_folder: s3://ai2-llm/checkpoints/reddit-2g-ablations/${run_name}
+save_overwrite: false
+
+save_interval: 5000
+save_num_checkpoints_to_keep: 12
+sharded_checkpointer: olmo_core
+
+save_interval_unsharded: null
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+max_duration: 130e9T # Match total token count
+stop_at: 61989 # 130e9 / (2048 * 1024) = 61_989
+global_train_batch_size: 1024
+device_train_microbatch_size: 4
+
+fused_loss: true
+
+ddp:
+  grad_sync_mode: batch
+  find_unused_params: false
+
+precision: amp_bf16
+
+distributed_strategy: ddp
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 1
+
+eval_interval: 2500
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  - label: all-small-ppl-validation
+    data:
+      num_workers: 0
+      drop_last: true
+      memmap_dtype: uint32
+      datasets:
+        c4_en-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
+        dolma_books-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
+        dolma_common-crawl-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
+        dolma_pes2o-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
+        dolma_reddit-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
+        dolma_stack-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
+        dolma_wiki-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
+        ice-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
+        m2d2_s2orc-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
+        pile-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
+        wikitext_103-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
+
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: piqa
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+  - label: winogrande
+    type: downstream
+
+  - label: openbook_qa
+    type: downstream
+
+  - label: boolq
+    type: downstream
+
+  - label: sciq
+    type: downstream
+
+  - label: arc_easy
+    type: downstream
+
+  - label: arc_challenge
+    type: downstream
+
+  - label: copa
+    type: downstream
+
+  - label: commonsense_qa
+    type: downstream
+
+  - label: social_iqa
+    type: downstream
+
+  - label: mmlu_stem_var
+    type: downstream
+
+  - label: mmlu_humanities_var
+    type: downstream
+
+  - label: mmlu_social_sciences_var
+    type: downstream
+
+  - label: mmlu_other_var
+    type: downstream
+
+  - label: mmlu_stem_mc_5shot
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot
+    type: downstream
+
+  - label: mmlu_other_mc_5shot
+    type: downstream
+
+  - label: mmlu_stem_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_other_mc_5shot_test
+    type: downstream
+
+data:
+  pad_direction: right
+  num_workers: 16
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 8
+  persistent_workers: true
+  timeout: 0
+  memmap_dtype: uint32
+  instance_filter:
+    repetition_max_period: 13
+    repetition_min_period: 1
+    repetition_max_count: 32
+  paths:
+    #reddit dolma-new2fw-mix
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-000-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-001-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-002-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-003-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-004-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-005-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-006-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-007-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-008-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-009-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-010-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-011-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-012-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-013-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-014-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-015-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-016-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-017-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-018-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-019-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-020-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-021-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-022-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-023-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-024-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-025-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-026-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-027-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-028-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-029-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-030-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-031-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-032-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-033-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-034-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-035-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-036-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-037-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-038-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-039-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-040-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-041-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-042-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-043-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-044-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-045-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-046-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-047-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-048-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-049-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-050-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-051-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-052-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-053-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-054-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-055-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-056-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-057-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-058-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-059-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-060-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-061-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-062-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-063-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-064-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-065-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-066-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-067-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-068-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-069-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-070-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-071-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-072-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-073-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-074-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-075-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-076-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-077-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-078-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-079-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-080-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-081-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-082-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-083-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-084-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-085-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-086-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-087-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-088-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-089-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-090-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-091-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-092-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-093-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-094-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-095-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-096-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-097-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-098-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-099-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-100-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-101-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-102-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-103-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-104-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-105-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-106-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-107-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-108-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-109-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-110-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-111-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-112-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-113-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-114-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-115-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-116-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-117-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-118-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-119-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-120-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-121-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-122-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-123-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-124-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-125-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-126-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-127-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-128-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-129-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-130-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-131-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-132-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-133-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-134-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-135-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-136-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-137-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-138-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-139-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-140-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-141-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-142-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-143-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-144-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-145-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-146-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-147-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-148-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-149-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-150-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-151-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-152-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-153-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-154-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-155-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-156-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-157-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-158-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-159-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-160-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-161-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-162-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-163-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-164-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-165-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-166-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-167-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-168-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-169-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-170-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-171-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-172-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-173-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/reddit/dolma_raw/source-added/tokens-dd-seq/dolma-new2-fw-toks/part-190-00000.npy
+
+
+    # DCLM
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-00-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-01-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-02-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-03-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-04-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-05-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-06-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-07-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-08-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-09-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-10-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-11-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-12-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-13-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-14-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-15-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-16-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-17-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-18-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-19-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-20-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-21-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-22-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-23-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-24-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-25-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-26-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-27-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-28-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-29-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-30-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-31-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-32-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-33-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-34-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-35-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-36-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-37-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-38-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-39-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-40-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-41-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-42-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-43-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-44-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-45-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-46-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/001/allenai/dolma2-tokenizer/part-47-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-00-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-01-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-02-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-03-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-04-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-05-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-06-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-07-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-08-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-09-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-10-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-11-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-12-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-13-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-14-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-15-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-16-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-17-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-18-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-19-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-20-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-21-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-22-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-23-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-24-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-25-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-26-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-27-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-28-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-29-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-30-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-31-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-32-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-33-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-34-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-35-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-36-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-37-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-38-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-39-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-40-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-41-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-42-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-43-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-44-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-45-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-46-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-20b/002/allenai/dolma2-tokenizer/part-47-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-00-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-01-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-02-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-03-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-04-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-05-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-06-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-07-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-08-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-09-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-10-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-11-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-12-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-13-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-14-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-15-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-16-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-17-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-18-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-19-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-20-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-21-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-22-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-23-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-24-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-25-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-26-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-27-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-28-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-29-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-30-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-31-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-32-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-33-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-34-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-35-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-36-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-37-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-38-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-39-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-40-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-41-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-42-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-43-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-44-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-45-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-46-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-47-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-48-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-49-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-50-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-51-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-52-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-53-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-54-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-55-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-56-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-57-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-58-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/src-100b/001/allenai/dolma2-tokenizer/part-62-00000.npy
