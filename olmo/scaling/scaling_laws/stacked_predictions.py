@@ -1,3 +1,5 @@
+import csv
+from collections import defaultdict
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -89,10 +91,6 @@ BASELINE_BY_TASK_NAME = {
     "CSQA-5shot": 0.2,
     "SocialIQA-5shot": 1 / 3,
 }
-
-
-import csv
-from collections import defaultdict
 
 
 def get_all_data_by_name(configs, keys) -> Dict:
