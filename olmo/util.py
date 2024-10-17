@@ -394,7 +394,7 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
 
         parsed = urlparse(str(dir))
         if parsed.scheme == "gs":
-            raise NotImplementedError
+            return _gcs_find_latest_checkpoint(parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme in ("s3", "r2", "weka"):
             return _s3_find_latest_checkpoint(parsed.scheme, parsed.netloc, parsed.path.strip("/"))
         elif parsed.scheme == "file":
@@ -471,6 +471,53 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
 def _get_gcs_client():
     from google.cloud import storage as gcs
     return gcs.Client()
+
+
+def _gcs_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
+    if not prefix.endswith("/"):
+        prefix = f"{prefix}/"
+
+    storage_client = _get_gcs_client()
+    bucket = storage_client.bucket(bucket_name)
+    suffix = "/config.yaml"
+    latest_step: Optional[int] = None
+    latest_checkpoint: Optional[str] = None
+    for blob in bucket.list_blobs(prefix=prefix, match_glob=f"**{suffix}"):
+        # Disregard checkpoints that have an empty config file.
+        if blob.size <= 0:
+            continue
+
+        name = blob.name[len(prefix):-len(suffix)]
+
+        if "/" in name:
+            # We're not considering checkpoints in subdirectories.
+            continue
+
+        if not name.startswith("step"):
+            continue
+        name = name[4:]
+
+        if name.endswith("-unsharded"):
+            name = name[:-len("-unsharded")]
+            unsharded = True
+        else:
+            unsharded = False
+
+        try:
+            step = int(name)
+        except ValueError:
+            continue
+
+        # we prefer sharded checkpoints to unsharded ones
+        if (
+            latest_step is None or
+            step > latest_step or
+            step == latest_step and latest_checkpoint.endswith("-unsharded")
+        ):
+            latest_step = step
+            latest_checkpoint = f"gs://{bucket_name}/{blob.name[:-len(suffix)]}"
+
+    return latest_checkpoint
 
 
 def _get_s3_profile_name(scheme: str) -> Optional[str]:
