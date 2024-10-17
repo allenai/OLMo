@@ -159,4 +159,6 @@ data:
   prefetch_factor: 1
   persistent_workers: true
   timeout: 0
-  paths: ${path.glob:/n/kempner_shared/Everyone/data/dolma/preprocessed/t5-base/c4/*.npy}
+  paths:  # Only use the first 2 chunks. (Only first part out of 64 parts)
+  - /n/kempner_shared/Everyone/data/dolma/preprocessed/t5-base/c4/part-00-00001.npy
+  - /n/kempner_shared/Everyone/data/dolma/preprocessed/t5-base/c4/part-00-00002.npy

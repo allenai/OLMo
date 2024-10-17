@@ -6,13 +6,27 @@ This section has been added to OLMo `README` page for Kempner Community to help 
 
 ### 1.1. Create Conda Environment and Activate it
 
-First create your conda environment using the following command:
+First create your conda environment using one of the following commands:
+
+You can name it `olmo_test` and add it in the conda environment default path:
 
 ```bash
-conda create --prefix [path_to_your_env] python=3.10
+conda create --name olmo_test python=3.10
+```
+
+Or if you wish to add it into a specific path you can use the following: 
+
+```bash
+conda create --prefix [full_path_to_your_env] python=3.10
 ```
 
 Activate the environment using:
+
+```bash
+conda activate olmo_test
+```
+
+Or if you use another path
 
 ```bash
 conda activate [path_to_your_env]
@@ -61,9 +75,10 @@ wandb:
 To run OLMo on the HPC cluster using slurm, you may use the slurm script skeleton in [scripts/kempner_institute/submit_srun.sh](scripts/kempner_institute/submit_srun.sh). This will run OLMo using 4 H100 GPUs on a single node.
 Note that the following items should be updated in the above slurm script skeleton:
 
+* `#SBATCH --job-name=<job-name>`       - Name for your submitting job - default: `run_olmo_1n4g` (`1n4g` stands for 4 gpus on the same node)
 * `#SBATCH --account=<account_name>`    - Account name to use the cluster
-* `#SBATCH --output <output_path>`      - File to which STDOUT will be written
-* `#SBATCH --error <error_output_path>` - File to which STDERR will be written
-* `conda activate </path/to/your/OLMo/conda-environment>` - Activate conda environment that you just created 
-* `export CHECKPOINTS_PATH=</path/to/save/checkpoints`    - Path to the folder to save the checkpoints 
+* `#SBATCH --output <output_path>`      - File to which STDOUT will be written - default: `./<job-name>_<job-id>/output_<job-id>.out` in the current directory (`job-id` will be assigned by slurm)
+* `#SBATCH --error <error_output_path>` - File to which STDERR will be written - default: `./<job-name>_<job-id>/error_<job-id>.out` in the current directory
+* `conda activate </path/to/your/OLMo/conda-environment>` - Activate conda environment that you just created - by default it activates conda environment named `olmo_test` from the default conda path.  
+* `export CHECKPOINTS_PATH=</path/to/save/checkpoints`    - Path to the folder to save the checkpoints - default: `./<job-name>_<job-id>/checkpoints`
 * `python -u scripts/train.py <config_file>` - Pass in either 7b_Olmo.yaml or 1b_Olmo.yaml config files to the train.py (by default it will run 7b OLMo using FSDP you can change the input config file to `configs/kempner_institute/1b_Olmo.yaml` in order to run 1b OLMo using DDP).

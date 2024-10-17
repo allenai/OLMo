@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=olmo_1n4g
+#SBATCH --job-name=run_olmo_1n4g
 #SBATCH --account=<account_name>
-#SBATCH --output /path/to/your/run_results/%x_%j/output_%j.out  # File to which STDOUT will be written, %j inserts jobid
-#SBATCH --error /path/to/your/run_results/%x_%j/error_%j.out  # File to which STDERR will be written, %j inserts jobid
+#SBATCH --output ./%x_%j/output_%j.out  # File to which STDOUT will be written, %x inserts the job-name and %j inserts job-id
+#SBATCH --error  ./%x_%j/error_%j.out   # File to which STDERR will be written, %x inserts the job-name and %j inserts job-id
 #SBATCH --nodes=1              # Total number of nodes
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-node=4       # Allocate one gpu per MPI rank
@@ -15,7 +15,7 @@
 module load python/3.10.13-fasrc01 cuda/12.2.0-fasrc01 cudnn/8.9.2.26_cuda12-fasrc01
 
 conda deactivate
-conda activate /path/to/your/OLMo/conda-environment
+conda activate olmo_test
 nvidia-smi
 
 echo $CONDA_PREFIX
@@ -26,7 +26,7 @@ export MPICH_GPU_SUPPORT_ENABLED=1
 export PYTHONPATH=.:${PYTHONPATH}
 
 #Path to the folder to save the checkpoints
-export CHECKPOINTS_PATH=/path/to/your/run_results/${SLURM_JOB_NAME}_${SLURM_JOB_ID}/checkpoints
+export CHECKPOINTS_PATH=./${SLURM_JOB_NAME}_${SLURM_JOB_ID}/checkpoints
 
 export PYTORCH_KERNEL_CACHE_PATH=/tmp/pytorch_kernel_cache/
 mkdir -p $PYTORCH_KERNEL_CACHE_PATH
