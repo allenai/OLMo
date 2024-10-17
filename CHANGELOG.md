@@ -9,8 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+## [v0.5.1]
+
+### Added
+
 - Added ability to try loading latest checkpoint from save folder using `--try_load_latest_save`.
 - Added support for flash attention and gradient checkpointing to `hf_olmo`.
+- Added `effective_n_kv_heads` to OLMoConfig for hacky VLLM support.
 
 ## [v0.5.0](https://github.com/allenai/OLMo/releases/tag/v0.5.0) - 2024-08-26
 
