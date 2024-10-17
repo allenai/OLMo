@@ -1,5 +1,5 @@
 ## Kempner Institute Community
-Refer to [README_KempnerInstitute.md](README_KempnerInstitute.md) for isntructions to install and run OLMo on the Kempner HPC Cluster.
+Refer to [README_KempnerInstitute.md](README_KempnerInstitute.md) for instructions to install and run OLMo on the Kempner HPC Cluster.
 ***
 <div align="center">
   <!-- <img src="https://github.com/allenai/OLMo/assets/8812459/774ac485-a535-4768-8f7c-db7be20f5cc3" width="300"/> -->
