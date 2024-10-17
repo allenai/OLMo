@@ -418,12 +418,7 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
 
 
 # Google Storage API is unhinged and requires you to specify the retry policy on every single call you make.
-_gcs_retry = GCSRetry(
-    initial=1.0,
-    maximum=10.0,
-    multiplier=2.0,
-    deadline=500.0
-)
+_gcs_retry = GCSRetry(initial=1.0, maximum=10.0, multiplier=2.0, deadline=500.0)
 
 
 def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
@@ -469,6 +464,7 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
 @cache
 def _get_gcs_client():
     from google.cloud import storage as gcs
+
     return gcs.Client()
 
 
@@ -486,7 +482,7 @@ def _gcs_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
         if blob.size <= 0:
             continue
 
-        name = blob.name[len(prefix):-len(suffix)]
+        name = blob.name[len(prefix) : -len(suffix)]
 
         if "/" in name:
             # We're not considering checkpoints in subdirectories.
@@ -497,7 +493,7 @@ def _gcs_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
         name = name[4:]
 
         if name.endswith("-unsharded"):
-            name = name[:-len("-unsharded")]
+            name = name[: -len("-unsharded")]
 
         try:
             step = int(name)
@@ -506,9 +502,10 @@ def _gcs_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
 
         # we prefer sharded checkpoints to unsharded ones
         if (
-            latest_step is None or
-            step > latest_step or
-            step == latest_step and latest_checkpoint.endswith("-unsharded")
+            latest_step is None
+            or step > latest_step
+            or step == latest_step
+            and latest_checkpoint.endswith("-unsharded")
         ):
             latest_step = step
             latest_checkpoint = f"gs://{bucket_name}/{blob.name[:-len(suffix)]}"
