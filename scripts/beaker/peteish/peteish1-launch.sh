@@ -28,7 +28,8 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/peteish/peteish1.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/peteish/peteish1.sh ${NUM_NODES}"
+  # -- /bin/bash -c "scripts/beaker/peteish/peteish1.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
 
   # --leader-selection \
   # --host-networking \
