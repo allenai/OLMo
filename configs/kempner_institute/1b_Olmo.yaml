@@ -10,10 +10,10 @@ dry_run: false
 #  group: OLMo-7B
 
 model:
-  d_model: 4096
-  n_heads: 32
-  n_layers: 32
-  mlp_hidden_size: 16384 # default: 4 * d_model
+  d_model: 2048
+  n_heads: 16
+  n_layers: 16
+  mlp_hidden_size: 8192 # default: 4 * d_model
   weight_tying: false
   alibi: false
   rope: true
@@ -85,7 +85,7 @@ precision: amp_bf16
 ddp:
   grad_sync_mode: batch
 
-distributed_strategy: fsdp
+distributed_strategy: ddp
 
 fsdp:
   wrapping_strategy: by_block
