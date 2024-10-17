@@ -11,6 +11,12 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+## Install flash attn
+pip install packaging ninja
+export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
+pip install flash-attn==2.5.9.post1 --no-build-isolation
+pip install '.[train]'
+
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
