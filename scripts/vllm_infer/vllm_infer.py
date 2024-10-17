@@ -594,9 +594,11 @@ def load_peteish_model(checkpoint=None):
 # ========================================================
 
 def process_batch(model: LLM, batch: List[dict], sampling_params: SamplingParams, prepend_eot: bool) -> List[dict]:
-    input_texts = [_['text'] for _ in batch]
     if prepend_eot:
-        input_texts = ['<|endoftext|>' + _ for _ in input_texts]
+        for batch_el in batch:
+            batch_el['text'] = '<|endoftext|>' + batch_el['text']
+
+    input_texts = [_['text'] for _ in batch]
     outputs = model.generate(input_texts, sampling_params)
     for batch_el, output in zip(batch, outputs):
         batch_el['output_text'] = output.outputs[0].text
@@ -607,7 +609,7 @@ def infer_jsonl(args):
     input_files = list_files(args.input_dir, args.part, args.num_parts)
 
     # Load model
-    prepend_eot = False
+    prepend_eot = args.prepend_eot
     if args.model_name == "peteish":
         # Do custom peteish load
         model = load_peteish_model(args.checkpoint)
@@ -620,7 +622,7 @@ def infer_jsonl(args):
     processed = 0
     batch = []
 
-    sampling_params = SamplingParams(temperature=0.0, top_p=0.95, max_tokens=100)
+    sampling_params = SamplingParams(temperature=0.0, top_p=0.95, max_tokens=args.max_length)
     for input_file in input_files:
         print("Processing file: %s..." % input_file)
         output_path = input_path_to_output_path(input_file, args.input_dir, args.output_dir)
@@ -643,15 +645,16 @@ def infer_jsonl(args):
 # ========================================================
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="One-off Inference for Language Models")
+    parser = argparse.ArgumentParser(description="One-off Inference for cLanguage Models")
     parser.add_argument("--model-name", type=str, default="meta-llama/Llama-3.1-8B", help="Name of the model to use")
     parser.add_argument("--checkpoint", type=str, default=None, help="If extra checkpoint info is needed (e.g. for peteish models)")
     parser.add_argument("--input-dir", type=str, required=True, help="Input of directory that contains .jsonl.gz files")
     parser.add_argument("--part", type=int, default=0, help="If we partition the input dir's files into many pieces, which part here")
     parser.add_argument("--num-parts", type=int, default=1, help="If we partition the input dir's files into one piece, how many parts ehre")
     parser.add_argument("--output-dir", type=str, required=True, help="Where the outputs should go")
-    parser.add_argument("--batch-size", type=int, default=32, help="Batch size for inference")
-    parser.add_argument("--max-length", type=int, default=1024, help="Maximum length of generated text")
+    parser.add_argument("--batch-size", type=int, default=128, help="Batch size for inference")
+    parser.add_argument("--max-length", type=int, default=128, help="Maximum length of generated text")
+    parser.add_argument("--prepend-eot", type=bool, default=False, help="Whether or not to prepend <|endoftext|> to all inputs")
    
     args = parser.parse_args()
     infer_jsonl(args)
