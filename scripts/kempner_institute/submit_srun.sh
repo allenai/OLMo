@@ -13,9 +13,11 @@
 #SBATCH --partition=kempner_h100
 
 module load python/3.10.13-fasrc01 cuda/12.2.0-fasrc01 cudnn/8.9.2.26_cuda12-fasrc01
+
 conda deactivate
 conda activate /path/to/your/OLMo/conda-environment
 nvidia-smi
+
 echo $CONDA_PREFIX
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
