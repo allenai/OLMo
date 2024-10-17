@@ -43,11 +43,6 @@ export NCCL_SOCKET_IFNAME=ib
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
   --nproc-per-node 8 \
-  --rdzv_id 12347 \
-  --rdzv_backend static \
-  --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
-  --node_rank "${BEAKER_REPLICA_RANK}" \
-  --rdzv_conf 'read_timeout=420' \
   scripts/eval.py \
     configs/peteish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
@@ -55,4 +50,9 @@ torchrun \
       --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1-eval" \
       --load_path="/weka/oe-training-default/wolf/v3.0_v2.7_peteish/step12212"
 
+  # --rdzv_id 12347 \
+  # --rdzv_backend static \
+  # --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
+  # --node_rank "${BEAKER_REPLICA_RANK}" \
+  # --rdzv_conf 'read_timeout=420' \
       # --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1" \
