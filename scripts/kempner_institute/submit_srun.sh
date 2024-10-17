@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=7b_olmo_1n4g
+#SBATCH --job-name=olmo_1n4g
 #SBATCH --account=<account_name>
 #SBATCH --output /path/to/your/run_results/%x_%j/output_%j.out  # File to which STDOUT will be written, %j inserts jobid
 #SBATCH --error /path/to/your/run_results/%x_%j/error_%j.out  # File to which STDERR will be written, %j inserts jobid
@@ -37,7 +37,4 @@ srun \
   scripts/run_with_environment.sh \
     python -u scripts/train.py configs/kempner_institute/7b_Olmo.yaml \
       --run_name=${SLURM_JOB_NAME}_${SLURM_JOB_ID} \
-      --data.num_workers=16 \
-      --data.prefetch_factor=4 \
-      --model.flash_attention=false \
       ${@}
