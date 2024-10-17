@@ -493,9 +493,6 @@ def _gcs_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
 
         if name.endswith("-unsharded"):
             name = name[:-len("-unsharded")]
-            unsharded = True
-        else:
-            unsharded = False
 
         try:
             step = int(name)
