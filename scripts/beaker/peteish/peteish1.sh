@@ -47,8 +47,9 @@ torchrun \
     configs/peteish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=null \
+      --wandb.id="2vsp82zs" \
       --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1-eval" \
-      --load_path="/weka/oe-training-default/wolf/ckpt/v3.0_v2.7_peteish/step12212"
+      --load_path="/weka/oe-training-default/wolf/ckpt/v3.0_v2.7_peteish/step10000"
 
   # --rdzv_id 12347 \
   # --rdzv_backend static \
