@@ -20,6 +20,7 @@ import datasets
 import rich
 from botocore.config import Config
 from cached_path.schemes import SchemeClient, add_scheme_client
+from composer.utils import retry
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.progress import Progress
@@ -414,13 +415,23 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
         return latest_checkpoint
 
 
+# Google Storage API is unhinged and requires you to specify the retry policy on every single call you make.
+from google.api_core.retry import Retry
+_gcs_retry = Retry(
+    initial=1.0,
+    maximum=10.0,
+    multiplier=2.0,
+    deadline=500.0
+)
+
+
 def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
     storage_client = _get_gcs_client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(key)
     if not save_overwrite and blob.exists():
         raise FileExistsError(f"gs://{bucket_name}/{key} already exists. Use save_overwrite to overwrite it.")
-    blob.upload_from_filename(source)
+    blob.upload_from_filename(source, retry=_gcs_retry)
 
 
 def _gcs_file_size(bucket_name: str, key: str) -> int:
@@ -430,7 +441,7 @@ def _gcs_file_size(bucket_name: str, key: str) -> int:
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(key)
     try:
-        blob.reload()
+        blob.reload(retry=_gcs_retry)
     except NotFound:
         raise FileNotFoundError(f"gs://{bucket_name}/{key}")
     assert blob.size is not None
@@ -444,25 +455,16 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(key)
     try:
-        blob.reload()
+        blob.reload(retry=_gcs_retry)
     except NotFound:
         raise FileNotFoundError(f"gs://{bucket_name}/{key}")
-    return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
+    return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1, retry=_gcs_retry)
 
 
 @cache
 def _get_gcs_client():
     from google.cloud import storage as gcs
-    from google.api_core.retry import Retry
-
-    return gcs.Client(
-        client_options={"retry": Retry(
-            initial=1.0,
-            maximum=10.0,
-            multiplier=2.0,
-            deadline=500.0
-        )}
-    )
+    return gcs.Client()
 
 
 def _get_s3_profile_name(scheme: str) -> Optional[str]:
