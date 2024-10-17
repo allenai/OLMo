@@ -22,7 +22,7 @@ import datasets
 import rich
 from botocore.config import Config
 from cached_path.schemes import SchemeClient, add_scheme_client
-from composer.utils import retry
+from google.api_core.retry import Retry as GCSRetry
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.progress import Progress
@@ -418,8 +418,7 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
 
 
 # Google Storage API is unhinged and requires you to specify the retry policy on every single call you make.
-from google.api_core.retry import Retry
-_gcs_retry = Retry(
+_gcs_retry = GCSRetry(
     initial=1.0,
     maximum=10.0,
     multiplier=2.0,
