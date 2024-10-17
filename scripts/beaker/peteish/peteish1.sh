@@ -52,5 +52,7 @@ torchrun \
     configs/peteish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=null \
-      --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1" \
-     '--load_path=${path.last_checkpoint:${save_folder}}' \
+      --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1-eval" \
+      --load_path="/weka/oe-training-default/wolf/v3.0_v2.7_peteish/step12212"
+
+      # --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1" \
