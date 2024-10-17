@@ -504,8 +504,7 @@ def _gcs_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
         if (
             latest_step is None
             or step > latest_step
-            or step == latest_step
-            and latest_checkpoint.endswith("-unsharded")
+            or (step == latest_step and latest_checkpoint is not None and latest_checkpoint.endswith("-unsharded"))
         ):
             latest_step = step
             latest_checkpoint = f"gs://{bucket_name}/{blob.name[:-len(suffix)]}"
