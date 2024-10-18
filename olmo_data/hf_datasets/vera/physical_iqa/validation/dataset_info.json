@@ -1,0 +1,47 @@
+{
+  "builder_name": "json",
+  "citation": "",
+  "config_name": "default",
+  "dataset_size": 500987,
+  "description": "",
+  "download_checksums": {
+    "/mmfs1/gscratch/xlab/liujc/c-data/declarative/t5_v2/physical_iqa/dev.json": {
+      "num_bytes": 670435,
+      "checksum": "17906535bd6c130072acb3f47e6d52e74f0ed4c19d03b0a74da1f20688492bd9"
+    }
+  },
+  "download_size": 670435,
+  "features": {
+    "golds": {
+      "feature": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    },
+    "distractors": {
+      "feature": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "_type": "Sequence"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 1171422,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 500987,
+      "num_examples": 1838,
+      "dataset_name": "json"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}
