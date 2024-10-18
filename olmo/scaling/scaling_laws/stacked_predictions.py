@@ -138,6 +138,7 @@ def get_dataframe_from_configs(
             modes += [config.mode for _ in range(len(x_data))]
             runs += [run_name for _ in range(len(x_data))]
             colors += [config.color for _ in range(len(x_data))]
+
     df["x"] = xs
     df["y"] = ys
     df["params"] = params
@@ -257,7 +258,7 @@ def fit_step2(df: pd.DataFrame, baseline: float, add_ideal_points: bool = True):
     train_ys = df[df["mode"] == "train"]["y"]
 
     if add_ideal_points:
-        train_xs = pd.concat([pd.Series([0.01]), train_xs, pd.Series([2.6])], ignore_index=True)
+        train_xs = pd.concat([pd.Series([0.0001]), train_xs, pd.Series([2.6])], ignore_index=True)
         train_ys = pd.concat([pd.Series([1.0]), train_ys, pd.Series([baseline])], ignore_index=True)
 
     coefficients, pcov = curve_fit(sigmoid, train_xs, train_ys, p0=[baseline - 1.0, 0.9, 3.0, 1.0], maxfev=1000000)
@@ -461,7 +462,7 @@ def get_downstream_predictions(
         last_match_idx = step2_df.loc[step2_df["mode"] == "eval"].tail(1).index
         step2_df.loc[last_match_idx, "x"] = step1_df[step1_df["mode"] == "eval"].predicted_y.values[0]
 
-        step2_df, coefficients = fit_step2(step2_df, BASELINE_BY_TASK_NAME[task_name])
+        step2_df, coefficients = fit_step2(step2_df, tasks[task_name]["baseline"])
         if do_plot:
             plot_step2(
                 step2_df,

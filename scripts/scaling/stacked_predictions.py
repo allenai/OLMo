@@ -22,51 +22,39 @@ ce_columns = [
 
 mmlu_names = ["mmlu_stem", "mmlu_humanities", "mmlu_social_sciences", "mmlu_other"]
 
-# TODO: missing mmlu 5shot
-tasks = {
-    "MMLU-Var": {
-        "bpb": [f"eval/downstream_bpb/{n}_var_bpb_bpb" for n in mmlu_names],
-        "score": [f"eval/downstream/{n}_var_len_norm" for n in mmlu_names],
-        "x_label": "mmlu_var_bpb",
-        "y_label": "mmlu_var_score",
-    },
-    "HellaSwag-5shot": {
-        "bpb": ["eval/downstream_bpb/hellaswag_rc_5shot_bpb_bpb"],
-        "score": ["eval/downstream/hellaswag_rc_5shot_len_norm"],
-    },
-    "ARC-Easy-5shot": {
-        "bpb": ["eval/downstream_bpb/arc_easy_rc_5shot_bpb_bpb"],
-        "score": ["eval/downstream/arc_easy_rc_5shot_acc"],
-    },
-    "ARC-Challenge-5shot": {
-        "bpb": ["eval/downstream_bpb/arc_challenge_rc_5shot_bpb_bpb"],
-        "score": ["eval/downstream/arc_challenge_rc_5shot_len_norm"],
-    },
-    "PiQA-5shot": {
-        "bpb": ["eval/downstream_bpb/piqa_rc_5shot_bpb_bpb"],
-        "score": ["eval/downstream/piqa_rc_5shot_len_norm"],
-    },
-    "Winogrande-5shot": {
-        "bpb": ["eval/downstream_bpb/winogrande_rc_5shot_bpb_bpb"],
-        "score": ["eval/downstream/winogrande_rc_5shot_acc"],
-    },
-    "OpenbookQA-5shot": {
-        "bpb": ["eval/downstream_bpb/openbookqa_rc_5shot_bpb_bpb"],
-        "score": ["eval/downstream/openbookqa_rc_5shot_len_norm"],
-    },
-    "SciQ-0shot": {
-        "bpb": ["eval/downstream_bpb/sciq_rc_0shot_bpb_bpb"],
-        "score": ["eval/downstream/sciq_rc_0shot_acc"],
-    },
-    "CSQA-5shot": {
-        "bpb": ["eval/downstream_bpb/csqa_rc_5shot_bpb_bpb"],
-        "score": ["eval/downstream/csqa_rc_5shot_len_norm"],
-    },
-    "SocialIQA-5shot": {
-        "bpb": ["eval/downstream_bpb/socialiqa_rc_5shot_bpb_bpb"],
-        "score": ["eval/downstream/socialiqa_rc_5shot_len_norm"],
-    },
+main_tasks = ["hellaswag", "arc_easy", "arc_challenge", "piqa", "openbookqa", "csqa", "socialiqa"]
+
+baselines_rc_5shot = {
+    "piqa": 0.5,
+    "socialiqa": 1 / 3,
+    "csqa": 0.2,
 }
+
+baselines_mc_5shot = {
+    "piqa": 0.5,
+    "socialiqa": 1 / 3,
+    "csqa": 0.2,
+}
+
+tasks_rc_5shot = {
+    f"{key}_rc_5shot": {
+        "bpb": [f"eval/downstream_bpb/{key}_rc_5shot_bpb_bpb"],
+        "score": [f"eval/downstream/{key}_rc_5shot_len_norm" if key not in ["arc_easy"] else f"eval/downstream/{key}_rc_5shot_acc"],
+        "baseline": baselines_rc_5shot.get(key, 0.25),
+    }
+    for key in main_tasks
+}
+
+tasks_mmlu_var = {
+    f"{key}_var": {
+        "bpb": [f"eval/downstream_bpb/{key}_var_bpb_bpb"],
+        "score": [f"eval/downstream/{key}_var_len_norm"],
+        "baseline": 0.25,
+    }
+    for key in mmlu_names
+}
+
+tasks = {**tasks_rc_5shot, **tasks_mmlu_var}
 
 
 def prettify(rel_error):
@@ -120,7 +108,7 @@ def main():
 
     feature_kwargs = json.loads(args.feature_kwargs)
 
-    _, stacked_error = get_downstream_predictions(
+    step1_error, stacked_error = get_downstream_predictions(
         configs,
         tasks,
         args.feature_type,
@@ -129,20 +117,20 @@ def main():
         **feature_kwargs,
     )
 
-    mkdn = """| Task | Stacked error |\n| --- | --- |"""
+    mkdn = """| Task | Step1 error | Stacked error |\n| --- | --- |"""
 
     for task in tasks:
         mkdn += f"\n| {task} |"
         for target in stacked_error:
-            mkdn += f"{prettify(stacked_error[target][task])} |"
+            mkdn += f"{prettify(step1_error[target][task])} | {prettify(stacked_error[target][task])} |"
 
     mkdn += "\n| **Avg signed error** | "
     for target in stacked_error:
-        mkdn += f"**{prettify(np.mean(list(stacked_error[target].values())))}** |"
+        mkdn += f"**{prettify(np.mean(list(step1_error[target].values())))}** | **{prettify(np.mean(list(stacked_error[target].values())))}** |"
 
     mkdn += "\n| **Avg unsigned error** | "
     for target in stacked_error:
-        mkdn += f"**{prettify(np.mean(np.abs(list(stacked_error[target].values()))))}** |"
+        mkdn += f"**{prettify(np.mean(np.abs(list(step1_error[target].values()))))}** | **{prettify(np.mean(np.abs(list(stacked_error[target].values()))))}** |"
     print(mkdn)
 
 
