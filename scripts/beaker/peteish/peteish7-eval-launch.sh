@@ -5,7 +5,7 @@ set -ex
 NUM_NODES=8
 
 gantry run \
-  --workspace ai2/OLMo-ladder \
+  --workspace ai2/OLMo-tiny \
   --task-name peteish7-anneal-eval \
   --description "Pete-ish Annealed 7B" \
   --priority high \
