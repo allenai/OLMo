@@ -52,5 +52,5 @@ torchrun \
     configs/peteish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=500 \
-      --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7" \
+      --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-50B-no-warmup" \
      '--load_path=${path.last_checkpoint:${save_folder}}' \
