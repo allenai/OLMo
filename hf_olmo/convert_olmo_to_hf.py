@@ -17,7 +17,9 @@ from hf_olmo.modeling_olmo import OLMoForCausalLM
 from hf_olmo.tokenization_olmo_fast import OLMoTokenizerFast
 from olmo import ModelConfig, Tokenizer, TrainConfig
 from olmo.checkpoint import build_sharded_checkpointer
+from olmo.safetensors_util import safetensors_file_to_state_dict
 from olmo.util import _get_s3_client
+
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +72,11 @@ def write_model(checkpoint_dir: str, ignore_olmo_compatibility: bool = False):
     old_model_path = os.path.join(checkpoint_dir, "model.pt")
     new_model_path = os.path.join(checkpoint_dir, "pytorch_model.bin")
 
-    state_dict = torch.load(old_model_path, map_location="cpu")
+    if os.path.exists(old_model_path):
+        state_dict = torch.load(old_model_path, map_location="cpu")
+    else:
+        old_model_path = os.path.join(checkpoint_dir, "model.safetensors")
+        state_dict = safetensors_file_to_state_dict(old_model_path, map_location="cpu")
 
     # this takes care of the case where the model was saved with a different prefix,
     # typically due to unsharding.
@@ -233,7 +239,9 @@ def upload_local_checkpoint(local_checkpoint_dir: str, destination_dir: str):
 
 
 def maybe_unshard(checkpoint_dir: str):
-    if os.path.exists(os.path.join(checkpoint_dir, "model.pt")):
+    if os.path.exists(os.path.join(checkpoint_dir, "model.pt")) or os.path.exists(
+        os.path.join(checkpoint_dir, "model.safetensors")
+    ):
         return
 
     print(f"Unsharding {checkpoint_dir}...")
