@@ -3,14 +3,14 @@
 set -exuo pipefail
 IFS=$'\n\t'
 
-BEAKER_LEADER_REPLICA_HOSTNAME=$1
-shift
+# BEAKER_LEADER_REPLICA_HOSTNAME=$1
+# shift
 
 NUM_NODES=$1
 shift
 
-BEAKER_REPLICA_RANK=$1
-shift
+# BEAKER_REPLICA_RANK=$1
+# shift
 
 # Setup Python environment.
 conda shell.bash activate base
@@ -37,20 +37,23 @@ export OLMO_SHARED_FS=1
 
 export NCCL_DEBUG=INFO
 export NCCL_IB_HCA="^=mlx5_bond_0"
-export NCCL_SOCKET_IFNAME=ib
+# export NCCL_SOCKET_IFNAME=ib
 # export NCCL_IB_GID_INDEX=0
 
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
   --nproc-per-node 8 \
-  --rdzv_id 12347 \
-  --rdzv_backend static \
-  --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
-  --node_rank "${BEAKER_REPLICA_RANK}" \
-  --rdzv_conf 'read_timeout=420' \
   scripts/eval.py \
-    configs/peteish7-weka.yaml \
+    configs/peteish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --save_interval_ephemeral=500 \
-      --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-50B-no-warmup" \
-     '--load_path=${path.last_checkpoint:${save_folder}}' \
+      --save_interval_ephemeral=null \
+      --save_overwrite \
+      --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1-eval" \
+      --load_path="/weka/oe-training-default/wolf/ckpt/v3.0_v2.7_peteish"
+
+  # --rdzv_id 12347 \
+  # --rdzv_backend static \
+  # --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
+  # --node_rank "${BEAKER_REPLICA_RANK}" \
+  # --rdzv_conf 'read_timeout=420' \
+      # --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1" \
