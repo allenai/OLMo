@@ -252,9 +252,9 @@ def main(cfg: TrainConfig) -> None:
         for load_path in load_paths:
             step = int(load_path.split('/')[-1].split('step')[-1])
 
-            log.info(f"Loading checkpoint from {cfg.load_path}...")
+            log.info(f"Loading checkpoint from {load_path}...")
             trainer.restore_checkpoint(
-                cfg.load_path,
+                load_path,
                 load_optimizer_state=False,
                 load_trainer_state=False,
                 sharded_checkpointer=cfg.load_path_sharded_checkpointer,
