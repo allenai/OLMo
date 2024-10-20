@@ -111,8 +111,6 @@ def main(cfg: TrainConfig) -> None:
             name=cfg.wandb.name,
             tags=cfg.wandb.tags,
             config=cfg.asdict(exclude=["wandb"]),
-            id=cfg.wandb.id,
-            resume="allow",
         )
 
     barrier()
@@ -241,60 +239,18 @@ def main(cfg: TrainConfig) -> None:
         evaluators=evaluators,
         indices_file=indices_file,
     ) as trainer:
-        # if cfg.try_load_latest_save:
-        #     if (
-        #         cfg.save_folder is not None
-        #         and (checkpoint_dir := find_latest_checkpoint(cfg.save_folder)) is not None
-        #     ):
-        #         log.info("Setting load path to local checkpoint %s", checkpoint_dir)
-        #         cfg.load_path = str(checkpoint_dir)
-        #     elif (
-        #         cfg.remote_save_folder is not None
-        #         and (checkpoint_dir := find_latest_checkpoint(cfg.remote_save_folder)) is not None
-        #     ):
-        #         log.info("Setting load path to remote checkpoint %s", checkpoint_dir)
-        #         cfg.load_path = str(checkpoint_dir)
 
-        # if not cfg.dry_run and not cfg.no_pre_train_checkpoint and cfg.load_path is None:
-        #     if cfg.distributed_strategy == DistributedStrategy.ddp:
-        #         checkpoint_type = CheckpointType.unsharded
+        if cfg.load_path is None:
+            raise OLMoConfigurationError("To run eval you must provide a load_path")
+        if 'step' in cfg.load_path.split('/')[-1]:
+            load_paths = [cfg.load_path]
+        else:
+            # This globbing does not work with remote paths.
+            load_paths = list(sorted(glob.glob(Path(cfg.save_folder) / f"step*"), key=lambda x: int(x.split('/')[-1].split('step')[-1])))
 
-        #         if cfg.save_interval_unsharded is None:
-        #             log.warning(
-        #                 "DDP requires setting `save_interval_unsharded`. Using the value set for `save_interval`."
-        #             )
-        #             cfg.save_interval_unsharded = cfg.save_interval
+        for load_path in load_paths:
+            step = int(load_path.split('/')[-1].split('step')[-1])
 
-        #         if cfg.save_num_unsharded_checkpoints_to_keep == 0:
-        #             log.warning(
-        #                 "DDP requires setting `save_num_unsharded_checkpoints_to_keep`. Using the value set for `save_num_checkpoints_to_keep`."
-        #             )
-        #             cfg.save_num_unsharded_checkpoints_to_keep = cfg.save_num_checkpoints_to_keep
-        #     elif cfg.distributed_strategy == DistributedStrategy.fsdp:
-        #         checkpoint_type = (
-        #             CheckpointType.sharded if cfg.save_num_checkpoints_to_keep != 0 else CheckpointType.unsharded
-        #         )
-        #     else:
-        #         raise NotImplementedError(f"Distributed strategy {cfg.distributed_strategy} not supported yet!")
-
-        #     # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
-        #     log.info("Saving pre-train checkpoint...")
-        #     checkpoint_path, local_checkpoint_cache = trainer.save_checkpoint(checkpoint_type=checkpoint_type)
-        #     log.info(f"Checkpoint saved to {checkpoint_path}")
-
-        #     # And they we verify that we can load it.
-        #     log.info("Attempting to load pre-train checkpoint...")
-        #     trainer.restore_checkpoint(
-        #         checkpoint_path, checkpoint_type=checkpoint_type, local_cache=local_checkpoint_cache
-        #     )
-        #     log.info("Checkpoint successfully loaded")
-
-        #     # NOTE: https://github.com/allenai/LLM/issues/233
-        #     #  log.info("Removing pre-train checkpoint...")
-        #     #  trainer.remove_checkpoint(checkpoint_type=checkpoint_type)
-        #     #  log.info("Successfully removed checkpoint")
-
-        if cfg.load_path is not None:
             log.info(f"Loading checkpoint from {cfg.load_path}...")
             trainer.restore_checkpoint(
                 cfg.load_path,
@@ -302,45 +258,13 @@ def main(cfg: TrainConfig) -> None:
                 load_trainer_state=False,
                 sharded_checkpointer=cfg.load_path_sharded_checkpointer,
             )
-            # trainer.restore_unsharded_checkpoint(
-            #     cfg.load_path,
-            #     load_optimizer_state=False,
-            #     load_trainer_state=False,
-            # )
             log.info("Checkpoint successfully loaded")
 
-            # If we have to, set a new scheduler:
-            if cfg.reset_optimizer_state and not cfg.reset_trainer_state:
-                trainer.scheduler = BoltOnWarmupScheduler.wrap(
-                    trainer.scheduler,
-                    trainer.global_step,
-                    int(trainer.global_step + cfg.scheduler.t_warmup),
-                )
-
-        # if cfg.force_save_unsharded and cfg.distributed_strategy != DistributedStrategy.ddp:
-        #     log.info("Saving unsharded checkpoint...")
-        #     checkpoint_path, _ = trainer.save_checkpoint(checkpoint_type=CheckpointType.unsharded)
-        #     log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
-
-        if cfg.compile is not None:
-            # TODO (epwalsh): trying to compile the whole train step results in a compile-time error from within
-            # the optimizer. We should investigate this further at some point.
-            #  trainer.train_step = torch.compile(trainer.train_step, **cfg.compile.asdict())
-            trainer.train_batch = torch.compile(trainer.train_batch, **cfg.compile.asdict())  # type: ignore
-            # TODO (epwalsh): compiling the `eval_batch()` method is a little sketchy since the inputs will look
-            # different for different eval tasks. That might be okay, but it might not be.
-            #  trainer.eval_batch = torch.compile(trainer.eval_batch, **cfg.compile.asdict())  # type: ignore
-            # Alternatively, could just do this:
-            #  trainer.fsdp_model = torch.compile(trainer.fsdp_model, **cfg.compile.asdict())
-
-        if not cfg.dry_run:
             log.info("Starting evaluating...")
             eval_metrics = trainer.eval()
             if wandb.run is not None:
-                wandb.log(eval_metrics, step=trainer.global_step)
+                wandb.log(eval_metrics, step=step)
             log.info("Evaluating complete")
-        else:
-            log.info("Dry run complete")
 
 
 if __name__ == "__main__":
