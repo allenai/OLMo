@@ -3,14 +3,14 @@
 set -exuo pipefail
 IFS=$'\n\t'
 
-# BEAKER_LEADER_REPLICA_HOSTNAME=$1
-# shift
+BEAKER_LEADER_REPLICA_HOSTNAME=$1
+shift
 
 NUM_NODES=$1
 shift
 
-# BEAKER_REPLICA_RANK=$1
-# shift
+BEAKER_REPLICA_RANK=$1
+shift
 
 # Setup Python environment.
 conda shell.bash activate base
@@ -25,9 +25,9 @@ pip install '.[train]'
 pip freeze
 
 # Move AWS credentials from env to relevant files
-# mkdir -p ~/.aws
-# printenv AWS_CONFIG > ~/.aws/config
-# printenv AWS_CREDENTIALS > ~/.aws/credentials
+mkdir -p ~/.aws
+printenv AWS_CONFIG > ~/.aws/config
+printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
@@ -37,22 +37,21 @@ export OLMO_SHARED_FS=1
 
 export NCCL_DEBUG=INFO
 export NCCL_IB_HCA="^=mlx5_bond_0"
-# export NCCL_SOCKET_IFNAME=ib
+export NCCL_SOCKET_IFNAME=ib
 # export NCCL_IB_GID_INDEX=0
 
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
   --nproc-per-node 8 \
-  scripts/eval.py \
+  --rdzv_id 12347 \
+  --rdzv_backend static \
+  --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
+  --node_rank "${BEAKER_REPLICA_RANK}" \
+  --rdzv_conf 'read_timeout=420' \
+  scripts/train.py \
     configs/peteish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=null \
-      --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1-eval" \
-      --load_path="/weka/oe-training-default/wolf/ckpt/v3.0_v2.7_peteish"
+      --save_overwrite
 
-  # --rdzv_id 12347 \
-  # --rdzv_backend static \
-  # --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
-  # --node_rank "${BEAKER_REPLICA_RANK}" \
-  # --rdzv_conf 'read_timeout=420' \
-      # --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1" \
+     # '--load_path=${path.last_checkpoint:${save_folder}}' \
