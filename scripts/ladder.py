@@ -87,6 +87,8 @@ MODEL_CONFIGS = {
     ),
 }
 
+DEFAULT_SEED = 6198
+
 
 _number_unit_re = re.compile(r"^([0-9]+)([a-zA-Z]+)$")
 
@@ -127,6 +129,8 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # Construct a config
     args.model = args.model.strip().upper()
     run_name = f"{args.name}-{args.model}-{args.length}"
+    if args.seed != DEFAULT_SEED:
+        run_name += f"-{args.seed}"
     assert "/" not in run_name
 
     permanent_data_prefix = "/weka/oe-training-default/ai2-llm"
@@ -419,6 +423,7 @@ if __name__ == "__main__":
     train_parser.set_defaults(func=train_cmd)
 
     for subparser in [dump_parser, train_parser]:
+        subparser.add_argument("--seed", type=int, default=6198)
         subparser.add_argument("--model", type=str, required=True)
         subparser.add_argument("--data", type=str, required=True)
         subparser.add_argument("--length", type=str, default="2xC")

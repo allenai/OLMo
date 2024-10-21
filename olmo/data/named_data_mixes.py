@@ -396,6 +396,10 @@ DATA_SOURCES = {
         "preprocessed/starcoder/v0_decontaminated_doc_only/gpt-neox-olmo-dolma-v1_5/part-48-00000.npy",
         "preprocessed/starcoder/v0_decontaminated_doc_only/gpt-neox-olmo-dolma-v1_5/part-48-00001.npy",
     ],
+    "c4_debug": [
+        "preprocessed/c4/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001-fix/gpt-neox-olmo-dolma-v1_5/part-000-00000.npy",
+        "preprocessed/c4/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001-fix/gpt-neox-olmo-dolma-v1_5/part-001-00000.npy",
+    ],
     "c4": [
         "preprocessed/c4/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001-fix/gpt-neox-olmo-dolma-v1_5/part-000-00000.npy",
         "preprocessed/c4/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001-fix/gpt-neox-olmo-dolma-v1_5/part-001-00000.npy",
@@ -1772,7 +1776,6 @@ DATA_SOURCES = {
     "cc_tulu_qc_top10": [f"preprocessed/olmo-mix/tulu_qc_top10/part-{i:03d}-00000.npy" for i in range(120)],
     "falcon_tulu_qc_top10": [f"preprocessed/falcon-refinedweb/tulu_qc_top10/part-{i:03d}-00000.npy" for i in range(120)],
 }
-
 EXTRA_DATA_SOURCES = {
     "web_instruct": [
         "preprocessed/WebInstructSub/v0_decontaminated/gpt-neox-olmo-dolma-v1_5/part-0-00000.npy",
@@ -1900,12 +1903,14 @@ def build_collection_with_weights(corpora: List[str], weights: Dict[str, float]=
     #print current_weights with 2 decimal places
     print({k: round(v, 2) for k, v in current_weights.items()})
 
-DATA_PATHS["no_math"] = build_collection_exclude(["pes20_stem_papers", "algebraic_stack", "openwebmath"])
-DATA_PATHS["no_code"] = build_collection_exclude(["stackexchange", "starcoder"])
-DATA_PATHS["no_math_no_code"] = build_collection_exclude(["pes20_stem_papers", "algebraic_stack", "openwebmath", "stackexchange", "starcoder"])
+DATA_PATHS["no_math"] = build_collection_include(['gutenberg_books', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
+DATA_PATHS["no_code"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'c4', 'reddit', 'falcon', 'web_rest'])
+DATA_PATHS["no_math_no_code"] = build_collection_include(['gutenberg_books', 'wikipedia_wikibooks', 'megawika', 'arxiv', 'tulu', 'cc_news', 'c4', 'reddit', 'falcon', 'web_rest'])
 DATA_PATHS["no_reddit"] = build_collection_exclude(["reddit"])
-DATA_PATHS["no_flan"] = build_collection_exclude(["tulu"])
+DATA_PATHS["no_reddit"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'falcon', 'web_rest'])
+DATA_PATHS["no_flan"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
 DATA_PATHS["dolma17"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
+DATA_PATHS["dolma17_debug"] = build_collection_include(['c4_debug'])
 DATA_PATHS["redpajama"] = build_collection_include(["all_red_pajama"])
 DATA_PATHS["falcon"] = build_collection_include(["falcon"])
 DATA_PATHS["falcon_and_cc"] = build_collection_include(["falcon", "web_rest"])
