@@ -1,5 +1,5 @@
-run_name: peteish7-run001
-seed: 6198
+run_name: peteish7-anneal-from-928646-50B-warmup-1T
+seed: 7201
 dry_run: false
 
 wandb:
@@ -48,7 +48,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 3.0e-4
+  learning_rate: 0.00027421
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
@@ -59,12 +59,9 @@ optimizer:
   metrics_log_interval: 1
 
 scheduler:
-  name: cosine_with_warmup
-  units: tokens
-  t_warmup: 8388608000
-  t_max: 5e12
-  alpha_f: 0.1
-  warmup_min_lr: 0.0
+  name: linear_with_warmup
+  t_warmup: 1000
+  alpha_f: 0
 
 tokenizer:
   identifier: tokenizers/allenai_dolma2.json
@@ -81,9 +78,13 @@ sharded_checkpointer: olmo_core
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
-load_path: null
+load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646
 
-max_duration: 1ep
+restore_dataloader: false
+no_pre_train_checkpoint: true
+
+max_duration: 50e9T
+stop_at: 11931                  # round(50e9 / (1024 * 4096)) + 10
 global_train_batch_size: 1024
 device_train_microbatch_size: 2
 
@@ -154,7 +155,7 @@ evaluators:
 
   - label: boolq
     type: downstream
- 
+
   - label: sciq
     type: downstream
 

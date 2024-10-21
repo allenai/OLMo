@@ -12,9 +12,6 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
-CONFIG_PATH=$1
-shift
-
 # Setup Python environment.
 conda shell.bash activate base
 
@@ -43,6 +40,8 @@ export NCCL_IB_HCA="^=mlx5_bond_0"
 export NCCL_SOCKET_IFNAME=ib
 # export NCCL_IB_GID_INDEX=0
 
+MAX_STEPS=12000 # a little over 50B tokens
+
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
   --nproc-per-node 8 \
@@ -52,12 +51,21 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    ${CONFIG_PATH} \
-      --save_interval_ephemeral=null \
+    configs/peteish7-weka.yaml \
+      --run_name="${GANTRY_TASK_NAME}" \
       --fsdp.sharding_strategy=HYBRID_SHARD \
-      --fsdp.hybrid_sharding_num_model_replicas=2 \
+      --fsdp.hybrid_sharding_num_model_replicas="${NUM_NODES}" \
+      --activation_checkpointing=whole_layer \
+      --load_path=/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646 \
+      --data.seed=23250 \
+      --restore_dataloader=false \
+      --optimizer.learning_rate=6.1852e-5 \
+      --scheduler.name=linear_with_warmup \
+      --scheduler.units=steps \
+      --scheduler.t_warmup=0 \
+      --scheduler.t_max=${MAX_STEPS} \
+      --scheduler.alpha_f=0.0 \
+      --max_duration=${MAX_STEPS} \
+      --stop_at=${MAX_STEPS} \
+      --save_interval_ephemeral=500 \
       --save_overwrite
-
-     # '--load_path=${path.last_checkpoint:${save_folder}}' \
-     # --fsdp.sharding_strategy=HYBRID_SHARD \
-     # --fsdp.hybrid_sharding_num_model_replicas=2 \

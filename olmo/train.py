@@ -373,6 +373,7 @@ class Trainer:
 
         if not self.cfg.restore_dataloader:
             self.epoch = 0
+            self.global_step = 0
             self.global_train_tokens_seen = 0
             self.global_train_examples_seen_this_epoch = 0
         elif self.epoch is None:
@@ -477,7 +478,7 @@ class Trainer:
             )
         except FileExistsError:
             raise OLMoConfigurationError(
-                f"Checkpoint for step {self.global_step} already exists, use --save-overwrite to overwrite it"
+                f"Checkpoint for step {self.global_step} already exists, use --save_overwrite to overwrite it"
             )
 
         if link_latest:

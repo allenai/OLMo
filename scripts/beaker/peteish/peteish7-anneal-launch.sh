@@ -2,13 +2,13 @@
 
 set -ex
 
-NUM_NODES=64
+NUM_NODES=8
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
-  --task-name peteish7 \
-  --description "Pete-ish 7B" \
-  --priority urgent \
+  --task-name peteish7-anneal \
+  --description "Pete-ish 7B post-training annealing" \
+  --priority high \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
@@ -37,4 +37,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/peteish/peteish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/peteish/peteish7-anneal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
