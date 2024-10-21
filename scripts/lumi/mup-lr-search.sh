@@ -62,7 +62,7 @@ srun \
       --wandb.group="mup_lr_search" \
       --wandb.project=olmo-mup \
       --scheduler.t_warmup=$((3 * $WIDTH / 128)) \
-      --stop_at="$((20 * $WIDTH * 150 * 1_000_000 / (80 * 1024 * 4096)))" \
+      --stop_at="$((20 * $WIDTH * 150 * 1000000 / (80 * 1024 * 4096)))" \
       --model.use_mup \
       --model.mup_query_zero_init=false \
       --model.mup_base_shapes=configs/mup/lr_search_base_shapes_150m.bsh \
