@@ -263,6 +263,7 @@ def main(cfg: TrainConfig) -> None:
             log.info("Checkpoint successfully loaded")
             # compute and print the sum of the value of all parameters in the model
             log.info(f"Sum of all parameters: {sum(p.sum().item() for p in dist_model.parameters())}")
+            continue
 
             log.info("Starting evaluating...")
             eval_metrics = trainer.eval()
