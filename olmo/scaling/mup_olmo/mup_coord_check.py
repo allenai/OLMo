@@ -107,6 +107,7 @@ if __name__ == "__main__":
     parser.add_argument("--load_base_shapes", type=str, default="", help="file location to load base shapes from")
 
     parser.add_argument("--batch_size", type=int, default=20, metavar="N", help="batch size")
+    parser.add_argument("--widths", type=int, nargs="+", default=[2 ** i for i in range(5, 12)], help="widths to use for coord check")
 
     parser.add_argument("--cuda", action="store_true", help="use CUDA")
     parser.add_argument("--legend", type=str, help="'auto', 'brief', 'full', or False. This is passed to `seaborn.lineplot`.")
@@ -150,7 +151,7 @@ if __name__ == "__main__":
         for use_mup in [True, False]:
             coord_check(
                 mup=use_mup,
-                widths=2 ** np.arange(7, 14),
+                widths=args.widths,
                 config_path=args.config_path,
                 batch_size=args.batch_size,
                 nsteps=args.coord_check_nsteps,
