@@ -85,7 +85,7 @@ def coord_check(
         # Plot no more than 20 graphs
         step_interval = max(nsteps // 20, 1)
         df = df[df["t"] % step_interval == 0]
-        df["t"] /= step_interval
+        df.loc[:, "t"] /= step_interval
 
         plot_coord_data(
             df,
