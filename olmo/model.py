@@ -419,7 +419,7 @@ class OLMoBlock(nn.Module):
         self.__cache = cache
         assert config.d_model % config.n_heads == 0
 
-        self._activation_checkpoint_fn = None
+        self._activation_checkpoint_fn: Optional[Callable] = None
 
         # Dropout.
         self.dropout = Dropout(config.residual_dropout)
@@ -501,9 +501,11 @@ class OLMoBlock(nn.Module):
         init_normal(self.attn_out, std=attn_out_std, init_cutoff_factor=cutoff_factor)
         init_normal(self.ff_out, std=ff_out_std, init_cutoff_factor=cutoff_factor)
 
-    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+    def set_activation_checkpointing(
+        self, strategy: Optional[ActivationCheckpointingStrategy], checkpoint_func: Optional[Callable] = None
+    ):
         if strategy == ActivationCheckpointingStrategy.fine_grained:
-            self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
+            self._activation_checkpoint_fn = checkpoint_func or activation_checkpoint_function(self.config)
         else:
             self._activation_checkpoint_fn = None
 
@@ -981,7 +983,7 @@ class OLMoOutput(NamedTuple):
     Attention keys and values from each block.
     """
 
-    hidden_states: Optional[Tuple[torch.Tensor]]
+    hidden_states: Optional[Tuple[torch.Tensor, ...]]
     """
     Hidden states from each block.
     """
@@ -1051,10 +1053,12 @@ class OLMoBlockGroup(nn.ModuleList):
         for block in self:
             block.reset_parameters()
 
-    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+    def set_activation_checkpointing(
+        self, strategy: Optional[ActivationCheckpointingStrategy], checkpoint_func: Optional[Callable] = None
+    ):
         self.activation_checkpointing_strategy = strategy
         for block in self:
-            block.set_activation_checkpointing(strategy)
+            block.set_activation_checkpointing(strategy, checkpoint_func=checkpoint_func)
 
 
 class OLMo(nn.Module):
@@ -1141,14 +1145,16 @@ class OLMo(nn.Module):
             get_causal_attention_bias(self.__cache, config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
 
-    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+    def set_activation_checkpointing(
+        self, strategy: Optional[ActivationCheckpointingStrategy], checkpoint_func: Optional[Callable] = None
+    ):
         self.activation_checkpointing_strategy = strategy
         if self.config.block_group_size != 1:
             for block_group in self.transformer.block_groups:
-                block_group.set_activation_checkpointing(strategy)
+                block_group.set_activation_checkpointing(strategy, checkpoint_func=checkpoint_func)
         else:
             for block in self.transformer.blocks:
-                block.set_activation_checkpointing(strategy)
+                block.set_activation_checkpointing(strategy, checkpoint_func=checkpoint_func)
 
     @property
     def device(self) -> torch.device:
@@ -1446,7 +1452,11 @@ class OLMo(nn.Module):
         if self.config.scale_logits:
             logits.mul_(1 / math.sqrt(self.config.d_model))
 
-        return OLMoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
+        return OLMoOutput(
+            logits=logits,
+            attn_key_values=attn_key_values,
+            hidden_states=tuple(all_hidden_states) if output_hidden_states else None,
+        )
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
