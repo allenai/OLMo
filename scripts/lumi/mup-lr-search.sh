@@ -44,6 +44,12 @@ export SINGULARITYENV_TORCH_DIST_INIT_BARRIER=1
 #export NCCL_DEBUG=INFO
 #export FI_LOG_LEVEL=INFO
 
+# Read mup params from script args
+export WIDTH=$1
+shift
+export LR=$1
+shift
+
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
   --distribution=block:block \
