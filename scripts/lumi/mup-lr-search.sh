@@ -74,6 +74,7 @@ srun \
       --model.mup_base_shapes=configs/mup/lr_search_base_shapes_150m.bsh \
       --model.d_model=$WIDTH \
       --optimizer.learning_rate=$LR \
+      --fsdp.sharding_strategy=HYBRID_SHARD \
       --save_interval_ephemeral=100 \
       --eval_interval=100 \
       --try_load_latest_save \
