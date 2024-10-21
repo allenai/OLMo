@@ -97,13 +97,13 @@ def simplify_path(path):
 
 def print_data_differences(left_data_paths: Counter, right_data_paths: Counter):
     print("===== Data Paths for left config:\n")
-    simplified_left_data_paths = {simplify_path(path): count for path, count in left_data_paths.items()}
+    simplified_left_data_paths = {path: count for path, count in left_data_paths.items()}
     for path, num_files in simplified_left_data_paths.items():
         print(f"\t{path}: {num_files}")
     print("\n\n")
 
     print("===== Data Paths for right config:\n")
-    simplified_right_data_paths = {simplify_path(path): count for path, count in right_data_paths.items()}
+    simplified_right_data_paths = {path: count for path, count in right_data_paths.items()}
     for path, num_files in simplified_right_data_paths.items():
         print(f"\t{path}: {num_files}")
 
