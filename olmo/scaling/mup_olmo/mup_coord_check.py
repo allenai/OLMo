@@ -2,7 +2,6 @@ import argparse
 import os
 from typing import List, Optional
 
-import numpy as np
 from mup.coord_check import plot_coord_data
 from torch.utils.data import DataLoader
 
@@ -144,7 +143,6 @@ if __name__ == "__main__":
 
     if args.coord_check:
         print("testing parametrization")
-        import os
 
         os.makedirs(args.coord_check_save_path, exist_ok=True)
 
