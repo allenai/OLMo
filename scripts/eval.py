@@ -248,6 +248,7 @@ def main(cfg: TrainConfig) -> None:
         else:
             # This globbing does not work with remote paths.
             load_paths = list(sorted(glob.glob(f"{cfg.load_path}/step*"), key=lambda x: int(x.split('/')[-1].split('step')[-1])))
+            load_paths = load_paths[1:] # Skip step0
 
         for load_path in load_paths:
             step = int(load_path.split('/')[-1].split('step')[-1])
@@ -261,8 +262,7 @@ def main(cfg: TrainConfig) -> None:
             )
             log.info("Checkpoint successfully loaded")
             # compute and print the sum of the value of all parameters in the model
-            log.info(f"Sum of all parameters: {sum(p.sum().item() for p in olmo_model.parameters())}")
-            continue
+            log.info(f"Sum of all parameters: {sum(p.sum().item() for p in dist_model.parameters())}")
 
             log.info("Starting evaluating...")
             eval_metrics = trainer.eval()
