@@ -85,10 +85,17 @@ def make_parser():
     )
 
     parser.add_argument(
+        "--use_last_n_points_step1",
+        type=int,
+        default=1,
+        help="Optionally extend the number of training points for step 1 to last n (default=1)",
+    )
+
+    parser.add_argument(
         "--use_last_n_percentage",
         type=float,
         default=1.0,
-        help="Optionally limit the number of training points to last n percentage (float; 0.02 is last 2%)",
+        help="Optionally limit the number of training points to last n percentage for the sigmoid fit (float; 0.02 is last 2%)",
     )
 
     parser.add_argument(
@@ -130,6 +137,7 @@ def main():
             configs,
             tasks,
             args.feature_type,
+            args.use_last_n_points_step1,
             args.use_last_n_percentage,
             save_figures=args.save_figures,
             target_n_d=target_n_d,
@@ -141,6 +149,7 @@ def main():
             configs,
             tasks,
             args.feature_type,
+            args.use_last_n_points_step1,
             args.use_last_n_percentage,
             save_figures=args.save_figures,
             **feature_kwargs,

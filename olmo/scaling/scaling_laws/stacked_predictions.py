@@ -394,6 +394,7 @@ def get_downstream_predictions(
     configs: Dict[str, FinalConfig],
     tasks: Dict,
     feature_type: DownstreamPredictionFeatures = DownstreamPredictionFeatures.raw,
+    use_last_n_points_step1: int = 1,
     use_last_n_percentage: float = 1.0,
     *,
     save_figures: Optional[str] = None,
@@ -431,7 +432,7 @@ def get_downstream_predictions(
         elif feature_type == DownstreamPredictionFeatures.exponential_moving_average:
             step1_df["y"] == apply_exponential_moving_average(step1_df, "y", **feature_kwargs)
 
-        step1_df = step1_df.groupby("run").apply(lambda rows: rows.iloc[-1:], include_groups=False).reset_index()
+        step1_df = step1_df.groupby("run").apply(lambda rows: rows.iloc[-use_last_n_points_step1:], include_groups=False).reset_index()
         step1_df, coefficients = fit_step1(step1_df)
 
         if not no_error:
@@ -497,7 +498,8 @@ def get_downstream_predictions(
                 axes[i][2],
                 title=f"Stacked predictions using {feature_type} ({feature_kwargs})",
                 do_label=True,
-                do_grey=True,
+                do_grey=False,
+                logscale=True,
             )
 
     if do_plot:
