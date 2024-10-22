@@ -1,6 +1,5 @@
 """Run this script with 'torchrun'."""
 
-import gzip
 import logging
 import sys
 from datetime import timedelta
@@ -10,19 +9,13 @@ from typing import Optional, TextIO
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import ShardingStrategy
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from olmo.config import (
-    CheckpointType,
-    DDPGradSyncMode,
-    DistributedStrategy,
-    TrainConfig,
-)
-from olmo.data import build_train_dataloader
+import wandb
+from olmo.config import DDPGradSyncMode, DistributedStrategy, TrainConfig
 from olmo.eval import build_evaluators
 from olmo.exceptions import OLMoCliError, OLMoConfigurationError
 from olmo.model import OLMo
@@ -41,7 +34,6 @@ from olmo.train import Trainer
 from olmo.util import (
     add_cached_path_clients,
     clean_opt,
-    find_latest_checkpoint,
     log_extra_field,
     prepare_cli_environment,
 )

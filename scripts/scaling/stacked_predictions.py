@@ -21,6 +21,7 @@ ce_columns = [
 ]
 
 mmlu_names = ["mmlu_stem", "mmlu_humanities", "mmlu_social_sciences", "mmlu_other"]
+# mmlu_names = ["mmlu_humanities", "mmlu_social_sciences", "mmlu_other"]
 
 main_tasks = ["hellaswag", "arc_easy", "arc_challenge", "piqa", "openbookqa", "csqa", "socialiqa"]
 
@@ -39,7 +40,11 @@ baselines_mc_5shot = {
 tasks_rc_5shot = {
     f"{key}_rc_5shot": {
         "bpb": [f"eval/downstream_bpb/{key}_rc_5shot_bpb_bpb"],
-        "score": [f"eval/downstream/{key}_rc_5shot_len_norm" if key not in ["arc_easy"] else f"eval/downstream/{key}_rc_5shot_acc"],
+        "score": [
+            f"eval/downstream/{key}_rc_5shot_len_norm"
+            if key not in ["arc_easy"]
+            else f"eval/downstream/{key}_rc_5shot_acc"
+        ],
         "baseline": baselines_rc_5shot.get(key, 0.25),
     }
     for key in main_tasks
@@ -57,8 +62,11 @@ tasks_mmlu_var = {
 tasks = {**tasks_rc_5shot, **tasks_mmlu_var}
 
 
-def prettify(rel_error):
-    return f"{rel_error * 100:+.1f}%"
+def prettify(rel_error, is_percentage=True):
+    if is_percentage:
+        return f"{rel_error * 100:+.1f}%"
+    else:
+        return f"{rel_error:.2f}"
 
 
 def make_parser():
@@ -80,7 +88,7 @@ def make_parser():
         "--use_last_n_percentage",
         type=float,
         default=1.0,
-        help="Optionally limit the number of training points to last n percentage",
+        help="Optionally limit the number of training points to last n percentage (float; 0.02 is last 2%)",
     )
 
     parser.add_argument(
@@ -91,6 +99,13 @@ def make_parser():
     )
 
     parser.add_argument("--feature_kwargs", type=str, default="{}", help="Eg. {'window': 20}")
+
+    parser.add_argument(
+        "--target_n", type=int, default=-1, help="Target number of parameters to predict for. Use with `target_d`"
+    )
+    parser.add_argument(
+        "--target_d", type=int, default=-1, help="Target number of tokens to predict for. Use with `target_n`"
+    )
 
     return parser
 
@@ -108,30 +123,55 @@ def main():
 
     feature_kwargs = json.loads(args.feature_kwargs)
 
-    step1_error, stacked_error = get_downstream_predictions(
-        configs,
-        tasks,
-        args.feature_type,
-        args.use_last_n_percentage,
-        save_figures=args.save_figures,
-        **feature_kwargs,
-    )
+    if args.target_n != -1 and args.target_d != -1:
+        no_error = True
+        target_n_d = [args.target_n, args.target_d]
+        step1_predictions, stacked_predictions = get_downstream_predictions(
+            configs,
+            tasks,
+            args.feature_type,
+            args.use_last_n_percentage,
+            save_figures=args.save_figures,
+            target_n_d=target_n_d,
+            **feature_kwargs,
+        )
+    else:
+        no_error = False
+        step1_predictions, stacked_predictions, step1_error, stacked_error = get_downstream_predictions(
+            configs,
+            tasks,
+            args.feature_type,
+            args.use_last_n_percentage,
+            save_figures=args.save_figures,
+            **feature_kwargs,
+        )
 
-    mkdn = """| Task | Step1 error | Stacked error |\n| --- | --- |"""
+    mkdn = """| Task | Step1 prediction | Stacked prediction |\n| --- | --- |"""
 
     for task in tasks:
         mkdn += f"\n| {task} |"
-        for target in stacked_error:
-            mkdn += f"{prettify(step1_error[target][task])} | {prettify(stacked_error[target][task])} |"
+        for target in stacked_predictions:
+            mkdn += f"{prettify(step1_predictions[target][task], False)} | {prettify(stacked_predictions[target][task], False)} |"
 
-    mkdn += "\n| **Avg signed error** | "
-    for target in stacked_error:
-        mkdn += f"**{prettify(np.mean(list(step1_error[target].values())))}** | **{prettify(np.mean(list(stacked_error[target].values())))}** |"
-
-    mkdn += "\n| **Avg unsigned error** | "
-    for target in stacked_error:
-        mkdn += f"**{prettify(np.mean(np.abs(list(step1_error[target].values()))))}** | **{prettify(np.mean(np.abs(list(stacked_error[target].values()))))}** |"
     print(mkdn)
+    print()
+
+    if not no_error:
+        mkdn = """| Task | Step1 error | Stacked error |\n| --- | --- |"""
+
+        for task in tasks:
+            mkdn += f"\n| {task} |"
+            for target in stacked_error:
+                mkdn += f"{prettify(step1_error[target][task])} | {prettify(stacked_error[target][task])} |"
+
+        mkdn += "\n| **Avg signed error** | "
+        for target in stacked_error:
+            mkdn += f"**{prettify(np.mean(list(step1_error[target].values())))}** | **{prettify(np.mean(list(stacked_error[target].values())))}** |"
+
+        mkdn += "\n| **Avg unsigned error** | "
+        for target in stacked_error:
+            mkdn += f"**{prettify(np.mean(np.abs(list(step1_error[target].values()))))}** | **{prettify(np.mean(np.abs(list(stacked_error[target].values()))))}** |"
+        print(mkdn)
 
 
 if __name__ == "__main__":

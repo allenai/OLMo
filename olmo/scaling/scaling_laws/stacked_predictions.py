@@ -1,6 +1,6 @@
 import csv
 from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -49,33 +49,6 @@ def reverse_sigmoid(y, L, x0, k, b):
 #     bounds=None, #[(None, 0), (None, None), (None, None), (None, None)],
 # )
 
-# @dataclass
-# class StackedPredictionsConfig:
-#     paths: List[str]
-#     """
-#     Path containing the W&B downloaded data and metadata.
-#     """
-#
-#     mode: str
-#     """
-#     Whether this model is used for fitting the curve ('train') or evaluating the fit ('eval').
-#     """
-#
-#     n: int
-#     """
-#     The model size (non-embedding parameter count).
-#     """
-#
-#     label: str
-#     """
-#     A short label for this curve.
-#     """
-#
-#     color: str
-#     """
-#     The color for this curve.
-#     """
-
 
 BASELINE_BY_TASK_NAME = {
     "HellaSwag-0shot": 0.25,
@@ -112,7 +85,9 @@ def size_length_from_path(path):
 
 
 def get_dataframe_from_configs(
-    x_dict: Dict[str, Dict], y_dict: Dict[str, Dict], configs: Dict[str, FinalConfig]
+    x_dict: Dict[str, Dict],
+    y_dict: Dict[str, Dict],
+    configs: Dict[str, FinalConfig],
 ) -> pd.DataFrame:
     df = pd.DataFrame()
     xs = []
@@ -185,9 +160,11 @@ def predict_step1(n: int, d: int, coefficients: List[float]):
     return chinchilla_n_d_fit([n, d], coefficients)
 
 
-def plot_step1(df, coefficients, ax, x_label=None, y_label=None, title="Fitting final score", do_label=True):
-    a, b, alpha, beta, E = coefficients
-    A, B = np.exp(a), np.exp(b)
+def plot_step1(
+    df, coefficients, ax, x_label=None, y_label=None, title="Fitting final score", do_label=True, logscale=False
+):
+    # a, b, alpha, beta, E = coefficients
+    # A, B = np.exp(a), np.exp(b)
 
     eval_row = df[df["mode"] == "eval"].iloc[-1]
     x = eval_row["x"]
@@ -244,6 +221,9 @@ def plot_step1(df, coefficients, ax, x_label=None, y_label=None, title="Fitting 
     if do_label:
         ax.legend(loc="upper right", ncols=1)
 
+    if logscale:
+        ax.set_xscale("log")
+
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
     ax.set_title(title)
@@ -262,6 +242,7 @@ def fit_step2(df: pd.DataFrame, baseline: float, add_ideal_points: bool = True):
         train_ys = pd.concat([pd.Series([1.0]), train_ys, pd.Series([baseline])], ignore_index=True)
 
     coefficients, pcov = curve_fit(sigmoid, train_xs, train_ys, p0=[baseline - 1.0, 0.9, 3.0, 1.0], maxfev=1000000)
+
     df["predicted_y"] = df["x"].apply(lambda x: sigmoid(x, *coefficients))
 
     return df, coefficients
@@ -345,7 +326,9 @@ def plot_step2(
     ax.set_title(title)
 
 
-def plot_stacked(df, step2_df, ax, x_label=None, y_label=None, title=None, do_label=True, do_grey=False):
+def plot_stacked(
+    df, step2_df, ax, x_label=None, y_label=None, title=None, do_label=True, do_grey=False, logscale=False
+):
     mode_colors = {"train": "grey", "eval": "lightgrey"}
 
     for label in df["size"].unique():
@@ -359,7 +342,12 @@ def plot_stacked(df, step2_df, ax, x_label=None, y_label=None, title=None, do_la
             label=label,
         )
 
-    step2_df["tokens"] = df["x"]
+    step2_df = (
+        pd.merge(df.reset_index()[["index", "x"]], step2_df, left_on="index", right_on="level_1", how="inner")
+        .rename({"x_x": "tokens", "x_y": "x"}, axis=1)
+        .drop("index", axis=1)
+        .drop("level_1", axis=1)
+    )
     eval_row = step2_df[step2_df["mode"] == "eval"].iloc[-1]
     x = eval_row["tokens"]
     y = eval_row["y"]
@@ -380,6 +368,9 @@ def plot_stacked(df, step2_df, ax, x_label=None, y_label=None, title=None, do_la
 
     if do_label:
         ax.legend(loc="lower right", ncols=1)
+
+    if logscale:
+        ax.set_xscale("log")
     ax.set_xlabel(x_label or "tokens")
     ax.set_ylabel(y_label or "accuracy")
     ax.set_title(title or "stacked prediction")
@@ -406,6 +397,7 @@ def get_downstream_predictions(
     use_last_n_percentage: float = 1.0,
     *,
     save_figures: Optional[str] = None,
+    target_n_d: Optional[Tuple[int, int]] = None,
     **feature_kwargs,
 ):
     assert 0.0 <= use_last_n_percentage <= 1.0
@@ -415,9 +407,17 @@ def get_downstream_predictions(
         rows = len(tasks.keys())
         fig, axes = plt.subplots(rows, 3, figsize=(20, 5 * rows))
 
-    target = [run_name for run_name in configs if configs[run_name].mode == "eval"][0]
-    step1_error: Dict = {target: {}}
-    stacked_error: Dict = {target: {}}
+    no_error = target_n_d is not None
+
+    if not no_error:
+        target = [run_name for run_name in configs if configs[run_name].mode == "eval"][0]
+        step1_error: Dict = {target: {}}
+        stacked_error: Dict = {target: {}}
+    else:
+        target = "_".join([str(x) for x in target_n_d])
+
+    step1_predictions: Dict = {target: {}}
+    stacked_predictions: Dict = {target: {}}
 
     for i, (task_name, task) in enumerate(tasks.items()):
         tokens = get_all_data_by_name(configs, ["throughput/total_tokens"])
@@ -431,8 +431,16 @@ def get_downstream_predictions(
         elif feature_type == DownstreamPredictionFeatures.exponential_moving_average:
             step1_df["y"] == apply_exponential_moving_average(step1_df, "y", **feature_kwargs)
 
-        step1_df = step1_df.groupby("run").apply(lambda rows: rows.iloc[-1], include_groups=False).reset_index()
+        step1_df = step1_df.groupby("run").apply(lambda rows: rows.iloc[-1:], include_groups=False).reset_index()
         step1_df, coefficients = fit_step1(step1_df)
+
+        if not no_error:
+            target_n_d = [
+                step1_df[step1_df["mode"] == "eval"].params.iloc[0],
+                step1_df[step1_df["mode"] == "eval"].x.iloc[0],
+            ]
+
+        step1_predictions[target][task_name] = predict_step1(*target_n_d, coefficients)
 
         if do_plot:
             plot_step1(
@@ -443,8 +451,8 @@ def get_downstream_predictions(
                 y_label="task loss",
                 title=f"predicting task_loss ({task_name})",
                 do_label=True,
+                logscale=True,
             )
-        step1_error[target][task_name] = get_predicted_error(step1_df)
 
         step2_df = get_dataframe_from_configs(bpb_loss, downstream_loss, configs)
 
@@ -460,9 +468,12 @@ def get_downstream_predictions(
             step2_df["x"] == apply_exponential_moving_average(step2_df, "x", **feature_kwargs)
 
         last_match_idx = step2_df.loc[step2_df["mode"] == "eval"].tail(1).index
-        step2_df.loc[last_match_idx, "x"] = step1_df[step1_df["mode"] == "eval"].predicted_y.values[0]
+        step2_df.loc[last_match_idx, "x"] = step1_predictions[target][task_name]
 
         step2_df, coefficients = fit_step2(step2_df, tasks[task_name]["baseline"])
+
+        stacked_predictions[target][task_name] = predict_step2(step1_predictions[target][task_name], coefficients)
+
         if do_plot:
             plot_step2(
                 step2_df,
@@ -473,7 +484,10 @@ def get_downstream_predictions(
                 title=f"predicting task_accuracy ({task_name})",
                 do_label=True,
             )
-        stacked_error[target][task_name] = get_predicted_error(step2_df)
+
+        if not no_error:
+            step1_error[target][task_name] = get_predicted_error(step1_df)
+            stacked_error[target][task_name] = get_predicted_error(step2_df)
 
         if do_plot:
             df = get_dataframe_from_configs(tokens, downstream_loss, configs)
@@ -493,4 +507,7 @@ def get_downstream_predictions(
         fig.savefig(save_figures, dpi=300)
         # plt.close()
 
-    return step1_error, stacked_error
+    if not no_error:
+        return step1_predictions, stacked_predictions, step1_error, stacked_error
+    else:
+        return step1_predictions, stacked_predictions
