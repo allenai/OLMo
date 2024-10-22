@@ -1,13 +1,18 @@
 import argparse
 import json
 
+from typing import Dict
+
 import numpy as np
+import pandas as pd
 
 from olmo.scaling.scaling_laws.stacked_predictions import (
     DownstreamPredictionFeatures,
     get_downstream_predictions,
 )
 from olmo.scaling.scaling_laws.utils import FinalConfig
+
+import ladder_peteish as ladder
 
 # We only include ce loss and the 6 dolma sets, as these are the sets we can include in the paper
 ce_columns = [
@@ -108,13 +113,26 @@ def make_parser():
     parser.add_argument("--feature_kwargs", type=str, default="{}", help="Eg. {'window': 20}")
 
     parser.add_argument(
-        "--target_n", type=int, default=-1, help="Target number of parameters to predict for. Use with `target_d`"
+        "--target_n", type=str, default="", help="Target number of parameters to predict for. Use with `target_d`"
     )
     parser.add_argument(
-        "--target_d", type=int, default=-1, help="Target number of tokens to predict for. Use with `target_n`"
+        "--target_d", type=str, default="", help="Target number of tokens to predict for. Use with `target_n`"
     )
 
     return parser
+
+def save_predictions(output_path: str, target_n: int, step1_predictions: Dict, stacked_predictions: Dict):
+
+    save_dict = {}
+    save_dict["throughput/total_tokens"] = target_n
+
+    for key, val in list(step1_predictions.values())[0].items():
+        save_dict[tasks[key]["bpb"][0]] = val
+    for key, val in list(stacked_predictions.values())[0].items():
+        save_dict[tasks[key]["score"][0]] = val
+
+    df = pd.DataFrame([save_dict])
+    df.to_csv(output_path, index=False)
 
 
 def main():
@@ -130,9 +148,11 @@ def main():
 
     feature_kwargs = json.loads(args.feature_kwargs)
 
-    if args.target_n != -1 and args.target_d != -1:
+    if args.target_n != "" and args.target_d != "":
         no_error = True
-        target_n_d = [args.target_n, args.target_d]
+        model_size = ladder.parse_size(args.target_n)
+        model_length = ladder.parse_length(args.target_d, model_size)
+        target_n_d = [model_size, model_length]
         step1_predictions, stacked_predictions = get_downstream_predictions(
             configs,
             tasks,
@@ -181,6 +201,13 @@ def main():
         for target in stacked_error:
             mkdn += f"**{prettify(np.mean(np.abs(list(step1_error[target].values()))))}** | **{prettify(np.mean(np.abs(list(stacked_error[target].values()))))}** |"
         print(mkdn)
+
+
+    # do_save_predictions = False
+    # if do_save_predictions:
+    #     save_predictions(f"wandb/peteish-final-new/{args.target_n}-{args.target_d}.csv", model_size, step1_predictions, stacked_predictions)
+
+
 
 
 if __name__ == "__main__":
