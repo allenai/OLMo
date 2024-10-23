@@ -1,0 +1,331 @@
+# This is a base shape file encoded in yaml
+# - `null` indicates a dimension is "finite", i.e. a non-"width" dimension
+# - a number indicates the base dimension of an "infinite" dimension, i.e. some notion of "width"
+transformer.blocks.0.att_proj.weight:
+- 96
+- 32
+transformer.blocks.0.attn_norm.weight:
+- 32
+transformer.blocks.0.attn_out.weight:
+- 32
+- 32
+transformer.blocks.0.ff_norm.weight:
+- 32
+transformer.blocks.0.ff_out.weight:
+- 32
+- 128
+transformer.blocks.0.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.0.k_norm.weight:
+- 32
+transformer.blocks.0.q_norm.weight:
+- 32
+transformer.blocks.1.att_proj.weight:
+- 96
+- 32
+transformer.blocks.1.attn_norm.weight:
+- 32
+transformer.blocks.1.attn_out.weight:
+- 32
+- 32
+transformer.blocks.1.ff_norm.weight:
+- 32
+transformer.blocks.1.ff_out.weight:
+- 32
+- 128
+transformer.blocks.1.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.1.k_norm.weight:
+- 32
+transformer.blocks.1.q_norm.weight:
+- 32
+transformer.blocks.10.att_proj.weight:
+- 96
+- 32
+transformer.blocks.10.attn_norm.weight:
+- 32
+transformer.blocks.10.attn_out.weight:
+- 32
+- 32
+transformer.blocks.10.ff_norm.weight:
+- 32
+transformer.blocks.10.ff_out.weight:
+- 32
+- 128
+transformer.blocks.10.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.10.k_norm.weight:
+- 32
+transformer.blocks.10.q_norm.weight:
+- 32
+transformer.blocks.11.att_proj.weight:
+- 96
+- 32
+transformer.blocks.11.attn_norm.weight:
+- 32
+transformer.blocks.11.attn_out.weight:
+- 32
+- 32
+transformer.blocks.11.ff_norm.weight:
+- 32
+transformer.blocks.11.ff_out.weight:
+- 32
+- 128
+transformer.blocks.11.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.11.k_norm.weight:
+- 32
+transformer.blocks.11.q_norm.weight:
+- 32
+transformer.blocks.12.att_proj.weight:
+- 96
+- 32
+transformer.blocks.12.attn_norm.weight:
+- 32
+transformer.blocks.12.attn_out.weight:
+- 32
+- 32
+transformer.blocks.12.ff_norm.weight:
+- 32
+transformer.blocks.12.ff_out.weight:
+- 32
+- 128
+transformer.blocks.12.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.12.k_norm.weight:
+- 32
+transformer.blocks.12.q_norm.weight:
+- 32
+transformer.blocks.13.att_proj.weight:
+- 96
+- 32
+transformer.blocks.13.attn_norm.weight:
+- 32
+transformer.blocks.13.attn_out.weight:
+- 32
+- 32
+transformer.blocks.13.ff_norm.weight:
+- 32
+transformer.blocks.13.ff_out.weight:
+- 32
+- 128
+transformer.blocks.13.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.13.k_norm.weight:
+- 32
+transformer.blocks.13.q_norm.weight:
+- 32
+transformer.blocks.14.att_proj.weight:
+- 96
+- 32
+transformer.blocks.14.attn_norm.weight:
+- 32
+transformer.blocks.14.attn_out.weight:
+- 32
+- 32
+transformer.blocks.14.ff_norm.weight:
+- 32
+transformer.blocks.14.ff_out.weight:
+- 32
+- 128
+transformer.blocks.14.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.14.k_norm.weight:
+- 32
+transformer.blocks.14.q_norm.weight:
+- 32
+transformer.blocks.15.att_proj.weight:
+- 96
+- 32
+transformer.blocks.15.attn_norm.weight:
+- 32
+transformer.blocks.15.attn_out.weight:
+- 32
+- 32
+transformer.blocks.15.ff_norm.weight:
+- 32
+transformer.blocks.15.ff_out.weight:
+- 32
+- 128
+transformer.blocks.15.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.15.k_norm.weight:
+- 32
+transformer.blocks.15.q_norm.weight:
+- 32
+transformer.blocks.2.att_proj.weight:
+- 96
+- 32
+transformer.blocks.2.attn_norm.weight:
+- 32
+transformer.blocks.2.attn_out.weight:
+- 32
+- 32
+transformer.blocks.2.ff_norm.weight:
+- 32
+transformer.blocks.2.ff_out.weight:
+- 32
+- 128
+transformer.blocks.2.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.2.k_norm.weight:
+- 32
+transformer.blocks.2.q_norm.weight:
+- 32
+transformer.blocks.3.att_proj.weight:
+- 96
+- 32
+transformer.blocks.3.attn_norm.weight:
+- 32
+transformer.blocks.3.attn_out.weight:
+- 32
+- 32
+transformer.blocks.3.ff_norm.weight:
+- 32
+transformer.blocks.3.ff_out.weight:
+- 32
+- 128
+transformer.blocks.3.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.3.k_norm.weight:
+- 32
+transformer.blocks.3.q_norm.weight:
+- 32
+transformer.blocks.4.att_proj.weight:
+- 96
+- 32
+transformer.blocks.4.attn_norm.weight:
+- 32
+transformer.blocks.4.attn_out.weight:
+- 32
+- 32
+transformer.blocks.4.ff_norm.weight:
+- 32
+transformer.blocks.4.ff_out.weight:
+- 32
+- 128
+transformer.blocks.4.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.4.k_norm.weight:
+- 32
+transformer.blocks.4.q_norm.weight:
+- 32
+transformer.blocks.5.att_proj.weight:
+- 96
+- 32
+transformer.blocks.5.attn_norm.weight:
+- 32
+transformer.blocks.5.attn_out.weight:
+- 32
+- 32
+transformer.blocks.5.ff_norm.weight:
+- 32
+transformer.blocks.5.ff_out.weight:
+- 32
+- 128
+transformer.blocks.5.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.5.k_norm.weight:
+- 32
+transformer.blocks.5.q_norm.weight:
+- 32
+transformer.blocks.6.att_proj.weight:
+- 96
+- 32
+transformer.blocks.6.attn_norm.weight:
+- 32
+transformer.blocks.6.attn_out.weight:
+- 32
+- 32
+transformer.blocks.6.ff_norm.weight:
+- 32
+transformer.blocks.6.ff_out.weight:
+- 32
+- 128
+transformer.blocks.6.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.6.k_norm.weight:
+- 32
+transformer.blocks.6.q_norm.weight:
+- 32
+transformer.blocks.7.att_proj.weight:
+- 96
+- 32
+transformer.blocks.7.attn_norm.weight:
+- 32
+transformer.blocks.7.attn_out.weight:
+- 32
+- 32
+transformer.blocks.7.ff_norm.weight:
+- 32
+transformer.blocks.7.ff_out.weight:
+- 32
+- 128
+transformer.blocks.7.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.7.k_norm.weight:
+- 32
+transformer.blocks.7.q_norm.weight:
+- 32
+transformer.blocks.8.att_proj.weight:
+- 96
+- 32
+transformer.blocks.8.attn_norm.weight:
+- 32
+transformer.blocks.8.attn_out.weight:
+- 32
+- 32
+transformer.blocks.8.ff_norm.weight:
+- 32
+transformer.blocks.8.ff_out.weight:
+- 32
+- 128
+transformer.blocks.8.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.8.k_norm.weight:
+- 32
+transformer.blocks.8.q_norm.weight:
+- 32
+transformer.blocks.9.att_proj.weight:
+- 96
+- 32
+transformer.blocks.9.attn_norm.weight:
+- 32
+transformer.blocks.9.attn_out.weight:
+- 32
+- 32
+transformer.blocks.9.ff_norm.weight:
+- 32
+transformer.blocks.9.ff_out.weight:
+- 32
+- 128
+transformer.blocks.9.ff_proj.weight:
+- 256
+- 32
+transformer.blocks.9.k_norm.weight:
+- 32
+transformer.blocks.9.q_norm.weight:
+- 32
+transformer.ff_out.weight:
+- null
+- 32
+transformer.ln_f.weight:
+- 32
+transformer.wte.weight:
+- null
+- 32

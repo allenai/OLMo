@@ -702,9 +702,13 @@ class OLMoSequentialBlock(OLMoBlock):
         self.att_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
+        
         # Feed-forward input projection.
-        layer_func = MuReadout if config.use_mup and self.config.mlp_hidden_size is not None else nn.Linear
-        kwargs = {"readout_zero_init": True} if config.use_mup else {}
+        layer_func = nn.Linear
+        kwargs = {}
+        if config.use_mup and self.config.mlp_hidden_size is not None:
+            layer_func = MuReadout
+            kwargs = {"readout_zero_init": True}
         self.ff_proj = layer_func(
             config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device, **kwargs
         )
