@@ -9,15 +9,16 @@ from typing import Iterable, Optional
 from urllib.parse import urlparse
 
 import torch
+from olmo import ModelConfig, Tokenizer, TrainConfig
+from olmo.checkpoint import build_sharded_checkpointer
+from olmo.util import _get_s3_client
 from omegaconf import OmegaConf as om
+from safetensors.torch import load_file
 from tqdm import tqdm
 
 from hf_olmo.configuration_olmo import OLMoConfig
 from hf_olmo.modeling_olmo import OLMoForCausalLM
 from hf_olmo.tokenization_olmo_fast import OLMoTokenizerFast
-from olmo import ModelConfig, Tokenizer, TrainConfig
-from olmo.checkpoint import build_sharded_checkpointer
-from olmo.util import _get_s3_client
 
 logger = logging.getLogger(__name__)
 
@@ -67,10 +68,16 @@ def write_model(checkpoint_dir: str, ignore_olmo_compatibility: bool = False):
     # For device_map = "auto", etc. the models are loaded in a way that start_prefix is not computed correctly.
     # So, we explicitly store the model with the expected prefix.
 
-    old_model_path = os.path.join(checkpoint_dir, "model.pt")
-    new_model_path = os.path.join(checkpoint_dir, "pytorch_model.bin")
+    if os.path.exists(os.path.join(checkpoint_dir, "model.pt")):
+        old_model_path = os.path.join(checkpoint_dir, "model.pt")
+        state_dict = torch.load(old_model_path, map_location="cpu")
+    elif os.path.exists(os.path.join(checkpoint_dir, "model.safetensors")):
+        old_model_path = os.path.join(checkpoint_dir, "model.safetensors")
+        state_dict = load_file(old_model_path, device="cpu")
+    else:
+        raise ValueError(f"No model found in {checkpoint_dir}")
 
-    state_dict = torch.load(old_model_path, map_location="cpu")
+    new_model_path = os.path.join(checkpoint_dir, "pytorch_model.bin")
 
     # this takes care of the case where the model was saved with a different prefix,
     # typically due to unsharding.
@@ -233,7 +240,9 @@ def upload_local_checkpoint(local_checkpoint_dir: str, destination_dir: str):
 
 
 def maybe_unshard(checkpoint_dir: str):
-    if os.path.exists(os.path.join(checkpoint_dir, "model.pt")):
+    if os.path.exists(os.path.join(checkpoint_dir, "model.pt")) or os.path.exists(
+        os.path.join(checkpoint_dir, "model.safetensors")
+    ):
         return
 
     print(f"Unsharding {checkpoint_dir}...")
