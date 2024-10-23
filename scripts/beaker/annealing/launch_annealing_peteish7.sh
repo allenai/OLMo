@@ -12,7 +12,7 @@ CONFIG_DIR=configs/annealing
 CONFIG_PATH=${CONFIG_DIR}/${CONFIG_NAME}.yaml
 
 gantry run \
-  --workspace ai2/davidw-oe-annealing \
+  --workspace ai2/reddit \
   --task-name ${CONFIG_NAME} \
   --description ${CONFIG_NAME} \
   --priority $PRIORITY \
