@@ -67,7 +67,7 @@ srun \
       --wandb.name="mup_peteish_1b_${WIDTH}_${LR}" \
       --wandb.group="mup_peteish_1b" \
       --wandb.project=olmo-mup \
-      --scheduler.t_warmup=$((3 * $WIDTH / 128)) \
+      --scheduler.t_warmup=100 \
       --model.use_mup \
       --model.mup_query_zero_init=false \
       --model.mup_base_shapes=configs/mup/peteish-1b-target.bsh \
