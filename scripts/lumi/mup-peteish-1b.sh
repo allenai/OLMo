@@ -77,5 +77,5 @@ srun \
       --save_interval_ephemeral=250 \
       --eval_interval=100 \
       --try_load_latest_save \
-      --save_overwrite
+      --save_overwrite \
       "${@}"
