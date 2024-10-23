@@ -26,7 +26,7 @@ SAVE_FOLDER=/mnt/localssd/runs/$RUN_NAME
 mkdir -p $SAVE_FOLDER
 
 ./scripts/augusta/launch_train.sh $HOSTS \
-  configs/$NAME-google.yaml \
+  configs/annealing/$NAME-google.yaml \
     --run_name=$RUN_NAME \
     --wandb.group=$NAME \
     --save_interval_ephemeral=1000 \
