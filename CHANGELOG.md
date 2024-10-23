@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Added support for safetensors in `hf_olmo` conversion script.
+
 ## [v0.5.1](https://github.com/allenai/OLMo/releases/tag/v0.5.1) - 2024-10-17
 
 ### Added
@@ -45,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Swapped in correct flan data mix.
 - Fix bug where the attention norm, when applied before the attention block, was modifying the residual stream.
 - Fixed `OLMo.from_checkpoint()` so that it correctly loads `olmo_core` and `torch_new` style checkpoints.
-- Fixed `preserve_rng_state` being incorrectly set to False when doing gradient checkpointing with dropout 
+- Fixed `preserve_rng_state` being incorrectly set to False when doing gradient checkpointing with dropout
 
 
 ## [v0.4.0](https://github.com/allenai/OLMo/releases/tag/v0.4.0) - 2024-07-11
