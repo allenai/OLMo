@@ -1,4 +1,4 @@
-run_name: peteish7-dclm-only-baseline-anneal-from-928646-50B-train
+run_name: peteish7-reddit-dclm-only-baseline-anneal-from-928646-50B-train
 seed: 7201
 dry_run: false
 
