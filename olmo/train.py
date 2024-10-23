@@ -1368,8 +1368,8 @@ class Trainer:
             gc.enable()
         else:
             gc.disable()
-        if wandb.run is not None:
-            wandb.finish(exit_code=exit_code, quiet=True)
+        # if wandb.run is not None:
+        #     wandb.finish(exit_code=exit_code, quiet=True)
 
     def __enter__(self) -> Trainer:
         return self

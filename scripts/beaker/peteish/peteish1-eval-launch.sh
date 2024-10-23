@@ -6,9 +6,9 @@ NUM_NODES=1
 
 gantry run \
   --allow-dirty \
-  --workspace ai2/hb-wolf-olmo \
+  --workspace ai2/OLMo-tiny \
   --task-name peteish1-eval \
-  --description "Pete-ish 1B" \
+  --description "Pete-ish 1B eval" \
   --priority high \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
@@ -22,9 +22,9 @@ gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
-  --env-secret WANDB_API_KEY=WANDB_API_KEY \
-  --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
-  --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
+  --env-secret WANDB_API_KEY=JIACHENGL_WANDB_API_KEY \
+  --env-secret AWS_ACCESS_KEY_ID=AKSHITAB_AWS_ACCESS_KEY_ID \
+  --env-secret AWS_SECRET_ACCESS_KEY=AKSHITAB_AWS_SECRET_ACCESS_KEY \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
