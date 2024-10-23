@@ -49,6 +49,7 @@ mkdir -p $SAVE_FOLDER
     --scheduler.units=steps \
     --scheduler.name=linear_with_warmup \
     --scheduler.t_warmup=$START \
+    --scheduler.t_max=null \
     --scheduler.alpha_f=0 \
     --max_duration=$STEPS_TO_TRAIN \
     --stop_at=$(($STEPS_TO_TRAIN + 10)) \
