@@ -5,7 +5,7 @@ dry_run: false
 
 wandb:
   name: ${run_name}
-  project: olmo-medium
+  project: reddit-annealing
   group: ${run_name}
 
 model:
@@ -68,7 +68,7 @@ tokenizer:
   identifier: tokenizers/allenai_dolma2.json
   truncate_direction: right
 
-save_folder: /weka/oe-training-default/ai2-llm/checkpoints/reddit-annealing/${run_name}
+save_folder: s3://ai2-llm/checkpoints/reddit-annealing/${run_name}
 save_overwrite: false
 
 save_interval: 1000
