@@ -127,148 +127,147 @@ def main(cfg: TrainConfig) -> None:
     evaluators = build_evaluators(cfg, device)
     barrier()
 
-    # Initialize the model.
-    log.info("Building model...")
-    olmo_model = OLMo(cfg.model)
-    log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
-    log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
-    log.info(f"Peak GPU Memory (MB) before {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
+    if cfg.load_path is None:
+        raise OLMoConfigurationError("To run eval you must provide a load_path")
+    if 'step' in cfg.load_path.split('/')[-1]:
+        load_paths = [cfg.load_path]
+    else:
+        # This globbing does not work with remote paths.
+        load_paths = list(sorted(glob.glob(f"{cfg.load_path}/step*"), key=lambda x: int(x.split('/')[-1].split('step')[-1])))
 
-    olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
+    for load_path in load_paths:
+        step = int(load_path.split('/')[-1].split('step')[-1])
 
-    if cfg.distributed_strategy == DistributedStrategy.ddp:
-        log.info("Wrapping model with DDP...")
-        assert cfg.ddp is not None, "DistributedStrategy ddp needs cfg.ddp to be set!"
+        # Initialize the model.
+        log.info("Building model...")
+        olmo_model = OLMo(cfg.model)
+        log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
+        log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
+        log.info(f"Peak GPU Memory (MB) before {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
 
-        if cfg.model.init_device != "cuda":
-            raise OLMoConfigurationError("DDP does not work with init_device set to anything other than `cuda`.")
+        olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
 
-        if cfg.ddp.find_unused_params is True and cfg.ddp.grad_sync_mode != DDPGradSyncMode.micro_batch:
-            raise OLMoConfigurationError(
-                "`find_unused_params` is set to True. DDP needs to synchronize gradients for every micro-batch to avoid errors. Set `grad_sync_mode` to `micro_batch`."
-            )
+        if cfg.distributed_strategy == DistributedStrategy.ddp:
+            log.info("Wrapping model with DDP...")
+            assert cfg.ddp is not None, "DistributedStrategy ddp needs cfg.ddp to be set!"
 
-        param_init_fn = None
+            if cfg.model.init_device != "cuda":
+                raise OLMoConfigurationError("DDP does not work with init_device set to anything other than `cuda`.")
 
-        # move to cuda before calling ddp
-        dist_model = DDP(olmo_model.to(device), find_unused_parameters=cfg.ddp.find_unused_params)
-    elif cfg.distributed_strategy == DistributedStrategy.fsdp:
-        # Wrap the model in FSDP.
-        log.info("Wrapping model with FSDP...")
-        assert cfg.fsdp is not None, "DistributedStrategy fsdp needs cfg.fsdp to be set!"
-        wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
-
-        if version.parse(torch.__version__) >= version.parse("2.1.0"):
-            # This prevents any parameters from being initialized twice
-            def dummy_init_fn(module: torch.nn.Module) -> None:
-                module.to_empty(device=get_default_device())
-
-            param_init_fn = dummy_init_fn
-        else:
-            param_init_fn = None
-
-        # Set up device mesh for hybrid sharding in order to specify which nodes are assoicated to a given model replica
-        device_mesh = None
-        hybrid_sharding_fsdp_kwargs = {}
-        if cfg.fsdp.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
-            if version.parse(torch.__version__) < version.parse("2.2.0"):
-                # Device mesh was not added to PyTorch until v2.2.0
+            if cfg.ddp.find_unused_params is True and cfg.ddp.grad_sync_mode != DDPGradSyncMode.micro_batch:
                 raise OLMoConfigurationError(
-                    "OLMo training does not correctly support hybrid sharding before torch 2.2.0"
+                    "`find_unused_params` is set to True. DDP needs to synchronize gradients for every micro-batch to avoid errors. Set `grad_sync_mode` to `micro_batch`."
                 )
 
-            from torch.distributed.device_mesh import init_device_mesh
+            param_init_fn = None
 
-            num_model_replicas = cfg.fsdp.hybrid_sharding_num_model_replicas or (
-                get_world_size() // get_local_world_size()
+            # move to cuda before calling ddp
+            dist_model = DDP(olmo_model.to(device), find_unused_parameters=cfg.ddp.find_unused_params)
+        elif cfg.distributed_strategy == DistributedStrategy.fsdp:
+            # Wrap the model in FSDP.
+            log.info("Wrapping model with FSDP...")
+            assert cfg.fsdp is not None, "DistributedStrategy fsdp needs cfg.fsdp to be set!"
+            wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
+
+            if version.parse(torch.__version__) >= version.parse("2.1.0"):
+                # This prevents any parameters from being initialized twice
+                def dummy_init_fn(module: torch.nn.Module) -> None:
+                    module.to_empty(device=get_default_device())
+
+                param_init_fn = dummy_init_fn
+            else:
+                param_init_fn = None
+
+            # Set up device mesh for hybrid sharding in order to specify which nodes are assoicated to a given model replica
+            device_mesh = None
+            hybrid_sharding_fsdp_kwargs = {}
+            if cfg.fsdp.sharding_strategy in (ShardingStrategy.HYBRID_SHARD, ShardingStrategy._HYBRID_SHARD_ZERO2):
+                if version.parse(torch.__version__) < version.parse("2.2.0"):
+                    # Device mesh was not added to PyTorch until v2.2.0
+                    raise OLMoConfigurationError(
+                        "OLMo training does not correctly support hybrid sharding before torch 2.2.0"
+                    )
+
+                from torch.distributed.device_mesh import init_device_mesh
+
+                num_model_replicas = cfg.fsdp.hybrid_sharding_num_model_replicas or (
+                    get_world_size() // get_local_world_size()
+                )
+
+                if num_model_replicas <= 0:
+                    raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must be a positive integer")
+
+                if get_world_size() % num_model_replicas != 0:
+                    raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must divide world size")
+
+                device_mesh = init_device_mesh("cuda", (num_model_replicas, get_world_size() // num_model_replicas))
+                hybrid_sharding_fsdp_kwargs["device_mesh"] = device_mesh
+
+            dist_model = FSDP(
+                olmo_model,
+                sharding_strategy=cfg.fsdp.sharding_strategy,
+                mixed_precision=cfg.fsdp_precision,
+                auto_wrap_policy=wrap_policy,
+                use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
+                limit_all_gathers=True,
+                device_id=get_local_rank(),
+                param_init_fn=param_init_fn,
+                **hybrid_sharding_fsdp_kwargs,
             )
+        elif cfg.distributed_strategy is None:
+            raise NotImplementedError("Single accelerator training not implemented yet!")
 
-            if num_model_replicas <= 0:
-                raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must be a positive integer")
+        # when param_init_fn is None, FSDP will call reset_parameters() automatically
+        if param_init_fn is not None or cfg.distributed_strategy == DistributedStrategy.ddp:
+            olmo_model.reset_parameters()
 
-            if get_world_size() % num_model_replicas != 0:
-                raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must divide world size")
+        log.info(f"Peak GPU Memory (MB) after {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
+        log.info("Model:")
+        log.info(dist_model)
 
-            device_mesh = init_device_mesh("cuda", (num_model_replicas, get_world_size() // num_model_replicas))
-            hybrid_sharding_fsdp_kwargs["device_mesh"] = device_mesh
+        # Construct optimizer and learning rate scheduler.
+        optim = build_optimizer(cfg, dist_model)
+        scheduler = build_scheduler(cfg)
 
-        dist_model = FSDP(
-            olmo_model,
-            sharding_strategy=cfg.fsdp.sharding_strategy,
-            mixed_precision=cfg.fsdp_precision,
-            auto_wrap_policy=wrap_policy,
-            use_orig_params=cfg.fsdp.use_orig_params,  # needed for compile and some of our optimizer/parameter metrics
-            limit_all_gathers=True,
-            device_id=get_local_rank(),
-            param_init_fn=param_init_fn,
-            **hybrid_sharding_fsdp_kwargs,
-        )
-    elif cfg.distributed_strategy is None:
-        raise NotImplementedError("Single accelerator training not implemented yet!")
+        # Data indices file.
+        indices_file: Optional[TextIO] = None
+        # if cfg.save_data_indices:
+        #     indices_file_path = Path(cfg.save_folder) / f"data-indices/rank{get_global_rank()}.tsv.gz"
+        #     if indices_file_path.exists() and not cfg.save_overwrite:
+        #         raise OLMoConfigurationError(f"{indices_file_path} already exists, use --save_overwrite to overwrite")
+        #     indices_file_path.parent.mkdir(exist_ok=True, parents=True)
+        #     indices_file = gzip.open(indices_file_path, "wt")
 
-    # when param_init_fn is None, FSDP will call reset_parameters() automatically
-    if param_init_fn is not None or cfg.distributed_strategy == DistributedStrategy.ddp:
-        olmo_model.reset_parameters()
+        # Consolidate components into `Trainer` object.
+        with Trainer(
+            cfg=cfg,
+            epoch=cfg.epoch,
+            model=olmo_model,
+            dist_model=dist_model,
+            optim=optim,
+            scheduler=scheduler,
+            train_loader=train_loader,
+            device=device,
+            evaluators=evaluators,
+            indices_file=indices_file,
+        ) as trainer:
 
-    log.info(f"Peak GPU Memory (MB) after {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
-    log.info("Model:")
-    log.info(dist_model)
+                log.info(f"Loading checkpoint from {load_path}...")
+                trainer.restore_checkpoint(
+                    load_path,
+                    load_optimizer_state=False,
+                    load_trainer_state=True,
+                    sharded_checkpointer=cfg.load_path_sharded_checkpointer,
+                )
+                log.info("Checkpoint successfully loaded")
+                # compute and print the sum of the value of all parameters in the model
+                log.info(f"Sum of all parameters: {sum(p.sum().item() for p in dist_model.parameters())}")
 
-    # Construct optimizer and learning rate scheduler.
-    optim = build_optimizer(cfg, dist_model)
-    scheduler = build_scheduler(cfg)
-
-    # Data indices file.
-    indices_file: Optional[TextIO] = None
-    # if cfg.save_data_indices:
-    #     indices_file_path = Path(cfg.save_folder) / f"data-indices/rank{get_global_rank()}.tsv.gz"
-    #     if indices_file_path.exists() and not cfg.save_overwrite:
-    #         raise OLMoConfigurationError(f"{indices_file_path} already exists, use --save_overwrite to overwrite")
-    #     indices_file_path.parent.mkdir(exist_ok=True, parents=True)
-    #     indices_file = gzip.open(indices_file_path, "wt")
-
-    # Consolidate components into `Trainer` object.
-    with Trainer(
-        cfg=cfg,
-        epoch=cfg.epoch,
-        model=olmo_model,
-        dist_model=dist_model,
-        optim=optim,
-        scheduler=scheduler,
-        train_loader=train_loader,
-        device=device,
-        evaluators=evaluators,
-        indices_file=indices_file,
-    ) as trainer:
-
-        if cfg.load_path is None:
-            raise OLMoConfigurationError("To run eval you must provide a load_path")
-        if 'step' in cfg.load_path.split('/')[-1]:
-            load_paths = [cfg.load_path]
-        else:
-            # This globbing does not work with remote paths.
-            load_paths = list(sorted(glob.glob(f"{cfg.load_path}/step*"), key=lambda x: int(x.split('/')[-1].split('step')[-1])))
-            load_paths = load_paths[1:] # Skip step0
-
-        for load_path in load_paths:
-            step = int(load_path.split('/')[-1].split('step')[-1])
-
-            log.info(f"Loading checkpoint from {load_path}...")
-            trainer.restore_checkpoint(
-                load_path,
-                load_optimizer_state=False,
-                load_trainer_state=True,
-                sharded_checkpointer=cfg.load_path_sharded_checkpointer,
-            )
-            log.info("Checkpoint successfully loaded")
-            # compute and print the sum of the value of all parameters in the model
-            log.info(f"Sum of all parameters: {sum(p.sum().item() for p in dist_model.parameters())}")
-
-            log.info("Starting evaluating...")
-            eval_metrics = trainer.eval()
-            if wandb.run is not None:
-                wandb.log(eval_metrics, step=step)
-            log.info("Evaluating complete")
+                log.info("Starting evaluating...")
+                eval_metrics = trainer.eval()
+                if wandb.run is not None:
+                    wandb.log(eval_metrics, step=step)
+                log.info("Evaluating complete")
 
 
 if __name__ == "__main__":

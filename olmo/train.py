@@ -910,7 +910,6 @@ class Trainer:
         # Run forward pass.
         with torch.no_grad():  # NOTE: 'torch.inference_mode()' doesn't work with 'torch.compile()'.
             ce_loss, logits = self.eval_batch(batch)
-            log.info(f"ce_loss={ce_loss.mean().item()}")
 
         # Update metrics.
         evaluator.update_metrics(
