@@ -82,21 +82,21 @@ def main(cfg: TrainConfig) -> None:
         cfg.optimizer.decay_embeddings = not cfg.optimizer.no_decay_norm_and_bias
         cfg.optimizer.no_decay_norm_and_bias = None  # So nobody uses this by accident.
 
-    # # Display and save configuration.
-    # if get_global_rank() == 0:
-    #     if cfg.data.paths is not None and len(cfg.data.paths) < 50:
-    #         log.info("Configuration:")
-    #         log.info(cfg)
-    #     if not cfg.dry_run and (cfg.load_path is None or Path(cfg.load_path).parent != Path(cfg.save_folder)):
-    #         # Save config.
-    #         save_path = Path(cfg.save_folder) / "config.yaml"
-    #         if save_path.is_file() and not cfg.save_overwrite:
-    #             raise OLMoConfigurationError(f"{save_path} already exists, use --save_overwrite to overwrite")
-    #         else:
-    #             log.info(f"Saving config to {save_path}")
-    #             save_path.parent.mkdir(exist_ok=True, parents=True)
-    #             cfg.save(save_path)
-    #         del save_path
+    # Display and save configuration.
+    if get_global_rank() == 0:
+        if cfg.data.paths is not None and len(cfg.data.paths) < 50:
+            log.info("Configuration:")
+            log.info(cfg)
+        if not cfg.dry_run and (cfg.load_path is None or Path(cfg.load_path).parent != Path(cfg.save_folder)):
+            # Save config.
+            save_path = Path(cfg.save_folder) / "config.yaml"
+            if save_path.is_file() and not cfg.save_overwrite:
+                raise OLMoConfigurationError(f"{save_path} already exists, use --save_overwrite to overwrite")
+            else:
+                log.info(f"Saving config to {save_path}")
+                save_path.parent.mkdir(exist_ok=True, parents=True)
+                cfg.save(save_path)
+            del save_path
 
     barrier()
 
@@ -231,12 +231,6 @@ def main(cfg: TrainConfig) -> None:
 
         # Data indices file.
         indices_file: Optional[TextIO] = None
-        # if cfg.save_data_indices:
-        #     indices_file_path = Path(cfg.save_folder) / f"data-indices/rank{get_global_rank()}.tsv.gz"
-        #     if indices_file_path.exists() and not cfg.save_overwrite:
-        #         raise OLMoConfigurationError(f"{indices_file_path} already exists, use --save_overwrite to overwrite")
-        #     indices_file_path.parent.mkdir(exist_ok=True, parents=True)
-        #     indices_file = gzip.open(indices_file_path, "wt")
 
         # Consolidate components into `Trainer` object.
         with Trainer(
@@ -260,8 +254,6 @@ def main(cfg: TrainConfig) -> None:
                     sharded_checkpointer=cfg.load_path_sharded_checkpointer,
                 )
                 log.info("Checkpoint successfully loaded")
-                # compute and print the sum of the value of all parameters in the model
-                log.info(f"Sum of all parameters: {sum(p.sum().item() for p in dist_model.parameters())}")
 
                 log.info("Starting evaluating...")
                 eval_metrics = trainer.eval()
