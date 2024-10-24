@@ -254,15 +254,15 @@ def plot_step1(df: pd.DataFrame, coefficients, ax: plt.Axes, x_label=None, y_lab
 
     ax.scatter(x, y, marker="x", color="blue", label=f"actual ({run_name})= {y:0.4f}" if do_label else None, s=50)
     ax.scatter(x, y_pred, marker="^", color="black", label=f"predicted ({run_name}) = {y_pred:0.4}" if do_label else None, s=50)
-    ax.annotate(
-        f"{eval_row['run']}: {rel_error * 100:+.1f}%",
-        (x, y),
-        textcoords="offset points",
-        xytext=(10, 5),
-        ha="center",
-        fontsize=10,
-        color="blue",
-    )
+    # ax.annotate(
+    #     f"{eval_row['run']}: {rel_error * 100:+.1f}%",
+    #     (x, y),
+    #     textcoords="offset points",
+    #     xytext=(10, 5),
+    #     ha="center",
+    #     fontsize=10,
+    #     color="blue",
+    # )
 
     for params in df["params"].unique():
         plotted_xs = np.linspace(df[df["params"]==params]["x"].max(), df[df["params"]==params]["x"].min(), 100)
