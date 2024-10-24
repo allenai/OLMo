@@ -25,9 +25,9 @@ pip install '.[train]'
 pip freeze
 
 # Move AWS credentials from env to relevant files
-# mkdir -p ~/.aws
-# printenv AWS_CONFIG > ~/.aws/config
-# printenv AWS_CREDENTIALS > ~/.aws/credentials
+mkdir -p ~/.aws
+printenv AWS_CONFIG > ~/.aws/config
+printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
@@ -48,9 +48,10 @@ torchrun \
   --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
-  scripts/eval.py \
+  scripts/train.py \
     configs/peteish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=500 \
-      --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-50B-no-warmup" \
-     '--load_path=${path.last_checkpoint:${save_folder}}' \
+      --save_overwrite
+
+     # '--load_path=${path.last_checkpoint:${save_folder}}' \
