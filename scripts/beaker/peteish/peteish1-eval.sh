@@ -53,6 +53,5 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=null \
       --save_overwrite \
-      --wandb.name="${GANTRY_TASK_NAME}-eval" \
-      --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1-eval" \
+      --wandb.group="peteish1" \
       --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1"

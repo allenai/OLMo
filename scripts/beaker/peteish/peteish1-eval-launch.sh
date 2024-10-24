@@ -7,7 +7,7 @@ NUM_NODES=16
 gantry run \
   --allow-dirty \
   --workspace ai2/OLMo-pretraining-stability \
-  --task-name peteish1 \
+  --task-name peteish1-eval \
   --description "Pete-ish 1B eval" \
   --priority high \
   --preemptible \
@@ -34,7 +34,7 @@ gantry run \
   --env-secret AWS_CREDENTIALS=PETEW_AWS_CREDENTIALS \
   --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
   --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
-  --env-secret WANDB_API_KEY=PETEW_WANDB_API_KEY \
+  --env-secret WANDB_API_KEY=JIACHENGL_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
