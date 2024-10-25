@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=mup-lr-search
+#SBATCH --job-name=mup-peteish1
 #SBATCH --account=project_462000229
 #SBATCH --output=/scratch/project_462000229/logs/%j.log
 #SBATCH --nodes=2              # Total number of nodes
@@ -62,15 +62,15 @@ srun \
     -B /var/spool/slurmd,/opt/cray/,/usr/lib64/libcxi.so.1,/usr/lib64/libjansson.so.4,/usr/lib64/libjson-c.so.3 \
     $OLMO_CONTAINER \
     scripts/lumi/run-in-container.sh \
-      python scripts/train.py configs/mup/peteish-1b-target.yaml \
-      --run_name="mup_peteish_1b_${WIDTH}_${LR}" \
-      --wandb.name="mup_peteish_1b_${WIDTH}_${LR}" \
-      --wandb.group="mup_peteish_1b" \
+      python scripts/train.py configs/peteish1.yaml \
+      --run_name="mup_peteish1_${WIDTH}_${LR}" \
+      --wandb.name="mup_peteish1_${WIDTH}_${LR}" \
+      --wandb.group="mup_peteish1" \
       --wandb.project=olmo-mup \
       --scheduler.t_warmup=100 \
       --model.use_mup \
       --model.mup_query_zero_init=false \
-      --model.mup_base_shapes=configs/mup/peteish-1b-target.bsh \
+      --model.mup_base_shapes=configs/peteish1.bsh \
       --model.d_model=$WIDTH \
       --optimizer.learning_rate=$LR \
       --fsdp.sharding_strategy=HYBRID_SHARD \
