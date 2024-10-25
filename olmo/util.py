@@ -22,12 +22,13 @@ import datasets
 import rich
 from botocore.config import Config
 from cached_path.schemes import SchemeClient, add_scheme_client
-from google.api_core.retry import Retry as GCSRetry
+from google.api_core.retry import Retry as GCSRetry, if_transient_error as gcs_is_transient_error
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.progress import Progress
 from rich.text import Text
 from rich.traceback import Traceback
+import requests
 
 from olmo_data.data import get_data_path
 
@@ -418,7 +419,20 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
 
 
 # Google Storage API is unhinged and requires you to specify the retry policy on every single call you make.
-_gcs_retry = GCSRetry(initial=1.0, maximum=10.0, multiplier=2.0, deadline=500.0)
+def _gcs_is_retriable(exception: Exception) -> bool:
+    if gcs_is_transient_error(exception):
+        return True
+    if isinstance(exception, requests.exceptions.ReadTimeout):
+        return True
+    return False
+
+
+_gcs_retry = GCSRetry(
+    predicate=_gcs_is_retriable,
+    initial=1.0,
+    maximum=10.0,
+    multiplier=2.0,
+    timeout=600.0)
 
 
 def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
@@ -455,10 +469,9 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(key)
     try:
-        blob.reload(retry=_gcs_retry)
+        return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1, retry=_gcs_retry)
     except NotFound:
         raise FileNotFoundError(f"gs://{bucket_name}/{key}")
-    return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1, retry=_gcs_retry)
 
 
 @cache
