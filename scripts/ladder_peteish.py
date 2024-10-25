@@ -299,37 +299,37 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
                     drop_last=True,
                     datasets={
                         "c4_en-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy"
                         ],
                         "dolma_books-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy"
                         ],
                         "dolma_common-crawl-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy"
                         ],
                         "dolma_pes2o-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy"
                         ],
                         "dolma_reddit-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy"
                         ],
                         "dolma_stack-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy"
                         ],
                         "dolma_wiki-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy"
                         ],
                         "ice-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy"
                         ],
                         "m2d2_s2orc-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy"
                         ],
                         "pile-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy"
                         ],
                         "wikitext_103-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy"
+                            f"{read_location}/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy"
                         ],
                     },
                 ),
