@@ -1034,7 +1034,7 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             ),
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             warmup_min_lr=sched_cfg.warmup_min_lr,
-            warmup_steps=int(sched_cfg.t_warmup)
+            warmup_steps=int(sched_cfg.t_warmup),
         )
     else:
         raise NotImplementedError
