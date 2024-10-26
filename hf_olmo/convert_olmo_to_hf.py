@@ -284,12 +284,6 @@ def main():
         help="Keep olmo-specific artifacts in the checkpoint.",
     )
 
-    parser.add_argument(
-        "--cleanup-local-dir",
-        action="store_true",
-        help="Remove local download of the directory."
-    )
-
     args = parser.parse_args()
 
     args.destination_dir = args.destination_dir or args.checkpoint_dir
@@ -314,9 +308,10 @@ def main():
     upload_local_checkpoint(local_checkpoint_dir, args.destination_dir)
 
     print(f"Converted checkpoint saved to {args.destination_dir}")
-    if args.cleanup_local_dir:
-        print(f"Removing temporary local dir: {local_checkpoint_dir}")
-        shutil.rmtree(local_checkpoint_dir)
+
+    # remove local dir copy
+    print(f"Removing temporary local dir: {local_checkpoint_dir}")
+    shutil.rmtree(local_checkpoint_dir)
 
 
 if __name__ == "__main__":
