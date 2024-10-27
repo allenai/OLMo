@@ -31,7 +31,7 @@ export NCCL_SOCKET_IFNAME=ib
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
-  --rdzv_id=12347 \
+  --rdzv_id=12438 \
   --rdzv_backend=static \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   --node_rank=$BEAKER_REPLICA_RANK \
