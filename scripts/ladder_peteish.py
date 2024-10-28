@@ -5,6 +5,7 @@ import re
 from copy import deepcopy
 from typing import Set, Tuple, Union
 
+import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.distributed.fsdp import ShardingStrategy
@@ -36,6 +37,7 @@ from olmo.config import (
     SpeedMonitorConfig,
 )
 from olmo.data import named_data_mixes
+from olmo.torch_util import get_local_rank
 from olmo.util import (
     add_cached_path_clients,
     find_latest_checkpoint,
@@ -540,16 +542,10 @@ def train_cmd(args: argparse.Namespace):
         mp.set_start_method("spawn", force=True)
     except RuntimeError as e:
         print(f"failed to set multiprocessing start method: {e}")
-    import torch
-    from olmo.torch_util import get_local_rank
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
-    from datetime import timedelta
-    dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30))
+    dist.init_process_group(backend="nccl")
     prepare_cli_environment()
     add_cached_path_clients()
-    import time
-    dist.barrier()
-    print(f'Passed zeroth barrier at time {time.time()}', flush=True)
 
     from train import main
 

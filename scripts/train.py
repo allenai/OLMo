@@ -50,9 +50,6 @@ log = logging.getLogger("train")
 
 
 def main(cfg: TrainConfig) -> None:
-    import time
-    print(f'main() starts at time {time.time()}')
-
     # Ensure run name set.
     if cfg.run_name is None:
         raise OLMoConfigurationError("--run_name is required")
@@ -66,7 +63,6 @@ def main(cfg: TrainConfig) -> None:
         )
 
     barrier()
-    print(f'Passed first barrier at time {time.time()}', flush=True)
 
     device = torch.device("cuda")
 
@@ -107,7 +103,6 @@ def main(cfg: TrainConfig) -> None:
             del save_path
 
     barrier()
-    print(f'Passed second barrier at time {time.time()}', flush=True)
 
     # Maybe start W&B run.
     if cfg.wandb is not None and (get_global_rank() == 0 or not cfg.wandb.rank_zero_only):
@@ -124,7 +119,6 @@ def main(cfg: TrainConfig) -> None:
         )
 
     barrier()
-    print(f'Passed third barrier at time {time.time()}', flush=True)
 
     # Set seed.
     seed_all(cfg.seed)
@@ -135,7 +129,6 @@ def main(cfg: TrainConfig) -> None:
     # Construct evaluators.
     evaluators = build_evaluators(cfg, device)
     barrier()
-    print(f'Passed fourth barrier at time {time.time()}', flush=True)
 
     # Initialize the model.
     log.info("Building model...")
