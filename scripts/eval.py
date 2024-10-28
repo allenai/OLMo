@@ -35,7 +35,7 @@ from olmo.torch_util import (
     peak_gpu_memory,
     seed_all,
 )
-from olmo.train import Trainer
+from olmo.train import TrainerForEval
 from olmo.util import (
     add_cached_path_clients,
     clean_opt,
@@ -115,10 +115,6 @@ def main(cfg: TrainConfig) -> None:
     # Set seed.
     seed_all(cfg.seed)
 
-    # # Construct data loader.
-    # train_loader = build_train_dataloader(cfg)
-    train_loader = None
-
     # Construct evaluators.
     evaluators = build_evaluators(cfg, device)
     barrier()
@@ -140,8 +136,6 @@ def main(cfg: TrainConfig) -> None:
         log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
         log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
         log.info(f"Peak GPU Memory (MB) before {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
-
-        olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
 
         if cfg.distributed_strategy == DistributedStrategy.ddp:
             log.info("Wrapping model with DDP...")
@@ -221,41 +215,30 @@ def main(cfg: TrainConfig) -> None:
         log.info("Model:")
         log.info(dist_model)
 
-        # Construct optimizer and learning rate scheduler.
-        optim = build_optimizer(cfg, dist_model)
-        scheduler = build_scheduler(cfg)
-
-        # Data indices file.
-        indices_file: Optional[TextIO] = None
-
         # Consolidate components into `Trainer` object.
-        with Trainer(
+        with TrainerForEval(
             cfg=cfg,
             epoch=cfg.epoch,
             model=olmo_model,
             dist_model=dist_model,
-            optim=optim,
-            scheduler=scheduler,
-            train_loader=train_loader,
             device=device,
             evaluators=evaluators,
-            indices_file=indices_file,
         ) as trainer:
 
-                log.info(f"Loading checkpoint from {load_path}...")
-                trainer.restore_checkpoint(
-                    load_path,
-                    load_optimizer_state=False,
-                    load_trainer_state=False,
-                    sharded_checkpointer=cfg.load_path_sharded_checkpointer,
-                )
-                log.info("Checkpoint successfully loaded")
+            log.info(f"Loading checkpoint from {load_path}...")
+            trainer.restore_checkpoint(
+                load_path,
+                load_optimizer_state=False,
+                load_trainer_state=False,
+                sharded_checkpointer=cfg.load_path_sharded_checkpointer,
+            )
+            log.info("Checkpoint successfully loaded")
 
-                log.info("Starting evaluating...")
-                eval_metrics = trainer.eval()
-                if wandb.run is not None:
-                    wandb.log(eval_metrics, step=step)
-                log.info("Evaluating complete")
+            log.info("Starting evaluating...")
+            eval_metrics = trainer.eval()
+            if wandb.run is not None:
+                wandb.log(eval_metrics, step=step)
+            log.info("Evaluating complete")
 
 
 if __name__ == "__main__":
