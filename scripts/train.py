@@ -119,6 +119,8 @@ def main(cfg: TrainConfig) -> None:
         )
 
     barrier()
+    import time
+    print(f'Passed first barrier at time {time.time()}')
 
     # Set seed.
     seed_all(cfg.seed)
@@ -129,6 +131,7 @@ def main(cfg: TrainConfig) -> None:
     # Construct evaluators.
     evaluators = build_evaluators(cfg, device)
     barrier()
+    print(f'Passed second barrier at time {time.time()}')
 
     # Initialize the model.
     log.info("Building model...")
