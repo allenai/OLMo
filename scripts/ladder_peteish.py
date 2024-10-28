@@ -540,9 +540,16 @@ def train_cmd(args: argparse.Namespace):
         mp.set_start_method("spawn", force=True)
     except RuntimeError as e:
         print(f"failed to set multiprocessing start method: {e}")
-    dist.init_process_group(backend="nccl")
+    import torch
+    from olmo.torch_util import get_local_rank
+    torch.cuda.set_device(f"cuda:{get_local_rank()}")
+    from datetime import timedelta
+    dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30))
     prepare_cli_environment()
     add_cached_path_clients()
+    import time
+    dist.barrier()
+    print(f'Passed zeroth barrier at time {time.time()}', flush=True)
 
     from train import main
 
