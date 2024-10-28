@@ -18,7 +18,7 @@ pip install flash-attn==2.5.9.post1 --no-build-isolation
 pip install '.[train]'
 
 # Force processes to synchronize at init_process_group
-export TORCH_DIST_INIT_BARRIER=1
+export TORCH_DIST_INIT_BARRIER=0
 
 # Tell OLMo all ranks share the same filesystem for checkpoints.
 export OLMO_SHARED_FS=1
