@@ -533,7 +533,6 @@ def dump_cmd(args: argparse.Namespace):
 
 
 def train_cmd(args: argparse.Namespace):
-    print('Running training command...')
     cfg = config_from_args(args)
     log.info(f"save folder from config: {cfg.save_folder}")
 
@@ -541,7 +540,6 @@ def train_cmd(args: argparse.Namespace):
         mp.set_start_method("spawn", force=True)
     except RuntimeError as e:
         print(f"failed to set multiprocessing start method: {e}")
-    print('Initializing process group...')
     dist.init_process_group(backend="nccl")
     prepare_cli_environment()
     add_cached_path_clients()
