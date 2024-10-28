@@ -33,7 +33,7 @@ torchrun \
   --nproc-per-node 8 \
   --rdzv_id=12438 \
   --rdzv_backend=static \
-  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
+  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29345 \
   --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
   scripts/ladder_peteish.py train "$@"
