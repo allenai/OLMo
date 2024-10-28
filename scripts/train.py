@@ -135,7 +135,9 @@ def main(cfg: TrainConfig) -> None:
     olmo_model = OLMo(cfg.model)
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
-    # log.info(f"Peak GPU Memory (MB) before {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
+    log.info(f"Peak GPU Memory (MB) before {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
+
+    barrier()
 
     # Call before wrapping model in FSDP / DDP, so that computation is correct and saved.
     _ = olmo_model.num_fwd_flops
@@ -217,7 +219,7 @@ def main(cfg: TrainConfig) -> None:
     if param_init_fn is not None or cfg.distributed_strategy == DistributedStrategy.ddp:
         olmo_model.reset_parameters()
 
-    # log.info(f"Peak GPU Memory (MB) after {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
+    log.info(f"Peak GPU Memory (MB) after {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
     log.info("Model:")
     log.info(dist_model)
 
