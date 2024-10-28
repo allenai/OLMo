@@ -50,6 +50,7 @@ shift
 export LR=$1
 shift
 
+# -B"$FLASH_DIR:$FLASH_DIR" \
 srun \
   --cpus-per-task=$SLURM_CPUS_PER_TASK \
   --distribution=block:block \
@@ -57,7 +58,6 @@ srun \
   scripts/run_with_environment.sh \
     singularity exec \
     -B"$PROJECT_DIR:$PROJECT_DIR" \
-    -B"$FLASH_DIR:$FLASH_DIR" \
     -B"$SCRATCH_DIR:$SCRATCH_DIR" \
     -B /var/spool/slurmd,/opt/cray/,/usr/lib64/libcxi.so.1,/usr/lib64/libjansson.so.4,/usr/lib64/libjson-c.so.3 \
     $OLMO_CONTAINER \
