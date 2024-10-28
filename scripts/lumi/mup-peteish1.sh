@@ -68,6 +68,7 @@ srun \
       --wandb.group="mup_peteish1" \
       --wandb.project=olmo-mup \
       --scheduler.t_warmup=100 \
+      --scheduler.units=steps \
       --model.use_mup \
       --model.mup_query_zero_init=false \
       --model.mup_base_shapes=configs/peteish1.bsh \
