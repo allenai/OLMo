@@ -75,6 +75,7 @@ srun \
       --optimizer.learning_rate=$LR \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --save_interval_ephemeral=250 \
+      --save_num_checkpoints_to_keep=1 \
       --eval_interval=100 \
       --try_load_latest_save \
       --save_overwrite \
