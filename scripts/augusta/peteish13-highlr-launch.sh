@@ -43,4 +43,5 @@ mkdir -p $SAVE_FOLDER
     --data.num_workers=8 \
     --optimizer.learning_rate=9.0e-4 \
     --optimizer.metrics_log_interval=10 \
+    --epoch=1 \
     --data.prefetch_factor=8 2>&1 | tee $SAVE_FOLDER/log.txt
