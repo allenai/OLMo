@@ -49,7 +49,6 @@ export NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY=/dev/aperture_devices
 
 # Install flash-attn
 pip install packaging ninja
-export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
 pip install flash-attn==2.5.9.post1 --no-build-isolation
 pip install '.[train]'
 pip freeze
