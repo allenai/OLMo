@@ -92,7 +92,7 @@ torchrun \
       --fused_loss=true \
       --model.flash_attention=true \
       --data.num_workers=8 \
-      --optimizer.learning_rate=$(python ./scripts/learning_rate_at_step_from_wandb.py $ORIGINAL_WANDB_RUN_ID $START) \
+      --optimizer.learning_rate=$(python ./scripts/learning_rate_at_step_from_wandb.py $ORIGINAL_WANDB_RUN_ID $START_STEP) \
       --scheduler.units=steps \
       --scheduler.name=linear_with_warmup \
       --scheduler.t_warmup=$START_STEP \
