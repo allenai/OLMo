@@ -62,7 +62,7 @@ export PYTHONFAULTHANDLER=1
 NAME=${GANTRY_TASK_NAME// /_}
 RUN_NAME=$NAME-$(date -u +"%Y%m%d_%H%M%S")
 STEPS_TO_TRAIN=$(python -c "print(round($LENGTH / (1024 * 4096)) + $START_STEP)")
-SAVE_FOLDER=/mnt/localssd/runs/$RUN_NAME
+SAVE_FOLDER=/data/$RUN_NAME
 mkdir -p $SAVE_FOLDER
 
 torchrun \
