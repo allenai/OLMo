@@ -76,7 +76,7 @@ torchrun \
   scripts/train.py \
     configs/peteish7-google.yaml \
       --run_name=$RUN_NAME \
-      --wandb_group=$NAME \
+      --wandb.group=$NAME \
       --save_interval_ephemeral=1000 \
       --eval_interval=1000 \
       --fsdp.sharding_strategy=HYBRID_SHARD \
