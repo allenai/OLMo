@@ -37,7 +37,7 @@ mkdir -p $SAVE_FOLDER
     --save_folder=$SAVE_FOLDER \
     --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/$NAME/" \
     --save_overwrite \
-    --load_path=gs://ai2-llm/checkpoints/OLMo-medium/peteish7/step72000 \
+    --load_path=gs://ai2-llm/checkpoints/OLMo-medium/peteish7/step$START \
     --sharded_checkpointer=olmo_core \
     --device_train_microbatch_size=2 \
     --activation_checkpointing=one_in_four \
