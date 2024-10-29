@@ -88,8 +88,8 @@ torchrun \
       --device_train_microbatch_size=2 \
       --activation_checkpointing=one_in_four \
       --compile.fullgraph=false \
-      --fused_loss=true \
-      --model.flash_attention=true \
+      --fused_loss=false \
+      --model.flash_attention=false \
       --data.num_workers=8 \
       --optimizer.learning_rate=$(python ./scripts/learning_rate_at_step_from_wandb.py $ORIGINAL_WANDB_RUN_ID $START_STEP) \
       --scheduler.units=steps \
