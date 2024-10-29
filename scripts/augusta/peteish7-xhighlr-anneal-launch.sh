@@ -20,8 +20,9 @@ HOSTS=$(
 
 ORIGINAL_WANDB_RUN_ID=ai2-llm/olmo-medium/w3zbqbkf
 START=72000
-STEPS_TO_TRAIN=$(python -c "print(round(50e9 / (1024 * 4096)) + $START)")
-NAME=peteish7-xhighlr-from$START
+LENGTH=100e9
+STEPS_TO_TRAIN=$(python -c "print(round($LENGTH / (1024 * 4096)) + $START)")
+NAME=peteish7-xhighlr-from$START-$LENGTH
 RUN_NAME=$NAME-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/mnt/localssd/runs/$RUN_NAME
 mkdir -p $SAVE_FOLDER
@@ -37,7 +38,7 @@ mkdir -p $SAVE_FOLDER
     --save_folder=$SAVE_FOLDER \
     --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/$NAME/" \
     --save_overwrite \
-    --load_path=gs://ai2-llm/checkpoints/OLMo-medium/peteish7-xhighlr/step72000 \
+    --load_path=gs://ai2-llm/checkpoints/OLMo-medium/peteish7-xhighlr/step$START \
     --sharded_checkpointer=olmo_core \
     --device_train_microbatch_size=2 \
     --activation_checkpointing=one_in_four \
