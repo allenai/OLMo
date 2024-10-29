@@ -37,8 +37,6 @@ gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
-  --env R2_PROFILE=R2 \
-  --env S3_PROFILE=S3 \
   --env-secret WANDB_API_KEY=DIRKG_WANDB_API_KEY \
   --env-secret AWS_ACCESS_KEY_ID=DIRKG_AWS_ACCESS_KEY_ID \
   --env-secret AWS_SECRET_ACCESS_KEY=DIRKG_AWS_SECRET_ACCESS_KEY \
