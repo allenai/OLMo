@@ -141,17 +141,17 @@ def main(
     )
 
     # print config differences
-    print(f"==================== Param differences ====================\n\n")
+    print("==================== Param differences ====================\n\n")
     print_keys_with_differences(left_config=left_config, right_config=right_config)
     print("============================================================= \n\n")
 
     # print data differences
-    print(f"==================== Data Differences ====================\n\n")
+    print("==================== Data Differences ====================\n\n")
     print_data_differences(left_data_paths, right_data_paths)
     print("============================================================= \n\n")
 
     # print eval differences
-    print(f"==================== Eval Differences ====================\n\n")
+    print("==================== Eval Differences ====================\n\n")
     print_keys_with_differences(left_config=left_evaluators, right_config=right_evaluators)
     print("============================================================= \n\n")
 
