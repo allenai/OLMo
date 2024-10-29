@@ -84,7 +84,7 @@ torchrun \
       --save_folder=$SAVE_FOLDER \
       --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/$NAME/" \
       --save_overwrite \
-      --load_path=gs://ai2-llm/checkpoints/OLMo-medium/$(python ./scripts/group_name_from_wandb.py $ORIGINAL_WANDB_RUN_ID)/step$START \
+      --load_path=gs://ai2-llm/checkpoints/OLMo-medium/$(python ./scripts/group_name_from_wandb.py $ORIGINAL_WANDB_RUN_ID)/step$START_STEP \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=2 \
       --activation_checkpointing=one_in_four \
