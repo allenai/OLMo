@@ -20,8 +20,9 @@ HOSTS=$(
 
 ORIGINAL_WANDB_RUN_ID=ai2-llm/olmo-medium/nzgr2uwu
 START=72000
-STEPS_TO_TRAIN=$(python -c "print(round(50e9 / (1024 * 4096)) + $START)")
-NAME=peteish7-highlr-from$START
+LENGTH=100e9
+STEPS_TO_TRAIN=$(python -c "print(round($LENGTH / (1024 * 4096)) + $START)")
+NAME=peteish7-highlr-from$START-$LENGTH
 RUN_NAME=$NAME-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/mnt/localssd/runs/$RUN_NAME
 mkdir -p $SAVE_FOLDER
