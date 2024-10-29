@@ -48,8 +48,8 @@ export NCCL_FASTRAK_USE_LLCM=1
 export NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY=/dev/aperture_devices
 
 # Install flash-attn
-conda install -y pytorch-cuda==12.4 packaging ninja cccl cuda-nvcc libcusolver-dev cuda-profiler-api libcusparse-dev libcublas-dev -c pytorch -c nvidia
-pip install flash-attn==2.5.9.post1 --no-build-isolation
+#conda install -y pytorch-cuda==12.4 packaging ninja cccl cuda-nvcc libcusolver-dev cuda-profiler-api libcusparse-dev libcublas-dev -c pytorch -c nvidia
+#pip install flash-attn==2.5.9.post1 --no-build-isolation
 pip install '.[train]'
 pip freeze
 
