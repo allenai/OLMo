@@ -30,6 +30,7 @@ mkdir -p $SAVE_FOLDER
     --fsdp.sharding_strategy=HYBRID_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas=$NUM_NODES \
     --save_folder=$SAVE_FOLDER \
+    '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
     --device_train_microbatch_size=4 \
     --device_eval_batch_size=8 \
     --activation_checkpointing=whole_layer \
