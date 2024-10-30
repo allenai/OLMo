@@ -12,9 +12,9 @@ LR=$1
 shift
 
 gantry run \
-  --workspace ai2/OLMo-pretraining-stability \
-  --task-name mup-olmo-lr-search \
-  --description "Search for a good LR for OLMo mup" \
+  --workspace ai2/OLMo-mup \
+  --task-name mup-peteish1 \
+  --description "Search for a good LR for OLMo peteish 1B using mup" \
   --priority high \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
