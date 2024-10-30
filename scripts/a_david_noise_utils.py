@@ -39,6 +39,30 @@ ALL_TASKS = {
         "x_label": "mmlu_var_bpb",
         "y_label": "mmlu_var_score",
     },
+    "MMLU-Stem": {
+        "bpb": [f"eval/downstream_bpb/mmlu_stem_var_bpb_bpb"],
+        "score": [f"eval/downstream/mmlu_stem_var_len_norm"],
+        "x_label": "mmlu_var_bpb",
+        "y_label": "mmlu_var_score",
+    },
+    "MMLU-Humanities": {
+        "bpb": [f"eval/downstream_bpb/mmlu_humanities_var_bpb_bpb"],
+        "score": [f"eval/downstream/mmlu_humanities_var_len_norm"],
+        "x_label": "mmlu_var_bpb",
+        "y_label": "mmlu_var_score",
+    },
+    "MMLU-Social-Science": {
+        "bpb": [f"eval/downstream_bpb/mmlu_social_sciences_var_bpb_bpb"],
+        "score": [f"eval/downstream/mmlu_social_sciences_var_len_norm"],
+        "x_label": "mmlu_var_bpb",
+        "y_label": "mmlu_var_score",
+    },
+    "MMLU-Other": {
+        "bpb": [f"eval/downstream_bpb/mmlu_other_var_bpb_bpb"],
+        "score": [f"eval/downstream/mmlu_other_var_len_norm"],
+        "x_label": "mmlu_var_bpb",
+        "y_label": "mmlu_var_score",
+    },
     "HellaSwag-5shot": {
         "bpb": ["eval/downstream_bpb/hellaswag_rc_5shot_bpb_bpb"],
         "score": ["eval/downstream/hellaswag_rc_5shot_len_norm"],
@@ -95,6 +119,10 @@ TASKS = ALL_TASKS
 BASELINE_BY_TASK_NAME = {
     'HellaSwag-0shot': 0.25,
     'MMLU-Var': 0.25,
+    'MMLU-Stem': 0.25,
+    'MMLU-Humanities': 0.25,
+    'MMLU-Social-Science': 0.25,
+    'MMLU-Other': 0.25,
     'HellaSwag-5shot': 0.25,
     'ARC-Easy-5shot': 0.25,
     'ARC-Challenge-5shot': 0.25,
@@ -583,8 +611,9 @@ def run_stacked(all_configs, limit_ckpts=None, smoothing=None, render_plot=True)
                 # trick: moving avg
                 step1_df["y"] = step1_df.groupby('run')['y'].transform(lambda x: x.rolling(window=20).mean())
             elif smoothing == 'ema':
+                EMA_ALPHA = 0.5
                 # trick: do the exponential average
-                step1_df["y"] = step1_df.groupby('run')['y'].transform(lambda x: x.ewm(alpha=0.5).mean())
+                step1_df["y"] = step1_df.groupby('run')['y'].transform(lambda x: x.ewm(alpha=EMA_ALPHA).mean())
 
             step1_df = step1_df.groupby('run').apply(lambda rows: rows.iloc[-1], include_groups=False).reset_index()
             step1_df, coefficients = fit_step1(step1_df)
@@ -617,7 +646,7 @@ def run_stacked(all_configs, limit_ckpts=None, smoothing=None, render_plot=True)
                 step2_df["x"] = step2_df.groupby('run')['x'].transform(lambda x: x.rolling(window=20).mean())
             elif smoothing == 'ema':
                 # trick: do the exponential average
-                step2_df["x"] = step2_df.groupby('run')['x'].transform(lambda x: x.ewm(alpha=0.5).mean())
+                step2_df["x"] = step2_df.groupby('run')['x'].transform(lambda x: x.ewm(alpha=EMA_ALPHA).mean())
 
             if limit_ckpts == 'last_n':
                 # trick: use last n% of points
