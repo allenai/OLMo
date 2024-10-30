@@ -37,7 +37,6 @@ gantry run \
   --env WEKA_PROFILE=WEKA \
   --env-secret AWS_CONFIG=SHANEA_AWS_CONFIG \
   --env-secret AWS_CREDENTIALS=SHANEA_AWS_CREDENTIALS \
-  --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
   --env-secret WANDB_API_KEY=SHANEA_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
