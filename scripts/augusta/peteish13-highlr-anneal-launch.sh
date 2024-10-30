@@ -31,6 +31,7 @@ mkdir -p $SAVE_FOLDER
     --fsdp.hybrid_sharding_num_model_replicas=$NUM_NODES \
     --save_folder=$SAVE_FOLDER \
     --device_train_microbatch_size=4 \
+    --device_eval_batch_size=8 \
     --activation_checkpointing=whole_layer \
     --compile.fullgraph=false \
     --fused_loss=false \
