@@ -2,6 +2,9 @@
 
 set -euxo pipefail
 
+NAME=$1
+shift
+
 HOSTPATTERN=$1
 shift
 
@@ -18,43 +21,21 @@ HOSTS=$(
   paste -sd,
 )
 
-ORIGINAL_WANDB_RUN_ID=ai2-llm/olmo-medium/k7pltzfw
-START=476848
-LENGTH=50e9
-STEPS_TO_TRAIN=$(python -c "print(round($LENGTH / (2048 * 4096)) + $START)")
-NAME=peteish13-highlr-from$START-$LENGTH
 RUN_NAME=$NAME-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/mnt/localssd/runs/$RUN_NAME
 mkdir -p $SAVE_FOLDER
 
 ./scripts/augusta/launch_train.sh $HOSTS \
-  configs/peteish13-google.yaml \
-    --run_name=$RUN_NAME \
-    --wandb.group=$NAME \
-    --save_interval_ephemeral=1000 \
-    --eval_interval=1000 \
+  configs/annealing/$NAME.yaml \
     --fsdp.sharding_strategy=HYBRID_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas=$NUM_NODES \
     --save_folder=$SAVE_FOLDER \
-    --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/$NAME/" \
-    --save_overwrite \
-    --load_path=gs://ai2-llm/checkpoints/OLMo-medium/peteish13-highlr/step$START \
-    --sharded_checkpointer=olmo_core \
     --device_train_microbatch_size=4 \
     --activation_checkpointing=whole_layer \
     --compile.fullgraph=false \
-    --fused_loss=true \
-    --model.flash_attention=true \
+    --fused_loss=false \
+    --model.flash_attention=false \
     --data.num_workers=8 \
-    --optimizer.learning_rate=$(python ./scripts/learning_rate_at_step_from_wandb.py $ORIGINAL_WANDB_RUN_ID $START) \
-    --scheduler.units=steps \
-    --scheduler.name=linear_with_warmup \
-    --scheduler.t_warmup=$START \
-    --scheduler.t_max=null \
-    --scheduler.alpha_f=0.1 \
-    --max_duration=$STEPS_TO_TRAIN \
-    --stop_at=$(($STEPS_TO_TRAIN + 10)) \
-    --no_pre_train_checkpoint \
     --optimizer.metrics_log_interval=10 \
     --epoch=1 \
     --data.prefetch_factor=8 2>&1 | tee $SAVE_FOLDER/log.txt
