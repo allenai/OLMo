@@ -60,12 +60,11 @@ torchrun \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   --node_rank=$BEAKER_REPLICA_RANK \
   scripts/train.py configs/peteish1.yaml \
-    --run_name="mup_peteish1_${WIDTH}_${LR}" \
-    --wandb.name="mup_peteish1_${WIDTH}_${LR}" \
-    --wandb.group="mup_peteish1" \
+    --run_name="peteish1_${WIDTH}_${LR}" \
+    --wandb.name="peteish1_${WIDTH}_${LR}" \
+    --wandb.group="peteish1_v2" \
     --wandb.project=olmo-mup \
-    --scheduler.t_warmup=100 \
-    --scheduler.units=steps \
+    --save_folder="${CHECKPOINTS_PATH}/ai2-llm/checkpoints/OLMo-mup/peteish1_${WIDTH}_${LR}" \
     --model.use_mup \
     --model.mup_query_zero_init=false \
     --model.mup_base_shapes=configs/peteish1.bsh \
