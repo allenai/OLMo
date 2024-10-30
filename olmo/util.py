@@ -1,4 +1,6 @@
+import gzip
 import io
+import json
 import logging
 import os
 import re
@@ -754,6 +756,41 @@ def load_hf_dataset(path: str, name: Optional[str], split: str):
                 f"HF dataset {path} name {name} split {split} not found in directory {dataset_rel_path}"
             )
         return datasets.load_from_disk(str(dataset_path))
+
+
+def load_oe_eval_requests(path: str, name: Optional[str] = None, split: Optional[str] = None):
+    """
+    Loads an oe-eval request file from `olmo_data/oe_eval_tasks`.
+    TODO: Add support from loading from S3 instead?
+    """
+    dataset_rel_path = os.path.join("oe_eval_tasks", path)
+    if name is not None:
+        dataset_rel_path = os.path.join(dataset_rel_path, name)
+    with get_data_path(dataset_rel_path) as dataset_path:
+        if not dataset_path.is_dir():
+            raise NotADirectoryError(f"OE Eval dataset not found in directory {dataset_rel_path}")
+        data_file = dataset_path / "requests.jsonl.gz"
+        if not data_file.is_file():
+            data_file = dataset_path / "requests.jsonl"
+        if not data_file.is_file():
+            raise FileNotFoundError(
+                f"OE Eval dataset file requests-{split}.jsonl(.gz) missing in directory {dataset_rel_path}"
+            )
+        requests = []
+        if data_file.suffix == ".gz":
+            with gzip.open(data_file, "r") as file:
+                for line in file:
+                    requests.append(json.loads(line.decode("utf-8").strip()))
+        else:
+            with open(data_file, "r") as file:
+                for line2 in file:
+                    requests.append(json.loads(line2.strip()))
+        config = None
+        config_file = dataset_path / "config.json"
+        if config_file.is_file():
+            with open(config_file, "r") as file:
+                config = json.load(file)
+        return config, requests
 
 
 def default_thread_count() -> int:
