@@ -37,5 +37,4 @@ mkdir -p $SAVE_FOLDER
     --model.flash_attention=false \
     --data.num_workers=8 \
     --optimizer.metrics_log_interval=10 \
-    --epoch=1 \
     --data.prefetch_factor=8 2>&1 | tee $SAVE_FOLDER/log.txt
