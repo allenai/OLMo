@@ -139,60 +139,6 @@ evaluators:
   ##########################
   # Downstream evaluations #
   ##########################
-  - label: piqa
-    type: downstream
-
-  - label: hellaswag
-    type: downstream
-
-  - label: winogrande
-    type: downstream
-
-  - label: openbook_qa
-    type: downstream
-
-  - label: boolq
-    type: downstream
-
-  - label: sciq
-    type: downstream
-
-  - label: arc_easy
-    type: downstream
-
-  - label: arc_challenge
-    type: downstream
-
-  - label: copa
-    type: downstream
-
-  #- label: rte
-  #  type: downstream
-
-  #- label: commitment_bank
-  #  type: downstream
-
-  #- label: sst2
-  #  type: downstream
-
-  - label: commonsense_qa
-    type: downstream
-
-  - label: social_iqa
-    type: downstream
-
-  - label: mmlu_stem_var
-    type: downstream
-
-  - label: mmlu_humanities_var
-    type: downstream
-
-  - label: mmlu_social_sciences_var
-    type: downstream
-
-  - label: mmlu_other_var
-    type: downstream
-
   - label: mmlu_stem_mc_5shot
     type: downstream
 
@@ -205,28 +151,64 @@ evaluators:
   - label: mmlu_other_mc_5shot
     type: downstream
 
-  - label: mmlu_stem_mc_5shot_test
+  - label: arc_challenge_mc_5shot
     type: downstream
 
-  - label: mmlu_humanities_mc_5shot_test
+  - label: arc_challenge_mc_5shot_bpb
     type: downstream
 
-  - label: mmlu_social_sciences_mc_5shot_test
+  - label: arc_easy_mc_5shot
     type: downstream
 
-  - label: mmlu_other_mc_5shot_test
+  - label: arc_easy_mc_5shot_bpb
+    type: downstream
+
+  - label: boolq_mc_5shot
+    type: downstream
+
+  - label: boolq_mc_5shot_bpb
+    type: downstream
+
+  - label: csqa_mc_5shot
+    type: downstream
+
+  - label: csqa_mc_5shot_bpb
+    type: downstream
+
+  - label: hellaswag_mc_5shot
+    type: downstream
+
+  - label: hellaswag_mc_5shot_bpb
+    type: downstream
+
+  - label: openbookqa_mc_5shot
+    type: downstream
+
+  - label: openbookqa_mc_5shot_bpb
+    type: downstream
+
+  - label: piqa_mc_5shot
+    type: downstream
+
+  - label: piqa_mc_5shot_bpb
+    type: downstream
+
+  - label: socialiqa_mc_5shot
+    type: downstream
+
+  - label: socialiqa_mc_5shot_bpb
+    type: downstream
+
+  - label: winogrande_mc_5shot
+    type: downstream
+
+  - label: winogrande_mc_5shot_bpb
     type: downstream
 
   - label: basic_arithmetic
     type: downstream
 
-  - label: trivia_qa_wiki_ppl
-    type: downstream
-
-  - label: natural_qs_open_ppl
-    type: downstream
-
-  - label: arc_easy_ppl
+  - label: hellaswag
     type: downstream
 
 data:
