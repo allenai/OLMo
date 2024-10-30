@@ -34,8 +34,8 @@ mkdir -p $SAVE_FOLDER
     --device_eval_batch_size=8 \
     --activation_checkpointing=whole_layer \
     --compile.fullgraph=false \
-    --fused_loss=false \
-    --model.flash_attention=false \
+    --fused_loss=true \
+    --model.flash_attention=true \
     --data.num_workers=8 \
     --optimizer.metrics_log_interval=10 \
     --data.prefetch_factor=8 2>&1 | tee $SAVE_FOLDER/log.txt
