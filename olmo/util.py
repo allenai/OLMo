@@ -313,6 +313,12 @@ def get_progress_bar() -> Progress:
     return get_download_progress()
 
 
+def walk_local_path(path: PathOrStr, top_down=True, on_error=None, follow_symlinks=False):
+    """Necessary because Path.walk() was only added in python 3.12"""
+    for root, dirs, files in os.walk(path, topdown=top_down, onerror=on_error, followlinks=follow_symlinks):
+        yield Path(root), dirs, files
+
+
 def resource_path(
     folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None, progress: Optional[Progress] = None
 ) -> Path:
@@ -504,6 +510,30 @@ def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
 
 
 @cache
+def _get_gcs_client():
+    from google.auth import default
+    from google.auth.credentials import TokenState
+    from google.auth.exceptions import DefaultCredentialsError
+    from google.cloud import storage as gcs
+    from google.oauth2 import service_account
+
+    try:
+        credentials, _ = default()
+        if not getattr(credentials, "service_account_email", None):
+            raise DefaultCredentialsError("Cannot get GCS credentials")
+        if getattr(credentials, "token_state", None) != TokenState.FRESH:
+            raise DefaultCredentialsError("Cannot get GCS credentials")
+    except DefaultCredentialsError:
+        pass
+
+    if credentials_path := os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", None):
+        credentials = service_account.Credentials.from_service_account_file(credentials_path)
+        return gcs.Client(credentials=credentials)
+
+    raise DefaultCredentialsError("Cannot get GCS credentials")
+
+
+@cache
 def _get_s3_client(scheme: str):
     session = boto3.Session(profile_name=_get_s3_profile_name(scheme))
     return session.client(
@@ -637,7 +667,11 @@ def _http_file_size(scheme: str, host_name: str, path: str) -> int:
     import requests
 
     response = requests.head(f"{scheme}://{host_name}/{path}", allow_redirects=True)
-    return int(response.headers.get("content-length"))
+
+    if (content_length := response.headers.get("content-length")) is not None:
+        return int(content_length)
+
+    raise OLMoNetworkError(f"Failed to get {scheme} file size")
 
 
 def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: int, num_bytes: int) -> bytes:
@@ -647,9 +681,10 @@ def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: i
         f"{scheme}://{host_name}/{path}", headers={"Range": f"bytes={bytes_start}-{bytes_start+num_bytes-1}"}
     )
     result = response.content
-    assert (
-        len(result) == num_bytes
-    ), f"expected {num_bytes} bytes, got {len(result)}"  # Some web servers silently ignore range requests and send everything
+
+    # Some web servers silently ignore range requests and send everything
+    assert len(result) == num_bytes, f"expected {num_bytes} bytes, got {len(result)}"
+
     return result
 
 
