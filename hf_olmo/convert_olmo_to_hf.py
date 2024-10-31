@@ -17,9 +17,10 @@ from hf_olmo.configuration_olmo import OLMoConfig
 from hf_olmo.modeling_olmo import OLMoForCausalLM
 from hf_olmo.tokenization_olmo_fast import OLMoTokenizerFast
 from olmo import ModelConfig, Tokenizer, TrainConfig
+from olmo.aliases import PathOrStr
 from olmo.checkpoint import build_sharded_checkpointer
 from olmo.safetensors_util import safetensors_file_to_state_dict
-from olmo.util import _get_gcs_client, _get_s3_client, walk_local_path
+from olmo.util import _get_gcs_client, _get_s3_client
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,12 @@ HF_FILENAMES = {
     "tokenizer_config.json",
     "tokenizer.json",
 }
+
+
+def walk_local_path(path: PathOrStr, top_down=True, on_error=None, follow_symlinks=False):
+    """Necessary because Path.walk() was only added in python 3.12"""
+    for root, dirs, files in os.walk(path, topdown=top_down, onerror=on_error, followlinks=follow_symlinks):
+        yield Path(root), dirs, files
 
 
 def longest_common_prefix(strs: Iterable[str]) -> str:
@@ -153,12 +160,14 @@ def download_gcs_directory(bucket_name: str, prefix: str, local_dir: str):
     path_local = Path(local_dir)
     path_prefix = Path(prefix)
 
-    gcs_client = _get_s3_client()
+    gcs_client = _get_gcs_client()
     bucket = gcs_client.bucket(bucket_name)
 
     path_local.mkdir(parents=True, exist_ok=True)
 
-    for elem in bucket.list_blobs(prefix=prefix):
+    files_to_download = list(bucket.list_blobs(prefix=prefix))
+
+    for elem in tqdm(files_to_download, desc="Downloading files from GCS"):
         local_destination = path_local / Path(elem.name).relative_to(path_prefix)
         local_destination.parent.mkdir(parents=True, exist_ok=True)
         elem.download_to_filename(local_destination)
@@ -183,7 +192,7 @@ def download_s3_directory(bucket_name: str, prefix: str, local_dir: str, ignore:
             files_to_download.append(obj["Key"])
 
     # Initialize the progress bar
-    for s3_key in tqdm(files_to_download, desc="Downloading files"):
+    for s3_key in tqdm(files_to_download, desc="Downloading files from S3"):
         # Construct the full local path
         local_file_path = os.path.join(local_dir, os.path.relpath(s3_key, prefix))
         local_file_dir = os.path.dirname(local_file_path)
@@ -265,9 +274,11 @@ def upload_gcs_directory(local_checkpoint_dir: str, destination_dir: str):
         Path(path / fn) for path, _, filenames in walk_local_path(local_checkpoint_path) for fn in filenames
     ]
 
+    bucket = gcs_client.bucket(bucket_name)
+
     for local_path in tqdm(local_paths, desc="Uploading files to GCS"):
         destination = prefix / local_path.relative_to(local_checkpoint_path)
-        blob = gcs_client.bucket(bucket_name).blob(str(destination))
+        blob = bucket.blob(str(destination))
         blob.upload_from_filename(local_path)
 
 

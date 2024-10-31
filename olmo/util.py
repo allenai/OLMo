@@ -511,26 +511,9 @@ def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
 
 @cache
 def _get_gcs_client():
-    from google.auth import default
-    from google.auth.credentials import TokenState
-    from google.auth.exceptions import DefaultCredentialsError
     from google.cloud import storage as gcs
-    from google.oauth2 import service_account
 
-    try:
-        credentials, _ = default()
-        if not getattr(credentials, "service_account_email", None):
-            raise DefaultCredentialsError("Cannot get GCS credentials")
-        if getattr(credentials, "token_state", None) != TokenState.FRESH:
-            raise DefaultCredentialsError("Cannot get GCS credentials")
-    except DefaultCredentialsError:
-        pass
-
-    if credentials_path := os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", None):
-        credentials = service_account.Credentials.from_service_account_file(credentials_path)
-        return gcs.Client(credentials=credentials)
-
-    raise DefaultCredentialsError("Cannot get GCS credentials")
+    return gcs.Client()
 
 
 @cache
