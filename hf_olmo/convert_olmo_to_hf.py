@@ -160,7 +160,7 @@ def download_gcs_directory(bucket_name: str, prefix: str, local_dir: str):
     path_local = Path(local_dir)
     path_prefix = Path(prefix)
 
-    gcs_client = _get_s3_client()
+    gcs_client = _get_gcs_client()
     bucket = gcs_client.bucket(bucket_name)
 
     path_local.mkdir(parents=True, exist_ok=True)
