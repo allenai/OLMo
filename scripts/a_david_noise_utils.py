@@ -297,6 +297,7 @@ def get_last_n_predicted_error(df: pd.DataFrame, full_df: pd.DataFrame):
     
     # add # std dev from pred target
     y_lastn_std = np.std(y_lastn)
+    y_lastn_coeff_var = y_lastn_std / y_lastn_mean
     z_score = (y_pred - y_lastn_mean) / y_lastn_std
 
     y_lastn_std_uniform = (y_lastn.max() - y_lastn.min()) / 12**(1/2)
@@ -311,6 +312,7 @@ def get_last_n_predicted_error(df: pd.DataFrame, full_df: pd.DataFrame):
         "y_lastn_z_score": z_score,
         "y_lastn_std_uniform": y_lastn_std_uniform,
         "y_lastn_std_score": y_lastn_std_score,
+        "y_lastn_coeff_var": y_lastn_coeff_var,
         "rel_error": rel_error,
         "rel_error_lastn_mean": rel_error_lastn_mean
     }
@@ -348,10 +350,10 @@ def fit_step2(df: pd.DataFrame, baseline, add_ideal_points=True):
     train_ys = df[df["mode"]=="train"]["y"]
 
     if add_ideal_points:
-        train_xs = pd.concat([pd.Series([0.01]), train_xs, pd.Series([2.6])], ignore_index=True)
-        train_ys = pd.concat([pd.Series([1.0]), train_ys, pd.Series([baseline])], ignore_index=True)
-        # train_xs = pd.concat([pd.Series([0.01]), train_xs], ignore_index=True)
-        # train_ys = pd.concat([pd.Series([1.0]), train_ys], ignore_index=True)
+        # train_xs = pd.concat([pd.Series([0.01]), train_xs, pd.Series([2.6])], ignore_index=True)
+        # train_ys = pd.concat([pd.Series([1.0]), train_ys, pd.Series([baseline])], ignore_index=True)
+        train_xs = pd.concat([pd.Series([0.01, 0]), train_xs, pd.Series([2.6])], ignore_index=True)
+        train_ys = pd.concat([pd.Series([1.0, 1.0]), train_ys, pd.Series([baseline])], ignore_index=True)
 
     coefficients, pcov = curve_fit(sigmoid, train_xs, train_ys, p0=[baseline - 1.0, 0.9, 3.0, 1.0], maxfev=1000000)
     df["predicted_y"] = df["x"].apply(lambda x: sigmoid(x, *coefficients))
@@ -775,6 +777,10 @@ def prettify(rel_error):
     return f"{rel_error * 100:+.1f}%"
 
 
+def prct(rel_error):
+    return f"{rel_error * 100:.2f}%"
+
+
 def round_str(n):
     return f"{n:.1f}"
 
@@ -824,6 +830,13 @@ def print_step_error_table(step1_error: dict[str, dict]=None, step2_error: dict[
             'Target accuracy std. dev.',
         ]
         format = sci_str
+    elif entry_value == 'y_lastn_coeff_var':
+        labels = [
+            'Target task loss coefficient of variation',
+            '--', # <- std. dev. of step 2 isn't meaningful
+            'Target accuracy coefficient of variation',
+        ]
+        format = prct
     elif entry_value == 'y_lastn_z_score':
         labels = [
             'Target task loss z-score',
