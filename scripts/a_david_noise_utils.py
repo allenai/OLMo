@@ -818,32 +818,39 @@ def print_step_error_table(step1_error: dict[str, dict]=None, step2_error: dict[
     tasks = next(iter(step1_error.values())).keys()
 
     if entry_value == 'y_lastn_std':
-        label = 'std dev'
+        labels = [
+            'Target task loss std. dev.',
+            '--', # <- std. dev. of step 2 isn't meaningful
+            'Target accuracy std. dev.',
+        ]
         format = sci_str
     elif entry_value == 'y_lastn_z_score':
-        label = 'z-score'
+        labels = [
+            'Target task loss z-score',
+            '--', # <- std. dev. of step 2 isn't meaningful
+            'Target accuracy z-score',
+        ]
         format = round_str
     elif entry_value == 'y_lastn_std_uniform':
-        label = 'uniform std dev'
+        labels = 'uniform std dev'
         format = sci_str
     elif entry_value == 'y_lastn_std_score':
-        label = 'standardized score'
+        labels = 'standardized score'
         format = round_str
     else:
-        label = 'error'
+        labels = [
+            'Step 1 error',
+            'Step 2 error',
+            'Stacked error',
+        ]
         format = prettify
 
     mkdn = """| Task | """
     n_cols = 0
-    if step1_error is not None:
-        n_cols += 1
-        mkdn += ''.join([f'Step 1 {label} ({str(t)}) |' for t in targets])
-    if step2_error is not None:
-        n_cols += 1
-        mkdn += ''.join([f'Step 2 ONLY {label} ({str(t)}) |' for t in targets])
-    if stacked_error is not None:
-        n_cols += 1
-        mkdn += ''.join([f'Stacked {label} ({str(t)}) |' for t in targets])
+    for i, _error_dict in enumerate([step1_error, step2_error, stacked_error]):
+        if _error_dict is not None:
+            n_cols += 1
+            mkdn += ''.join([f'{labels[i]} ({str(t)}) |' for t in targets])
     mkdn += """\n| --- |""" + n_cols * len(targets) * """ --- |"""
 
     for task in tasks:
@@ -862,7 +869,7 @@ def print_step_error_table(step1_error: dict[str, dict]=None, step2_error: dict[
     #             errors = [t[entry_value] for name, t in _error_dict[target].items() if not any([substr in name for substr in EXCLUDED])]
     #             mkdn += f"**{format(np.mean(errors))}** |"
 
-    mkdn += f"\n| **Avg unsigned {label}** (excl. BoolQ, ARC-c) | "
+    mkdn += f"\n| **Avg unsigned {labels[-1].lower()}** (excl. BoolQ, ARC-c, MMLU subsets) | "
     for target in targets:
         for _error_dict in [step1_error, step2_error, stacked_error]:
             if _error_dict is not None:
