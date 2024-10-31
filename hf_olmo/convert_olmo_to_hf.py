@@ -165,7 +165,9 @@ def download_gcs_directory(bucket_name: str, prefix: str, local_dir: str):
 
     path_local.mkdir(parents=True, exist_ok=True)
 
-    for elem in bucket.list_blobs(prefix=prefix):
+    files_to_download = list(bucket.list_blobs(prefix=prefix))
+
+    for elem in tqdm(files_to_download, desc="Downloading files from GCS"):
         local_destination = path_local / Path(elem.name).relative_to(path_prefix)
         local_destination.parent.mkdir(parents=True, exist_ok=True)
         elem.download_to_filename(local_destination)
@@ -190,7 +192,7 @@ def download_s3_directory(bucket_name: str, prefix: str, local_dir: str, ignore:
             files_to_download.append(obj["Key"])
 
     # Initialize the progress bar
-    for s3_key in tqdm(files_to_download, desc="Downloading files"):
+    for s3_key in tqdm(files_to_download, desc="Downloading files from S3"):
         # Construct the full local path
         local_file_path = os.path.join(local_dir, os.path.relpath(s3_key, prefix))
         local_file_dir = os.path.dirname(local_file_path)
