@@ -250,7 +250,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     return TrainConfig(
         run_name=run_name,
         seed=6198,
-        wandb=None if not args.wandb else WandbConfig(name=run_name, group=run_name[:-5] if run_name.endswith('-eval') else run_name, project="olmo-ladder"),
+        wandb=None if not args.wandb else WandbConfig(name=run_name, group=run_name.replace('-eval', ''), project="olmo-ladder"),
         model=model_config,
         ddp=DDPConfig(),  # defaults are fine
         fsdp=FSDPConfig(
