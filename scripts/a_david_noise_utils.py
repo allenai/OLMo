@@ -8,7 +8,6 @@ from typing import Optional
 from collections import defaultdict
 import csv
 from scipy.optimize import curve_fit
-from scipy import stats
 
 COLOR_MAP = {
     "190M": "darkred",
@@ -75,6 +74,10 @@ ALL_TASKS = {
         "bpb": ["eval/downstream_bpb/arc_challenge_rc_5shot_bpb_bpb"],
         "score": ["eval/downstream/arc_challenge_rc_5shot_len_norm"],
     },
+    # "ARC-Challenge-0shot": {
+    #     "bpb": ["eval/downstream_bpb/arc_challenge_rc_0shot_bpb_bpb"],
+    #     "score": ["eval/downstream/arc_challenge_rc_0shot_len_norm"],
+    # },
     "PiQA-5shot": {
         "bpb": ["eval/downstream_bpb/piqa_rc_5shot_bpb_bpb"],
         "score": ["eval/downstream/piqa_rc_5shot_len_norm"],
@@ -113,7 +116,46 @@ ALL_TASKS = {
     # },
 }
 
-TASKS = DEV_TASKS # Dev tasks are for quickly prototyping notebooks
+ZERO_SHOT_TASKS = {
+    "HellaSwag-0shot": {
+        "bpb": ["eval/downstream_bpb/hellaswag_rc_0shot_bpb_bpb"],
+        "score": ["eval/downstream/hellaswag_rc_0shot_len_norm"],
+    },
+    "ARC-Easy-0shot": {
+        "bpb": ["eval/downstream_bpb/arc_easy_rc_0shot_bpb_bpb"],
+        "score": ["eval/downstream/arc_easy_rc_0shot_acc"],
+    },
+    "ARC-Challenge-0shot": {
+        "bpb": ["eval/downstream_bpb/arc_challenge_rc_0shot_bpb_bpb"],
+        "score": ["eval/downstream/arc_challenge_rc_0shot_len_norm"],
+    },
+    "PiQA-0shot": {
+        "bpb": ["eval/downstream_bpb/piqa_rc_0shot_bpb_bpb"],
+        "score": ["eval/downstream/piqa_rc_0shot_len_norm"],
+    },
+    "Winogrande-0shot": {
+        "bpb": ["eval/downstream_bpb/winogrande_rc_0shot_bpb_bpb"],
+        "score": ["eval/downstream/winogrande_rc_0shot_acc"],
+    },
+    "OpenbookQA-0shot": {
+        "bpb": ["eval/downstream_bpb/openbookqa_rc_0shot_bpb_bpb"],
+        "score": ["eval/downstream/openbookqa_rc_0shot_len_norm"],
+    },
+    "CSQA-0shot": {
+        "bpb": ["eval/downstream_bpb/csqa_rc_0shot_bpb_bpb"],
+        "score": ["eval/downstream/csqa_rc_0shot_len_norm"],
+    },
+    "SocialIQA-0shot": {
+        "bpb": ["eval/downstream_bpb/socialiqa_rc_0shot_bpb_bpb"],
+        "score": ["eval/downstream/socialiqa_rc_0shot_len_norm"],
+    },
+    "BoolQ-0shot": {
+        "bpb": ["eval/downstream_bpb/boolq_rc_0shot_bpb_bpb"],
+        "score": ["eval/downstream/boolq_rc_0shot_acc"],
+    },
+}
+
+# TASKS = DEV_TASKS # Dev tasks are for quickly prototyping notebooks
 TASKS = ALL_TASKS 
 
 BASELINE_BY_TASK_NAME = {
@@ -134,6 +176,16 @@ BASELINE_BY_TASK_NAME = {
     'CSQA-5shot': 0.2,
     'SocialIQA-5shot': 1 / 3,
     'BoolQ-5shot': 0.5,
+
+    'HellaSwag-0shot': 0.25,
+    'ARC-Easy-0shot': 0.25,
+    'ARC-Challenge-0shot': 0.25,
+    'PiQA-0shot': 0.5,
+    'Winogrande-0shot': 0.5,
+    'OpenbookQA-0shot': 0.25,
+    'CSQA-0shot': 0.2,
+    'SocialIQA-0shot': 1 / 3,
+    'BoolQ-0shot': 0.5,
 }
 
 # We only include ce loss and the 6 dolma sets, as these are the sets we can include in the paper
@@ -245,14 +297,20 @@ def get_last_n_predicted_error(df: pd.DataFrame, full_df: pd.DataFrame):
     
     # add # std dev from pred target
     y_lastn_std = np.std(y_lastn)
-    std_dev_from_mean = (y_pred - y_lastn_mean) / y_lastn_std
+    z_score = (y_pred - y_lastn_mean) / y_lastn_std
+
+    y_lastn_std_uniform = (y_lastn.max() - y_lastn.min()) / 12**(1/2)
+    y_lastn_std_score = (y_pred - y_lastn_mean) / y_lastn_std_uniform
+    # y_lastn_std_score = (y_pred - ((y_lastn.max() + y_lastn.min())/2)) / y_lastn_std_uniform
 
     return {
         "y": y,
         "y_lastn": y_lastn.tolist(),
         "y_pred": y_pred,
         "y_lastn_std": y_lastn_std,
-        "std_dev_from_mean": std_dev_from_mean,
+        "y_lastn_z_score": z_score,
+        "y_lastn_std_uniform": y_lastn_std_uniform,
+        "y_lastn_std_score": y_lastn_std_score,
         "rel_error": rel_error,
         "rel_error_lastn_mean": rel_error_lastn_mean
     }
@@ -582,9 +640,9 @@ def plot_stacked(df: pd.DataFrame, step2_df: pd.DataFrame, ax: plt.Axes, x_label
     ax.set_title(title or "stacked prediction")
 
 
-def run_stacked(all_configs, limit_ckpts=None, smoothing=None, render_plot=True):
+def run_stacked(all_configs, tasks=TASKS, limit_ckpts=None, smoothing=None, render_plot=True):
     if render_plot:
-        rows = len(TASKS.keys())
+        rows = len(tasks.keys())
         fig, axes = plt.subplots(rows, 3, figsize=(20, 5 * rows))
 
     step1_error = {}
@@ -597,7 +655,7 @@ def run_stacked(all_configs, limit_ckpts=None, smoothing=None, render_plot=True)
         step2_error[target] = {}
         stacked_error[target] = {}
 
-        for i, (task_name, task) in enumerate(TASKS.items()):
+        for i, (task_name, task) in enumerate(tasks.items()):
             tokens = get_all_data_by_name(configs, ["throughput/total_tokens"])
             bpb_loss = get_all_data_by_name(configs, task['bpb'])
             downstream_loss = get_all_data_by_name(configs, task['score'])
@@ -654,7 +712,12 @@ def run_stacked(all_configs, limit_ckpts=None, smoothing=None, render_plot=True)
                 step2_df = step2_df.groupby('run').apply(lambda x: x.iloc[-int(np.ceil(LAST_N_PERCENT*len(x))):], include_groups=False).reset_index()
             elif limit_ckpts == 'final':
                 # trick: only use final checkpoint for curve fitting
-                step2_df = step2_df.groupby('run').apply(lambda rows: rows.iloc[-1], include_groups=False).reset_index()
+                # step2_df = step2_df.groupby('run').apply(lambda rows: rows.iloc[:-1], include_groups=False).reset_index()
+
+                # trick: use average of last 10 checkpoints for curve fitting
+                step2_df = step2_df.groupby('run').apply(lambda rows: rows.iloc[:-10], include_groups=False).reset_index()
+                step2_df["x"] = step2_df.groupby('run')['x'].transform(lambda x: x.mean())
+                step2_df["y"] = step2_df.groupby('run')['y'].transform(lambda x: x.mean())
 
             # Extract the prediction for the task loss
             last_match_idx = step2_df.loc[step2_df["mode"]=="eval"].tail(1).index
@@ -752,12 +815,19 @@ def print_step_error_table(step1_error: dict[str, dict]=None, step2_error: dict[
     from IPython.display import display, Markdown
 
     targets = step1_error.keys()
+    tasks = next(iter(step1_error.values())).keys()
 
     if entry_value == 'y_lastn_std':
         label = 'std dev'
         format = sci_str
-    elif entry_value == 'std_dev_from_mean':
+    elif entry_value == 'y_lastn_z_score':
         label = 'z-score'
+        format = round_str
+    elif entry_value == 'y_lastn_std_uniform':
+        label = 'uniform std dev'
+        format = sci_str
+    elif entry_value == 'y_lastn_std_score':
+        label = 'standardized score'
         format = round_str
     else:
         label = 'error'
@@ -776,24 +846,27 @@ def print_step_error_table(step1_error: dict[str, dict]=None, step2_error: dict[
         mkdn += ''.join([f'Stacked {label} ({str(t)}) |' for t in targets])
     mkdn += """\n| --- |""" + n_cols * len(targets) * """ --- |"""
 
-    for task in TASKS:
+    for task in tasks:
         mkdn += f"\n| {task} |" 
         for target in targets:
             for _error_dict in [step1_error, step2_error, stacked_error]:
                 if _error_dict is not None:
                     mkdn += f" {format(_error_dict[target][task][entry_value])} |"
 
-    # mkdn += "\n| **Avg signed error** | "
+    EXCLUDED = ['BoolQ', 'Challenge', 'MMLU-Stem', 'MMLU-Humanities', 'MMLU-Social-Science', 'MMLU-Other']
+
+    # mkdn += f"\n| **Avg signed {label}** | "
     # for target in targets:
     #     for _error_dict in [step1_error, step2_error, stacked_error]:
-    #         errors = [t['rel_error'] for t in _error_dict[target].values()]
-    #         mkdn += f"**{format(np.mean(errors))}** |"
+    #         if _error_dict is not None:
+    #             errors = [t[entry_value] for name, t in _error_dict[target].items() if not any([substr in name for substr in EXCLUDED])]
+    #             mkdn += f"**{format(np.mean(errors))}** |"
 
     mkdn += f"\n| **Avg unsigned {label}** (excl. BoolQ, ARC-c) | "
     for target in targets:
         for _error_dict in [step1_error, step2_error, stacked_error]:
             if _error_dict is not None:
-                errors = [t[entry_value] for name, t in _error_dict[target].items() if 'BoolQ' not in name and 'Challenge' not in name]
+                errors = [t[entry_value] for name, t in _error_dict[target].items() if not any([substr in name for substr in EXCLUDED])]
                 mkdn += f"**{format(np.mean(np.abs(errors)))}** |"
     
     # print(mkdn)
@@ -831,3 +904,40 @@ def print_results_table(results, columns=None):
         table += "\n" + generate_table_row(task, result)
     
     display(Markdown(table))
+
+
+def plot_std_dev(step1_error, stacked_error, plot_zero_shot=False, all_configs=None):
+    import matplotlib.pyplot as plt
+
+    EXCLUDED = ['BoolQ']
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    # few shot
+    tasks = [name for name, task in step1_error['1B-10xC'].items() if not any([substr in name for substr in EXCLUDED])]
+    step_1_std_dev = [task['y_lastn_std_uniform'] for name, task in step1_error['1B-10xC'].items() if not any([substr in name for substr in EXCLUDED])]
+    stacked_std_dev = [task['y_lastn_std_uniform'] for name, task in stacked_error['1B-10xC'].items() if not any([substr in name for substr in EXCLUDED])]
+
+    ax.scatter(step_1_std_dev, stacked_std_dev, s=5, marker="x", color='b')
+    for i, task in enumerate(tasks): ax.text(step_1_std_dev[i], stacked_std_dev[i], task, fontsize=6)
+
+    # zero shot
+    if plot_zero_shot:
+        assert all_configs is not None
+        zero_shot_step1_error, zero_shot_step2_error, zero_shot_stacked_error = run_stacked(all_configs, tasks=ZERO_SHOT_TASKS, render_plot=False)
+        # print_step_error_table(zero_shot_step1_error, zero_shot_step2_error, zero_shot_stacked_error, entry_value='rel_error_lastn_mean')
+
+        tasks = [name for name, task in zero_shot_step1_error['1B-10xC'].items() if not any([substr in name for substr in EXCLUDED])]
+        step_1_std_dev = [task['y_lastn_std_uniform'] for name, task in zero_shot_step1_error['1B-10xC'].items() if not any([substr in name for substr in EXCLUDED])]
+        stacked_std_dev = [task['y_lastn_std_uniform'] for name, task in zero_shot_stacked_error['1B-10xC'].items() if not any([substr in name for substr in EXCLUDED])]
+
+        ax.scatter(step_1_std_dev, stacked_std_dev, s=5, marker="x", color='r')
+        for i, task in enumerate(tasks): ax.text(step_1_std_dev[i], stacked_std_dev[i], task, fontsize=6)
+
+    ax.set_xlabel("Task Loss Standard Deviation ")
+    ax.set_ylabel("Task Accuracy Standard Deviation")
+    ax.set_title(f"Std. dev. of last {N_LAST_CKPTS} checkpoints (1B-10xC)")
+
+    texts = ax.texts
+    from adjustText import adjust_text
+    # _ = adjust_text(ax.texts)
