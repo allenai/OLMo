@@ -53,7 +53,7 @@ MODEL_CONFIG_150M = ModelConfig(
     weight_tying=False,
     alibi=False,
     rope=True,
-    flash_attention=True,
+    flash_attention=False,
     attention_dropout=0.0,
     attention_layer_norm=False,
     include_bias=False,
@@ -136,7 +136,10 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             read_location = "/weka/oe-training-default/ai2-llm"
     read_location.rstrip("/")
 
-    remote_save_folder = f"s3://ai2-llm/checkpoints/OLMo-ladder/{run_name}"
+    if args.gcp:
+        remote_save_folder = f"gs://aristo-benb/checkpoints/OLMo-ladder/benb/{run_name}"
+    else:
+        remote_save_folder = f"s3://ai2-llm/checkpoints/OLMo-ladder/{run_name}"
     load_path = args.load_path
     if load_path is None:
         load_path = find_latest_checkpoint(remote_save_folder)
@@ -176,10 +179,17 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
 
     distributed_strategy = {"7B": DistributedStrategy.fsdp}.get(args.model, DistributedStrategy.ddp)
 
+    data_paths = []
+    for i, path in enumerate(named_data_mixes.DATA_PATHS[args.data]):
+        if path.startswith("s3://"):
+            data_paths.append(path)
+        else:
+            data_paths.append(f"{read_location}/{path}")
+
     return TrainConfig(
         run_name=run_name,
         seed=6198,
-        wandb=None if not args.wandb else WandbConfig(name=run_name, group=run_name, project="olmo-ladder"),
+        wandb=None if not args.wandb else WandbConfig(name=run_name, group=run_name, project="mcqa"),
         model=model_config,
         ddp=DDPConfig(),  # defaults are fine
         fsdp=FSDPConfig(
@@ -218,7 +228,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         device_train_microbatch_size=device_batch_size,
         precision="amp_bf16",
         distributed_strategy=distributed_strategy,
-        fused_loss=True,
+        fused_loss=False,
         gen1_gc_interval=2,
         max_grad_norm=1.0,
         speed_monitor=SpeedMonitorConfig(window_size=1),
@@ -233,75 +243,21 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
                         "c4_en-validation": [
                             f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/c4_en/val/part-0-00000.npy"
                         ],
-                        "dolma_books-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_books/val/part-0-00000.npy"
-                        ],
-                        "dolma_common-crawl-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_common-crawl/val/part-0-00000.npy"
-                        ],
-                        "dolma_pes2o-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_pes2o/val/part-0-00000.npy"
-                        ],
-                        "dolma_reddit-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_reddit/val/part-0-00000.npy"
-                        ],
-                        "dolma_stack-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_stack/val/part-0-00000.npy"
-                        ],
-                        "dolma_wiki-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/dolma_wiki/val/part-0-00000.npy"
-                        ],
-                        "ice-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/ice/val/part-0-00000.npy"
-                        ],
-                        "m2d2_s2orc-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/m2d2_s2orc/val/part-0-00000.npy"
-                        ],
-                        "pile-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/pile/val/part-0-00000.npy"
-                        ],
-                        "wikitext_103-validation": [
-                            f"{read_location}/eval-data/perplexity/v3_small_gptneox20b/wikitext_103/val/part-0-00000.npy"
-                        ],
                     },
                 ),
             ),
-            EvaluatorConfig(label="piqa", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="hellaswag", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="winogrande", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="openbook_qa", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="boolq", type=EvaluatorType.downstream),
             EvaluatorConfig(label="sciq", type=EvaluatorType.downstream),
             EvaluatorConfig(label="arc_easy", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_challenge", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="copa", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="commonsense_qa", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="social_iqa", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_stem_var", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_humanities_var", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_social_sciences_var", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_other_var", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_stem_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_humanities_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_social_sciences_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_other_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_stem_mc_5shot_test", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_humanities_mc_5shot_test", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_social_sciences_mc_5shot_test", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_other_mc_5shot_test", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="basic_arithmetic", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="trivia_qa_wiki_ppl", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="natural_qs_open_ppl", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_easy_ppl", type=EvaluatorType.downstream),
         ],
         data=DataConfig(
             num_workers=32,
-            drop_last=True,
+            drop_last=False,
             pin_memory=True,
             prefetch_factor=8,
             persistent_workers=True,
             instance_filter=InstanceFilterConfig(),  # defaults are fine
-            paths=[f"{read_location}/{path}" for path in named_data_mixes.DATA_PATHS[args.data]],
+            paths=data_paths,
+            generate_attention_mask=True,
         ),
     )
 
@@ -426,6 +382,12 @@ if __name__ == "__main__":
             action=argparse.BooleanOptionalAction,
             default=False,
             help="read data from S3, write checkpoints to S3",
+        )
+        subparser.add_argument(
+            "--gcp",
+            action=argparse.BooleanOptionalAction,
+            default=False,
+            help="read data from GCP, write checkpoints to GCP",
         )
         subparser.add_argument(
             "--wandb", action=argparse.BooleanOptionalAction, default=True, help="create a run in wandb"
