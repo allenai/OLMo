@@ -202,7 +202,8 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     log.info(f"save folder: {save_folder}")
     load_path = args.load_path
     if load_path is None:
-        load_path = find_latest_checkpoint(save_folder)
+        # load_path = find_latest_checkpoint(save_folder)
+        load_path = save_folder.replace('-eval', '')
 
     model_config = MODEL_CONFIGS[args.model]
     model_size = parse_size(args.model)
@@ -249,7 +250,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     return TrainConfig(
         run_name=run_name,
         seed=6198,
-        wandb=None if not args.wandb else WandbConfig(name=run_name, group=run_name, project="olmo-ladder"),
+        wandb=None if not args.wandb else WandbConfig(name=run_name, group=run_name[:-5] if run_name.endswith('-eval') else run_name, project="olmo-ladder"),
         model=model_config,
         ddp=DDPConfig(),  # defaults are fine
         fsdp=FSDPConfig(
@@ -337,107 +338,107 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
                     },
                 ),
             ),
-            EvaluatorConfig(label="piqa", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="hellaswag", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="winogrande", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="openbook_qa", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="boolq", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="sciq", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_easy", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_challenge", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="copa", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="commonsense_qa", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="social_iqa", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_stem_var", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_humanities_var", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_social_sciences_var", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_other_var", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_stem_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_humanities_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_social_sciences_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_other_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_stem_mc_5shot_test", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_humanities_mc_5shot_test", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_social_sciences_mc_5shot_test", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_other_mc_5shot_test", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="basic_arithmetic", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="trivia_qa_wiki_ppl", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="natural_qs_open_ppl", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_easy_ppl", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="piqa_rc_0shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="piqa_rc_0shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="piqa_rc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="piqa_rc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="piqa_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="piqa_mc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="hellaswag_rc_0shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="hellaswag_rc_0shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="hellaswag_rc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="hellaswag_rc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="hellaswag_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="hellaswag_mc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="winogrande_rc_0shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="winogrande_rc_0shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="winogrande_rc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="winogrande_rc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="winogrande_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="winogrande_mc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="openbookqa_rc_0shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="openbookqa_rc_0shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="openbookqa_rc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="openbookqa_rc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="openbookqa_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="openbookqa_mc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="boolq_rc_0shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="boolq_rc_0shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="boolq_rc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="boolq_rc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="boolq_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="boolq_mc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="sciq_rc_0shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="sciq_rc_0shot_bpb", type=EvaluatorType.downstream),
-            # EvaluatorConfig(label="sciq_rc_5shot", type=EvaluatorType.downstream),
-            # EvaluatorConfig(label="sciq_rc_5shot_bpb", type=EvaluatorType.downstream),
-            # EvaluatorConfig(label="sciq_mc_5shot", type=EvaluatorType.downstream),
-            # EvaluatorConfig(label="sciq_mc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_easy_rc_0shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_easy_rc_0shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_easy_rc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_easy_rc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_easy_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_easy_mc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_challenge_rc_0shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_challenge_rc_0shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_challenge_rc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_challenge_rc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_challenge_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="arc_challenge_mc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="copa_rc_0shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="copa_rc_0shot_bpb", type=EvaluatorType.downstream),
-            # EvaluatorConfig(label="copa_rc_5shot", type=EvaluatorType.downstream),
-            # EvaluatorConfig(label="copa_rc_5shot_bpb", type=EvaluatorType.downstream),
-            # EvaluatorConfig(label="copa_mc_5shot", type=EvaluatorType.downstream),
-            # EvaluatorConfig(label="copa_mc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="csqa_rc_0shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="csqa_rc_0shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="csqa_rc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="csqa_rc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="csqa_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="csqa_mc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="socialiqa_rc_0shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="socialiqa_rc_0shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="socialiqa_rc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="socialiqa_rc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="socialiqa_mc_5shot", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="socialiqa_mc_5shot_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_stem_var_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_humanities_var_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_social_sciences_var_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_other_var_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_stem_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_humanities_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_social_sciences_bpb", type=EvaluatorType.downstream),
-            EvaluatorConfig(label="mmlu_other_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="piqa", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="hellaswag", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="winogrande", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="openbook_qa", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="boolq", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="sciq", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_easy", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_challenge", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="copa", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="commonsense_qa", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="social_iqa", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_stem_var", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_humanities_var", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_social_sciences_var", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_other_var", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_stem_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_humanities_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_social_sciences_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_other_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_stem_mc_5shot_test", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_humanities_mc_5shot_test", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_social_sciences_mc_5shot_test", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_other_mc_5shot_test", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="basic_arithmetic", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="trivia_qa_wiki_ppl", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="natural_qs_open_ppl", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_easy_ppl", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="piqa_rc_0shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="piqa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="piqa_rc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="piqa_rc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="piqa_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="piqa_mc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="hellaswag_rc_0shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="hellaswag_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="hellaswag_rc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="hellaswag_rc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="hellaswag_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="hellaswag_mc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="winogrande_rc_0shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="winogrande_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="winogrande_rc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="winogrande_rc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="winogrande_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="winogrande_mc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="openbookqa_rc_0shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="openbookqa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="openbookqa_rc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="openbookqa_rc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="openbookqa_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="openbookqa_mc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="boolq_rc_0shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="boolq_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="boolq_rc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="boolq_rc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="boolq_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="boolq_mc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="sciq_rc_0shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="sciq_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # # EvaluatorConfig(label="sciq_rc_5shot", type=EvaluatorType.downstream),
+            # # EvaluatorConfig(label="sciq_rc_5shot_bpb", type=EvaluatorType.downstream),
+            # # EvaluatorConfig(label="sciq_mc_5shot", type=EvaluatorType.downstream),
+            # # EvaluatorConfig(label="sciq_mc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_easy_rc_0shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_easy_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_easy_rc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_easy_rc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_easy_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_easy_mc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_challenge_rc_0shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_challenge_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_challenge_rc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_challenge_rc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_challenge_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="arc_challenge_mc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="copa_rc_0shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="copa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # # EvaluatorConfig(label="copa_rc_5shot", type=EvaluatorType.downstream),
+            # # EvaluatorConfig(label="copa_rc_5shot_bpb", type=EvaluatorType.downstream),
+            # # EvaluatorConfig(label="copa_mc_5shot", type=EvaluatorType.downstream),
+            # # EvaluatorConfig(label="copa_mc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="csqa_rc_0shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="csqa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="csqa_rc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="csqa_rc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="csqa_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="csqa_mc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="socialiqa_rc_0shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="socialiqa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="socialiqa_rc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="socialiqa_rc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="socialiqa_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="socialiqa_mc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_stem_var_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_humanities_var_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_social_sciences_var_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_other_var_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_stem_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_humanities_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_social_sciences_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="mmlu_other_bpb", type=EvaluatorType.downstream),
         ],
         data=DataConfig(
             num_workers=32,
@@ -552,6 +553,24 @@ def train_cmd(args: argparse.Namespace):
     main(cfg)
 
 
+def eval_cmd(args: argparse.Namespace):
+    cfg = config_from_args(args)
+    log.info(f"save folder from config: {cfg.save_folder}")
+
+    try:
+        mp.set_start_method("spawn", force=True)
+    except RuntimeError as e:
+        print(f"failed to set multiprocessing start method: {e}")
+    torch.cuda.set_device(f"cuda:{get_local_rank()}")
+    dist.init_process_group(backend="nccl")
+    prepare_cli_environment()
+    add_cached_path_clients()
+
+    from eval import main
+
+    main(cfg)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(os.path.basename(__file__))
     subparsers = parser.add_subparsers(required=True)
@@ -600,7 +619,10 @@ if __name__ == "__main__":
     train_parser = subparsers.add_parser("train")
     train_parser.set_defaults(func=train_cmd)
 
-    for subparser in [dump_parser, train_parser]:
+    eval_parser = subparsers.add_parser("eval")
+    eval_parser.set_defaults(func=eval_cmd)
+
+    for subparser in [dump_parser, train_parser, eval_parser]:
         subparser.add_argument("--model", type=str, required=True)
         subparser.add_argument("--data", type=str, required=True)
         subparser.add_argument("--length", type=str, default="2xC")
