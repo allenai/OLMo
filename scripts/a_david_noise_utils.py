@@ -155,6 +155,88 @@ ZERO_SHOT_TASKS = {
     },
 }
 
+TASKS_REORDERED = {
+    "HellaSwag-5shot": {
+        "bpb": ["eval/downstream_bpb/hellaswag_rc_5shot_bpb_bpb"],
+        "score": ["eval/downstream/hellaswag_rc_5shot_len_norm"],
+    },
+    "ARC-Easy-5shot": {
+        "bpb": ["eval/downstream_bpb/arc_easy_rc_5shot_bpb_bpb"],
+        "score": ["eval/downstream/arc_easy_rc_5shot_acc"],
+    },
+    "ARC-Challenge-5shot": {
+        "bpb": ["eval/downstream_bpb/arc_challenge_rc_5shot_bpb_bpb"],
+        "score": ["eval/downstream/arc_challenge_rc_5shot_len_norm"],
+    },
+    "PiQA-5shot": {
+        "bpb": ["eval/downstream_bpb/piqa_rc_5shot_bpb_bpb"],
+        "score": ["eval/downstream/piqa_rc_5shot_len_norm"],
+    },
+    "OpenbookQA-5shot": {
+        "bpb": ["eval/downstream_bpb/openbookqa_rc_5shot_bpb_bpb"],
+        "score": ["eval/downstream/openbookqa_rc_5shot_len_norm"],
+    },
+    "CSQA-5shot": {
+        "bpb": ["eval/downstream_bpb/csqa_rc_5shot_bpb_bpb"],
+        "score": ["eval/downstream/csqa_rc_5shot_len_norm"],
+    },
+    "SocialIQA-5shot": {
+        "bpb": ["eval/downstream_bpb/socialiqa_rc_5shot_bpb_bpb"],
+        "score": ["eval/downstream/socialiqa_rc_5shot_len_norm"],
+    },
+    "MMLU-Stem": {
+        "bpb": [f"eval/downstream_bpb/mmlu_stem_var_bpb_bpb"],
+        "score": [f"eval/downstream/mmlu_stem_var_len_norm"],
+        "x_label": "mmlu_var_bpb",
+        "y_label": "mmlu_var_score",
+    },
+    "MMLU-Humanities": {
+        "bpb": [f"eval/downstream_bpb/mmlu_humanities_var_bpb_bpb"],
+        "score": [f"eval/downstream/mmlu_humanities_var_len_norm"],
+        "x_label": "mmlu_var_bpb",
+        "y_label": "mmlu_var_score",
+    },
+    "MMLU-Social-Science": {
+        "bpb": [f"eval/downstream_bpb/mmlu_social_sciences_var_bpb_bpb"],
+        "score": [f"eval/downstream/mmlu_social_sciences_var_len_norm"],
+        "x_label": "mmlu_var_bpb",
+        "y_label": "mmlu_var_score",
+    },
+    "MMLU-Other": {
+        "bpb": [f"eval/downstream_bpb/mmlu_other_var_bpb_bpb"],
+        "score": [f"eval/downstream/mmlu_other_var_len_norm"],
+        "x_label": "mmlu_var_bpb",
+        "y_label": "mmlu_var_score",
+    },
+    "MMLU-Var": {
+        "bpb": [f"eval/downstream_bpb/{n}_var_bpb_bpb" for n in MMLU_NAMES],
+        "score": [f"eval/downstream/{n}_var_len_norm" for n in MMLU_NAMES],
+        "x_label": "mmlu_var_bpb",
+        "y_label": "mmlu_var_score",
+    },
+    "Winogrande-5shot": {
+        "bpb": ["eval/downstream_bpb/winogrande_rc_5shot_bpb_bpb"],
+        "score": ["eval/downstream/winogrande_rc_5shot_acc"],
+    },
+    "SciQ-0shot": {
+        "bpb": ["eval/downstream_bpb/sciq_rc_0shot_bpb_bpb"],
+        "score": ["eval/downstream/sciq_rc_0shot_acc"],
+    },
+    "BoolQ-5shot": {
+        "bpb": ["eval/downstream_bpb/boolq_rc_5shot_bpb_bpb"],
+        "score": ["eval/downstream/boolq_rc_5shot_acc"],
+    },
+    # "HellaSwag-0shot": {
+    #     "bpb": ["eval/downstream_bpb/hellaswag_rc_0shot_bpb_bpb"],
+    #     "score": ["eval/downstream/hellaswag_rc_0shot_len_norm"],
+    # },
+    # "Copa-0shot": {
+    #     "bpb": ["eval/downstream_bpb/copa_rc_0shot_bpb_bpb"],
+    #     "score": ["eval/downstream/copa_rc_0shot_acc"],
+    # },
+}
+
+
 # TASKS = DEV_TASKS # Dev tasks are for quickly prototyping notebooks
 TASKS = ALL_TASKS 
 
