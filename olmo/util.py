@@ -313,12 +313,6 @@ def get_progress_bar() -> Progress:
     return get_download_progress()
 
 
-def walk_local_path(path: PathOrStr, top_down=True, on_error=None, follow_symlinks=False):
-    """Necessary because Path.walk() was only added in python 3.12"""
-    for root, dirs, files in os.walk(path, topdown=top_down, onerror=on_error, followlinks=follow_symlinks):
-        yield Path(root), dirs, files
-
-
 def resource_path(
     folder: PathOrStr, fname: str, local_cache: Optional[PathOrStr] = None, progress: Optional[Progress] = None
 ) -> Path:
