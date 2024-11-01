@@ -64,7 +64,6 @@ torchrun \
     --wandb.name="peteish1_v2_${WIDTH}_${LR}" \
     --wandb.group="peteish1_v2" \
     --wandb.project=olmo-mup \
-    --load_path="${CHECKPOINTS_PATH}/ai2-llm/checkpoints/OLMo-mup/peteish1_2048_1.56e-2/step0" \
     --save_folder="${CHECKPOINTS_PATH}/ai2-llm/checkpoints/OLMo-mup/peteish1_v2_${WIDTH}_${LR}" \
     --model.use_mup \
     --model.mup_query_zero_init=false \
@@ -79,3 +78,4 @@ torchrun \
     --save_overwrite \
     "${@}"
 
+# --load_path="${CHECKPOINTS_PATH}/ai2-llm/checkpoints/OLMo-mup/peteish1_2048_1.56e-2/step0" \
