@@ -29,11 +29,14 @@ class Evaluator:
     def compute_metrics(self) -> Dict[str, float]:
         if self.type == EvaluatorType.downstream:
             assert isinstance(self.eval_metric, ICLMetric)
-            value = self.eval_metric.compute().item()
-            key = f"eval/downstream/{self.label}_{self.eval_metric.metric_type}"
-            if self.eval_metric.metric_type in ["ce_loss", "bpb"]:
-                key = key.replace("/downstream/", f"/downstream_{self.eval_metric.metric_type}/")
-            return {key: value}
+            suffix_to_value = self.eval_metric.compute()
+            outputs = {}
+            for suffix, value in suffix_to_value.items():
+                key = f"eval/downstream/{self.label}_{self.eval_metric.metric_type}{suffix}"
+                if self.eval_metric.metric_type in ["ce_loss", "bpb"]:
+                    key = key.replace("/downstream/", f"/downstream_{self.eval_metric.metric_type}/")
+                outputs[key] = value.item()
+            return outputs
         elif self.type == EvaluatorType.lm:
             # Metric(s) = cross entropy loss
             metrics: Dict[str, Metric]
@@ -52,7 +55,7 @@ class Evaluator:
                     # This can happen when the evaluator contains multiple tasks/datasets and we didn't
                     # get to this one within the current evaluation loop.
                     metric.update(0.0, 0.0)
-                loss = metric.compute()
+                loss = metric.compute()[""] # always no suffix
                 if loss.isnan().item():
                     # This can happen when the evaluator contains multiple tasks/datasets and we didn't
                     # get to this one within the current evaluation loop.
