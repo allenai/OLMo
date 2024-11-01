@@ -71,7 +71,7 @@ torchrun \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
       --save_folder=$SAVE_FOLDER \
-      --remote_save_folder="s3://ai2-llm/checkpoints/OLMo-medium/$NAME/" \
+      --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/$NAME/" \
       --save_overwrite \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=2 \
