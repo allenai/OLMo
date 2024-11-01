@@ -95,9 +95,7 @@ class ICLMetric(Metric):
                 torch.LongTensor((doc_id, cont_id, batch["label_id"][idx])).to(batch["label_id"][idx].device)
             )
 
-    def compute(self) -> Dict[str, torch.Tensor]:
-        # Task "suffix" -> tensor
-
+    def compute(self) -> torch.Tensor:
         # states should have been synced from all accelerators at this point
         # account for duplicates here because of DistributedSampler compensating for drop_last=False
         loglikelihood_dict: Dict[int, Dict[int, float]] = {}
@@ -118,9 +116,6 @@ class ICLMetric(Metric):
 
         # compute acc
         correct = []
-        soft_scores = []
-        soft_log_scores = []
-
         preds: Optional[List[float]] = None
         labels: Optional[List[int]] = None
         if self.metric_type == "f1":
@@ -145,15 +140,14 @@ class ICLMetric(Metric):
                 continue
             if self.metric_type in ["ce_loss", "bpb"]:
                 correct.append(loglikelihoods[0])  # Only one answer is scored
-            elif self.metric_type == "f1":
+            else:
+                correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
+
+            if self.metric_type == "f1":
                 assert preds is not None
                 assert labels is not None
                 preds.append(torch.argmax(loglikelihoods).item())
                 labels.append(label_dict[doc_id])
-            else:
-                correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
-                soft_scores.append(torch.softmax(loglikelihoods, dim=0)[label_dict[doc_id]].item())
-                soft_log_scores.append(torch.log_softmax(loglikelihoods, dim=0)[label_dict[doc_id]].item())
 
         if self.metric_type == "f1":
             assert preds is not None
@@ -163,15 +157,7 @@ class ICLMetric(Metric):
         else:
             score = sum(correct) / len(correct)
 
-        outputs = {
-            "": torch.tensor(score),
-        }
-
-        if soft_scores:
-            outputs["_soft"] = torch.tensor(sum(soft_scores) / len(soft_scores))
-            outputs["_soft_log"] = torch.tensor(sum(soft_log_scores) / len(soft_log_scores))
-
-        return outputs
+        return torch.tensor(score)
 
 
 class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
