@@ -2,9 +2,10 @@
 
 set -ex
 
-NUM_NODES=1
+NUM_NODES=2
 
 gantry run \
+  --allow-dirty \
   --workspace ai2/OLMo-tiny \
   --task-name peteish7-eval \
   --description "Pete-ish 7B eval" \

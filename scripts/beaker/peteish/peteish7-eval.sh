@@ -53,6 +53,7 @@ torchrun \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=500 \
       --save_overwrite \
+      --device_eval_batch_size=16 \
       --wandb.group="peteish7" \
       --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7"
 
