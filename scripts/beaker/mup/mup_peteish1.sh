@@ -73,6 +73,7 @@ torchrun \
     --optimizer.learning_rate=$LR \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --save_interval_ephemeral=250 \
+    --stop_at=10000 \
     --eval_interval=100 \
     --try_load_latest_save \
     --save_overwrite \
