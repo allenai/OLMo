@@ -125,7 +125,9 @@ def main(cfg: TrainConfig) -> None:
         load_paths = [cfg.load_path]
     else:
         # This globbing does not work with remote paths.
-        load_paths = list(sorted(glob.glob(f"{cfg.load_path}/step*"), key=lambda x: int(x.split('/')[-1].split('step')[-1])))
+        load_paths = list(glob.glob(f"{cfg.load_path}/step*"))
+        load_paths = [x for x in load_paths if x[-1].isdigit()]
+        load_paths = list(sorted(load_paths, key=lambda x: int(x.split('/')[-1].split('step')[-1])))
 
     for load_path in load_paths:
         step = int(load_path.split('/')[-1].split('step')[-1])
