@@ -217,6 +217,10 @@ def main(cfg: TrainConfig) -> None:
         log.info("Model:")
         log.info(dist_model)
 
+        # Construct optimizer and learning rate scheduler.
+        optim = build_optimizer(cfg, dist_model)
+        scheduler = build_scheduler(cfg)
+
         # Consolidate components into `Trainer` object.
         with TrainerForEval(
             cfg=cfg,
@@ -225,6 +229,8 @@ def main(cfg: TrainConfig) -> None:
             dist_model=dist_model,
             device=device,
             evaluators=evaluators,
+            optim=optim,
+            scheduler=scheduler,
         ) as trainer:
 
             log.info(f"Loading checkpoint from {load_path}...")
