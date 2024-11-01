@@ -1,5 +1,5 @@
 run_name: peteish7-anneal-from-928646-50B-nowup-moremath-dclm07-fw2-se-flan-seed3
-seed: 7201
+seed: 2662
 dry_run: false
 
 wandb:
