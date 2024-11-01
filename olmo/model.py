@@ -42,6 +42,8 @@ from .config import (
     InitFnType,
     LayerNormType,
     ModelConfig,
+    ShardedCheckpointerType,
+    TrainConfig,
 )
 from .exceptions import OLMoConfigurationError
 from .initialization import init_normal
@@ -75,7 +77,7 @@ log = logging.getLogger(__name__)
 
 
 def activation_checkpoint_function(cfg: ModelConfig):
-    preserve_rng_state = (
+    preserve_rng_state = not (
         (cfg.attention_dropout == 0.0) and (cfg.embedding_dropout == 0.0) and (cfg.residual_dropout == 0.0)
     )
     from torch.utils.checkpoint import checkpoint
@@ -417,7 +419,7 @@ class OLMoBlock(nn.Module):
         self.__cache = cache
         assert config.d_model % config.n_heads == 0
 
-        self._activation_checkpoint_fn = None
+        self._activation_checkpoint_fn: Optional[Callable] = None
 
         # Dropout.
         self.dropout = Dropout(config.residual_dropout)
@@ -499,9 +501,11 @@ class OLMoBlock(nn.Module):
         init_normal(self.attn_out, std=attn_out_std, init_cutoff_factor=cutoff_factor)
         init_normal(self.ff_out, std=ff_out_std, init_cutoff_factor=cutoff_factor)
 
-    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+    def set_activation_checkpointing(
+        self, strategy: Optional[ActivationCheckpointingStrategy], checkpoint_func: Optional[Callable] = None
+    ):
         if strategy == ActivationCheckpointingStrategy.fine_grained:
-            self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
+            self._activation_checkpoint_fn = checkpoint_func or activation_checkpoint_function(self.config)
         else:
             self._activation_checkpoint_fn = None
 
@@ -735,11 +739,13 @@ class OLMoSequentialBlock(OLMoBlock):
         # apply norm before
         if not self.config.norm_after:
             if self._activation_checkpoint_fn is not None:
-                x = self._activation_checkpoint_fn(self.attn_norm, x)
+                h = self._activation_checkpoint_fn(self.attn_norm, x)
             else:
-                x = self.attn_norm(x)
+                h = self.attn_norm(x)
+        else:
+            h = x
 
-        qkv = self.att_proj(x)
+        qkv = self.att_proj(h)
 
         if self.config.clip_qkv is not None:
             qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
@@ -977,7 +983,7 @@ class OLMoOutput(NamedTuple):
     Attention keys and values from each block.
     """
 
-    hidden_states: Optional[Tuple[torch.Tensor]]
+    hidden_states: Optional[Tuple[torch.Tensor, ...]]
     """
     Hidden states from each block.
     """
@@ -1047,10 +1053,12 @@ class OLMoBlockGroup(nn.ModuleList):
         for block in self:
             block.reset_parameters()
 
-    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+    def set_activation_checkpointing(
+        self, strategy: Optional[ActivationCheckpointingStrategy], checkpoint_func: Optional[Callable] = None
+    ):
         self.activation_checkpointing_strategy = strategy
         for block in self:
-            block.set_activation_checkpointing(strategy)
+            block.set_activation_checkpointing(strategy, checkpoint_func=checkpoint_func)
 
 
 class OLMo(nn.Module):
@@ -1137,14 +1145,16 @@ class OLMo(nn.Module):
             get_causal_attention_bias(self.__cache, config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
 
-    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+    def set_activation_checkpointing(
+        self, strategy: Optional[ActivationCheckpointingStrategy], checkpoint_func: Optional[Callable] = None
+    ):
         self.activation_checkpointing_strategy = strategy
         if self.config.block_group_size != 1:
             for block_group in self.transformer.block_groups:
-                block_group.set_activation_checkpointing(strategy)
+                block_group.set_activation_checkpointing(strategy, checkpoint_func=checkpoint_func)
         else:
             for block in self.transformer.blocks:
-                block.set_activation_checkpointing(strategy)
+                block.set_activation_checkpointing(strategy, checkpoint_func=checkpoint_func)
 
     @property
     def device(self) -> torch.device:
@@ -1442,7 +1452,11 @@ class OLMo(nn.Module):
         if self.config.scale_logits:
             logits.mul_(1 / math.sqrt(self.config.d_model))
 
-        return OLMoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
+        return OLMoOutput(
+            logits=logits,
+            attn_key_values=attn_key_values,
+            hidden_states=tuple(all_hidden_states) if output_hidden_states else None,
+        )
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
@@ -1741,15 +1755,26 @@ class OLMo(nn.Module):
             model.load_state_dict(model._make_state_dict_compatible(state_dict)[0])
             model = model.to(torch.device(device))
         else:
-            from .checkpoint import load_model_state
+            train_config = TrainConfig.load(config_path)
+            if train_config.sharded_checkpointer == ShardedCheckpointerType.olmo_core:
+                from olmo_core.distributed.checkpoint import (  # type: ignore
+                    load_model_and_optim_state,
+                )
 
-            # Initialize model on target device. In this case the state dict is loaded in-place
-            # so it's not necessary to start on CPU if the target device is a GPU.
-            model_config.init_device = device
-            model = OLMo(model_config)
+                model_config.init_device = device
+                model = OLMo(model_config)
+                load_model_and_optim_state(checkpoint_dir, model)
+            else:
+                # train_config.sharded_checkpointer == ShardedCheckpointerType.torch_new
+                from .checkpoint import load_model_state
 
-            # Load state dict in place.
-            load_model_state(checkpoint_dir, model)
+                # Initialize model on target device. In this case the state dict is loaded in-place
+                # so it's not necessary to start on CPU if the target device is a GPU.
+                model_config.init_device = device
+                model = OLMo(model_config)
+
+                # Load state dict in place.
+                load_model_state(checkpoint_dir, model)
 
         return model.eval()
 

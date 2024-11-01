@@ -34,14 +34,14 @@ mkdir -p $SAVE_FOLDER
     --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/peteish13-highlr/" \
     --save_overwrite \
     '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
-    --load_path=gs://ai2-llm/checkpoints/OLMo-medium/peteish13-highlr/step180000/ \
     --sharded_checkpointer=olmo_core \
-    --device_train_microbatch_size=2 \
-    --activation_checkpointing=one_in_two \
+    --device_train_microbatch_size=4 \
+    --activation_checkpointing=whole_layer \
     --compile.fullgraph=false \
     --fused_loss=true \
     --model.flash_attention=true \
     --data.num_workers=8 \
     --optimizer.learning_rate=9.0e-4 \
     --optimizer.metrics_log_interval=10 \
+    --epoch=1 \
     --data.prefetch_factor=8 2>&1 | tee $SAVE_FOLDER/log.txt

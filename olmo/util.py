@@ -1,4 +1,6 @@
+import gzip
 import io
+import json
 import logging
 import os
 import re
@@ -20,12 +22,13 @@ import datasets
 import rich
 from botocore.config import Config
 from cached_path.schemes import SchemeClient, add_scheme_client
-from google.api_core.retry import Retry as GCSRetry
+from google.api_core.retry import Retry as GCSRetry, if_transient_error as gcs_is_transient_error
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.progress import Progress
 from rich.text import Text
 from rich.traceback import Traceback
+import requests
 
 from olmo_data.data import get_data_path
 
@@ -416,7 +419,20 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
 
 
 # Google Storage API is unhinged and requires you to specify the retry policy on every single call you make.
-_gcs_retry = GCSRetry(initial=1.0, maximum=10.0, multiplier=2.0, deadline=500.0)
+def _gcs_is_retriable(exception: Exception) -> bool:
+    if gcs_is_transient_error(exception):
+        return True
+    if isinstance(exception, requests.exceptions.ReadTimeout):
+        return True
+    return False
+
+
+_gcs_retry = GCSRetry(
+    predicate=_gcs_is_retriable,
+    initial=1.0,
+    maximum=10.0,
+    multiplier=2.0,
+    timeout=600.0)
 
 
 def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
@@ -449,10 +465,9 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(key)
     try:
-        blob.reload(retry=_gcs_retry)
+        return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1, retry=_gcs_retry)
     except NotFound:
         raise FileNotFoundError(f"gs://{bucket_name}/{key}")
-    return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1, retry=_gcs_retry)
 
 
 @cache
@@ -741,6 +756,41 @@ def load_hf_dataset(path: str, name: Optional[str], split: str):
                 f"HF dataset {path} name {name} split {split} not found in directory {dataset_rel_path}"
             )
         return datasets.load_from_disk(str(dataset_path))
+
+
+def load_oe_eval_requests(path: str, name: Optional[str] = None, split: Optional[str] = None):
+    """
+    Loads an oe-eval request file from `olmo_data/oe_eval_tasks`.
+    TODO: Add support from loading from S3 instead?
+    """
+    dataset_rel_path = os.path.join("oe_eval_tasks", path)
+    if name is not None:
+        dataset_rel_path = os.path.join(dataset_rel_path, name)
+    with get_data_path(dataset_rel_path) as dataset_path:
+        if not dataset_path.is_dir():
+            raise NotADirectoryError(f"OE Eval dataset not found in directory {dataset_rel_path}")
+        data_file = dataset_path / "requests.jsonl.gz"
+        if not data_file.is_file():
+            data_file = dataset_path / "requests.jsonl"
+        if not data_file.is_file():
+            raise FileNotFoundError(
+                f"OE Eval dataset file requests-{split}.jsonl(.gz) missing in directory {dataset_rel_path}"
+            )
+        requests = []
+        if data_file.suffix == ".gz":
+            with gzip.open(data_file, "r") as file:
+                for line in file:
+                    requests.append(json.loads(line.decode("utf-8").strip()))
+        else:
+            with open(data_file, "r") as file:
+                for line2 in file:
+                    requests.append(json.loads(line2.strip()))
+        config = None
+        config_file = dataset_path / "config.json"
+        if config_file.is_file():
+            with open(config_file, "r") as file:
+                config = json.load(file)
+        return config, requests
 
 
 def default_thread_count() -> int:

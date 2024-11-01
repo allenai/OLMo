@@ -1,7 +1,7 @@
 import abc
 import logging
 import re
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import datasets
 import torch
@@ -9,11 +9,15 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from torchmetrics import Metric
 
-from olmo.util import load_hf_dataset
+from olmo.util import load_hf_dataset, load_oe_eval_requests
 
 from ..tokenizer import Tokenizer
 
 log = logging.getLogger(__name__)
+
+# Map from oe-eval metrics to metrics used here
+METRIC_FROM_OE_EVAL = {"acc_raw": "acc", "acc_per_char": "len_norm", "acc_uncond": "pmi_dc"}
+LOG_2_OF_E = 1.44269504089
 
 
 class ICLMetric(Metric):
@@ -21,7 +25,7 @@ class ICLMetric(Metric):
     full_state_update: bool = False
 
     def __init__(self, metric_type="acc") -> None:
-        """metric_type: f1, acc, len_norm, pmi_dc, ce_loss"""
+        """metric_type: f1, acc, len_norm, pmi_dc, ce_loss, bpb"""
         super().__init__(sync_on_compute=True)
 
         self.metric_type = metric_type
@@ -73,6 +77,13 @@ class ICLMetric(Metric):
                 )
                 if self.metric_type == "ce_loss":
                     log_likelihood = -log_likelihood
+            elif self.metric_type == "bpb":
+                # bits per byte
+                log_likelihood = (
+                    -torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
+                    / batch["cont_byte_len"][idx]
+                    * LOG_2_OF_E
+                )
             else:
                 raise ValueError(self.metric_type)
 
@@ -127,7 +138,7 @@ class ICLMetric(Metric):
 
             if skip_document:
                 continue
-            if self.metric_type == "ce_loss":
+            if self.metric_type in ["ce_loss", "bpb"]:
                 correct.append(loglikelihoods[0])  # Only one answer is scored
             else:
                 correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
@@ -152,7 +163,7 @@ class ICLMetric(Metric):
 class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
     """Only supports zero-shot for now."""
 
-    metric_type: ClassVar[str]
+    metric_type: str
 
     def __init__(
         self,
@@ -161,6 +172,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         dataset_name: Union[str, Sequence[str], None] = None,
         model_ctx_len: int = 2048,
         split="validation",
+        metric_type=None,  # Override default metric type
         prompts=[None],  # List of prompt variants to use
     ):
         super().__init__()
@@ -171,6 +183,8 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         self.model_ctx_len = model_ctx_len
         self.prompts = prompts
         self.current_prompt = None
+        if metric_type is not None:
+            self.metric_type = metric_type
         self.log_instances = 0  # Set to > 0 to log the first few instances as a sanity check
 
         self.samples: List[Dict[str, Any]] = []
@@ -226,6 +240,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
 
                 for cont_id, continuation_str in enumerate(continuations):
                     cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
+                    cont_byte_len = len(continuation_str[1:].encode("utf-8"))
                     continuation = self.token_encode(continuation_str)
 
                     # query, remove last token from continuation, truncate from left is longer than model ctx length
@@ -251,6 +266,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
                                 continuation
                             ),  # even if query has last token removed, LM will output same cont len
                             "cont_str_len": cont_str_len,
+                            "cont_byte_len": cont_byte_len,
                             "query": query,  # remove last token from continuation
                             "dc_query": dc_query,
                             "label_id": label_id,
@@ -305,6 +321,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
         dc_lens = []
         cont_lens = []
         cont_str_lens = []
+        cont_byte_lens = []
         queries = []
         dc_queries = []
         label_ids = []
@@ -323,6 +340,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
             dc_lens.append(sample["dc_len"])
             cont_lens.append(sample["cont_len"])
             cont_str_lens.append(sample["cont_str_len"])
+            cont_byte_lens.append(sample["cont_byte_len"])
 
             queries.append(torch.LongTensor(self.pad_tokens_until_max(sample["query"], max_len=max_query_len)))
             dc_queries.append(
@@ -340,6 +358,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
             "dc_len": torch.LongTensor(dc_lens),
             "cont_len": torch.LongTensor(cont_lens),  # since query has last token removed from continuation
             "cont_str_len": torch.LongTensor(cont_str_lens),
+            "cont_byte_len": torch.LongTensor(cont_byte_lens),
             "input_ids": torch.stack(queries),
             "dc_input_ids": torch.stack(dc_queries),
             "label_id": torch.LongTensor(label_ids),
@@ -525,12 +544,13 @@ class WinoGrande(ICLMultiChoiceTaskDataset):
             ctxs = self.doc_to_text(doc)
             dcs = self.doc_to_domain_conditional(doc)
 
-            continuation = self.doc_to_continuations(doc)
+            continuation_str = self.doc_to_continuations(doc)
             label_id = self.doc_to_label(doc)
-            cont_str_len = len(continuation) - 1  # continuations contain leading blank space
+            cont_str_len = len(continuation_str) - 1  # continuations contain leading blank space
+            cont_byte_len = len(continuation_str[1:].encode("utf-8"))
 
             # tokenize
-            continuation = self.token_encode(continuation)
+            continuation = self.token_encode(continuation_str)
 
             for cont_id, (ctx, dc) in enumerate(zip(ctxs, dcs)):
                 ctx = self.token_encode(ctx)
@@ -557,6 +577,7 @@ class WinoGrande(ICLMultiChoiceTaskDataset):
                             continuation
                         ),  # even if query has last token removed, LM will output same cont len
                         "cont_str_len": cont_str_len,
+                        "cont_byte_len": cont_byte_len,
                         "query": query,  # remove last token from continuation
                         "dc_query": dc_query,
                         "label_id": label_id,
@@ -1258,6 +1279,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
         split="validation",
         prompt_variations=None,
         mc_labels=False,
+        metric_type=None,
     ):
         dataset_names = []
         # Collect the relevant categories
@@ -1292,6 +1314,7 @@ class MMLU(ICLMultiChoiceTaskDataset):
             dataset_name=dataset_names,
             split=split,
             prompts=prompts,
+            metric_type=metric_type,
         )
 
     def doc_to_text(self, doc):
@@ -1332,10 +1355,19 @@ class MMLU(ICLMultiChoiceTaskDataset):
     def doc_to_continuations(self, doc):
         # add spaces in front of continuation
         if self.mc_labels:
-            return [" A", " B", " C", " D"]
-        return [" " + choice for choice in doc["choices"]]
+            choices = [" A", " B", " C", " D"]
+        else:
+            choices = [" " + choice for choice in doc["choices"]]
+        if self.metric_type in ["ce_loss", "bpb"]:
+            # Only need correct answer for these metrics
+            return [choices[doc["answer"]]]
+        else:
+            return choices
 
     def doc_to_label(self, doc):
+        if self.metric_type in ["ce_loss", "bpb"]:
+            # Only the correct answer is provided for these metrics
+            return 0
         return doc["answer"]
 
     def doc_to_domain_conditional(self, doc):
@@ -1424,6 +1456,151 @@ class NaturalQuestionsCELoss(ICLMultiChoiceTaskDataset):
         return "Answer:"
 
 
+class OEEvalTask(ICLMultiChoiceTaskDataset):
+    """Generic class for OE evaluation tasks"""
+
+    def __init__(
+        self,
+        tokenizer: Tokenizer,
+        dataset_path: str,
+        dataset_name: Union[str, Sequence[str], None] = None,
+        model_ctx_len: int = 2048,
+        split=None,
+        metric_type=None,
+        prompts=[None],  # List of prompt variants to use
+    ):
+        self.tokenizer = tokenizer
+        self.dataset_path = dataset_path
+        self.dataset_name = dataset_name
+        self.model_ctx_len = model_ctx_len
+        self.log_instances = 0  # Set to > 0 to log the first few instances as a sanity check
+
+        self.samples: List[Dict[str, Any]] = []
+        dataset_names: Sequence[Optional[str]]
+        if isinstance(dataset_name, str) or dataset_name is None:
+            dataset_names = [dataset_name]
+        else:
+            dataset_names = dataset_name
+
+        requests_list = []
+        configs = []
+        for ds_name in dataset_names:
+            config, requests = load_oe_eval_requests(self.dataset_path, ds_name, split)
+            requests_list.append(requests)
+            configs.append(config)
+        if metric_type is not None:
+            self.metric_type = metric_type
+        else:
+            # Use metric type from associated task config
+            for config in configs:
+                if config is not None:
+                    metric_type_raw = config["task_config"].get("primary_metric")
+                    if metric_type_raw is not None:
+                        # acc, len_norm, pmi_dc
+                        metric_type = METRIC_FROM_OE_EVAL[metric_type_raw]
+                        if self.metric_type is not None and self.metric_type != metric_type:
+                            raise ValueError(f"Conflicting metric types: {self.metric_type} and {metric_type}")
+                        self.metric_type = metric_type
+        self.dataset = requests_list
+
+        # prep examples
+        self.prep_examples()
+
+    def prep_examples(self):
+        current_doc_id_offset = 0
+        max_doc_id = 0
+        for requests in self.dataset:
+            current_doc_id_offset += max_doc_id
+            max_doc_id = 0  # Max doc id seen in this dataset
+            for request in requests:
+                doc = request["doc"]
+                doc_id = request["doc_id"]
+                if doc_id >= 1000000:
+                    # Hacky implementation of unconditional requests in oe-eval
+                    # Not supported here for now
+                    continue
+                if doc_id > max_doc_id:
+                    max_doc_id = doc_id
+                assert (
+                    request["request_type"] == "loglikelihood"
+                ), f"Unsupported request type: {request['request_type']}"
+
+                # from EAI harness
+                # how this all works:
+                #          CTX      CONT
+                # inp    0 1 2 3|4 5 6 7 8 9   <- last token is deleted by inp[:, :-1]
+                # gpt2    \               \
+                # logits   1 2 3|4 5 6 7 8 9   <- the ctx half gets tossed out by the
+                # cont_toks      4 5 6 7 8 9      [:, -len(continuation_enc):, :self.vocab_size] slice
+
+                request_dict = request["request"]
+                continuation_str = request_dict["continuation"]
+                label_id = request["label"]
+                cont_id = request["idx"]
+                if self.metric_type in ["ce_loss", "bpb"]:
+                    if label_id != cont_id:
+                        # Skip non-target continuations for ce_loss and bpb
+                        continue
+                    else:
+                        # Treat as instance with just one continuation
+                        cont_id = 0
+                        label_id = 0
+                doc_text = request_dict["context"]
+                ctx = self.token_encode(doc_text)
+                dc = self.token_encode(self.doc_to_domain_conditional(doc))
+                if self.log_instances > 0:
+                    self.log_instances -= 1
+                    ds_name = self.dataset_name
+                    if isinstance(ds_name, list):
+                        ds_name = ds_name[0]
+                    log.info(
+                        f"Sample doc from ({self.dataset_path}, {ds_name}):"
+                        + f"\ndoc_text: {doc_text}\ncontinuation: {continuation_str}"
+                    )
+                cont_str_len = len(continuation_str) - 1  # continuation contain leading blank
+                cont_byte_len = len(continuation_str[1:].encode("utf-8"))
+                continuation = self.token_encode(continuation_str)
+
+                # query, remove last token from continuation, truncate from left is longer than model ctx length
+                query = ctx + continuation[:-1]
+                query = query[-self.model_ctx_len :]
+                # this will be different from len(ctx) when truncated by model_ctx_len
+                actual_ctx_len = len(query) - len(continuation) + 1
+
+                # get domain conditional query
+                # we don't expect this to be longer than self.model_ctx_len and it won't make sense to truncate from left
+                dc_query = dc + continuation[:-1]
+
+                # form a sample
+                self.samples.append(
+                    {
+                        "doc_id": doc_id + current_doc_id_offset,
+                        "cont_id": cont_id,
+                        "ctx": ctx,
+                        "continuation": continuation,
+                        "ctx_len": actual_ctx_len,
+                        "dc_len": len(dc),
+                        "cont_len": len(
+                            continuation
+                        ),  # even if query has last token removed, LM will output same cont len
+                        "cont_str_len": cont_str_len,
+                        "cont_byte_len": cont_byte_len,
+                        "query": query,  # remove last token from continuation
+                        "dc_query": dc_query,
+                        "label_id": label_id,
+                    }
+                )
+
+    def doc_to_text(self, doc) -> str:
+        raise NotImplementedError
+
+    def doc_to_continuations(self, doc) -> List[str]:
+        raise NotImplementedError
+
+    def doc_to_label(self, doc) -> int:
+        raise NotImplementedError
+
+
 label_to_task_map = {
     "piqa": PIQA,
     "hellaswag": HellaSwag,
@@ -1452,10 +1629,24 @@ label_to_task_map = {
     "mmlu_humanities": (MMLU, {"dataset_name": "humanities"}),
     "mmlu_social_sciences": (MMLU, {"dataset_name": "social_sciences"}),
     "mmlu_other": (MMLU, {"dataset_name": "other"}),
+    "mmlu_stem_bpb": (MMLU, {"dataset_name": "stem", "metric_type": "bpb"}),
+    "mmlu_humanities_bpb": (MMLU, {"dataset_name": "humanities", "metric_type": "bpb"}),
+    "mmlu_social_sciences_bpb": (MMLU, {"dataset_name": "social_sciences", "metric_type": "bpb"}),
+    "mmlu_other_bpb": (MMLU, {"dataset_name": "other", "metric_type": "bpb"}),
     "mmlu_stem_var": (MMLU, {"dataset_name": "stem", "prompt_variations": 1}),
     "mmlu_humanities_var": (MMLU, {"dataset_name": "humanities", "prompt_variations": 1}),
     "mmlu_social_sciences_var": (MMLU, {"dataset_name": "social_sciences", "prompt_variations": 1}),
     "mmlu_other_var": (MMLU, {"dataset_name": "other", "prompt_variations": 1}),
+    "mmlu_stem_var_bpb": (MMLU, {"dataset_name": "stem", "prompt_variations": 1, "metric_type": "bpb"}),
+    "mmlu_humanities_var_bpb": (
+        MMLU,
+        {"dataset_name": "humanities", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_social_sciences_var_bpb": (
+        MMLU,
+        {"dataset_name": "social_sciences", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_other_var_bpb": (MMLU, {"dataset_name": "other", "prompt_variations": 1, "metric_type": "bpb"}),
     "mmlu_stem_mc_5shot": (MMLU, {"dataset_name": "stem", "prompt_variations": 2, "mc_labels": True}),
     "mmlu_humanities_mc_5shot": (MMLU, {"dataset_name": "humanities", "prompt_variations": 2, "mc_labels": True}),
     "mmlu_social_sciences_mc_5shot": (
@@ -1478,5 +1669,197 @@ label_to_task_map = {
     "mmlu_other_mc_5shot_test": (
         MMLU,
         {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    # Paste in all oe-eval tasks from output of scripts/list_evals_from_oe_eval.py
+    "arc_challenge_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
+    "arc_challenge_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_challenge_rc_0shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "rc_0shot", "metric_type": "len_norm"},
+    ),
+    "arc_challenge_rc_0shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "arc_challenge_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "rc_5shot", "metric_type": "len_norm"},
+    ),
+    "arc_challenge_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_easy_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
+    "arc_easy_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_easy_rc_0shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "rc_0shot", "metric_type": "acc"},
+    ),
+    "arc_easy_rc_0shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "arc_easy_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "rc_5shot", "metric_type": "acc"},
+    ),
+    "arc_easy_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
+    "boolq_mc_5shot": (OEEvalTask, {"dataset_path": "boolq", "dataset_name": "mc_5shot", "metric_type": "acc"}),
+    "boolq_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "boolq", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "boolq_rc_0shot": (OEEvalTask, {"dataset_path": "boolq", "dataset_name": "rc_0shot", "metric_type": "acc"}),
+    "boolq_rc_0shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "boolq", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "boolq_rc_5shot": (OEEvalTask, {"dataset_path": "boolq", "dataset_name": "rc_5shot", "metric_type": "acc"}),
+    "boolq_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "boolq", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
+    "copa_rc_0shot": (OEEvalTask, {"dataset_path": "copa", "dataset_name": "rc_0shot", "metric_type": "acc"}),
+    "copa_rc_0shot_bpb": (OEEvalTask, {"dataset_path": "copa", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
+    "copycolors_10way": (
+        OEEvalTask,
+        {"dataset_path": "copycolors", "dataset_name": "10way", "metric_type": "acc"},
+    ),
+    "copycolors_10way_bpb": (
+        OEEvalTask,
+        {"dataset_path": "copycolors", "dataset_name": "10way", "metric_type": "bpb"},
+    ),
+    "copycolors_xl_10way": (
+        OEEvalTask,
+        {"dataset_path": "copycolors", "dataset_name": "xl_10way", "metric_type": "acc"},
+    ),
+    "copycolors_xl_10way_bpb": (
+        OEEvalTask,
+        {"dataset_path": "copycolors", "dataset_name": "xl_10way", "metric_type": "bpb"},
+    ),
+    "csqa_mc_5shot": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "mc_5shot", "metric_type": "acc"}),
+    "csqa_mc_5shot_bpb": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "mc_5shot", "metric_type": "bpb"}),
+    "csqa_rc_0shot": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"}),
+    "csqa_rc_0shot_bpb": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
+    "csqa_rc_5shot": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"}),
+    "csqa_rc_5shot_bpb": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "rc_5shot", "metric_type": "bpb"}),
+    "hellaswag_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
+    "hellaswag_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "hellaswag_rc_0shot": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "rc_0shot", "metric_type": "len_norm"},
+    ),
+    "hellaswag_rc_0shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "hellaswag_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "rc_5shot", "metric_type": "len_norm"},
+    ),
+    "hellaswag_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
+    "openbookqa_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
+    "openbookqa_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "openbookqa_rc_0shot": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"},
+    ),
+    "openbookqa_rc_0shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "openbookqa_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"},
+    ),
+    "openbookqa_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
+    "piqa_mc_5shot": (OEEvalTask, {"dataset_path": "piqa", "dataset_name": "mc_5shot", "metric_type": "acc"}),
+    "piqa_mc_5shot_bpb": (OEEvalTask, {"dataset_path": "piqa", "dataset_name": "mc_5shot", "metric_type": "bpb"}),
+    "piqa_rc_0shot": (OEEvalTask, {"dataset_path": "piqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"}),
+    "piqa_rc_0shot_bpb": (OEEvalTask, {"dataset_path": "piqa", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
+    "piqa_rc_5shot": (OEEvalTask, {"dataset_path": "piqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"}),
+    "piqa_rc_5shot_bpb": (OEEvalTask, {"dataset_path": "piqa", "dataset_name": "rc_5shot", "metric_type": "bpb"}),
+    "sciq_rc_0shot": (OEEvalTask, {"dataset_path": "sciq", "dataset_name": "rc_0shot", "metric_type": "acc"}),
+    "sciq_rc_0shot_bpb": (OEEvalTask, {"dataset_path": "sciq", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
+    "socialiqa_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
+    "socialiqa_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "socialiqa_rc_0shot": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "rc_0shot", "metric_type": "len_norm"},
+    ),
+    "socialiqa_rc_0shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "socialiqa_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"},
+    ),
+    "socialiqa_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "rc_5shot", "metric_type": "bpb"},
+    ),
+    "winogrande_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "mc_5shot", "metric_type": "acc"},
+    ),
+    "winogrande_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "mc_5shot", "metric_type": "bpb"},
+    ),
+    "winogrande_rc_0shot": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "rc_0shot", "metric_type": "acc"},
+    ),
+    "winogrande_rc_0shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "rc_0shot", "metric_type": "bpb"},
+    ),
+    "winogrande_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "rc_5shot", "metric_type": "acc"},
+    ),
+    "winogrande_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "rc_5shot", "metric_type": "bpb"},
     ),
 }
