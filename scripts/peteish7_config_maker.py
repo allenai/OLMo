@@ -527,4 +527,5 @@ if __name__ == '__main__':
         add_paths(MATH_TOKENS, OUTPUT_YAML)
 
         # and then you can populate the spreadsheet with the output of examine_config
-        print(examine_config(
+        print(examine_config(OUTPUT_YAML))
+    """
