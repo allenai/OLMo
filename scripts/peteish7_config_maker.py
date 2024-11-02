@@ -459,6 +459,7 @@ def examine_config(yaml_file, bytes_per_token=4):
     paths = yaml_content.get('data', {}).get('paths', [])
     paths_to_tokens = {k: v // bytes_per_token for k,v in get_batch_s3_size(paths).items()}
 
+
     # Step 2: Gather all sources, count tokens taken
     print("Grouping output files into groups...")
     groups = set(_read_path_comments(yaml_file))
@@ -529,4 +530,3 @@ if __name__ == '__main__':
         print(examine_config(OUTPUT_YAML))
     """
     pass
-    examine_config('peteish7-weka-anneal-from-928646-50B-megamath_v1.yaml')
