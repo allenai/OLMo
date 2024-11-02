@@ -434,7 +434,7 @@ def add_paths(token_sources, output_yaml_file):
     assert output_yaml_file.startswith('peteish7-weka-anneal-from-928646-50B-')
     assert output_yaml_file.endswith('.yaml')
 
-    base_config_str = BASE_YAML_STR.replace("REPLACE_RUN_NAME", os.path.basename(output_yaml_file))
+    base_config_str = BASE_YAML_STR.replace("REPLACE_RUN_NAME_HERE", os.path.basename(output_yaml_file))
     
     lines_to_add = []
     for source in token_sources:
@@ -527,6 +527,4 @@ if __name__ == '__main__':
         add_paths(MATH_TOKENS, OUTPUT_YAML)
 
         # and then you can populate the spreadsheet with the output of examine_config
-        print(examine_config(OUTPUT_YAML))
-    """
-    pass
+        print(examine_config(
