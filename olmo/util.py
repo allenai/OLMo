@@ -427,12 +427,7 @@ def _gcs_is_retriable(exception: Exception) -> bool:
     return False
 
 
-_gcs_retry = GCSRetry(
-    predicate=_gcs_is_retriable,
-    initial=1.0,
-    maximum=10.0,
-    multiplier=2.0,
-    timeout=600.0)
+_gcs_retry = GCSRetry(predicate=_gcs_is_retriable, initial=1.0, maximum=10.0, multiplier=2.0, timeout=600.0)
 
 
 def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
