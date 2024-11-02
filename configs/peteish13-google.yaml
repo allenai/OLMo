@@ -1,4 +1,4 @@
-run_name: peteish13-s3-run001
+run_name: peteish13
 seed: 6198
 dry_run: false
 
@@ -70,11 +70,11 @@ tokenizer:
   identifier: tokenizers/allenai_dolma2.json
   truncate_direction: right
 
-remote_save_folder: s3://ai2-llm/checkpoints/OLMo-medium/peteish13-s3
+remote_save_folder: s3://ai2-llm/checkpoints/OLMo-medium/peteish13
 save_overwrite: false
 
 save_interval: 1000
-save_interval_ephemeral: 250
+save_interval_ephemeral: 1000
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: olmo_core
 
@@ -113,27 +113,27 @@ evaluators:
   #     memmap_dtype: uint32
   #     datasets:
   #       c4_en-validation:
-  #         - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
+  #         - gs://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
   #       dolma_books-validation:
-  #         - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
+  #         - gs://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
   #       dolma_common-crawl-validation:
-  #         - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
+  #         - gs://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
   #       dolma_pes2o-validation:
-  #         - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
+  #         - gs://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
   #       dolma_reddit-validation:
-  #         - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
+  #         - gs://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
   #       dolma_stack-validation:
-  #         - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
+  #         - gs://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
   #       dolma_wiki-validation:
-  #         - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
+  #         - gs://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
   #       ice-validation:
-  #         - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
+  #         - gs://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
   #       m2d2_s2orc-validation:
-  #         - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
+  #         - gs://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
   #       pile-validation:
-  #         - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
+  #         - gs://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
   #       wikitext_103-validation:
-  #         - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
+  #         - gs://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
 
   ##########################
   # Downstream evaluations #
