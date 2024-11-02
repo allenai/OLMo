@@ -1,4 +1,4 @@
-run_name: peteish7-anneal-from-928646-wsd-dclm07-decay5000-10B
+run_name: peteish7-anneal-from-928646-wsdmed-dclm07-decay5000-10B
 seed: 7201
 dry_run: false
 
@@ -48,7 +48,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 0.0003
+  learning_rate: 0.00015
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
@@ -78,7 +78,7 @@ sharded_checkpointer: olmo_core
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
-load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-wsd-dclm07/step5000
+load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-wsdmed-dclm07/step5000
 
 restore_dataloader: true
 no_pre_train_checkpoint: true
@@ -220,15 +220,6 @@ evaluators:
     type: downstream
 
   - label: basic_arithmetic
-    type: downstream
-
-  - label: trivia_qa_wiki_ppl
-    type: downstream
-
-  - label: natural_qs_open_ppl
-    type: downstream
-
-  - label: arc_easy_ppl
     type: downstream
 
   # new tasks

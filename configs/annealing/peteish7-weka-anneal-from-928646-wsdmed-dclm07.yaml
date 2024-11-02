@@ -1,4 +1,4 @@
-run_name: peteish7-anneal-from-928646-wsd-dclm07-decay5000-10B
+run_name: peteish7-anneal-from-928646-wsdmed-dclm07
 seed: 7201
 dry_run: false
 
@@ -48,7 +48,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 0.0003
+  learning_rate: 0.00015
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
@@ -59,9 +59,10 @@ optimizer:
   metrics_log_interval: 1
 
 scheduler:
-  name: linear_with_warmup
-  t_warmup: 5000
+  name: constant_with_warmup
+  t_warmup: 500
   alpha_f: 0
+  warmup_min_lr: 0.000122998
 
 tokenizer:
   identifier: tokenizers/allenai_dolma2.json
@@ -70,21 +71,21 @@ tokenizer:
 save_folder: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/${run_name}
 save_overwrite: false
 
-save_interval: 250
-save_interval_ephemeral: 100
+save_interval: 500
+save_interval_ephemeral: 250
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: olmo_core
 
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
-load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-wsd-dclm07/step5000
+load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646
 
-restore_dataloader: true
+restore_dataloader: false
 no_pre_train_checkpoint: true
 
-max_duration: 6192  # 5000 + (10e9 / (2048 * 4096))
-stop_at: 6202       # max_duration + 10
+max_duration: 500e9T
+stop_at: 59615                  # round(500e9 / (2048 * 4096)) + 10
 global_train_batch_size: 2048
 device_train_microbatch_size: 2
 
@@ -104,7 +105,7 @@ speed_monitor:
 
 gen1_gc_interval: 1
 
-eval_interval: 250
+eval_interval: 500
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
@@ -220,15 +221,6 @@ evaluators:
     type: downstream
 
   - label: basic_arithmetic
-    type: downstream
-
-  - label: trivia_qa_wiki_ppl
-    type: downstream
-
-  - label: natural_qs_open_ppl
-    type: downstream
-
-  - label: arc_easy_ppl
     type: downstream
 
   # new tasks
@@ -429,6 +421,7 @@ evaluators:
 
   - label: winogrande_rc_5shot_bpb
     type: downstream
+
 
 data:
   pad_direction: right
