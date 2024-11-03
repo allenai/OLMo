@@ -12,7 +12,7 @@ gantry run \
   --workspace ai2/davidw-oe-annealing \
   --task-name $NAME \
   --description "Peteish7 annealing: $NAME" \
-  --priority urgent \
+  --priority high \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
   --cluster ai2/augusta-google-1 \
