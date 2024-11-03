@@ -301,6 +301,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
                 label="all-small-ppl-validation",
                 data=DataConfig(
                     drop_last=True,
+                    memmap_dtype="uint32",
                     datasets={
                         "c4_en-validation": [
                             f"{read_location}/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy"
