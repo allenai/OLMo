@@ -128,7 +128,7 @@ def main(cfg: TrainConfig) -> None:
         load_paths = list(sorted(glob.glob(f"{cfg.load_path}/step*"), key=lambda x: int(x.split('/')[-1].replace('-unsharded', '').split('step')[-1])))
 
     for load_path in load_paths:
-        step = int(load_path.split('/')[-1].split('step')[-1])
+        step = int(load_path.split('/')[-1].replace('-unsharded', '').split('step')[-1])
 
         # Initialize the model.
         log.info("Building model...")
