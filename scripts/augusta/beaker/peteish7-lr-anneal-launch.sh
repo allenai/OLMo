@@ -17,10 +17,10 @@ shift
 NAME=$(python ./scripts/group_name_from_wandb.py $ORIGINAL_WANDB_RUN_ID)-from$START_STEP-$LENGTH
 
 gantry run \
-  --workspace ai2/13B \
+  --workspace ai2/davidw-oe-annealing \
   --task-name $NAME \
   --description "Peteish7 LR annealing: $NAME" \
-  --priority normal \
+  --priority high \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
   --cluster ai2/augusta-google-1 \
