@@ -24,10 +24,10 @@ pip install flash-attn==2.5.9.post1 --no-build-isolation
 pip install '.[train]'
 pip freeze
 
-# Move AWS credentials from env to relevant files
-mkdir -p ~/.aws
-printenv AWS_CONFIG > ~/.aws/config
-printenv AWS_CREDENTIALS > ~/.aws/credentials
+# # Move AWS credentials from env to relevant files
+# mkdir -p ~/.aws
+# printenv AWS_CONFIG > ~/.aws/config
+# printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
@@ -40,6 +40,8 @@ export NCCL_IB_HCA="^=mlx5_bond_0"
 export NCCL_SOCKET_IFNAME=ib
 # export NCCL_IB_GID_INDEX=0
 
+export WANDB_MODE="offline"
+
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
   --nproc-per-node 8 \
@@ -51,7 +53,9 @@ torchrun \
   scripts/eval.py \
     configs/peteish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --save_interval_ephemeral=null \
-      --save_overwrite \
-      --wandb.group="peteish1" \
+      --save_interval_ephemeral=1000 \
+      --save_folder="/workspace/peteish1-test" \
+      --wandb.group="peteish1-backfill-test" \
       --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1"
+
+ll peteish1-backfill-test
