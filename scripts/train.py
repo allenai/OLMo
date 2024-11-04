@@ -10,12 +10,12 @@ from typing import Optional, TextIO
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import ShardingStrategy
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+import wandb
 from olmo.config import (
     CheckpointType,
     DDPGradSyncMode,
@@ -81,6 +81,11 @@ def main(cfg: TrainConfig) -> None:
         cfg.optimizer.decay_embeddings = not cfg.optimizer.no_decay_norm_and_bias
         cfg.optimizer.no_decay_norm_and_bias = None  # So nobody uses this by accident.
 
+    log.info(f"cfg save folder: {cfg.save_folder}")
+    if cfg.save_folder.startswith("s3:/") and not cfg.save_folder.startswith("s3://"):
+        cfg.save_folder = cfg.save_folder.replace("s3:/", "s3://")
+    log.info(f"final cfg save folder: {cfg.save_folder}")
+
     # Display and save configuration.
     if get_global_rank() == 0:
         if cfg.data.paths is not None and len(cfg.data.paths) < 50:
@@ -131,6 +136,12 @@ def main(cfg: TrainConfig) -> None:
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
+
+    barrier()
+
+    # Call before wrapping model in FSDP / DDP, so that computation is correct and saved.
+    _ = olmo_model.num_fwd_flops
+    _ = olmo_model.num_bck_flops
 
     olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
 

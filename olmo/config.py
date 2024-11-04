@@ -552,6 +552,7 @@ class OptimizerConfig(BaseConfig):
 
 class SchedulerType(StrEnum):
     cosine_with_warmup = "cosine_with_warmup"
+    wsd = "wsd"
     linear_with_warmup = "linear_with_warmup"
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
     max_scheduler = "max_scheduler"
@@ -569,6 +570,7 @@ class SchedulerConfig(BaseConfig):
     name: SchedulerType = SchedulerType.cosine_with_warmup
     units: SchedulerUnits = SchedulerUnits.steps
     t_warmup: Union[int, float] = 100
+    t_decay: Union[int, float] = 100
     t_max: Optional[Union[int, float]] = None
     alpha_f: float = 0.1
 

@@ -23,11 +23,12 @@ import torch.distributed as dist
 import torch.nn.functional as F
 import torch.utils
 import torch.utils.hooks
-import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
+
+import wandb
 
 from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
@@ -1377,7 +1378,6 @@ class Trainer:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         del exc_val, exc_tb
         self.close(0 if exc_type is None else 1)
-
 
 @dataclass
 class TrainerForEval(Trainer):
