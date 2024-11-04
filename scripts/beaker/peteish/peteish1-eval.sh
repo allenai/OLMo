@@ -44,7 +44,7 @@ export WANDB_MODE="offline"
 
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
-  --nproc-per-node 8 \
+  --nproc-per-node 1 \
   --rdzv_id 12347 \
   --rdzv_backend static \
   --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
