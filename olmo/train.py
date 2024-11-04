@@ -1017,6 +1017,10 @@ class Trainer:
                 if evaluator.subset_num_batches is not None
                 else self.cfg.eval_subset_num_batches
             )
+            log.info(f"Running evaluation on {num_eval_batches} batches...")
+            log.info(f"(eval_loader has {len(evaluator.eval_loader)} batches)")
+            log.info(f"(evaluator.subset_num_batches={evaluator.subset_num_batches})")
+            log.info(f"(cfg.eval_subset_num_batches={self.cfg.eval_subset_num_batches})")
             if num_eval_batches > 0:
                 num_eval_batches = min(num_eval_batches, len(evaluator.eval_loader))
                 eval_batches = islice(eval_batches, num_eval_batches)
@@ -1189,7 +1193,7 @@ class Trainer:
                     # fail loudly.
                     batch_size, seq_len = batch["input_ids"].shape
                     # assert seq_len == self.cfg.model.max_sequence_length
-                    # assert batch_size == self.cfg.device_train_batch_size
+                    assert batch_size == self.cfg.device_train_batch_size
                     global_batch_size = batch_size * get_world_size()  # assumes batch size equal across ranks
                     self.global_step += 1
                     self.global_train_examples_seen_this_epoch += global_batch_size

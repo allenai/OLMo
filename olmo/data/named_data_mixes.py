@@ -1936,7 +1936,4 @@ DATA_PATHS["web_instruct_24x"] = build_collection_include(['gutenberg_books', 'p
 # openwebmath, 10x sampled
 DATA_PATHS["openwebmath_10x"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack'] + ['openwebmath'] * 10 + ['tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
 
-DATA_PATHS["sciq_inject_pt_only"] = build_collection_include(
-    # ['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'] +
-    ['sciq_inject_pt']
-)
+DATA_PATHS["sciq_pt"] = build_collection_include(['sciq_inject_pt'])

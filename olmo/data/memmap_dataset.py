@@ -3,9 +3,9 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-import math
 import numpy as np
 import torch
+import math
 from torch.utils.data import Dataset
 
 from olmo.exceptions import OLMoEnvironmentError

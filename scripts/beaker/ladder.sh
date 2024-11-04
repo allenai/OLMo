@@ -11,9 +11,12 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+NPROC_PER_NODE=$1
+shift
+
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
-  --nproc-per-node 8 \
+  --nproc-per-node $NPROC_PER_NODE \
   --rdzv_id=12347 \
   --rdzv_backend=static \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \

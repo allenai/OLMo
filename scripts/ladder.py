@@ -137,9 +137,9 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     read_location.rstrip("/")
 
     if args.gcp:
-        remote_save_folder = f"gs://aristo-benb/checkpoints/OLMo-ladder/benb/{run_name}"
+        remote_save_folder = f"gs://aristo-benb/checkpoints/benb/mcqa/{run_name}"
     else:
-        remote_save_folder = f"s3://ai2-llm/checkpoints/OLMo-ladder/{run_name}"
+        remote_save_folder = f"s3://ai2-llm/checkpoints/benb/mcqa/{run_name}"
     load_path = args.load_path
     if load_path is None:
         load_path = find_latest_checkpoint(remote_save_folder)
@@ -160,7 +160,8 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
     device_batch_size = {
-        "150M": 32,
+        # "150M": 32,
+        "150M": 4,
         "300M": 10,
         "750M": 8,
         "1B": 2,
@@ -185,6 +186,14 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             data_paths.append(path)
         else:
             data_paths.append(f"{read_location}/{path}")
+
+    data_inject_paths = []
+    if args.data_inject:
+        for i, path in enumerate(named_data_mixes.DATA_PATHS[args.data_inject]):
+            if path.startswith("s3://"):
+                data_inject_paths.append(path)
+            else:
+                data_inject_paths.append(f"{read_location}/{path}")
 
     return TrainConfig(
         run_name=run_name,
@@ -251,7 +260,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         ],
         data=DataConfig(
             num_workers=32,
-            drop_last=False,
+            drop_last=True,
             pin_memory=True,
             prefetch_factor=8,
             persistent_workers=True,
@@ -259,6 +268,16 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             paths=data_paths,
             generate_attention_mask=True,
         ),
+        data_inject=DataConfig(
+            num_workers=32,
+            drop_last=False,
+            pin_memory=True,
+            prefetch_factor=8,
+            persistent_workers=True,
+            instance_filter=InstanceFilterConfig(),  # defaults are fine
+            paths=data_inject_paths,
+            generate_attention_mask=True,
+        ) if data_inject_paths else None,
     )
 
 
@@ -375,6 +394,7 @@ if __name__ == "__main__":
     for subparser in [dump_parser, train_parser]:
         subparser.add_argument("--model", type=str, required=True)
         subparser.add_argument("--data", type=str, required=True)
+        subparser.add_argument("--data-inject", type=str)
         subparser.add_argument("--length", type=str, default="2xC")
         subparser.add_argument("--name", type=str, required=True)
         subparser.add_argument(

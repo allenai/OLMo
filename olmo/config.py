@@ -921,6 +921,11 @@ class TrainConfig(BaseConfig):
     Training data configuration.
     """
 
+    data_inject: Optional[DataConfig] = None
+    """
+    Training data configuration to inject.
+    """
+
     restore_dataloader: bool = True
     """
     When restarting, restore the data loader to where it left off.
