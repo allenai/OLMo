@@ -79,6 +79,6 @@ torchrun \
       --compile.fullgraph=false \
       --fused_loss=false \
       --model.flash_attention=false \
-      --data.num_workers=8 \
+      --data.num_workers=16 \
       --optimizer.metrics_log_interval=10 \
-      --data.prefetch_factor=8
+      --data.prefetch_factor=16
