@@ -4,6 +4,7 @@ set -ex
 
 NUM_NODES=1
 NUM_GPUS=8
+SUFFIX=backfill2
 
 # checkpoints=(
 #     peteish-150M-1xC
@@ -86,6 +87,6 @@ for checkpoint in ${checkpoints[@]}; do
     --shared-memory 10GiB \
     --yes \
     --timeout=-1 \
-    -- /bin/bash -c "scripts/beaker/peteish/ladder-eval.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${NUM_GPUS} \$BEAKER_REPLICA_RANK ${checkpoint}" &
+    -- /bin/bash -c "scripts/beaker/peteish/ladder-eval.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${NUM_GPUS} \$BEAKER_REPLICA_RANK ${checkpoint} ${SUFFIX}" &
 
 done

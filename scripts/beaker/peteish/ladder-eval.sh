@@ -18,6 +18,9 @@ shift
 CHECKPOINT=$1
 shift
 
+SUFFIX=$1
+shift
+
 # Setup Python environment.
 conda shell.bash activate base
 
@@ -58,7 +61,7 @@ torchrun \
     /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/${CHECKPOINT}/step0-unsharded/config.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=1000 \
-      --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/${CHECKPOINT}-backfill" \
-      --wandb.group="${CHECKPOINT}-backfill" \
-      --wandb.name="${CHECKPOINT}-backfill" \
+      --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/${CHECKPOINT}-${SUFFIX}" \
+      --wandb.group="${CHECKPOINT}-${SUFFIX}" \
+      --wandb.name="${CHECKPOINT}-${SUFFIX}" \
       --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/${CHECKPOINT}"
