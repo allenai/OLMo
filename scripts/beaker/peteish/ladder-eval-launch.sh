@@ -3,7 +3,7 @@
 set -ex
 
 NUM_NODES=1
-NUM_GPUS=1
+NUM_GPUS=8
 
 # checkpoints=(
 #     peteish-150M-1xC
@@ -58,13 +58,13 @@ checkpoints=(
     peteish-final-760M-5xC
 )
 
-for cp in ${checkpoints[@]}; do
+for checkpoint in ${checkpoints[@]}; do
     gantry run \
     --allow-dirty \
-    --name peteish-ladder-eval \
+    --name ladder-eval-${checkpoint} \
     --workspace ai2/alexw \
-    --task-name ladder-eval \
-    --description "Ladder eval backfill" \
+    --task-name ladder-eval-${checkpoint} \
+    --description "Ladder eval backfill for ${checkpoint}" \
     --priority normal \
     --preemptible \
     --beaker-image petew/olmo-torch23-gantry \
@@ -86,7 +86,6 @@ for cp in ${checkpoints[@]}; do
     --shared-memory 10GiB \
     --yes \
     --timeout=-1 \
-    --no-logs \
-    -- /bin/bash -c "scripts/beaker/peteish/ladder-eval.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${NUM_GPUS} \$BEAKER_REPLICA_RANK $cp"
+    -- /bin/bash -c "scripts/beaker/peteish/ladder-eval.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${NUM_GPUS} \$BEAKER_REPLICA_RANK ${checkpoint}" &
 
 done
