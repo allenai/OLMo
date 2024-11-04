@@ -43,4 +43,5 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
+  --retries 10 \
   -- /bin/bash -c "scripts/augusta/beaker/peteish7-lr-anneal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK $ORIGINAL_WANDB_RUN_ID $START_STEP $LENGTH"
