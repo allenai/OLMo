@@ -39,6 +39,7 @@ mkdir -p $SAVE_FOLDER
     --compile.fullgraph=false \
     --fused_loss=true \
     --model.flash_attention=true \
+    --epoch=1 \
     --data.num_workers=8 \
     --optimizer.metrics_log_interval=10 \
     --data.prefetch_factor=8 2>&1 | tee $SAVE_FOLDER/log.txt
