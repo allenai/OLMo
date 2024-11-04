@@ -3,7 +3,7 @@
 set -ex
 
 NUM_NODES=1
-NUM_GPUS=2
+NUM_GPUS=1
 
 # checkpoints=(
 #     peteish-150M-1xC
@@ -33,6 +33,7 @@ NUM_GPUS=2
 #     peteish-const-600M-10xC
 #     peteish-const-760M-10xC
 # )
+
 checkpoints=(
     peteish-final-190M-10xC
     peteish-final-190M-1xC
@@ -63,7 +64,7 @@ for cp in ${checkpoints[@]}; do
     --workspace ai2/alexw \
     --task-name ladder-eval \
     --description "Ladder eval test" \
-    --priority high \
+    --priority normal \
     --preemptible \
     --beaker-image petew/olmo-torch23-gantry \
     --cluster ai2/jupiter-cirrascale-2 \
@@ -84,5 +85,8 @@ for cp in ${checkpoints[@]}; do
     --shared-memory 10GiB \
     --yes \
     --timeout=-1 \
-    -- /bin/bash -c "scripts/beaker/peteish/ladder-eval.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${NUM_GPUS} \$BEAKER_REPLICA_RANK $cp"
+    -- /bin/bash -c "scripts/beaker/peteish/ladder-eval.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${NUM_GPUS} \$BEAKER_REPLICA_RANK $cp" \
+    # --no-logs
+
+
 done
