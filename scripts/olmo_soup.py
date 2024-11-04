@@ -1,4 +1,4 @@
-'''
+"""
 Soups OLMo checkpoints.
 
 Example usage:
@@ -13,7 +13,7 @@ Example usage:
 
 Author: Luca Soldaini (@soldni)
 
-''' # noqa
+"""  # noqa
 
 
 import argparse
@@ -22,8 +22,9 @@ from pathlib import Path
 
 import torch
 from tqdm import tqdm
-from olmo.config import TrainConfig
+
 from olmo.checkpoint import build_sharded_checkpointer
+from olmo.config import TrainConfig
 from olmo.safetensors_util import safetensors_file_to_state_dict
 
 
@@ -55,20 +56,23 @@ def load_checkpoint(path: Path) -> dict[str, torch.Tensor]:
 def parse_args():
     parser = argparse.ArgumentParser(description="Soup OLMo checkponts")
     parser.add_argument(
-        "-c", "--checkpoints",
+        "-c",
+        "--checkpoints",
         type=Path,
         required=True,
         nargs="+",
         help="Path to checkpoint(s) to soup",
     )
     parser.add_argument(
-        "-s", "--soup-type",
+        "-s",
+        "--soup-type",
         type=SoupType,
         default=SoupType.uniform,
         help=f"Methods for checkpoint souping. Choose from: {', '.join(SoupType.__members__.keys())}",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         type=Path,
         required=True,
         help="Path to save the souped checkpoint",
@@ -89,9 +93,8 @@ def main():
             # initialize checkpoint_average with zeros
             checkpoint_average = {k: torch.zeros_like(v) for k, v in state_dict.items()}
 
-        if (
-            any(k not in state_dict for k in checkpoint_average.keys()) or
-            any(k not in checkpoint_average for k in state_dict.keys())
+        if any(k not in state_dict for k in checkpoint_average.keys()) or any(
+            k not in checkpoint_average for k in state_dict.keys()
         ):
             raise ValueError(f"Checkpoint {path} has different keys")
 
