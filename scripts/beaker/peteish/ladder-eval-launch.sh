@@ -64,7 +64,7 @@ for cp in ${checkpoints[@]}; do
     --name peteish-ladder-eval \
     --workspace ai2/alexw \
     --task-name ladder-eval \
-    --description "Ladder eval test" \
+    --description "Ladder eval backfill" \
     --priority normal \
     --preemptible \
     --beaker-image petew/olmo-torch23-gantry \
@@ -86,7 +86,7 @@ for cp in ${checkpoints[@]}; do
     --shared-memory 10GiB \
     --yes \
     --timeout=-1 \
-    -- /bin/bash -c "scripts/beaker/peteish/ladder-eval.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${NUM_GPUS} \$BEAKER_REPLICA_RANK $cp" \
-    --no-logs
+    --no-logs \
+    -- /bin/bash -c "scripts/beaker/peteish/ladder-eval.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${NUM_GPUS} \$BEAKER_REPLICA_RANK $cp"
 
 done
