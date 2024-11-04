@@ -26,6 +26,7 @@ NUM_GPUS=1
 #     peteish-760M-2xC
 #     peteish-760M-5xC
 # )
+
 # checkpoints=(
 #     peteish-const-190M-10xC
 #     peteish-const-1B-10xC
@@ -86,7 +87,6 @@ for cp in ${checkpoints[@]}; do
     --yes \
     --timeout=-1 \
     -- /bin/bash -c "scripts/beaker/peteish/ladder-eval.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${NUM_GPUS} \$BEAKER_REPLICA_RANK $cp" \
-    # --no-logs
-
+    --no-logs
 
 done
