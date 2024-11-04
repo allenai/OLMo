@@ -127,6 +127,7 @@ def main(cfg: TrainConfig) -> None:
         # This globbing does not work with remote paths.
         load_paths = list(glob.glob(f"{cfg.load_path}/step*"))
         load_paths = [x for x in load_paths if x[-1].isdigit()]
+        load_paths = [x for x in load_paths if int(x.split('/')[-1].split('step')[-1]) >= 712000] # TODO: delete this
         load_paths = list(sorted(load_paths, key=lambda x: int(x.split('/')[-1].split('step')[-1])))
 
     for load_path in load_paths:
