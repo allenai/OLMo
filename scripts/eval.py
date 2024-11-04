@@ -125,7 +125,9 @@ def main(cfg: TrainConfig) -> None:
         load_paths = [cfg.load_path]
     else:
         # This globbing does not work with remote paths.
-        load_paths = list(sorted(glob.glob(f"{cfg.load_path}/step*"), key=lambda x: int(x.split('/')[-1].split('step')[-1])))
+        load_paths = list(glob.glob(f"{cfg.load_path}/step*"))
+        load_paths = [x for x in load_paths if x[-1].isdigit()]
+        load_paths = list(sorted(load_paths, key=lambda x: int(x.split('/')[-1].split('step')[-1])))
 
     for load_path in load_paths:
         step = int(load_path.split('/')[-1].split('step')[-1])
@@ -215,6 +217,10 @@ def main(cfg: TrainConfig) -> None:
         log.info("Model:")
         log.info(dist_model)
 
+        # Construct optimizer and learning rate scheduler.
+        optim = build_optimizer(cfg, dist_model)
+        scheduler = build_scheduler(cfg)
+
         # Consolidate components into `Trainer` object.
         with TrainerForEval(
             cfg=cfg,
@@ -223,6 +229,8 @@ def main(cfg: TrainConfig) -> None:
             dist_model=dist_model,
             device=device,
             evaluators=evaluators,
+            optim=optim,
+            scheduler=scheduler,
         ) as trainer:
 
             log.info(f"Loading checkpoint from {load_path}...")
