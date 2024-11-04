@@ -58,4 +58,5 @@ torchrun \
       --wandb.group="peteish1-backfill-test" \
       --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-small/peteish1"
 
-ll peteish1-backfill-test
+ls -l /workspace/peteish1-test
+ls -l /workspace/peteish1-test/*

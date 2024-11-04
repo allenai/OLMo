@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=16
+NUM_NODES=1
 
 gantry run \
   --allow-dirty \
@@ -19,7 +19,6 @@ gantry run \
   --host-networking \
   --propagate-failure \
   --propagate-preemption \
-  --synchronized-start-timeout 90m \
   --budget ai2/oe-training \
   --no-nfs \
   --weka oe-training-default:/weka/oe-training-default \
