@@ -32,6 +32,7 @@ mkdir -p $SAVE_FOLDER
     --save_folder=$SAVE_FOLDER \
     --try_load_latest_save=true \
     --restore_dataloader=true \
+    --save_overwrite \
     --device_train_microbatch_size=4 \
     --device_eval_batch_size=8 \
     --activation_checkpointing=whole_layer \
