@@ -15,6 +15,9 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+CHECKPOINT=$1
+shift
+
 # Setup Python environment.
 conda shell.bash activate base
 
@@ -54,12 +57,9 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/eval.py \
-    /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-const-1B-10xC/step0-unsharded/config.yaml \
+    /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/${CHECKPOINT}/step0-unsharded/config.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=1000 \
-      --save_folder="/workspace/ladder-test" \
-      --wandb.group="ladder-backfill-test" \
-      --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-const-1B-10xC"
-
-ls -l /workspace/ladder-test
-ls -l /workspace/ladder-test/*
+      --save_folder="/workspace/${CHECKPOINT}" \
+      --wandb.group="${CHECKPOINT}-backfill" \
+      --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/${CHECKPOINT}"
