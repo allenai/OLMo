@@ -55,7 +55,7 @@ class Evaluator:
                     # This can happen when the evaluator contains multiple tasks/datasets and we didn't
                     # get to this one within the current evaluation loop.
                     metric.update(0.0, 0.0)
-                loss = metric.compute()[""] # always no suffix
+                loss = metric.compute() # always no suffix
                 if loss.isnan().item():
                     # This can happen when the evaluator contains multiple tasks/datasets and we didn't
                     # get to this one within the current evaluation loop.
