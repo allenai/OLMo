@@ -87,6 +87,8 @@ MODEL_CONFIGS = {
     ),
 }
 
+DEFAULT_SEED = 6198
+
 
 _number_unit_re = re.compile(r"^([0-9]+)([a-zA-Z]+)$")
 
@@ -127,6 +129,8 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # Construct a config
     args.model = args.model.strip().upper()
     run_name = f"{args.name}-{args.model}-{args.length}"
+    if args.seed != DEFAULT_SEED:
+        run_name += f"-{args.seed}"
     assert "/" not in run_name
 
     permanent_data_prefix = "/weka/oe-training-default/ai2-llm"
@@ -168,16 +172,10 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # calculate the learning rate according to the same paper
     lr = 0.0047 * (model_size / 108000000) ** (-1 / 3)
 
-    num_checkpoints = 7
-    total_steps = length_in_tokens / (global_batch_size * 2048)
-    save_interval = int(total_steps // num_checkpoints) + 10
-
-    min_save_interval = {
+    save_interval = {
         "1B": 2500,
         "7B": 1000,
-    }.get(args.model, 5000)
-
-    save_interval = min(save_interval, min_save_interval)
+    }.get(args.model, 1250)
 
     distributed_strategy = {"7B": DistributedStrategy.fsdp}.get(args.model, DistributedStrategy.ddp)
 
@@ -419,6 +417,7 @@ if __name__ == "__main__":
     train_parser.set_defaults(func=train_cmd)
 
     for subparser in [dump_parser, train_parser]:
+        subparser.add_argument("--seed", type=int, default=6198)
         subparser.add_argument("--model", type=str, required=True)
         subparser.add_argument("--data", type=str, required=True)
         subparser.add_argument("--length", type=str, default="2xC")

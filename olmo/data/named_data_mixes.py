@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 
 DATA_SOURCES = {
     "gutenberg_books": [
@@ -395,6 +395,10 @@ DATA_SOURCES = {
         "preprocessed/starcoder/v0_decontaminated_doc_only/gpt-neox-olmo-dolma-v1_5/part-47-00001.npy",
         "preprocessed/starcoder/v0_decontaminated_doc_only/gpt-neox-olmo-dolma-v1_5/part-48-00000.npy",
         "preprocessed/starcoder/v0_decontaminated_doc_only/gpt-neox-olmo-dolma-v1_5/part-48-00001.npy",
+    ],
+    "c4_debug": [
+        "preprocessed/c4/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001-fix/gpt-neox-olmo-dolma-v1_5/part-000-00000.npy",
+        "preprocessed/c4/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001-fix/gpt-neox-olmo-dolma-v1_5/part-001-00000.npy",
     ],
     "c4": [
         "preprocessed/c4/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001-fix/gpt-neox-olmo-dolma-v1_5/part-000-00000.npy",
@@ -1067,6 +1071,7 @@ DATA_SOURCES = {
         "preprocessed/olmo-mix/v1_7-dd_ngram_dp_030-qc_cc_en_bin_001/cc_en_tail/gpt-neox-olmo-dolma-v1_5/part-092-00000.npy",
     ],
 }
+
 
 DOLMA_1_6_TO_1_7_DATA_SOURCES = {
     'gutenberg': [
@@ -2556,6 +2561,7 @@ DOLMA_1_6_TO_1_7_DATA_SOURCES = {
     ]
 }
 
+
 EXTRA_DATA_SOURCES = {
     "web_instruct": [
         "preprocessed/WebInstructSub/v0_decontaminated/gpt-neox-olmo-dolma-v1_5/part-0-00000.npy",
@@ -3506,6 +3512,90 @@ EXTRA_DATA_SOURCES = {
 }
 
 
+SOURCES_SIZES = {
+    "gutenberg_books": {
+        "avg_file_size": 1_751_930_702,
+        "num_files": 3,
+        "total_size": 5_255_792_107
+    },
+    "pes20_stem_papers": {
+        "avg_file_size": 2_200_375_105,
+        "num_files": 26,
+        "total_size": 57_209_752_742
+    },
+    "wikipedia_wikibooks": {
+        "avg_file_size": 1_844_602_262,
+        "num_files": 4,
+        "total_size": 7_378_409_050
+    },
+    "megawika": {
+        "avg_file_size": 74_788_560,
+        "num_files": 61,
+        "total_size": 4_562_102_218
+    },
+    "stackexchange": {
+        "avg_file_size": 754_983_975,
+        "num_files": 26,
+        "total_size": 19_629_583_356
+    },
+    "arxiv": {
+        "avg_file_size": 874_176_955,
+        "num_files": 32,
+        "total_size": 27_973_662_590
+    },
+    "algebraic_stack": {
+        "avg_file_size": 788_911_033,
+        "num_files": 16,
+        "total_size": 12_622_576_536
+    },
+    "openwebmath": {
+        "avg_file_size": 979_561_584,
+        "num_files": 13,
+        "total_size": 12_734_300_603
+    },
+    "tulu": {
+        "avg_file_size": 250_559_206,
+        "num_files": 66,
+        "total_size": 16_536_907_601
+    },
+    "cc_news": {
+        "avg_file_size": 432_164_138,
+        "num_files": 33,
+        "total_size": 14_261_416_567
+    },
+    "starcoder": {
+        "avg_file_size": 2_836_293_600,
+        "num_files": 93,
+        "total_size": 263_775_304_843
+    },
+    "c4": {
+        "avg_file_size": 809_597_532,
+        "num_files": 171,
+        "total_size": 138_441_178_003
+    },
+    "reddit": {
+        "avg_file_size": 1_024_923_244,
+        "num_files": 78,
+        "total_size": 79_944_013_060
+    },
+    "falcon": {
+        "avg_file_size": 2_427_685_952,
+        "num_files": 188,
+        "total_size": 456_404_959_027
+    },
+    "web_rest": {
+        "avg_file_size": 2_683_509_681,
+        "num_files": 223,
+        "total_size": 598_422_659_025
+    },
+    "all_red_pajama": {
+        "avg_file_size": 39_103_276_091,
+        "num_files": 32,
+        "total_size": 1_251_304_834_921
+    }
+}
+
+
 DATA_PATHS = {}
 
 import random
@@ -3549,8 +3639,27 @@ DATA_PATHS["no_math"] = build_collection_exclude(["pes20_stem_papers", "algebrai
 DATA_PATHS["no_code"] = build_collection_exclude(["stackexchange", "starcoder"])
 DATA_PATHS["no_math_no_code"] = build_collection_exclude(["pes20_stem_papers", "algebraic_stack", "openwebmath", "stackexchange", "starcoder"])
 DATA_PATHS["no_reddit"] = build_collection_exclude(["reddit"])
-DATA_PATHS["no_flan"] = build_collection_exclude(["tulu"])
+DATA_PATHS["no_reddit"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'falcon', 'web_rest'])
+DATA_PATHS["no_flan"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
 DATA_PATHS["dolma17"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
+DATA_PATHS["dolma17_debug"] = build_collection_include(['c4_debug'])
+DATA_PATHS["redpajama"] = build_collection_include(["all_red_pajama"])
+DATA_PATHS["falcon"] = build_collection_include(["falcon"])
+DATA_PATHS["falcon_and_cc"] = build_collection_include(["falcon", "web_rest"])
+DATA_PATHS["c4"] = build_collection_include(["c4"])
+DATA_PATHS["prox_fineweb_pro"] = build_collection_include(["prox_fineweb_pro"])
+DATA_PATHS["fineweb_edu_dedup"] = build_collection_include(["fineweb_edu_dedup"])
+DATA_PATHS["falcon_and_cc_eli5_oh_top10p"] = build_collection_include(["cc_eli5_oh_top10p", "falcon_eli5_oh_top10p"])
+DATA_PATHS["falcon_and_cc_eli5_oh_top20p"] = build_collection_include(["cc_eli5_oh_top20p", "falcon_eli5_oh_top20p"])
+DATA_PATHS["falcon_and_cc_og_eli5_oh_top10p"] = build_collection_include(["cc_og_eli5_oh_top10p", "falcon_og_eli5_oh_top10p"])
+DATA_PATHS["falcon_and_cc_tulu_qc_top10"] = build_collection_include(["cc_tulu_qc_top10", "falcon_tulu_qc_top10"])
+
+DATA_PATHS["pos_eli5_oh_neg_dclm_refinedweb_steps_2000_lr3e4_top10p"] = build_collection_include(["pos_eli5_oh_neg_dclm_refinedweb_steps_2000_lr3e4_top10p"])
+DATA_PATHS["pos_eli5_oh_neg_dclm_refinedweb_steps_2000_lr3e4_top20p"] = build_collection_include(["pos_eli5_oh_neg_dclm_refinedweb_steps_2000_lr3e4_top20p"])
+DATA_PATHS["regression_synthetic_20epochs_bs640_lf1_lre35_top10p"] = build_collection_include(["regression_synthetic_20epochs_bs640_lf1_lre35_top10p"])
+DATA_PATHS["regression_synthetic_20epochs_bs640_lf1_lre35_top20p"] = build_collection_include(["regression_synthetic_20epochs_bs640_lf1_lre35_top20p"])
+
+# DATA_PATHS["dolma17_uniform"] = build_collection_with_weights(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
 
 # web_instruct instead of openwebmath, 2x sampled (openwebmath is roughly 2.4x larger than web_instruct)
 DATA_PATHS["web_instruct_2x"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'web_instruct', 'web_instruct', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
