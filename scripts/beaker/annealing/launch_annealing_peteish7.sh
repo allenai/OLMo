@@ -28,7 +28,6 @@ gantry run \
   --weka oe-training-default:/weka/oe-training-default \
   --propagate-failure \
   --propagate-preemption \
-  --synchronized-start-timeout 90m \
   --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
@@ -36,11 +35,13 @@ gantry run \
   --env R2_PROFILE=R2 \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
-  --env-secret AWS_CONFIG=BENB_AWS_KEY_ID \
-  --env-secret AWS_CREDENTIALS=BENB_AWS_SECRET_ACCESS_KEY \
+  --env-secret AWS_CONFIG=PETEW_AWS_CONFIG \
+  --env-secret AWS_CREDENTIALS=PETEW_AWS_CREDENTIALS \
+  --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
   --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
   --env-secret WANDB_API_KEY=BENB_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
+  --allow-dirty \
   -- /bin/bash -c "scripts/beaker/peteish/peteish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${CONFIG_PATH}"
