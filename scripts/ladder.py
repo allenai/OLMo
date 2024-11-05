@@ -172,10 +172,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # calculate the learning rate according to the same paper
     lr = 0.0047 * (model_size / 108000000) ** (-1 / 3)
 
-    save_interval = {
-        "1B": 2500,
-        "7B": 1000,
-    }.get(args.model, 5000)
+    save_interval = 250
 
     distributed_strategy = {"7B": DistributedStrategy.fsdp}.get(args.model, DistributedStrategy.ddp)
 
