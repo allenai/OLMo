@@ -68,7 +68,7 @@ torchrun \
       --wandb.group=$NAME \
       --save_interval_ephemeral=1000 \
       --eval_interval=1000 \
-      --fsdp.sharding_strategy=HYBRID_SHARD \
+      --fsdp.sharding_strategy=_HYBRID_SHARD_ZERO2 \
       --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
       --save_folder=$SAVE_FOLDER \
       --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/$NAME/" \
@@ -76,9 +76,10 @@ torchrun \
       --save_overwrite \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=4 \
+      --device_eval_batch_size=8 \
       --compile.fullgraph=false \
       --fused_loss=false \
       --model.flash_attention=false \
-      --data.num_workers=16 \
+      --data.num_workers=32 \
       --optimizer.metrics_log_interval=10 \
-      --data.prefetch_factor=16
+      --data.prefetch_factor=8
