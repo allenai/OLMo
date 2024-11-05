@@ -68,7 +68,7 @@ torchrun \
       --wandb.group=$NAME \
       --save_interval_ephemeral=1000 \
       --eval_interval=1000 \
-      --fsdp.sharding_strategy=HYBRID_SHARD \
+      --fsdp.sharding_strategy=_HYBRID_SHARD_ZERO2 \
       --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
       --fsdp.wrapping_strategy=by_block_and_size \
       --save_folder=$SAVE_FOLDER \
@@ -76,7 +76,7 @@ torchrun \
       --try_load_latest_save \
       --save_overwrite \
       --sharded_checkpointer=olmo_core \
-      --device_train_microbatch_size=4 \
+      --device_train_microbatch_size=2 \
       --device_eval_batch_size=8 \
       --compile.fullgraph=false \
       --fused_loss=false \
