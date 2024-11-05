@@ -434,7 +434,7 @@ def add_paths(token_sources, output_yaml_file):
     assert output_yaml_file.startswith('peteish7-weka-anneal-from-928646-50B-')
     assert output_yaml_file.endswith('.yaml')
 
-    base_config_str = BASE_YAML_STR.replace("REPLACE_RUN_NAME_HERE", os.path.basename(output_yaml_file))
+    base_config_str = BASE_YAML_STR.replace("REPLACE_RUN_NAME_HERE", os.path.splitext(os.path.basename(output_yaml_file))[0])
     
     lines_to_add = []
     for source in token_sources:
@@ -463,7 +463,6 @@ def examine_config(yaml_file, bytes_per_token=4):
     # Step 2: Gather all sources, count tokens taken
     print("Grouping output files into groups...")
     groups = set(_read_path_comments(yaml_file))
-    print("GROUPS", groups)
 
     def get_group(s3_uri):
         for g in groups:
@@ -481,7 +480,6 @@ def examine_config(yaml_file, bytes_per_token=4):
     for g in tqdm(groups):
         paths_and_sizes = list_s3_paths(g)
         total_tokens[g] = sum(_[1] for _ in paths_and_sizes) // bytes_per_token
-
     # Step 4: get ratios of percentage taken
     ratios = {g: '%.04f' % (tokens_taken[g] / total_tokens[g]) 
               for g in groups} # .04f here (ranging from 0.00 to 1.00)
