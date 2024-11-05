@@ -66,8 +66,8 @@ torchrun \
     configs/peteish1-google.yaml \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
-      --save_interval_ephemeral=1000 \
-      --eval_interval=1000 \
+      --save_interval_ephemeral=5000 \
+      --eval_interval=5000 \
       --fsdp.sharding_strategy=_HYBRID_SHARD_ZERO2 \
       --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
       --fsdp.wrapping_strategy=by_block_and_size \
