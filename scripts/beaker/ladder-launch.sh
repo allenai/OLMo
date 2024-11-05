@@ -6,7 +6,7 @@ NUM_NODES=$1
 shift
 PRIORITY=$1
 shift
-NUM_GPUS = 4
+NUM_GPUS=1
 
 if [[ $NUM_NODES -eq 1 ]]; then
   MULTI_NODE_ARGS=""

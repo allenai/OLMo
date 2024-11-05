@@ -127,6 +127,7 @@ def build_train_dataloader(
             rank=rank,
             fs_local_rank=fs_local_rank,
             work_dir=work_dir,
+            inject_every=train_config.data_inject_every,
         ),
         batch_size=train_config.device_train_batch_size,
         drop_last=train_config.data.drop_last,

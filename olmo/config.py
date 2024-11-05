@@ -926,6 +926,11 @@ class TrainConfig(BaseConfig):
     Training data configuration to inject.
     """
 
+    data_inject_every: Optional[int] = 1000
+    """
+    Inject the data from `data_inject` every `inject_every` steps.
+    """
+
     restore_dataloader: bool = True
     """
     When restarting, restore the data loader to where it left off.

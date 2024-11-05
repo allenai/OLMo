@@ -33,6 +33,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         seed: int = 0,
         epoch: int = 0,
         start_index: int = 0,
+        inject_every: int = 1000,
         max_examples: Optional[int] = None,
         shuffle: bool = True,
         drop_last: bool = False,
@@ -70,6 +71,8 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         self.global_indices_file: Optional[Path] = None
         self.work_dir = work_dir
 
+        self.inject_every = inject_every
+
         if work_dir is not None:
             self._build_and_save_global_indices()
 
@@ -103,7 +106,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
         barrier()
 
     def _build_global_indices(self) -> Tuple[np.ndarray, np.ndarray]:
-        def merge_indices(k=1000, m=0, R=100):
+        def merge_indices(k=1000, m=0, shuffled_repeats=100):
             log.info("Merging global data order indices with injected data...")
 
             len_indices = len(indices)
@@ -118,11 +121,12 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
 
             # Generate multiple shuffled versions of `indices_inject` and concatenate
             rng = np.random.Generator(np.random.PCG64(self.seed + self.epoch))
-            shuffled_inject = np.concatenate([rng.permutation(indices_inject) for _ in range(R)])
+            shuffled_inject = np.concatenate([rng.permutation(indices_inject) for _ in range(shuffled_repeats)])
 
             # Ensure `shuffled_inject` is long enough to cover `num_inserts`
             inject_values = shuffled_inject[:num_inserts]
             inject_positions = np.arange(m, m + num_inserts * (k + 1), k + 1)
+            inject_values = np.tile(shuffled_inject, (len(inject_positions) // len(shuffled_inject) + 1))[:len(inject_positions)]
 
             # Place the `inject_values` at calculated positions
             merged_indices[inject_positions] = inject_values
@@ -150,7 +154,7 @@ class IterableDataset(torch.utils.data.IterableDataset[Dict[str, Any]]):
             rng.shuffle(indices)
 
         if self.dataset_inject is not None:
-            merged_indices, datasets = merge_indices()
+            merged_indices, datasets = merge_indices(self.inject_every)
         else:
             merged_indices = indices
             datasets = np.zeros(len(merged_indices), dtype=np.uint8)

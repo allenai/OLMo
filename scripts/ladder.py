@@ -160,8 +160,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
     device_batch_size = {
-        # "150M": 32,
-        "150M": 4,
+        "150M": 32,
         "300M": 10,
         "750M": 8,
         "1B": 2,
@@ -278,6 +277,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             paths=data_inject_paths,
             generate_attention_mask=True,
         ) if data_inject_paths else None,
+        data_inject_every=args.inject_every,
     )
 
 
@@ -395,6 +395,7 @@ if __name__ == "__main__":
         subparser.add_argument("--model", type=str, required=True)
         subparser.add_argument("--data", type=str, required=True)
         subparser.add_argument("--data-inject", type=str)
+        subparser.add_argument("--inject-every", type=int, default=1000, help="Inject data every n samples")
         subparser.add_argument("--length", type=str, default="2xC")
         subparser.add_argument("--name", type=str, required=True)
         subparser.add_argument(
