@@ -63,7 +63,7 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/annealing/$NAME-google.yaml \
+    configs/annealing/$NAME.yaml \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
       --save_interval_ephemeral=1000 \
