@@ -93,7 +93,7 @@ torchrun \
   --node_rank=$BEAKER_REPLICA_RANK \
   scripts/train.py configs/peteish1.yaml \
     --run_name=$RUN_NAME \
-    --wandb.name=$NAME \
+    --wandb.name=$RUN_NAME \
     --wandb.group=$GROUP_NAME \
     --wandb.project=olmo-mup \
     --load_path="gs://ai2-llm/checkpoints/OLMo-mup/peteish1_v2_512_2.44e-4/step0" \
@@ -111,7 +111,7 @@ torchrun \
     --fsdp.sharding_strategy=HYBRID_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
     --fsdp.wrapping_strategy=by_block_and_size \
-    --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-mup/${GROUP_NAME}/${NAME}" \
+    --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-mup/${GROUP_NAME}/${RUN_NAME}" \
     --sharded_checkpointer=olmo_core \
     --device_train_microbatch_size=4 \
     --device_eval_batch_size=8 \
