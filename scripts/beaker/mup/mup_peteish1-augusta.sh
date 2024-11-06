@@ -50,7 +50,8 @@ export NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY=/dev/aperture_devices
 #conda install -y pytorch-cuda==12.4 packaging ninja cccl cuda-nvcc libcusolver-dev cuda-profiler-api libcusparse-dev libcublas-dev -c pytorch -c nvidia
 #pip install flash-attn==2.5.9.post1 --no-build-isolation
 pip install '.[train]'
-pip install --upgrade --upgrade-strategy only-if-needed '.[scaling]'
+pip install --no-deps pyparsing pillow kiwisolver fonttools cycler contourpy matplotlib seaborn
+pip install --no-deps git+https://github.com/2015aroras/mup@69628833d4fa7fe9aedcf54511549f6ac8718e8f
 pip freeze
 
 # Force processes to synchronize at init_process_group
