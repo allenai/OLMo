@@ -4,7 +4,7 @@ set -ex
 
 NUM_NODES=1
 NUM_GPUS=8
-SUFFIX=backfill2
+SUFFIX=backfill3
 
 # checkpoints=(
 #     peteish-150M-1xC
@@ -63,10 +63,10 @@ for checkpoint in ${checkpoints[@]}; do
     gantry run \
     --allow-dirty \
     --name ladder-eval-${checkpoint} \
-    --workspace ai2/alexw \
+    --workspace ai2/OLMo-tiny \
     --task-name ladder-eval-${checkpoint} \
     --description "Ladder eval backfill for ${checkpoint}" \
-    --priority normal \
+    --priority high \
     --preemptible \
     --beaker-image petew/olmo-torch23-gantry \
     --cluster ai2/jupiter-cirrascale-2 \
