@@ -80,8 +80,7 @@ export GROUP_NAME="peteish1_${MAX_STEPS}steps"
 
 # Just trying to figure out why augusta is failing
 gcloud config list
-ping -c 3 metadata.google.internal
-cat /etc/resolv.conf
+grep "client_id" $HOME/.config/gcloud/application_default_credentials.json
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
