@@ -417,9 +417,7 @@ def find_latest_checkpoint(dir: PathOrStr) -> Optional[PathOrStr]:
 
 
 def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
-    from google.cloud import storage as gcs
-
-    storage_client = gcs.Client()
+    storage_client = _get_gcs_client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(key)
     if not save_overwrite and blob.exists():
@@ -429,9 +427,8 @@ def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool =
 
 def _gcs_file_size(bucket_name: str, key: str) -> int:
     from google.api_core.exceptions import NotFound
-    from google.cloud import storage as gcs
 
-    storage_client = gcs.Client()
+    storage_client = _get_gcs_client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(key)
     try:
@@ -444,9 +441,8 @@ def _gcs_file_size(bucket_name: str, key: str) -> int:
 
 def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
     from google.api_core.exceptions import NotFound
-    from google.cloud import storage as gcs
 
-    storage_client = gcs.Client()
+    storage_client = _get_gcs_client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(key)
     try:
@@ -454,6 +450,13 @@ def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes
     except NotFound:
         raise FileNotFoundError(f"gs://{bucket_name}/{key}")
     return blob.download_as_bytes(start=bytes_start, end=bytes_start + num_bytes - 1)
+
+
+@cache
+def _get_gcs_client():
+    from google.cloud import storage as gcs
+
+    return gcs.Client()
 
 
 def _get_s3_profile_name(scheme: str) -> Optional[str]:

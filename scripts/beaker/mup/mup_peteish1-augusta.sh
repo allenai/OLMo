@@ -78,6 +78,8 @@ export RUN_NAME="peteish1_${WIDTH}_${LR}"
 export MAX_STEPS=10000
 export GROUP_NAME="peteish1_${MAX_STEPS}steps"
 
+export GOOGLE_CLOUD_PROJECT=ai2-allennlp
+
 # Just trying to figure out why augusta is failing
 gcloud config list
 gcloud storage ls --project ai2-allennlp gs://ai2-llm/checkpoints/OLMo-mup/peteish1_v2_512_2.44e-4/
