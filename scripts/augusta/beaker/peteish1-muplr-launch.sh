@@ -7,8 +7,8 @@ shift
 
 gantry run \
   --workspace ai2/13B \
-  --task-name peteish1-highlr \
-  --description "Peteish1 HighLR" \
+  --task-name peteish1-muplr \
+  --description "Peteish1 muP LR" \
   --priority high \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
@@ -34,4 +34,4 @@ gantry run \
   --timeout=-1 \
   --allow-dirty \
   --retries 10 \
-  -- /bin/bash -c "scripts/augusta/beaker/peteish1-highlr.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/augusta/beaker/peteish1-muplr.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK"

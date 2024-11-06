@@ -66,7 +66,7 @@ torchrun \
     configs/peteish1-google.yaml \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
-      --optimizer.learning_rate=12.0e-4 \
+      --optimizer.learning_rate=7.81e-3 \
       --save_interval_ephemeral=10000 \
       --eval_interval=10000 \
       --fsdp.sharding_strategy=HYBRID_SHARD \
