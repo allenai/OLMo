@@ -52,6 +52,9 @@ export NCCL_SOCKET_IFNAME=ib
 export CHECKPOINTS_PATH=/weka/oe-training-default
 export DATA_PATH=/weka/oe-training-default
 
+export RUN_NAME="peteish1_${WIDTH}_${LR}"
+export GROUP_NAME="peteish1_100Btokens"
+
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
@@ -60,12 +63,12 @@ torchrun \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
   --node_rank=$BEAKER_REPLICA_RANK \
   scripts/train.py configs/peteish1.yaml \
-    --run_name="peteish1_v2_${WIDTH}_${LR}" \
-    --wandb.name="peteish1_v2_${WIDTH}_${LR}" \
-    --wandb.group="peteish1_v2" \
+    --run_name=$RUN_NAME \
+    --wandb.name=$RUN_NAME \
+    --wandb.group=$GROUP_NAME \
     --wandb.project=olmo-mup \
-    --load_path="${CHECKPOINTS_PATH}/ai2-llm/checkpoints/OLMo-mup/peteish1_v2_512_2.44e-4/step0" \
-    --save_folder="${CHECKPOINTS_PATH}/ai2-llm/checkpoints/OLMo-mup/peteish1_v2_${WIDTH}_${LR}" \
+    --load_path="${CHECKPOINTS_PATH}/ai2-llm/checkpoints/OLMo-mup/peteish1_2048_1.56e-2/step0" \
+    --save_folder="${CHECKPOINTS_PATH}/ai2-llm/checkpoints/OLMo-mup/${$RUN_NAME}" \
     --model.use_mup \
     --model.mup_query_zero_init=false \
     --model.mup_base_shapes=configs/peteish1.bsh \
@@ -73,10 +76,13 @@ torchrun \
     --optimizer.learning_rate=$LR \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --save_interval_ephemeral=250 \
-    --stop_at=10000 \
-    --eval_interval=100 \
+    --scheduler.t_warmup=1000 \
+    --scheduler.t_max=50000 \
+    --stop_at=50000 \
+    --eval_interval=500 \
     --try_load_latest_save \
     --save_overwrite \
     "${@}"
 
 # --load_path="${CHECKPOINTS_PATH}/ai2-llm/checkpoints/OLMo-mup/peteish1_2048_1.56e-2/step0" \
+# --load_path="${CHECKPOINTS_PATH}/ai2-llm/checkpoints/OLMo-mup/peteish1_v2_512_2.44e-4/step0" \
