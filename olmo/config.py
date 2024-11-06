@@ -489,6 +489,11 @@ class ModelConfig(BaseConfig):
 
     mup_query_zero_init: bool = False
 
+    mup_base_n_heads: Optional[int] = None
+    """
+    The number of self-attention heads in the base muP model. This must be set when using muP.
+    """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:

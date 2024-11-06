@@ -542,8 +542,13 @@ class OLMoBlock(nn.Module):
         Computes scaled dot product attention on query, key and value tensors, using an optional
         attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
         """
-        # muP: Scale attention weights by 1/d instead of q/sqrt(d)
-        attn_scale = 1 / q.size(-1) if self.config.use_mup else 1 / math.sqrt(q.size(-1))
+        # muP: Scale attention weights by sqrt(base_d)/d instead of 1/sqrt(d). This makes the scale
+        # identical for the base model but potentially different for scaled up/down models.
+        if self.config.use_mup:
+            assert self.config.mup_base_n_heads is not None
+            attn_scale = math.sqrt(self.config.mup_base_n_heads) / q.size(-1)
+        else:
+            attn_scale = 1 / math.sqrt(q.size(-1))
 
         if max_doc_len is not None and cu_doc_lens is not None:
             assert self.flash_attn_varlen_func is not None, "flash-attn is required for document masking"
