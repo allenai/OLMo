@@ -75,7 +75,8 @@ export CHECKPOINTS_PATH=gs:/
 export DATA_PATH=gs:/
 
 export RUN_NAME="peteish1_${WIDTH}_${LR}"
-export GROUP_NAME="peteish1_100Btokens"
+export MAX_STEPS=10000
+export GROUP_NAME="peteish1_${MAX_STEPS}steps"
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -89,7 +90,7 @@ torchrun \
     --wandb.name=$NAME \
     --wandb.group=$GROUP_NAME \
     --wandb.project=olmo-mup \
-    --load_path="gs://ai2-llm/checkpoints/OLMo-mup/peteish1_2048_1.56e-2/step0" \
+    --load_path="gs://ai2-llm/checkpoints/OLMo-mup/peteish1_v2_512_2.44e-4/step0" \
     --save_folder=$SAVE_FOLDER \
     --model.use_mup \
     --model.mup_query_zero_init=false \
@@ -98,8 +99,8 @@ torchrun \
     --optimizer.learning_rate=$LR \
     --save_interval_ephemeral=250 \
     --scheduler.t_warmup=1000 \
-    --scheduler.t_max=50000 \
-    --stop_at=50000 \
+    --scheduler.t_max=$MAX_STEPS \
+    --stop_at=$MAX_STEPS \
     --eval_interval=500 \
     --fsdp.sharding_strategy=HYBRID_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
