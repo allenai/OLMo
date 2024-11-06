@@ -45,6 +45,7 @@ export NCCL_SOCKET_IFNAME=enp0s12
 export NCCL_USE_SNAP=1
 export NCCL_FASTRAK_USE_LLCM=1
 export NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY=/dev/aperture_devices
+export CLOUDSDK_CORE_PROJECT=ai2-allennlp
 
 # Install flash-attn
 #conda install -y pytorch-cuda==12.4 packaging ninja cccl cuda-nvcc libcusolver-dev cuda-profiler-api libcusparse-dev libcublas-dev -c pytorch -c nvidia
