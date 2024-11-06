@@ -72,6 +72,7 @@ torchrun \
     --model.use_mup \
     --model.mup_query_zero_init=false \
     --model.mup_base_shapes=configs/peteish1.bsh \
+    --model.mup_base_n_heads=1 \
     --model.d_model=$WIDTH \
     --optimizer.learning_rate=$LR \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
