@@ -17,7 +17,7 @@ gantry run \
   --description "Search for a good LR for OLMo peteish 1B using mup" \
   --priority normal \
   --preemptible \
-  --beaker-image petew/olmo-torch23-gantry \
+  --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
   --cluster ai2/augusta-google-1 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
