@@ -45,7 +45,6 @@ export NCCL_SOCKET_IFNAME=enp0s12
 export NCCL_USE_SNAP=1
 export NCCL_FASTRAK_USE_LLCM=1
 export NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY=/dev/aperture_devices
-export GOOGLE_CLOUD_PROJECT=ai2-allennlp
 
 # Install flash-attn
 #conda install -y pytorch-cuda==12.4 packaging ninja cccl cuda-nvcc libcusolver-dev cuda-profiler-api libcusparse-dev libcublas-dev -c pytorch -c nvidia
@@ -78,6 +77,12 @@ export DATA_PATH=gs:/
 export RUN_NAME="peteish1_${WIDTH}_${LR}"
 export MAX_STEPS=10000
 export GROUP_NAME="peteish1_${MAX_STEPS}steps"
+
+# Just trying to figure out why augusta is failing
+gcloud config list
+nslookup metadata.google.internal
+ping -c 3 metadata.google.internal
+cat /etc/resolv.conf
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
