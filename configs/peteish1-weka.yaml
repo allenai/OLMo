@@ -10,7 +10,6 @@ wandb:
 model:
   d_model: 2048
   n_heads: 16
-  mup_base_n_heads: 16
   n_layers: 16
   mlp_ratio: 8
   weight_tying: false
