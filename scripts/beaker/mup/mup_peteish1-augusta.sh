@@ -80,7 +80,7 @@ export GROUP_NAME="peteish1_${MAX_STEPS}steps"
 
 # Just trying to figure out why augusta is failing
 gcloud config list
-gcloud storage ls --project ai2-allennlp
+gcloud storage ls --project ai2-allennlp gs://ai2-llm/checkpoints/OLMo-mup/peteish1_v2_512_2.44e-4/
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
