@@ -80,7 +80,6 @@ export GROUP_NAME="peteish1_${MAX_STEPS}steps"
 
 # Just trying to figure out why augusta is failing
 gcloud config list
-nslookup metadata.google.internal
 ping -c 3 metadata.google.internal
 cat /etc/resolv.conf
 
