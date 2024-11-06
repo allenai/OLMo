@@ -32,7 +32,9 @@ def parse_args():
         args.keys = [f"eval/{val}/CrossEntropyLoss" for val in validation]
     elif args.key == "all-bpb":
         args.keys = [f"eval/downstream_bpb/{task}_bpb" for task in downstream_bpb]
-    elif args.key == "mmlu-var-bpb":
+    elif args.key == "hellaswag-5shot":
+        args.keys = [f"eval/downstream_bpb/hellaswag_rc_5shot_bpb_bpb"]
+    elif args.key == "mmlu-var":
         args.keys = [
             f"eval/downstream_bpb/{task}_bpb"
             for task in [
@@ -53,7 +55,7 @@ MARKER_BY_C = {
     10: "*",
 }
 
-NS = [151898880, 319980544, 530074944, 681297408, 1176832000]
+NS = [190354176, 371262464, 597382464, 758220288, 1279395840]
 
 
 def func_pow_r(x, p):  # x = (n, d), p = (U0, U1, U2, U3, U4, r)
@@ -201,10 +203,10 @@ def main():
         configs = json.load(f)
         configs = {name: ExtrapolateNConfig(**config) for name, config in configs.items()}
 
-    data_by_name = get_data_by_name(configs, args.keys, min_step=3000)
+    data_by_name = get_data_by_name(configs, args.keys, min_step=5000)
     const_configs = {
         name: ExtrapolateNConfig(
-            path=config.path.replace("5shot", "const")
+            path=config.path.replace("final", "const")
             .replace("1xC", "10xC")
             .replace("2xC", "10xC")
             .replace("5xC", "10xC"),
@@ -215,7 +217,7 @@ def main():
         )
         for name, config in configs.items()
     }
-    const_data_by_name = get_data_by_name(const_configs, args.keys, min_step=3000)
+    const_data_by_name = get_data_by_name(const_configs, args.keys, min_step=5000)
 
     sns.set_style("whitegrid")
 
@@ -240,15 +242,16 @@ def main():
             color="white",
             edgecolors=config.color,
             label=config.label,
-            s=5.0,
+            s=5,
+            alpha=0.4,
         )
 
         WARMUP_D_BY_N = {
-            151898880: 150208512,
-            319980544: 300154880,
-            530074944: 530317312,
-            681297408: 750256128,
-            1176832000: 1000603648,
+            190354176: 190354176,
+            371262464: 371262464,
+            597382464: 597382464,
+            758220288: 758220288,
+            1279395840: 1279395840,
         }
 
         # overlay a cosine curve
@@ -277,7 +280,7 @@ def main():
             cosine_ys,
             color=config.color,
             linestyle="--",
-            linewidth=1.0,
+            linewidth=1.5,
         )
 
         # # overlay an s2 curve
@@ -296,12 +299,13 @@ def main():
         rangee_by_ndc[(data["ns"][0], ds[-1], c, name)] = rangee
 
     for ax in axs:
-        ax.set_ylim(-0.20, 0.02)
+        ax.set_ylim(-0.045, 0.01)
         ax.legend(loc="upper right", ncols=1, fontsize=8)
         ax.set_xlabel("Tokens (D)")
     axs[0].set_ylabel("Residue")
-    plt.suptitle("Residue of loss against curve of const LR schedule")
+    plt.suptitle(f"{args.key}")
     plt.savefig(args.output_path, dpi=300, bbox_inches="tight")
+    exit()
 
     bounds: List[Tuple[Any, Any]]
     # plot the rangee

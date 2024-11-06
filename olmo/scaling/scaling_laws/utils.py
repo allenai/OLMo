@@ -290,7 +290,7 @@ KEYS_BY_KEY = {
     "all-val-lm": [f"eval/{val}/CrossEntropyLoss" for val in validation],
     "all-bpb": [f"eval/downstream_bpb/{task}_bpb" for task in downstream_bpb],
     "c4": ["eval/c4_en-validation/CrossEntropyLoss"],
-    "mmlu": [
+    "mmlu-var": [
         f"eval/downstream_bpb/{task}_bpb"
         for task in [
             "mmlu_stem_var_bpb",
@@ -299,6 +299,10 @@ KEYS_BY_KEY = {
             "mmlu_other_var_bpb",
         ]
     ],
+    "mmlu-stem-var": ["eval/downstream_bpb/mmlu_stem_var_bpb_bpb"],
+    "mmlu-humanities-var": ["eval/downstream_bpb/mmlu_humanities_var_bpb_bpb"],
+    "mmlu-social-sciences-var": ["eval/downstream_bpb/mmlu_social_sciences_var_bpb_bpb"],
+    "mmlu-other-var": ["eval/downstream_bpb/mmlu_other_var_bpb_bpb"],
     "hellaswag-5shot": ["eval/downstream_bpb/hellaswag_rc_5shot_bpb_bpb"],
     "arc-e-5shot": ["eval/downstream_bpb/arc_easy_rc_5shot_bpb_bpb"],
     "arc-c-5shot": ["eval/downstream_bpb/arc_challenge_rc_5shot_bpb_bpb"],
@@ -310,6 +314,12 @@ KEYS_BY_KEY = {
     "copa-0shot": ["eval/downstream_bpb/copa_rc_0shot_bpb_bpb"],
     "csqa-5shot": ["eval/downstream_bpb/csqa_rc_5shot_bpb_bpb"],
     "socialiqa-5shot": ["eval/downstream_bpb/socialiqa_rc_5shot_bpb_bpb"],
+}
+WEIGHT_BY_KEY = {
+    "mmlu_stem_var_bpb": 0.215,
+    "mmlu_humanities_var_bpb": 0.335,
+    "mmlu_social_sciences_var_bpb": 0.219,
+    "mmlu_other_var_bpb": 0.231,
 }
 
 
@@ -364,7 +374,7 @@ def get_data_by_name(configs: Dict[str, ExtrapolateNConfig], keys: List[str], mi
                 last_fake_lr = fake_lr
                 last_d = d
                 encountered_ds.add(d)
-                y = np.mean([float(row[key]) for key in keys])
+                y = np.average([float(row[key]) for key in keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in keys])
                 if min_step is not None and d < min_step * batch_size:
                     continue
                 data_by_name[name]["ns"].append(n)
@@ -388,7 +398,7 @@ def get_final_data_by_name(configs, keys, num_to_avg=1):
                 ds, ys = [], []
                 for row in rows:
                     d = int(float(row["throughput/total_tokens"]))
-                    y = np.mean([float(row[key]) for key in keys])
+                    y = np.average([float(row[key]) for key in keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in keys])
                     ds.append(d)
                     ys.append(y)
                 d = np.mean(ds)
@@ -494,6 +504,23 @@ def grad_chinchilla_n_d_lr_fit(x, p):
     grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
     grad_E = 1
     grad_F = x[2]
+    return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F]
+
+
+# x[0] = n, x[1] = d, x[2] = h
+# p[0] = a = log(A), p[1] = b = log(B), p[2] = alpha, p[3] = beta, p[4] = E, p[5] = F
+def chinchilla_n_d_lr_minus_fit(x, p):
+    # return e**a / x[0]**alpha + e**b / x[1]**beta + E - F * (1 - x[2])
+    return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4] - p[5] * (1 - x[2])
+
+
+def grad_chinchilla_n_d_lr_minus_fit(x, p):
+    grad_a = np.exp(p[0]) / x[0] ** p[2]
+    grad_b = np.exp(p[1]) / x[1] ** p[3]
+    grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
+    grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
+    grad_E = 1
+    grad_F = -(1 - x[2])
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F]
 
 

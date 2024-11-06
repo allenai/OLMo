@@ -52,8 +52,9 @@ def get_runs(run_paths: List) -> List:
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--wandb-names", type=str, nargs="+", required=True, help="Full run name or regex")
-    parser.add_argument("-x", "--x-axis", type=str, default="throughput/total_tokens", help="X axis")
+    parser.add_argument("-x", "--x-axis", type=str, default="_step", help="X axis")
     parser.add_argument("-y", "--y-axis", nargs="+", type=str, default=["train/Perplexity"], help="Y axis")
+    parser.add_argument("-e", "--eval-only", action="store_true")
     parser.add_argument(
         "-o",
         "--output-path",
@@ -96,6 +97,13 @@ def main(args):
             + [f"eval/downstream/{d}" for d in downstream_newline]
         )
 
+    if not args.eval_only:
+        args.y_axis += [
+            "throughput/total_tokens",
+            "throughput/total_training_Gflops",
+            "optim/learning_rate_group0",
+        ]
+
     wb_runs = get_runs(args.wandb_names)
 
     print("Downloading the data from the following wandb runs:\n", "\n".join([str(run) for run in wb_runs]))
@@ -104,23 +112,14 @@ def main(args):
     if dirname:
         os.makedirs(dirname, exist_ok=True)
     with open(args.output_path, "w") as file_ref:
-        writer = csv.DictWriter(
-            file_ref,
-            fieldnames=[args.x_axis]
-            + ["throughput/total_training_Gflops"]
-            + args.y_axis
-            + ["optim/learning_rate_group0", "learning_rate_peak", "batch_size_in_tokens"],
-        )
+        writer = csv.DictWriter(file_ref, fieldnames=[args.x_axis] + args.y_axis + ["learning_rate_peak", "batch_size_in_tokens"])
         writer.writeheader()
 
         rows = []
         for wb_run in tqdm(wb_runs):
             print(f"Processing {wb_run.name}")
             history = wb_run.scan_history(
-                keys=[args.x_axis]
-                + ["throughput/total_training_Gflops"]
-                + args.y_axis
-                + ["optim/learning_rate_group0"],
+                keys=[args.x_axis] + args.y_axis,
                 page_size=10000,
             )  # page_size cannot be too big, it will make it faster but it will start to downsample
 
@@ -130,10 +129,10 @@ def main(args):
             )
 
             for wb_step in history:
-                rows.append(wb_step)
                 wb_step["learning_rate_peak"] = config["optimizer"]["value"]["learning_rate"]
                 # With certain run restarts, we also update the batch size.
                 wb_step["batch_size_in_tokens"] = batch_size_in_tokens
+                rows.append(wb_step)
 
         row_by_key = {}
         for row in rows:
@@ -245,6 +244,37 @@ if __name__ == "__main__":
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-3B-1xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/3B-1xC.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-3B-2xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/3B-2xC.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-3B-5xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/3B-5xC.csv
+
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish7' -y eval/downstream/arc_easy_acc -o wandb/peteish7_train.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish7-eval' -y eval/validation-and-bpb-and-downstream -o wandb/peteish7_eval_final.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish7-eval' -y eval/validation-and-bpb-and-downstream -e -o wandb/peteish7_eval_full.csv
+
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-190M-1xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/190M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-370M-1xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/370M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-600M-1xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/600M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-760M-1xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/760M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-1B-1xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/1B-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-190M-2xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/190M-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-370M-2xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/370M-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-600M-2xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/600M-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-760M-2xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/760M-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-1B-2xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/1B-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-190M-5xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/190M-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-370M-5xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/370M-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-600M-5xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/600M-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-760M-5xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/760M-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-1B-5xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/1B-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-190M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/190M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-370M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/370M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-600M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/600M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-760M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/760M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-1B-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/1B-10xC.csv
+
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-const-190M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-const/190M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-const-370M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-const/370M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-const-600M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-const/600M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-const-760M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-const/760M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-const-1B-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-const/1B-10xC.csv
 
     args = parse_args()
     print(args)
