@@ -33,7 +33,7 @@ def parse_args():
     elif args.key == "all-bpb":
         args.keys = [f"eval/downstream_bpb/{task}_bpb" for task in downstream_bpb]
     elif args.key == "hellaswag-5shot":
-        args.keys = [f"eval/downstream_bpb/hellaswag_rc_5shot_bpb_bpb"]
+        args.keys = ["eval/downstream_bpb/hellaswag_rc_5shot_bpb_bpb"]
     elif args.key == "mmlu-var":
         args.keys = [
             f"eval/downstream_bpb/{task}_bpb"

@@ -71,7 +71,9 @@ def main():
     for name, data in data_by_name.items():
         config = configs[name]
         ax = axs[get_ax(name)]
-        ax.scatter(data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=10, alpha=0.4)
+        ax.scatter(
+            data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=10, alpha=0.4
+        )
 
     # plot the fitted curve
     for name, data in predicted_data_by_name.items():
