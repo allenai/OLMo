@@ -19,16 +19,17 @@ from typing import Any, Callable, Dict, MutableMapping, Optional, Tuple, Union
 import boto3
 import botocore.exceptions as boto_exceptions
 import datasets
+import requests
 import rich
 from botocore.config import Config
 from cached_path.schemes import SchemeClient, add_scheme_client
-from google.api_core.retry import Retry as GCSRetry, if_transient_error as gcs_is_transient_error
+from google.api_core.retry import Retry as GCSRetry
+from google.api_core.retry import if_transient_error as gcs_is_transient_error
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import NullHighlighter
 from rich.progress import Progress
 from rich.text import Text
 from rich.traceback import Traceback
-import requests
 
 from olmo_data.data import get_data_path
 
