@@ -478,14 +478,19 @@ def grad_chinchilla_d_lr_fit(x, p):
 # p[0] = a = log(A), p[1] = b = log(B), p[2] = alpha, p[3] = beta, p[4] = E
 def chinchilla_n_d_fit(x, p):
     # return e**a / x[0]**alpha + e**b / x[1]**beta + E
-    return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4]
+    # return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4]
+
+    return np.exp(p[0] - np.log(x[0]) * p[2]) + np.exp(p[1] - np.log(x[1]) * p[3]) + p[4]
+    # return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4]
 
 
 def grad_chinchilla_n_d_fit(x, p):
-    grad_a = np.exp(p[0]) / x[0] ** p[2]
-    grad_b = np.exp(p[1]) / x[1] ** p[3]
-    grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
-    grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
+    grad_a = np.exp(p[0] - np.log(x[0]) * p[2])
+    grad_b = np.exp(p[1] - np.log(x[1]) * p[3])
+    # grad_a = np.exp(p[0]) / x[0] ** p[2]
+    # grad_b = np.exp(p[1]) / x[1] ** p[3]
+    grad_alpha = np.exp(p[0] - np.log(x[0]) * p[2]) * (-np.log(x[0]))
+    grad_beta = np.exp(p[1] - np.log(x[1]) * p[3]) * (-np.log(x[1]))
     grad_E = 1
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E]
 
