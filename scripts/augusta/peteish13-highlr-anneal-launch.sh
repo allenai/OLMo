@@ -2,13 +2,16 @@
 
 set -euxo pipefail
 
-NAME=$1
+FILENAME=$1
 shift
 
 HOSTPATTERN=$1
 shift
 
 NUM_NODES=$1
+shift
+
+SEED=$1
 shift
 
 HOSTS=$(
@@ -21,12 +24,14 @@ HOSTS=$(
   paste -sd,
 )
 
+NAME=$FILENAME-seed$SEED
 RUN_NAME=$NAME-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/mnt/localssd/runs/$RUN_NAME
 mkdir -p $SAVE_FOLDER
 
 ./scripts/augusta/launch_train.sh $HOSTS \
-  configs/annealing/$NAME.yaml \
+  configs/annealing/$FILENAME-google.yaml \
+    --seed=$SEED \
     --fsdp.sharding_strategy=HYBRID_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas=$NUM_NODES \
     --save_folder=$SAVE_FOLDER \
