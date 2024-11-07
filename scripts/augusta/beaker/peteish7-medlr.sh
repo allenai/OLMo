@@ -76,10 +76,10 @@ torchrun \
       '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=2 \
-      --activation_checkpointing=one_in_four \
+      --activation_checkpointing=one_in_two \
       --compile.fullgraph=false \
-      --fused_loss=true \
-      --model.flash_attention=true \
+      --fused_loss=false \
+      --model.flash_attention=false \
       --data.num_workers=8 \
       --optimizer.learning_rate=6.0e-4 \
       --optimizer.metrics_log_interval=10 \
