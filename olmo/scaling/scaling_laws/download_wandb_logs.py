@@ -87,6 +87,13 @@ def main(args):
             + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_bpb]
             + [f"eval/downstream/{d}" for d in downstream]
         )
+    elif args.y_axis == ["eval/validation-and-soft-and-downstream"]:
+        args.y_axis = (
+            [f"eval/{d}/CrossEntropyLoss" for d in validation]
+            + [f"eval/downstream/{d}" for d in downstream]
+            + [f"eval/downstream/{d}_soft" for d in downstream]
+            + [f"eval/downstream/{d}_soft_log" for d in downstream]
+        )
 
     elif args.y_axis == ["eval/validation-and-bpb-and-downstream-newline"]:
         args.y_axis = (
@@ -96,6 +103,7 @@ def main(args):
             + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_newline_bpb]
             + [f"eval/downstream/{d}" for d in downstream_newline]
         )
+
 
     if not args.eval_only:
         args.y_axis += [
