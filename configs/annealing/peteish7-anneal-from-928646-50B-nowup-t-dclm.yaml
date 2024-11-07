@@ -78,9 +78,9 @@ sharded_checkpointer: olmo_core
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
-load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646
+load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-50B-nowup-t-dclm/step2000
 
-restore_dataloader: false
+restore_dataloader: true
 no_pre_train_checkpoint: true
 
 max_duration: 50e9T
