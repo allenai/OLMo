@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `constant_with_warmup` learning rate schedule
 - `one_in_eight` configuration for activation checkpointing
 - New tokenizer in the source instead of from huggingface
+- Improved support for GCS
 
 
 ## [v0.5.1](https://github.com/allenai/OLMo/releases/tag/v0.5.1) - 2024-10-17
