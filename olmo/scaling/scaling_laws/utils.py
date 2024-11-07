@@ -2,10 +2,78 @@ import argparse
 import csv
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import scipy
+
+
+@dataclass
+class ExtrapolateNConfig:
+    path: str
+    """
+    Path containing the W&B downloaded data and metadata.
+    """
+
+    mode: str
+    """
+    Whether this model is used for fitting the curve ('train') or evaluating the fit ('eval').
+    """
+
+    n: int
+    """
+    The model size (non-embedding parameter count).
+    """
+
+    label: str
+    """
+    A short label for this curve.
+    """
+
+    color: str
+    """
+    The color for this curve.
+    """
+
+
+@dataclass
+class FinalConfig:
+    paths: List[str]
+    """
+    Path containing the W&B downloaded data and metadata.
+    """
+
+    mode: str
+    """
+    Whether this model is used for fitting the curve ('train') or evaluating the fit ('eval').
+    """
+
+    n: int
+    """
+    The model size (non-embedding parameter count).
+    """
+
+    label: str
+    """
+    A short label for this curve.
+    """
+
+    color: str
+    """
+    The color for this curve.
+    """
+
+    use_last_n_percentage: int = 100
+    """
+    The percent of data points used. Defaults to 100%.
+    """
+
+
+main_tasks = ["hellaswag", "arc_easy", "arc_challenge", "piqa", "openbookqa", "csqa", "socialiqa"]
+all_tasks = main_tasks + ["winogrande", "copa", "sciq", "boolq"]
+
+mmlu_names = ["mmlu_stem", "mmlu_humanities", "mmlu_social_sciences", "mmlu_other"]
+
 
 validation = [
     "c4_en-validation",
@@ -35,107 +103,88 @@ v3_validation = [
     "v3-small-wikitext_103-validation",
 ]
 
-downstream = [
-    "hellaswag_len_norm",
-    "hellaswag_rc_0shot_len_norm",
-    "hellaswag_rc_5shot_len_norm",
-    "hellaswag_mc_5shot_acc",
-    "winogrande_acc",
-    "winogrande_rc_0shot_acc",
-    "winogrande_rc_5shot_acc",
-    "winogrande_mc_5shot_acc",
-    "piqa_len_norm",
-    "piqa_rc_0shot_len_norm",
-    "piqa_rc_5shot_len_norm",
-    "piqa_mc_5shot_acc",
-    "social_iqa_len_norm",
-    "socialiqa_rc_0shot_len_norm",
-    "socialiqa_rc_5shot_len_norm",
-    "socialiqa_mc_5shot_acc",
-    "openbook_qa_len_norm",
-    "openbookqa_rc_0shot_len_norm",
-    "openbookqa_rc_5shot_len_norm",
-    "openbookqa_mc_5shot_acc",
-    "commonsense_qa_len_norm",
-    "csqa_rc_0shot_len_norm",
-    "csqa_rc_5shot_len_norm",
-    "csqa_mc_5shot_acc",
-    "boolq_acc",
-    "boolq_rc_0shot_acc",
-    "boolq_rc_5shot_acc",
-    "boolq_mc_5shot_acc",
-    "copa_acc",
-    "copa_rc_0shot_acc",
-    "arc_easy_acc",
-    "arc_easy_rc_0shot_acc",
-    "arc_easy_rc_5shot_acc",
-    "arc_easy_mc_5shot_acc",
-    "arc_challenge_len_norm",
-    "arc_challenge_rc_0shot_len_norm",
-    "arc_challenge_rc_5shot_len_norm",
-    "arc_challenge_mc_5shot_acc",
-    "sciq_acc",
-    "sciq_rc_0shot_acc",
-    "mmlu_social_sciences_var_len_norm",
-    "mmlu_humanities_var_len_norm",
-    "mmlu_other_var_len_norm",
-    "mmlu_stem_mc_5shot_test_len_norm",
-    "mmlu_humanities_mc_5shot_len_norm",
-    "mmlu_social_sciences_mc_5shot_len_norm",
-    "mmlu_stem_var_len_norm",
-    "mmlu_other_mc_5shot_test_len_norm",
-    "mmlu_humanities_mc_5shot_test_len_norm",
-    "mmlu_stem_mc_5shot_len_norm",
-    "mmlu_social_sciences_mc_5shot_test_len_norm",
-    "mmlu_other_mc_5shot_len_norm",
-    "basic_arithmetic_acc",
-]
+
+minimums_rc = {
+    "piqa": 0.5,
+    "socialiqa": 1 / 3,
+    "csqa": 0.2,
+}
+
+maximums_rc = {"mmlu_stem": 0.9, "arc_easy": 0.85}
 
 
-downstream_bpb = [
-    "piqa_rc_0shot_bpb",
-    "piqa_rc_5shot_bpb",
-    "piqa_mc_5shot_bpb",
-    "hellaswag_rc_0shot_bpb",
-    "hellaswag_rc_5shot_bpb",
-    "hellaswag_mc_5shot_bpb",
-    "winogrande_rc_0shot_bpb",
-    "winogrande_rc_5shot_bpb",
-    "winogrande_mc_5shot_bpb",
-    "openbookqa_rc_0shot_bpb",
-    "openbookqa_rc_5shot_bpb",
-    "openbookqa_mc_5shot_bpb",
-    "boolq_rc_0shot_bpb",
-    "boolq_rc_5shot_bpb",
-    "boolq_mc_5shot_bpb",
-    "sciq_rc_0shot_bpb",
-    # "sciq_rc_5shot_bpb",
-    # "sciq_mc_5shot_bpb",
-    "arc_easy_rc_0shot_bpb",
-    "arc_easy_rc_5shot_bpb",
-    "arc_easy_mc_5shot_bpb",
-    "arc_challenge_rc_0shot_bpb",
-    "arc_challenge_rc_5shot_bpb",
-    "arc_challenge_mc_5shot_bpb",
-    "copa_rc_0shot_bpb",
-    # "copa_rc_5shot_bpb",
-    # "copa_mc_5shot_bpb",
-    "csqa_rc_0shot_bpb",
-    "csqa_rc_5shot_bpb",
-    "csqa_mc_5shot_bpb",
-    "socialiqa_rc_0shot_bpb",
-    "socialiqa_rc_5shot_bpb",
-    "socialiqa_mc_5shot_bpb",
-    "mmlu_stem_var_bpb",
-    "mmlu_humanities_var_bpb",
-    "mmlu_social_sciences_var_bpb",
-    "mmlu_other_var_bpb",
-    "mmlu_stem_bpb",
-    "mmlu_humanities_bpb",
-    "mmlu_social_sciences_bpb",
-    "mmlu_other_bpb",
-]
+@dataclass
+class DownstreamTaskPrediction:
+    task_loss_key: Union[str, List[str]]
+    task_accuracy_key: Union[str, List[str]]
+    task_minimum: float = 0.25
+    task_maximum: float = 1.0
 
+
+downstream_5_shot: Dict[str, DownstreamTaskPrediction] = {
+    f"{key}_rc_5shot": DownstreamTaskPrediction(
+        task_loss_key=f"eval/downstream_bpb/{key}_rc_5shot_bpb_bpb",
+        task_accuracy_key=f"eval/downstream/{key}_rc_5shot_len_norm"
+        if key not in ["arc_easy", "winogrande"]
+        else f"eval/downstream/{key}_rc_5shot_acc",
+        task_minimum=minimums_rc.get(key, 0.25),
+        task_maximum=maximums_rc.get(key, 1.0),
+    )
+    for key in main_tasks
+}
+
+downstream_mmlu_var: Dict[str, DownstreamTaskPrediction] = {
+    "mmlu_avg_var": DownstreamTaskPrediction(
+        task_loss_key=[f"eval/downstream_bpb/{key}_var_bpb_bpb" for key in mmlu_names],
+        task_accuracy_key=[f"eval/downstream/{key}_var_len_norm" for key in mmlu_names],
+        task_minimum=0.25,
+        task_maximum=0.9,
+    )
+}
+
+for key in mmlu_names:
+    downstream_mmlu_var[key] = DownstreamTaskPrediction(
+        task_loss_key=f"eval/downstream_bpb/{key}_var_bpb_bpb",
+        task_accuracy_key=f"eval/downstream/{key}_var_len_norm",
+        task_minimum=minimums_rc.get(key, 0.25),
+        task_maximum=maximums_rc.get(key, 0.9),
+    )
+
+
+downstream_0_shot: Dict[str, DownstreamTaskPrediction] = {
+    f"{key}_rc_0shot": DownstreamTaskPrediction(
+        task_loss_key=f"eval/downstream_bpb/{key}_rc_0shot_bpb_bpb",
+        task_accuracy_key=f"eval/downstream/{key}_rc_0shot_len_norm"
+        if key not in ["arc_easy", "winogrande"]
+        else f"eval/downstream/{key}_rc_0shot_acc",
+        task_minimum=minimums_rc.get(key, 0.25),
+        task_maximum=maximums_rc.get(key, 1.0),
+    )
+    for key in main_tasks
+}
+
+
+def get_bpb_keys(tasks: Dict[str, DownstreamTaskPrediction]) -> List[str]:
+    bpb_keys: List[str] = []
+    for _, task in tasks.items():
+        if isinstance(task.task_loss_key, list):
+            bpb_keys += task.task_loss_key
+        else:
+            bpb_keys.append(task.task_loss_key)
+    return bpb_keys
+
+
+def get_accuracy_keys(tasks: Dict[str, DownstreamTaskPrediction]) -> List[str]:
+    accuracy_keys: List[str] = []
+    for _, task in tasks.items():
+        if isinstance(task.task_accuracy_key, list):
+            accuracy_keys += task.task_accuracy_key
+        else:
+            accuracy_keys.append(task.task_accuracy_key)
+    return accuracy_keys
+
+
+# Special case for testing with old tokenizer:
 
 downstream_newline = [
     "mmlu_newline_social_sciences_var_len_norm",
@@ -224,103 +273,25 @@ downstream_newline_bpb = [
     "socialiqa_newline_mc_5shot_bpb",
 ]
 
-
-@dataclass
-class ExtrapolateNConfig:
-    path: str
-    """
-    Path containing the W&B downloaded data and metadata.
-    """
-
-    mode: str
-    """
-    Whether this model is used for fitting the curve ('train') or evaluating the fit ('eval').
-    """
-
-    n: int
-    """
-    The model size (non-embedding parameter count).
-    """
-
-    label: str
-    """
-    A short label for this curve.
-    """
-
-    color: str
-    """
-    The color for this curve.
-    """
-
-
-@dataclass
-class FinalConfig:
-    paths: List[str]
-    """
-    Path containing the W&B downloaded data and metadata.
-    """
-
-    mode: str
-    """
-    Whether this model is used for fitting the curve ('train') or evaluating the fit ('eval').
-    """
-
-    n: int
-    """
-    The model size (non-embedding parameter count).
-    """
-
-    label: str
-    """
-    A short label for this curve.
-    """
-
-    color: str
-    """
-    The color for this curve.
-    """
-
-    use_last_n_percentage: int = 100
-    """
-    The percent of data points used. Defaults to 100%.
-    """
-
+tasks = {**downstream_0_shot, **downstream_5_shot, **downstream_mmlu_var}
+downstream_bpb = get_bpb_keys(tasks)
+downstream = get_accuracy_keys(tasks)
 
 KEYS_BY_KEY = {
     "all-val-lm": [f"eval/{val}/CrossEntropyLoss" for val in validation],
-    "all-bpb": [f"eval/downstream_bpb/{task}_bpb" for task in downstream_bpb],
+    "all-bpb": downstream_bpb,
     "c4": ["eval/c4_en-validation/CrossEntropyLoss"],
-    "mmlu-var": [
-        f"eval/downstream_bpb/{task}_bpb"
-        for task in [
-            "mmlu_stem_var_bpb",
-            "mmlu_humanities_var_bpb",
-            "mmlu_social_sciences_var_bpb",
-            "mmlu_other_var_bpb",
-        ]
-    ],
-    "mmlu-stem-var": ["eval/downstream_bpb/mmlu_stem_var_bpb_bpb"],
-    "mmlu-humanities-var": ["eval/downstream_bpb/mmlu_humanities_var_bpb_bpb"],
-    "mmlu-social-sciences-var": ["eval/downstream_bpb/mmlu_social_sciences_var_bpb_bpb"],
-    "mmlu-other-var": ["eval/downstream_bpb/mmlu_other_var_bpb_bpb"],
-    "hellaswag-5shot": ["eval/downstream_bpb/hellaswag_rc_5shot_bpb_bpb"],
-    "arc-e-5shot": ["eval/downstream_bpb/arc_easy_rc_5shot_bpb_bpb"],
-    "arc-c-5shot": ["eval/downstream_bpb/arc_challenge_rc_5shot_bpb_bpb"],
-    "piqa-5shot": ["eval/downstream_bpb/piqa_rc_5shot_bpb_bpb"],
-    "winogrande-5shot": ["eval/downstream_bpb/winogrande_rc_5shot_bpb_bpb"],
-    "openbookqa-5shot": ["eval/downstream_bpb/openbookqa_rc_5shot_bpb_bpb"],
-    "boolq-5shot": ["eval/downstream_bpb/boolq_rc_5shot_bpb_bpb"],
-    "sciq-0shot": ["eval/downstream_bpb/sciq_rc_0shot_bpb_bpb"],
-    "copa-0shot": ["eval/downstream_bpb/copa_rc_0shot_bpb_bpb"],
-    "csqa-5shot": ["eval/downstream_bpb/csqa_rc_5shot_bpb_bpb"],
-    "socialiqa-5shot": ["eval/downstream_bpb/socialiqa_rc_5shot_bpb_bpb"],
 }
+
 WEIGHT_BY_KEY = {
     "mmlu_stem_var_bpb": 0.215,
     "mmlu_humanities_var_bpb": 0.335,
     "mmlu_social_sciences_var_bpb": 0.219,
     "mmlu_other_var_bpb": 0.231,
 }
+
+for task_name, task in tasks.items():
+    KEYS_BY_KEY[task_name] = task.task_loss_key if isinstance(task.task_loss_key, list) else [task.task_loss_key]
 
 
 def parse_args():
@@ -374,7 +345,9 @@ def get_data_by_name(configs: Dict[str, ExtrapolateNConfig], keys: List[str], mi
                 last_fake_lr = fake_lr
                 last_d = d
                 encountered_ds.add(d)
-                y = np.average([float(row[key]) for key in keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in keys])
+                y = np.average(
+                    [float(row[key]) for key in keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in keys]
+                )
                 if min_step is not None and d < min_step * batch_size:
                     continue
                 data_by_name[name]["ns"].append(n)
@@ -398,7 +371,9 @@ def get_final_data_by_name(configs, keys, num_to_avg=1):
                 ds, ys = [], []
                 for row in rows:
                     d = int(float(row["throughput/total_tokens"]))
-                    y = np.average([float(row[key]) for key in keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in keys])
+                    y = np.average(
+                        [float(row[key]) for key in keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in keys]
+                    )
                     ds.append(d)
                     ys.append(y)
                 d = np.mean(ds)

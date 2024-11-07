@@ -48,7 +48,7 @@
         "color": "teal"
     },
     "7b": {
-        "paths": ["wandb/peteish-final-new/7B-28xC.csv"],
+        "paths": ["wandb/peteish-final-new/7B-28xC-anneal-new.csv"],
         "mode": "eval",
         "n": 6887575552,
         "label": "7b",

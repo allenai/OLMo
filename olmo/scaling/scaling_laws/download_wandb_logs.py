@@ -108,18 +108,24 @@ def main(args):
 
     print("Downloading the data from the following wandb runs:\n", "\n".join([str(run) for run in wb_runs]))
 
+    field_names = [args.x_axis] + args.y_axis
+
     dirname = os.path.dirname(args.output_path)
     if dirname:
         os.makedirs(dirname, exist_ok=True)
     with open(args.output_path, "w") as file_ref:
-        writer = csv.DictWriter(file_ref, fieldnames=[args.x_axis] + args.y_axis + ["learning_rate_peak", "batch_size_in_tokens"])
+        writer = csv.DictWriter(
+            file_ref,
+            fieldnames=field_names + ["learning_rate_peak", "batch_size_in_tokens"],
+        )
+
         writer.writeheader()
 
         rows = []
         for wb_run in tqdm(wb_runs):
             print(f"Processing {wb_run.name}")
             history = wb_run.scan_history(
-                keys=[args.x_axis] + args.y_axis,
+                keys=field_names,
                 page_size=10000,
             )  # page_size cannot be too big, it will make it faster but it will start to downsample
 
