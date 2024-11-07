@@ -68,7 +68,7 @@ torchrun \
     --wandb.group=$GROUP_NAME \
     --wandb.project=olmo-mup \
     --load_path="${CHECKPOINTS_PATH}/ai2-llm/checkpoints/OLMo-mup/peteish1_2048_1.56e-2/step0" \
-    --save_folder="${CHECKPOINTS_PATH}/ai2-llm/checkpoints/OLMo-mup/${RUN_NAME}" \
+    --save_folder="${CHECKPOINTS_PATH}/ai2-llm/checkpoints/OLMo-mup/${GROUP_NAME}/${RUN_NAME}" \
     --model.use_mup \
     --model.mup_query_zero_init=false \
     --model.mup_base_shapes=configs/peteish1.bsh \
