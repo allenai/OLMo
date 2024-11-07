@@ -31,12 +31,11 @@ mkdir -p $SAVE_FOLDER
 
 ./scripts/augusta/launch_train.sh $HOSTS \
   configs/annealing/$FILENAME-google.yaml \
+    --run_name=$RUN_NAME \
     --seed=$SEED \
     --fsdp.sharding_strategy=HYBRID_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas=$NUM_NODES \
     --save_folder=$SAVE_FOLDER \
-    --try_load_latest_save=true \
-    --restore_dataloader=true \
     --save_overwrite \
     --device_train_microbatch_size=4 \
     --device_eval_batch_size=8 \
@@ -44,7 +43,9 @@ mkdir -p $SAVE_FOLDER
     --compile.fullgraph=false \
     --fused_loss=true \
     --model.flash_attention=true \
-    --epoch=1 \
     --data.num_workers=8 \
     --optimizer.metrics_log_interval=10 \
     --data.prefetch_factor=8 2>&1 | tee $SAVE_FOLDER/log.txt
+
+#    --try_load_latest_save=true \
+#    --restore_dataloader=true \
