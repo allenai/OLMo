@@ -82,6 +82,7 @@ torchrun \
       --data.num_workers=8 \
       --optimizer.metrics_log_interval=10 \
       --data.prefetch_factor=8 \
+      --remote_save_folder=gs://ai2-llm/checkpoints/OLMo-medium/$NAME \
       '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
       --try_load_latest_save=true \
       --restore_dataloader=true
