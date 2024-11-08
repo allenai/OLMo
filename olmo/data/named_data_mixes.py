@@ -1781,7 +1781,7 @@ EXTRA_DATA_SOURCES = {
         "preprocessed/WebInstructSub/v0_decontaminated/gpt-neox-olmo-dolma-v1_5/part-0-00000.npy",
     ],
     "sciq_inject_pt": [
-        f"s3://ai2-benb/mcqa/sciq_injection_pt/tokenized/part-{i:05d}-00000.npy" for i in range(1, 200)
+        f"s3://ai2-benb/mcqa/sciq_injection_pt/tokenized/part-{i:05d}-00000.npy" for i in range(1, 11678)
     ]
 }
 
@@ -1924,6 +1924,8 @@ DATA_PATHS["falcon_and_cc_eli5_oh_top10p"] = build_collection_include(["cc_eli5_
 DATA_PATHS["falcon_and_cc_eli5_oh_top20p"] = build_collection_include(["cc_eli5_oh_top20p", "falcon_eli5_oh_top20p"])
 DATA_PATHS["falcon_and_cc_og_eli5_oh_top10p"] = build_collection_include(["cc_og_eli5_oh_top10p", "falcon_og_eli5_oh_top10p"])
 DATA_PATHS["falcon_and_cc_tulu_qc_top10"] = build_collection_include(["cc_tulu_qc_top10", "falcon_tulu_qc_top10"])
+
+DATA_PATHS["falcon"] = build_collection_include(["falcon"])
 
 # DATA_PATHS["dolma17_uniform"] = build_collection_with_weights(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
 
