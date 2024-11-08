@@ -53,7 +53,7 @@ export TORCH_DIST_INIT_BARRIER=1
 export PYTHONFAULTHANDLER=1
 
 NAME=${GANTRY_TASK_NAME// /_}
-RUN_NAME=$NAME-$(date -u +"%Y%m%d_%H%M%S")
+RUN_NAME=$NAME-$SEED-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/data/$RUN_NAME
 mkdir -p $SAVE_FOLDER
 
@@ -82,7 +82,7 @@ torchrun \
       --data.num_workers=8 \
       --optimizer.metrics_log_interval=10 \
       --data.prefetch_factor=8 \
-      --remote_save_folder=gs://ai2-llm/checkpoints/OLMo-medium/$NAME \
+      --remote_save_folder=gs://ai2-llm/checkpoints/OLMo-medium/$NAME-$SEED \
       '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
       --try_load_latest_save=true \
       --restore_dataloader=true
