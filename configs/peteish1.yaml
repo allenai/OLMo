@@ -109,35 +109,35 @@ eval_interval: 1000
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
-  # - label: all-small-ppl-validation
-  #   data:
-  #     num_workers: 0
-  #     drop_last: true
-  #     # generate_doc_lengths: true
-  #     memmap_dtype: uint32
-  #     datasets:
-  #       c4_en-validation:
-  #         - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
-  #       dolma_books-validation:
-  #         - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
-  #       dolma_common-crawl-validation:
-  #         - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
-  #       dolma_pes2o-validation:
-  #         - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
-  #       dolma_reddit-validation:
-  #         - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
-  #       dolma_stack-validation:
-  #         - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
-  #       dolma_wiki-validation:
-  #         - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
-  #       ice-validation:
-  #         - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
-  #       m2d2_s2orc-validation:
-  #         - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
-  #       pile-validation:
-  #         - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
-  #       wikitext_103-validation:
-  #         - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
+  - label: all-small-ppl-validation
+    data:
+      num_workers: 0
+      drop_last: true
+      # generate_doc_lengths: true
+      memmap_dtype: uint32
+      datasets:
+        c4_en-validation:
+          - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
+        dolma_books-validation:
+          - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
+        dolma_common-crawl-validation:
+          - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
+        dolma_pes2o-validation:
+          - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
+        dolma_reddit-validation:
+          - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
+        dolma_stack-validation:
+          - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
+        dolma_wiki-validation:
+          - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
+        ice-validation:
+          - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
+        m2d2_s2orc-validation:
+          - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
+        pile-validation:
+          - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
+        wikitext_103-validation:
+          - ${oc.env:DATA_PATH}/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
 
   ##########################
   # Downstream evaluations #
