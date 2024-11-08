@@ -237,8 +237,56 @@ TASKS_REORDERED = {
 }
 
 
+SOFT_TASKS = {
+    "HellaSwag-5shot": {
+        "bpb": ["eval/downstream/hellaswag_rc_5shot_len_norm_soft_log"],
+        "score": ["eval/downstream/hellaswag_rc_5shot_len_norm"],
+    },
+    "ARC-Easy-5shot": {
+        "bpb": ["eval/downstream/arc_easy_rc_5shot_acc_soft_log"],
+        "score": ["eval/downstream/arc_easy_rc_5shot_acc"],
+    },
+    "ARC-Challenge-5shot": {
+        "bpb": ["eval/downstream/arc_challenge_rc_5shot_len_norm_soft_log"],
+        "score": ["eval/downstream/arc_challenge_rc_5shot_len_norm"],
+    },
+    "PiQA-5shot": {
+        "bpb": ["eval/downstream/piqa_rc_5shot_len_norm_soft_log"],
+        "score": ["eval/downstream/piqa_rc_5shot_len_norm"],
+    },
+    "Winogrande-5shot": {
+        "bpb": ["eval/downstream/winogrande_rc_5shot_acc_soft_log"],
+        "score": ["eval/downstream/winogrande_rc_5shot_acc"],
+    },
+    "OpenbookQA-5shot": {
+        "bpb": ["eval/downstream/openbookqa_rc_5shot_len_norm_soft_log"],
+        "score": ["eval/downstream/openbookqa_rc_5shot_len_norm"],
+    },
+    # "BoolQ-5shot": {
+    #     "bpb": ["eval/downstream/boolq_rc_5shot_acc_soft_log"],
+    #     "score": ["eval/downstream/boolq_rc_5shot_acc"],
+    # },
+    "SciQ-0shot": {
+        "bpb": ["eval/downstream/sciq_rc_0shot_acc_soft_log"],
+        "score": ["eval/downstream/sciq_rc_0shot_acc"],
+    },
+    # "Copa-0shot": {
+    #     "bpb": ["eval/downstream/copa_rc_0shot_acc_soft_log"],
+    #     "score": ["eval/downstream/copa_rc_0shot_acc"],
+    # },
+    "CSQA-5shot": {
+        "bpb": ["eval/downstream/csqa_rc_5shot_len_norm_soft_log"],
+        "score": ["eval/downstream/csqa_rc_5shot_len_norm"],
+    },
+    "SocialIQA-5shot": {
+        "bpb": ["eval/downstream/socialiqa_rc_5shot_len_norm_soft_log"],
+        "score": ["eval/downstream/socialiqa_rc_5shot_len_norm"],
+    }
+}
+
 # TASKS = DEV_TASKS # Dev tasks are for quickly prototyping notebooks
 TASKS = ALL_TASKS 
+# TASKS = SOFT_TASKS 
 
 BASELINE_BY_TASK_NAME = {
     'HellaSwag-0shot': 0.25,
@@ -281,7 +329,8 @@ ce_columns = [
     'eval/dolma_wiki-validation/CrossEntropyLoss',
 ]
 
-N_LAST_CKPTS = 20
+N_LAST_CKPTS = 10
+PLOT_AVG_PRED = False
 
 pd.options.mode.chained_assignment = None
 
@@ -308,17 +357,52 @@ def get_params(run_name: str):
     return params
 
 
-def get_all_data_by_name(configs, keys):
+def get_all_data_by_name(configs, keys, negate=False, backfill=False):
     data_by_name = defaultdict(lambda: defaultdict(lambda: []))
-    for name, config in configs.items():
-        for path in config.paths:
-            with open(path) as file_ref:
-                reader = csv.DictReader(file_ref)
-                rows = [row for row in reader]
-                for row in rows:
-                    y = np.mean([float(row[key]) for key in keys])
-                    data_by_name[name][path].append(y)
+
+    const = -1 if negate else 1
+
+    if backfill:
+        # New implementation (alex)
+        if keys == ["throughput/total_tokens"]:
+            for name, config in configs.items():
+                for path in config.paths:
+                    with open(path.replace(".csv", "-steps.csv")) as file_ref:
+                        reader = csv.DictReader(file_ref)
+                        rows = [row for row in reader]
+                        tokens_per_step = float(rows[0]["throughput/total_tokens"]) / int(rows[0]["_step"])
+
+                    with open(path) as file_ref:
+                        reader = csv.DictReader(file_ref)
+                        rows = [row for row in reader]
+                        for row in rows:
+                            if int(row["_step"]) > 0:
+                                y = float(tokens_per_step * int(row["_step"]))
+                                data_by_name[name][path].append(const * y)
+        else:
+            for name, config in configs.items():
+                for path in config.paths:
+                    with open(path) as file_ref:
+                        reader = csv.DictReader(file_ref)
+                        rows = [row for row in reader]
+                        for row in rows:
+                            if int(row["_step"]) > 0:
+                                y = np.mean([float(row[key]) for key in keys])
+                                data_by_name[name][path].append(const * y)
+    else:
+        # Old implementation
+        data_by_name = defaultdict(lambda: defaultdict(lambda: []))
+        for name, config in configs.items():
+            for path in config.paths:
+                with open(path) as file_ref:
+                    reader = csv.DictReader(file_ref)
+                    rows = [row for row in reader]
+                    for row in rows:
+                        y = np.mean([float(row[key]) for key in keys])
+                        data_by_name[name][path].append(y)
+
     return data_by_name
+
 
 
 def size_length_from_path(path):
@@ -434,8 +518,12 @@ def fit_step2(df: pd.DataFrame, baseline, add_ideal_points=True):
     if add_ideal_points:
         # train_xs = pd.concat([pd.Series([0.01]), train_xs, pd.Series([2.6])], ignore_index=True)
         # train_ys = pd.concat([pd.Series([1.0]), train_ys, pd.Series([baseline])], ignore_index=True)
-        train_xs = pd.concat([pd.Series([0.01, 0]), train_xs, pd.Series([2.6])], ignore_index=True)
-        train_ys = pd.concat([pd.Series([1.0, 1.0]), train_ys, pd.Series([baseline])], ignore_index=True)
+        
+        # train_xs = pd.concat([pd.Series([0.01, 0]), train_xs, pd.Series([2.6])], ignore_index=True)
+        # train_ys = pd.concat([pd.Series([1.0, 1.0]), train_ys, pd.Series([baseline])], ignore_index=True)
+
+        train_xs = pd.concat([pd.Series([0.01]), train_xs, pd.Series([train_xs.max()*2])], ignore_index=True)
+        train_ys = pd.concat([pd.Series([1.0]), train_ys, pd.Series([baseline])], ignore_index=True)
 
     coefficients, pcov = curve_fit(sigmoid, train_xs, train_ys, p0=[baseline - 1.0, 0.9, 3.0, 1.0], maxfev=1000000)
     df["predicted_y"] = df["x"].apply(lambda x: sigmoid(x, *coefficients))
@@ -492,7 +580,7 @@ def plot_step1(df: pd.DataFrame, coefficients, ax: plt.Axes, x_label=None, y_lab
             f"{eval_row['run']}: {rel_error * 100:+.1f}%", (x, y), textcoords="offset points", 
             xytext=(6, 3), ha="left", fontsize=8, color="blue"
         )
-        if full_df is not None:
+        if full_df is not None and PLOT_AVG_PRED:
             _ax.annotate( 
                 f"{eval_row['run']}: {rel_error_lastn_mean * 100:+.1f}%", (x, y_lastn_mean), textcoords="offset points", 
                 xytext=(6, -9), ha="left", fontsize=8, color="green"
@@ -517,7 +605,8 @@ def plot_step1(df: pd.DataFrame, coefficients, ax: plt.Axes, x_label=None, y_lab
         for _ax in axes:
             # on average of last n checkpoints
             _ax.scatter(x_lastn, y_lastn, color="green", s=1, zorder=10)
-            _ax.scatter(x_lastn_mean, y_lastn_mean, marker="x", color="green", s=50, zorder=10)
+            if PLOT_AVG_PRED:
+                _ax.scatter(x_lastn_mean, y_lastn_mean, marker="x", color="green", s=50, zorder=10)
 
         # # Add ±1 std dev for last N points
         # y_lastn_mean_std = eval_row_lastn["y"].std()
@@ -607,16 +696,17 @@ def plot_step2(df: pd.DataFrame, coefficients, ax: plt.Axes, x_label=None, y_lab
         _ax.scatter(x_pred, y_pred_x_pred, marker="^", color="black", s=50)
         _ax.scatter(x, y, marker="x", color="blue", label=f"actual ({run_name}) = {y:0.4f}" if do_label else None, s=50)
         _ax.scatter(x, y_pred, marker="^", color="blue", label=f"predicted ({run_name}) = {y_pred:0.4}" if do_label else None, s=50)
-        _ax.scatter(x_lastn_mean, y_lastn_pred, marker="^", color="green", label=f"predicted ({run_name}) = {y_pred:0.4}" if do_label else None, s=50)
         _ax.annotate( 
             f"{eval_row['run']}: {rel_error * 100:+.1f}%", (x, y), textcoords="offset points", 
             xytext=(6, 3), ha="left", fontsize=8, color="blue"
         )
         if full_df is not None:
-            _ax.annotate( 
-                f"{eval_row['run']}: {rel_error_lastn_mean * 100:+.1f}%", (x, y_lastn_mean), textcoords="offset points", 
-                xytext=(6, -9), ha="left", fontsize=8, color="green"
-            )
+            if PLOT_AVG_PRED: 
+                _ax.scatter(x_lastn_mean, y_lastn_pred, marker="^", color="green", label=f"predicted ({run_name}) = {y_pred:0.4}" if do_label else None, s=50)
+                _ax.annotate( 
+                    f"{eval_row['run']}: {rel_error_lastn_mean * 100:+.1f}%", (x, y_lastn_mean), textcoords="offset points", 
+                    xytext=(6, -9), ha="left", fontsize=8, color="green"
+                )
 
     if add_ideal_points:
         plotted_xs = np.linspace(max(2.6, df["x"].max()), 0.01, 100)
@@ -632,7 +722,7 @@ def plot_step2(df: pd.DataFrame, coefficients, ax: plt.Axes, x_label=None, y_lab
         for _ax in [ax, axins]:
             # on average of last n checkpoints
             _ax.scatter(x_lastn, y_lastn, color="green", s=1, zorder=10)
-            _ax.scatter(x_lastn_mean, y_lastn_mean, marker="x", color="green", s=50, zorder=10)
+            if PLOT_AVG_PRED:_ax.scatter(x_lastn_mean, y_lastn_mean, marker="x", color="green", s=50, zorder=10)
         axins.scatter(x_all, y_all, marker="x", color="blue", s=1, alpha=0.2)
 
     for _ax in [ax, axins]:
@@ -656,6 +746,17 @@ def plot_step2(df: pd.DataFrame, coefficients, ax: plt.Axes, x_label=None, y_lab
 
     if do_label and not no_legend:
         ax.legend(loc="upper right", ncols=1)
+
+    # Set the x-axis closer together
+    # all_x_data = []
+    # for label in df["size"].unique():
+    #     all_x_data.extend(df[df["size"]==label]["x"])
+    # all_x_data.append(x)
+    # all_x_data.append(x_pred)
+    # all_x_data = sorted(all_x_data)
+    # x_min = min(all_x_data)
+    # x_max = max(all_x_data)
+    # ax.set_xlim(x_min, x_max)
 
     # Set the limits for the zoomed region
     x_width, y_width = 0.2, 0.05
@@ -711,10 +812,10 @@ def plot_stacked(df: pd.DataFrame, step2_df: pd.DataFrame, ax: plt.Axes, x_label
         ax.scatter(x_lastn, y_lastn, color="green", s=7.0,)
     
     ax.scatter(x, y, marker="x", color="blue", label=f"actual = {y:0.4f}", s=100)
-    ax.scatter(x, y_lastn_mean, marker="x", color="green", label=f"mean actual = {y_lastn_mean:0.4f}", s=100)
     ax.scatter(x, y_pred, marker="^", color="black", label=f"predicted = {y_pred:0.4}", s=100)
     ax.annotate(f"{eval_row['run']}: {rel_error * 100:+.1f}%", (x, y), textcoords="offset points", xytext=(30, -30), ha="right", fontsize=10, color="blue")
-    if full_df is not None:
+    if full_df is not None and PLOT_AVG_PRED:
+        ax.scatter(x, y_lastn_mean, marker="x", color="green", label=f"mean actual = {y_lastn_mean:0.4f}", s=100)
         ax.annotate(f"{eval_row['run']}: {rel_error_lastn_mean * 100:+.1f}%", (x, y_lastn_mean), textcoords="offset points", xytext=(30, -30), ha="right", fontsize=10, color="green")
 
     if do_label:
@@ -740,9 +841,12 @@ def run_stacked(all_configs, tasks=TASKS, limit_ckpts=None, smoothing=None, rend
         stacked_error[target] = {}
 
         for i, (task_name, task) in enumerate(tasks.items()):
-            tokens = get_all_data_by_name(configs, ["throughput/total_tokens"])
-            bpb_loss = get_all_data_by_name(configs, task['bpb'])
-            downstream_loss = get_all_data_by_name(configs, task['score'])
+            load_backfill = ('backfill' in next(iter(configs.values())).paths[0])
+
+            # bpb_loss = get_all_data_by_name(configs, task['bpb'])
+            tokens = get_all_data_by_name(configs, ["throughput/total_tokens"], backfill=load_backfill)
+            bpb_loss = get_all_data_by_name(configs, task['bpb'], negate=load_backfill, backfill=load_backfill)
+            downstream_loss = get_all_data_by_name(configs, task['score'], backfill=load_backfill)
         
             df = get_dataframe(configs, tokens, downstream_loss)
             
@@ -955,7 +1059,7 @@ def print_step_error_table(step1_error: dict[str, dict]=None, step2_error: dict[
                 if _error_dict is not None:
                     mkdn += f" {format(_error_dict[target][task][entry_value])} |"
 
-    EXCLUDED = ['BoolQ', 'Challenge', 'MMLU-Stem', 'MMLU-Humanities', 'MMLU-Social-Science', 'MMLU-Other']
+    EXCLUDED = ['BoolQ', 'MMLU-Stem', 'MMLU-Humanities', 'MMLU-Social-Science', 'MMLU-Other']
 
     # mkdn += f"\n| **Avg signed {label}** | "
     # for target in targets:
@@ -964,7 +1068,7 @@ def print_step_error_table(step1_error: dict[str, dict]=None, step2_error: dict[
     #             errors = [t[entry_value] for name, t in _error_dict[target].items() if not any([substr in name for substr in EXCLUDED])]
     #             mkdn += f"**{format(np.mean(errors))}** |"
 
-    mkdn += f"\n| **Avg unsigned {labels[-1].lower()}** (excl. BoolQ, ARC-c, MMLU subsets) | "
+    mkdn += f"\n| **Avg unsigned {labels[-1].lower()}** (excl. BoolQ, MMLU subsets) | "
     for target in targets:
         for _error_dict in [step1_error, step2_error, stacked_error]:
             if _error_dict is not None:

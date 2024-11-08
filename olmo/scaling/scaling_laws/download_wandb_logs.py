@@ -54,6 +54,7 @@ def parse_args():
     parser.add_argument("-n", "--wandb-names", type=str, nargs="+", required=True, help="Full run name or regex")
     parser.add_argument("-x", "--x-axis", type=str, default="throughput/total_tokens", help="X axis")
     parser.add_argument("-y", "--y-axis", nargs="+", type=str, default=["train/Perplexity"], help="Y axis")
+    parser.add_argument("-e", "--eval-only", action="store_true")
     parser.add_argument(
         "-o",
         "--output-path",
@@ -86,6 +87,13 @@ def main(args):
             + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_bpb]
             + [f"eval/downstream/{d}" for d in downstream]
         )
+    elif args.y_axis == ["eval/validation-and-soft-and-downstream"]:
+        args.y_axis = (
+            [f"eval/{d}/CrossEntropyLoss" for d in validation]
+            + [f"eval/downstream/{d}" for d in downstream]
+            + [f"eval/downstream/{d}_soft" for d in downstream]
+            + [f"eval/downstream/{d}_soft_log" for d in downstream]
+        )
 
     elif args.y_axis == ["eval/validation-and-bpb-and-downstream-newline"]:
         args.y_axis = (
@@ -96,6 +104,13 @@ def main(args):
             + [f"eval/downstream/{d}" for d in downstream_newline]
         )
 
+    if not args.eval_only:
+        args.y_axis += [
+            "throughput/total_tokens",
+            "throughput/total_training_Gflops",
+            "optim/learning_rate_group0",
+        ]
+
     wb_runs = get_runs(args.wandb_names)
 
     print("Downloading the data from the following wandb runs:\n", "\n".join([str(run) for run in wb_runs]))
@@ -104,25 +119,16 @@ def main(args):
     if dirname:
         os.makedirs(dirname, exist_ok=True)
     with open(args.output_path, "w") as file_ref:
-        writer = csv.DictWriter(
-            file_ref,
-            fieldnames=[args.x_axis]
-            + ["throughput/total_training_Gflops"]
-            + args.y_axis
-            + ["optim/learning_rate_group0", "learning_rate_peak", "batch_size_in_tokens"],
-        )
+        writer = csv.DictWriter(file_ref, fieldnames=[args.x_axis] + args.y_axis + ["learning_rate_peak", "batch_size_in_tokens"])
         writer.writeheader()
 
         rows = []
         for wb_run in tqdm(wb_runs):
             print(f"Processing {wb_run.name}")
             history = wb_run.scan_history(
-                keys=[args.x_axis]
-                + ["throughput/total_training_Gflops"]
-                + args.y_axis
-                + ["optim/learning_rate_group0"],
+                keys=[args.x_axis] + args.y_axis,
                 page_size=10000,
-            )  # page_size cannot be too big, it will make it faster but it will start to downsample
+            ) # page_size cannot be too big, it will make it faster but it will start to downsample
 
             config = json.loads(wb_run.json_config)
             batch_size_in_tokens = (
@@ -130,10 +136,10 @@ def main(args):
             )
 
             for wb_step in history:
-                rows.append(wb_step)
                 wb_step["learning_rate_peak"] = config["optimizer"]["value"]["learning_rate"]
                 # With certain run restarts, we also update the batch size.
                 wb_step["batch_size_in_tokens"] = batch_size_in_tokens
+                rows.append(wb_step)
 
         row_by_key = {}
         for row in rows:
