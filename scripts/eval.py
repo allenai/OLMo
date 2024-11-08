@@ -121,17 +121,18 @@ def main(cfg: TrainConfig) -> None:
 
     if cfg.load_path is None:
         raise OLMoConfigurationError("To run eval you must provide a load_path")
+    elif "://" in cfg.load_path:
+        raise OLMoConfigurationError("Eval does not support remote paths. Please specify a local path or WEKA mounted path.")
     if 'step' in cfg.load_path.split('/')[-1]:
         load_paths = [cfg.load_path]
     else:
-        # This globbing does not work with remote paths.
+        # This globbing only works with local paths
         load_paths = list(glob.glob(f"{cfg.load_path}/step*"))
         load_paths = [x for x in load_paths if x[-1].isdigit()]
-        # load_paths = [x for x in load_paths if int(x.split('/')[-1].split('step')[-1]) >= 712000] # TODO: delete this
-        load_paths = list(sorted(load_paths, key=lambda x: int(x.split('/')[-1].split('step')[-1])))
+        load_paths = list(sorted(load_paths, key=lambda x: int(x.split('/')[-1].replace('-unsharded', '').split('step')[-1])))
 
     for load_path in load_paths:
-        step = int(load_path.split('/')[-1].split('step')[-1])
+        step = int(load_path.split('/')[-1].replace('-unsharded', '').split('step')[-1])
 
         # Initialize the model.
         log.info("Building model...")
