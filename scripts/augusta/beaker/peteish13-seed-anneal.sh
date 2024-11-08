@@ -70,7 +70,7 @@ torchrun \
       --run_name=$RUN_NAME \
       --seed=$SEED \
       --fsdp.sharding_strategy=HYBRID_SHARD \
-      --fsdp.hybrid_sharding_num_model_replicas=$NUM_NODES \
+      --fsdp.hybrid_sharding_num_model_replicas=$BEAKER_REPLICA_COUNT \
       --save_folder=$SAVE_FOLDER \
       --save_overwrite \
       --device_train_microbatch_size=4 \
