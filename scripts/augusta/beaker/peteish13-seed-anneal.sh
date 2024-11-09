@@ -70,6 +70,7 @@ torchrun \
   scripts/train.py \
     $FILENAME \
       --run_name=$RUN_NAME \
+      --wandb.grop=$NAME \
       --seed=$SEED \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas=$BEAKER_REPLICA_COUNT \
