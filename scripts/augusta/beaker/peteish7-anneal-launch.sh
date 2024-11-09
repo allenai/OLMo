@@ -9,7 +9,7 @@ NAME=$1
 shift
 
 gantry run \
-  --workspace ai2/davidw-oe-annealing \
+  --workspace ai2/13B \
   --task-name $NAME \
   --description "Peteish7 annealing: $NAME" \
   --priority high \
