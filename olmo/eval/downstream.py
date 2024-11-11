@@ -331,6 +331,8 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
             doc_ids.append(sample["doc_id"])
             cont_ids.append(sample["cont_id"])
 
+            log.info(f'max_ctx_len = {max_ctx_len}')
+            log.info(sample)
             if None in sample["ctx"]:
                 log.info(f'None in sample["ctx"]: {sample}')
             if None in sample["continuation"]:
