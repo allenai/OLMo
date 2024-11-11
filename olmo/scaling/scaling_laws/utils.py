@@ -120,6 +120,13 @@ class DownstreamTaskPrediction:
     task_minimum: float = 0.25
     task_maximum: float = 1.0
 
+    def get_loss_keys(self):
+        return self.task_loss_key if isinstance(self.task_loss_key, list) else [self.task_loss_key]
+
+    def get_accuracy_keys(self):
+        return self.task_accuracy_key if isinstance(self.task_accuracy_key, list) else [self.task_accuracy_key]
+
+
 
 downstream_5_shot: Dict[str, DownstreamTaskPrediction] = {
     f"{key}_rc_5shot": DownstreamTaskPrediction(
@@ -294,6 +301,13 @@ for task_name, task in tasks.items():
     KEYS_BY_KEY[task_name] = task.task_loss_key if isinstance(task.task_loss_key, list) else [task.task_loss_key]
 
 
+def prettify(rel_error, is_percentage=True):
+    if is_percentage:
+        return f"{rel_error * 100:+.1f}%"
+    else:
+        return f"{rel_error:.2f}"
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -418,6 +432,42 @@ def get_flops_data_by_name(configs, keys, num_to_avg=1):
                 data_by_name[name]["fs"].append(f)
                 data_by_name[name]["ys"].append(y)
     return data_by_name
+
+
+
+def get_downstream_data_by_name(configs, keys, num_to_avg=-1):
+    # TODO: weight_by_key may not be working correctly for mmlu
+    loss_keys = tasks[keys].get_loss_keys()
+    accuracy_keys = tasks[keys].get_accuracy_keys()
+    data_by_name: Dict = defaultdict(lambda: {"xs": [], "ys": []})
+
+    for name, config in configs.items():
+        n = config.n
+        for path in config.paths:
+            with open(path) as file_ref:
+                reader = csv.DictReader(file_ref)
+                rows = [row for row in reader]
+                rows = rows[-20:]
+                xs, ys = [], []
+                for row in rows:
+                    x = np.average(
+                        [float(row[key]) for key in loss_keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in loss_keys]
+                    )
+                    y = np.average(
+                        [float(row[key]) for key in accuracy_keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in accuracy_keys]
+                    )
+                    xs.append(x)
+                    ys.append(y)
+                # x = np.mean(xs)
+                # y = np.mean(ys)
+                # data_by_name[name]["xs"].append(x)
+                # data_by_name[name]["ys"].append(y)
+
+                data_by_name[name]["xs"] += xs
+                data_by_name[name]["ys"] += ys
+
+    return data_by_name
+
 
 
 def get_ax(name):
@@ -692,6 +742,11 @@ def grad_tissue_fit(x, p):
     grad_F = -x[2] * x[0] ** p[6]
     grad_r = -p[5] * x[2] * x[0] ** p[6] * np.log(x[0])
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r]
+
+
+def sigmoid(x, L, x0, k, b):
+    o = L / (1 + np.exp(-k * (x - x0))) + b
+    return o
 
 
 # Scipy minimize w/ Huber loss
