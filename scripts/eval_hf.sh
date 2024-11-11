@@ -2,11 +2,13 @@
 
 set -ex
 
+MODEL_NAME=$1
+
 gantry run \
   --allow-dirty \
   --workspace ai2/OLMo-tiny \
   --task-name eval-bpb-mc \
-  --description "Evaluate open-weight models" \
+  --description "Evaluate bpb and mc for ${MODEL_NAME}" \
   --priority high \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
@@ -26,5 +28,6 @@ gantry run \
     set -exuo pipefail; \
     IFS=$'\n\t'; \
     conda shell.bash activate base; \
-    torchrun --nproc-per-node 1 scripts/eval_hf.py configs/peteish1-weka.yaml allenai/OLMo-1B-0724-hf; \
+    pip install '.[train]'; \
+    torchrun --nproc-per-node 1 scripts/eval_hf.py configs/peteish1-weka.yaml ${MODEL_NAME}; \
     "

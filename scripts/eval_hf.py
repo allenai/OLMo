@@ -38,6 +38,7 @@ def main(cfg: TrainConfig, model_name: str):
     model.to(device)
     model.eval()
 
+    cfg.device_eval_batch_size = 64
     cfg.evaluators = [
         EvaluatorConfig(label="piqa_rc_0shot", type=EvaluatorType.downstream),
         EvaluatorConfig(label="piqa_rc_0shot_bpb", type=EvaluatorType.downstream),
@@ -170,15 +171,17 @@ def main(cfg: TrainConfig, model_name: str):
         # Get final metrics.
         metrics = evaluator.compute_metrics()
         eval_metrics.update(metrics)
-        print(eval_metrics)
-
-        save_folder = f'/weka/oe-training-default/jiachengl/hc-law/eval_bpb_mc'
-        if not os.path.exists(save_folder):
-            os.makedirs(save_folder)
-        with open(f'{save_folder}/{model_name.replace("/", "_")}.json', 'w') as f:
-            json.dump(eval_metrics, f)
+        print(metrics)
 
         del eval_batches
+
+    print(eval_metrics)
+
+    save_folder = f'/weka/oe-training-default/jiachengl/hc-law/eval_bpb_mc'
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
+    with open(f'{save_folder}/{model_name.replace("/", "_")}.json', 'w') as f:
+        json.dump(eval_metrics, f)
 
 
 if __name__ == "__main__":
