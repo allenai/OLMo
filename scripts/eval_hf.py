@@ -38,7 +38,7 @@ def main(cfg: TrainConfig, model_name: str):
     model.to(device)
     model.eval()
 
-    cfg.device_eval_batch_size = 64
+    cfg.device_eval_batch_size = 4
     cfg.evaluators = [
         EvaluatorConfig(label="piqa_rc_0shot", type=EvaluatorType.downstream),
         EvaluatorConfig(label="piqa_rc_0shot_bpb", type=EvaluatorType.downstream),

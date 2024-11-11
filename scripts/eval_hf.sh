@@ -23,7 +23,7 @@ gantry run \
   --env OLMO_TASK=model \
   --shared-memory 10GiB \
   --yes \
-  --timeout=-1 \
+  --timeout=0 \
   -- /bin/bash -c "\
     set -exuo pipefail; \
     IFS=$'\n\t'; \
