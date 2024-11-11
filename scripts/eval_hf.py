@@ -33,8 +33,8 @@ def main(cfg: TrainConfig, model_name: str):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, token=os.environ.get("HF_TOKEN", None))
-    model = transformers.AutoModelForCausalLM.from_pretrained(model_name, token=os.environ.get("HF_TOKEN", None))
+    tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, token=os.environ.get("HF_TOKEN_DOWNLOAD", None))
+    model = transformers.AutoModelForCausalLM.from_pretrained(model_name, token=os.environ.get("HF_TOKEN_DOWNLOAD", None))
     model.to(device)
     model.eval()
 
