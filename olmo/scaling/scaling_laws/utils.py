@@ -384,6 +384,42 @@ def get_final_data_by_name(configs, keys, num_to_avg=1):
     return data_by_name
 
 
+MODEL_FLOPS = {
+    "190m": 1903391232,
+    "370m": 3443922944,
+    "600m": 5180751744,
+    "760m": 6373843968,
+    "1b": 10109071360,
+    "3b": 22970355200,
+    "7b": 49412071424,
+    "13b": 91335915520,
+}
+
+def get_flops_data_by_name(configs, keys, num_to_avg=1):
+    data_by_name: Dict = defaultdict(lambda: {"fs": [], "ys": []})
+    for name, config in configs.items():
+        n = config.n
+        for path in config.paths:
+            with open(path) as file_ref:
+                reader = csv.DictReader(file_ref)
+                rows = [row for row in reader]
+                rows = rows[-num_to_avg:]
+                fs, ys = [], []
+                for row in rows:
+                    d = int(float(row["throughput/total_tokens"]))
+                    f = d * MODEL_FLOPS[name]
+                    y = np.average(
+                        [float(row[key]) for key in keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in keys]
+                    )
+                    fs.append(f)
+                    ys.append(y)
+                f = np.mean(fs)
+                y = np.mean(ys)
+                data_by_name[name]["fs"].append(f)
+                data_by_name[name]["ys"].append(y)
+    return data_by_name
+
+
 def get_ax(name):
     if "1xC" in name:
         return 0
@@ -425,12 +461,12 @@ def get_coefficients(train_xs, train_ys, fitting_func, p0):
 # p[0] = A, p[1] = B, p[2] = E
 def chinchilla_flops_fit(x, p):
     # return ax**b + E
-    return p[0] * x ** p[1] + p[2]
+    return p[0] * np.pow(x, p[1]) + p[2]
 
 
 def grad_chinchilla_flops_fit(x, p):
-    grad_A = x ** p[1]
-    grad_B = p[0] * x ** p[1] * np.log(x)
+    grad_A = np.pow(x, p[1])
+    grad_B = p[0] * np.pow(x, p[1]) * np.log(x)
     grad_E = 1
     return [grad_A, grad_B, grad_E]
 
