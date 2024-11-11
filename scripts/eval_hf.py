@@ -150,21 +150,20 @@ def main(cfg: TrainConfig, model_name: str):
         for eval_step, eval_batch in enumerate(eval_batches):
             batch = move_to_device(eval_batch, device)
             with torch.no_grad():
-                with torch.autocast("cuda", enabled=True, dtype=cfg.autocast_precision):
-                    logits = model(
-                        input_ids=batch["input_ids"],
-                        attention_mask=batch.get("attention_mask"),
-                    ).logits
-                    logits_for_loss = logits[..., :-1, :].contiguous()
-                    # shape: (batch_size * seq_len, vocab_size)
-                    logits_for_loss = logits_for_loss.view(-1, logits_for_loss.size(-1))
-                    # shape: (batch_size, seq_len)
-                    labels = get_labels(batch)
-                    # shape: (batch_size * seq_len,)
-                    labels = labels.view(-1)
-                    ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100, reduction="none")
-                    # Reshape (batch_size * seq_len,) -> (batch_size, seq_len)
-                    ce_loss = ce_loss.view(batch["input_ids"].shape[0], -1)
+                logits = model(
+                    input_ids=batch["input_ids"],
+                    attention_mask=batch.get("attention_mask"),
+                ).logits
+                logits_for_loss = logits[..., :-1, :].contiguous()
+                # shape: (batch_size * seq_len, vocab_size)
+                logits_for_loss = logits_for_loss.view(-1, logits_for_loss.size(-1))
+                # shape: (batch_size, seq_len)
+                labels = get_labels(batch)
+                # shape: (batch_size * seq_len,)
+                labels = labels.view(-1)
+                ce_loss = F.cross_entropy(logits_for_loss, labels, ignore_index=-100, reduction="none")
+                # Reshape (batch_size * seq_len,) -> (batch_size, seq_len)
+                ce_loss = ce_loss.view(batch["input_ids"].shape[0], -1)
                 ce_loss = ce_loss.mean(dim=-1)
             evaluator.update_metrics(batch, ce_loss, logits)
 
