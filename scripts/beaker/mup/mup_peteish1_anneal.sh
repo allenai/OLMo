@@ -83,6 +83,7 @@ torchrun \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --save_interval_ephemeral=250 \
     --scheduler.t_warmup=$LOAD_STEP \
+    --scheduler.name=linear_with_warmup \
     --scheduler.t_max=$MAX_STEPS \
     --stop_at=$MAX_STEPS \
     --eval_interval=100 \
