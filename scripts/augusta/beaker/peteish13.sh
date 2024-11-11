@@ -39,8 +39,8 @@ export NCCL_FASTRAK_USE_LLCM=1
 export NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY=/dev/aperture_devices
 
 # Install flash-attn
-#conda install -y pytorch-cuda==12.4 packaging ninja cccl cuda-nvcc libcusolver-dev cuda-profiler-api libcusparse-dev libcublas-dev -c pytorch -c nvidia
-#pip install flash-attn==2.5.9.post1 --no-build-isolation
+conda install -y pytorch-cuda==12.4 packaging ninja cccl cuda-nvcc libcusolver-dev cuda-profiler-api libcusparse-dev libcublas-dev -c pytorch -c nvidia
+pip install flash-attn==2.5.9.post1 --no-build-isolation
 pip install '.[train]'
 pip freeze
 
@@ -71,16 +71,17 @@ torchrun \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
       --save_folder=$SAVE_FOLDER \
-      --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/$NAME/" \
+      --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/$NAME-zlossfix/" \
       --save_overwrite \
       '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
+      --load_path="gs://ai2-llm/checkpoints/OLMo-medium/peteish13-highlr/step476848" \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=4 \
       --device_eval_batch_size=8 \
       --compile.fullgraph=false \
       --activation_checkpointing=whole_layer \
-      --fused_loss=false \
-      --model.flash_attention=false \
+      --fused_loss=true \
+      --model.flash_attention=true \
       --data.num_workers=8 \
       --optimizer.learning_rate=9.0e-4 \
       --optimizer.metrics_log_interval=10 \
