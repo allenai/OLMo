@@ -47,7 +47,7 @@ def main(args):
 
     out_file = f"sewon-configs/lb/{args.prefix}-fwedu.yaml"
     out2_file = None
-    write_configs(out_file, out2_file, default_config_text, dclm_data_text, lb_paths)
+    write_configs(out_file, out2_file, default_config_text, dclm_data_text, fwedu_paths)
 
 def write_configs(out_file, out2_file, default_config_text, dclm_data_text, paths):
     
