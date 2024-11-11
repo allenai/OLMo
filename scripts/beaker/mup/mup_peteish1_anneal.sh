@@ -79,11 +79,12 @@ torchrun \
     --model.mup_base_shapes=configs/peteish1.bsh \
     --model.mup_base_n_heads=1 \
     --model.d_model=$WIDTH \
-    --optimizer.learning_rate=$LR \
+    --optimizer.learning_rate=$(($LR / 10)) \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --save_interval_ephemeral=250 \
     --scheduler.t_warmup=$LOAD_STEP \
     --scheduler.name=linear_with_warmup \
+    --scheduler.alpha_f=0 \
     --scheduler.t_max=$MAX_STEPS \
     --stop_at=$MAX_STEPS \
     --eval_interval=100 \
