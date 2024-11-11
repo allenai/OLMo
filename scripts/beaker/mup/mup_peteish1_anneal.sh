@@ -59,7 +59,7 @@ export MAX_STEPS=$(($ANNEAL_STEPS + $LOAD_STEP))
 export ANNEAL_RUN_NAME="peteish1_${WIDTH}_${LR}_annealstep${LOAD_STEP}_${ANNEAL_STEPS}steps"
 export BASE_RUN_NAME="peteish1_${WIDTH}_${LR}"
 export GROUP_NAME="peteish1_100Btokens"
-export ANNEAL_START_LR=$(printf '%.8f' $LR | xargs -I % echo "% * 0.1" | bc)
+export ANNEAL_START_LR=$(echo $LR | awk '{ print $1 / 10 }')
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
