@@ -59,6 +59,7 @@ export MAX_STEPS=$(($ANNEAL_STEPS + $LOAD_STEP))
 export ANNEAL_RUN_NAME="peteish1_${WIDTH}_${LR}_annealstep${LOAD_STEP}_${ANNEAL_STEPS}steps"
 export BASE_RUN_NAME="peteish1_${WIDTH}_${LR}"
 export GROUP_NAME="peteish1_100Btokens"
+export ANNEAL_START_LR=$(printf '%.8f' $LR | xargs -I % echo "% * 0.1" | bc)
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -79,9 +80,9 @@ torchrun \
     --model.mup_base_shapes=configs/peteish1.bsh \
     --model.mup_base_n_heads=1 \
     --model.d_model=$WIDTH \
-    --optimizer.learning_rate=$(($LR / 10)) \
     --fsdp.sharding_strategy=SHARD_GRAD_OP \
     --save_interval_ephemeral=250 \
+    --optimizer.learning_rate=$ANNEAL_START_LR \
     --scheduler.t_warmup=$LOAD_STEP \
     --scheduler.name=linear_with_warmup \
     --scheduler.alpha_f=0 \
