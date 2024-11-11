@@ -21,6 +21,7 @@ gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
+  --env HF_TOKEN=JIACHENGL_HF_TOKEN \
   --shared-memory 10GiB \
   --yes \
   --timeout=0 \
