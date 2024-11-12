@@ -44,4 +44,4 @@ gantry run \
   --timeout=-1 \
   --allow-dirty \
   --retries 10 \
-  -- /bin/bash -c "scripts/augusta/beaker/peteish1-muplr.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK $ORIGINAL_WANDB_RUN_ID $START_STEP $LENGTH"
+  -- /bin/bash -c "scripts/augusta/beaker/peteish1-muplr-anneal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK $ORIGINAL_WANDB_RUN_ID $START_STEP $LENGTH"
