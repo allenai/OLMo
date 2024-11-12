@@ -10,7 +10,7 @@ shift
 if [[ $NUM_NODES -eq 1 ]]; then
   MULTI_NODE_ARGS=""
   COMMAND="scripts/beaker/ladder.sh localhost ${NUM_NODES} 0 $*"
-  MORE_CLUSTER_NODES="--cluster ai2/saturn-cirrascale"
+  MORE_CLUSTER_NODES=""
 else
   MULTI_NODE_ARGS="--replicas ${NUM_NODES} --leader-selection --host-networking --propagate-failure --propagate-preemption --synchronized-start-timeout 10m"
   COMMAND="scripts/beaker/ladder.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK $*"
@@ -25,7 +25,6 @@ gantry run \
   --preemptible \
   --beaker-image shanea/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
-  --cluster ai2/pluto-cirrascale \
   $MORE_CLUSTER_NODES \
   --gpus 8 \
   --allow-dirty \
