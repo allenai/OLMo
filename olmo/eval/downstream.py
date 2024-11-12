@@ -331,12 +331,12 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
             doc_ids.append(sample["doc_id"])
             cont_ids.append(sample["cont_id"])
 
-            log.info(f'max_ctx_len = {max_ctx_len}')
-            log.info(sample)
+            print(f'max_ctx_len = {max_ctx_len}')
+            print(sample)
             if None in sample["ctx"]:
-                log.info(f'None in sample["ctx"]: {sample}')
+                print(f'None in sample["ctx"]: {sample}')
             if None in sample["continuation"]:
-                log.info(f'None in sample["continuation"]: {sample}')
+                print(f'None in sample["continuation"]: {sample}')
 
             ctxs.append(torch.LongTensor(self.pad_tokens_until_max(sample["ctx"], max_len=max_ctx_len)))
             continuations.append(
