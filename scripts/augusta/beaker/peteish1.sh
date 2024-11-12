@@ -76,7 +76,7 @@ torchrun \
       --try_load_latest_save \
       --save_overwrite \
       --sharded_checkpointer=olmo_core \
-      --device_train_microbatch_size=2 \
+      --device_train_microbatch_size=4 \
       --device_eval_batch_size=8 \
       --compile.fullgraph=false \
       --fused_loss=false \
