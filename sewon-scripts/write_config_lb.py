@@ -21,6 +21,15 @@ def read_lb_v0_data():
     paths = [path.replace(s3_dir, weka_dir) for path in paths]
     return paths
 
+def read_lb_v0_1_data():
+    # now, get paths
+    s3_dir = "s3://ai2-lucas-archival/pretraining-data/sources/libgen/lb_v0_refined_combined_revised/tokens_v0.1"
+    weka_dir = "/weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/lb_v0.1"
+
+    paths = list(glob_path(os.path.join(s3_dir, "*.npy")))
+    paths = [path.replace(s3_dir, weka_dir) for path in paths]
+    return paths
+
 def read_fwedu_data():
     s3_dir = "s3://ai2-llm/pretraining-data/sources/ds-olmo-data/fineweb-edu"
     weka_dir = "/weka/oe-training-default/ai2-llm/preprocessed/Spicy-OLMo/fw-edu"
@@ -28,7 +37,6 @@ def read_fwedu_data():
     paths = list(glob_path(os.path.join(s3_dir, "score?-tokens", "*.npy")))
     paths = [path.replace(s3_dir, weka_dir) for path in paths]
     return paths
-
 
 def main(args):
     default_config_file = f"sewon-configs/dclm/{args.prefix}-from-1T-dclmx1.yaml"
@@ -39,20 +47,25 @@ def main(args):
    
     dclm_data_text = read_dclm_data()
     lb_paths = read_lb_v0_data()
+    lb_v0_1_paths = read_lb_v0_1_data()
     fwedu_paths = read_fwedu_data() 
     
     # out_file = f"sewon-configs/lb/{args.prefix}-lb_v0.yaml"
     # out2_file = f"sewon-configs/lb/{args.prefix}-dclm+lb_v0x35.yaml"
     # write_configs(out_file, out2_file, default_config_text, dclm_data_text, lb_paths)
+ 
+    out_file = f"sewon-configs/lb/{args.prefix}-lb_v0.1.yaml"
+    out2_file = f"sewon-configs/lb/{args.prefix}-dclm+lb_v0.1x42.yaml"
+    write_configs(out_file, out2_file, default_config_text, dclm_data_text, lb_v0_1_paths, ratio=42)
 
-    out_file = f"sewon-configs/lb/{args.prefix}-fwedu.yaml"
-    out2_file = None
-    write_configs(out_file, out2_file, default_config_text, dclm_data_text, fwedu_paths)
+    # out_file = f"sewon-configs/lb/{args.prefix}-fwedu.yaml"
+    # out2_file = None
+    # write_configs(out_file, out2_file, default_config_text, dclm_data_text, fwedu_paths)
 
-def write_configs(out_file, out2_file, default_config_text, dclm_data_text, paths):
-    
+def write_configs(out_file, out2_file, default_config_text, dclm_data_text, paths, ratio):
+
     def modify_default_config_text(default_config_text, out_file):
-        default_config_text = default_config_text.replace("run_name: peteish7-anneal-from-1T-dclmx1", "run_name: " + out_file.split("/")[-1].split(".")[0])
+        default_config_text = default_config_text.replace("run_name: peteish7-anneal-from-1T-dclmx1", "run_name: " + out_file.split("/")[-1].split(".yaml")[0])
         default_config_text = default_config_text.replace("project: sewonm-peteish7-anneal", "project: spicy-olmo-medium")
         default_config_text = default_config_text.replace("save_folder: /weka/oe-training-default/ai2-llm/checkpoints/sewonm-peteish7-anneal/", "save_folder: /weka/oe-training-default/ai2-llm/checkpoints/Spicy-OLMo/")
         default_config_text += "paths:\n\n"
@@ -71,7 +84,7 @@ def write_configs(out_file, out2_file, default_config_text, dclm_data_text, path
         f.write(modify_default_config_text(default_config_text, out2_file))
         f.write(dclm_data_text + "\n\n")
 
-        for _ in range(35):
+        for _ in range(ratio):
             for path in paths:
                 f.write(f"    - {path}\n")
             f.write("\n\n")
