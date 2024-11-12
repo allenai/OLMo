@@ -17,23 +17,20 @@
   </a>
 </p>
 
-OLMo is a repository for training and using AI2's state-of-the-art open language models. 
-It is built by scientists, for scientists.
+OLMo is a repository for training and using AI2's state-of-the-art open language models. It is designed by scientists, for scientists.
 
 ## Installation
 
-First install [PyTorch](https://pytorch.org) according to the instructions specific to your operating system.
+First, install [PyTorch](https://pytorch.org) following the instructions specific to your operating system.
 
-To install from source (recommended for training/fine-tuning) run:
+For training and fine-tuning, we recommend installing from source:
 
 ```bash
 git clone https://github.com/allenai/OLMo.git
 cd OLMo
 pip install -e .[all]
 ```
-
-Otherwise you can install the model code by itself directly from PyPI with:
-
+You can also install from PyPI with:
 ```bash
 pip install ai2-olmo
 ```
@@ -58,7 +55,7 @@ The core models in the OLMo family released so far are (all trained on the [Dolm
 URLs to checkpoints at intermediate steps of the models' trainings can be found in the csv files under [`checkpoints/official/`](https://github.com/allenai/OLMo/blob/main/checkpoints/official). These 'directory' URLs cannot currently be directly accessed, but files within the directory are publicly accessible. These URLs can also be provided to the training script to resume training from the checkpoint (see [Training](#training)). Each checkpoint directory consists of:
 
 - `config.yaml`: the config at that training step.
-- `model.pt`, `optim.pt`, `train.pt`: model, optimizer and training state at that training step.
+- `model.safetensors`, `optim.safetensors`, `train.pt`: model, optimizer and training state at that training step.
 
 Details about the other types of OLMo checkpoints (including OLMo HF Transformers checkpoints) can be found in [Checkpoints.md](https://github.com/allenai/OLMo/blob/main/docs/Checkpoints.md).
 
@@ -87,8 +84,7 @@ print(olmo_pipe("Language modeling is"))
 ```
 
 ### Inference on finetuned checkpoints
-
-If you finetune the model using the code in [Fine-tuning](#fine-tuning), you can use the conversion script to convert a native OLMo checkpoint to a Hugging Face-compatible checkpoint.
+After fine-tuning the model using the code in the [Fine-tuning](#fine-tuning) section, you can use the conversion script to convert a native OLMo checkpoint to a HuggingFace-compatible format.
 
 ```bash
 python scripts/convert_olmo_to_hf_new.py --input_dir /path/to/olmo/checkpoint --output_dir /path/to/hf/checkpoint/ --tokenizer_json_path tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
@@ -100,48 +96,47 @@ python scripts/convert_olmo_to_hf_new.py --input_dir /path/to/olmo/checkpoint --
 olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-7B-0724-hf", torch_dtype=torch.float16, load_in_8bit=True)  # requires bitsandbytes
 ```
 
-The quantized model is more sensitive to typing / cuda, so it is recommended to pass the inputs as inputs.input_ids.to('cuda') to avoid potential issues.
+The quantized model is sensitive to input types and CUDA handling. To avoid potential issues, we recommend explicitly converting input IDs to CUDA using: `inputs.input_ids.to('cuda')`
 
 ## Reproducibility
+## Training
 
-### Training
-
-The configs used to train the official OLMo models are provided in the [`configs/official/`](https://github.com/allenai/OLMo/blob/main/configs/official) directory.
-
-Note that while the training and validation data is public and free to download, the paths to the data within those configs are pointed at a CloudFlare R2 bucket, which requires an API key for programmatic access.
-So in order to use any of these configs to reproduce a training run you'll first have to download the corresponding data to a location of your choosing and then update the paths in the config accordingly.
-
-You can derive the public HTTP URL from an R2 URL by replacing `r2://olmo-data` with `https://olmo-data.org`.
-For example, if the R2 data URL is:
-
-`r2://olmo-data/preprocessed/olmo-mix/v1_5/gpt-neox-20b-pii-special/part-000-00000.npy`
-
-then the corresponding public URL is:
-
-`https://olmo-data.org/preprocessed/olmo-mix/v1_5/gpt-neox-20b-pii-special/part-000-00000.npy`
-
-Once you've updated the data paths in the config you can launch a training run via `torchrun`. For example, to launch the 1B model training on a single 8x GPU node, you would run:
-
+Install required packages:
 ```bash
-torchrun --nproc_per_node=8 scripts/train.py configs/official/OLMo-1B.yaml
+pip3 install ai2-olmo wandb datasets torchmetrics scikit-learn
 ```
 
-You can use the same method to launch multi-node jobs as well. See [the documentation](https://pytorch.org/docs/stable/elastic/run.html) for `torchrun` to understand the additional arguments you'll need to configure the rendezvous backend / endpoint.
+### Training from a Checkpoint
 
-To resume training from a checkpoint, you can pass its path (local or URL)
-to `scripts/train.py` with the `--load_path` arguments. For example, to resume training from step 1000 of the OLMo 1B run:
+To continue training from a specific checkpoint:
+
+1. Download the checkpoint using the provided script. Checkpoints are listed in CSV files under `checkpoints/official/`:
+```bash
+python scripts/download_checkpoints.py [PATH_TO_CSV] --save-dir [SAVE_PATH] --step [STEP]
+```
+
+Example: To download checkpoint at step 2000:
+```bash
+python scripts/download_checkpoints.py checkpoints/official/OLMo-1B.csv --save-dir ./checkpoints/ --step 2000
+```
+**Note**: All checkpoints in `checkpoints/official/` are unsharded files.
+
+2. Resume training using the downloaded checkpoint. You can specify either a local path or URL using the --load_path argument: For example, to resume training from step 2000 of the OLMo 1B run:
 
 ```bash
-torchrun --nproc_per_node=8 scripts/train.py configs/official/OLMo-1B.yaml --load_path=https://olmo-checkpoints.org/ai2-llm/olmo-small/w1r5xfzt/step1000-unsharded
+torchrun --nproc_per_node=8 scripts/train.py configs/official/OLMo-1B.yaml     --load_path=checkpoints/step2000 --save_folder=./new_checkpoints --run_name=olmo_test --save_overwrite
 ```
+The command above:
+- Loads the checkpoint from `checkpoints/step2000`
+- Saves new checkpoints to `./new_checkpoints`
+- Names the training run `olmo_test` in wandb.
+- Overwrites existing checkpoints in the save folder.
 
 ### Inspecting training data
 
-You may be interested in inspecting the exact tokens that composed a particular batch during the training of one of the OLMo models.
-We provide tools to do this, but first you'll need to download the data as above (unless you have an R2 API key) and update the corresponding config accordingly.
+To inspect the exact tokens used in training batches for OLMo models, first download the training data. If you don't have an R2 API key, use the public HTTP URLs and update your configuration file with the local data paths. After completing this setup, you can use the inspection tools to examine the training batches.
 
-Then take note of the URL of the data order file you want, which can be found in the [Models Overview](#models-overview) table. For example, the data order file for the first epoch of the OLMo-7B model is [https://olmo-checkpoints.org/ai2-llm/olmo-medium/wvc30anm/train_data/global_indices.npy](https://olmo-checkpoints.org/ai2-llm/olmo-small/46zc5fly/train_data/global_indices.npy).
-
+Find the data order file URL in the [Models Overview](#models-overview) table. For example, the OLMo-7B model's first epoch data order file is located at [https://olmo-checkpoints.org/ai2-llm/olmo-medium/wvc30anm/train_data/global_indices.npy](https://olmo-checkpoints.org/ai2-llm/olmo-small/46zc5fly/train_data/global_indices.npy).
 Once you have that you can use this snippet to inspect the data within a particular batch:
 
 ```python
