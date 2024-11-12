@@ -35,7 +35,7 @@ def main(cfg: TrainConfig, model_name: str):
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, token=os.environ.get("HF_TOKEN_DOWNLOAD", None))
     if tokenizer.pad_token_id is None:  # This is to prevent the NoneType error in collate_fn()
-        tokenizer.pad_token = 0
+        tokenizer.pad_token_id = 0
     model = transformers.AutoModelForCausalLM.from_pretrained(model_name, token=os.environ.get("HF_TOKEN_DOWNLOAD", None))
     model.to(device)
     model.eval()
