@@ -89,7 +89,7 @@ torchrun \
     --scheduler.name=linear_with_warmup \
     --scheduler.alpha_f=0 \
     --scheduler.t_max=$MAX_STEPS \
-    --stop_at=$(($MAX_STEPS + 10)) \
+    --stop_at=$(($MAX_STEPS + 101)) \
     --eval_interval=100 \
     --try_load_latest_save \
     --save_overwrite \
