@@ -11,6 +11,9 @@ shift
 LR=$1
 shift
 
+ANNEAL_START_LR=$1
+shift
+
 gantry run \
   --workspace ai2/OLMo-mup \
   --task-name mup-peteish1 \
@@ -41,4 +44,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/mup/mup_peteish1_anneal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${WIDTH} ${LR} ${@}"
+  -- /bin/bash -c "scripts/beaker/mup/mup_peteish1_anneal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${WIDTH} ${LR} ${ANNEAL_START_LR} ${@}"
