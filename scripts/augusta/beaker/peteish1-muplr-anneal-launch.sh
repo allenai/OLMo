@@ -38,8 +38,8 @@ gantry run \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
   --env-secret WANDB_API_KEY=SHANEA_WANDB_API_KEY \
-  --env-secret AWS_ACCESS_KEY_ID=SHANEA_AWS_ACCESS_KEY_ID \
-  --env-secret AWS_SECRET_ACCESS_KEY=SHANEA_AWS_SECRET_ACCESS_KEY \
+  --env-secret AWS_CONFIG=SHANEA_AWS_CONFIG \
+  --env-secret AWS_CREDENTIALS=SHANEA_AWS_CREDENTIALS \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
