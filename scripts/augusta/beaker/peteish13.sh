@@ -76,10 +76,10 @@ torchrun \
       --save_overwrite \
       '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
       --sharded_checkpointer=olmo_core \
-      --device_train_microbatch_size=4 \
+      --device_train_microbatch_size=2 \
       --device_eval_batch_size=8 \
       --compile.fullgraph=false \
-      --activation_checkpointing=whole_layer \
+      --activation_checkpointing=one_in_two \
       --fused_loss=true \
       --model.flash_attention=true \
       --data.num_workers=8 \
