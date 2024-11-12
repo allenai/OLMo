@@ -56,7 +56,7 @@ export CHECKPOINTS_PATH=/weka/oe-training-default
 export DATA_PATH=/weka/oe-training-default
 
 export LOAD_STEP=10000
-export ANNEAL_STEPS=2500
+export ANNEAL_STEPS=1000
 export MAX_STEPS=$(($ANNEAL_STEPS + $LOAD_STEP))
 
 export ANNEAL_RUN_NAME="peteish1_${WIDTH}_${LR}_annealstep${LOAD_STEP}_${ANNEAL_STEPS}steps"
