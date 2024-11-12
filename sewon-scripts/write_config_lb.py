@@ -54,15 +54,20 @@ def main(args):
     # out2_file = f"sewon-configs/lb/{args.prefix}-dclm+lb_v0x35.yaml"
     # write_configs(out_file, out2_file, default_config_text, dclm_data_text, lb_paths)
  
-    out_file = f"sewon-configs/lb/{args.prefix}-lb_v0.1.yaml"
-    out2_file = f"sewon-configs/lb/{args.prefix}-dclm+lb_v0.1x42.yaml"
-    write_configs(out_file, out2_file, default_config_text, dclm_data_text, lb_v0_1_paths, ratio=42)
+    # out_file = f"sewon-configs/lb/{args.prefix}-lb_v0.1.yaml"
+    # out2_file = f"sewon-configs/lb/{args.prefix}-dclm+lb_v0.1x42.yaml"
+    # write_configs(out_file, out2_file, default_config_text, dclm_data_text, lb_v0_1_paths, ratio=42)
 
     # out_file = f"sewon-configs/lb/{args.prefix}-fwedu.yaml"
     # out2_file = None
     # write_configs(out_file, out2_file, default_config_text, dclm_data_text, fwedu_paths)
+ 
+    out_file = f"sewon-configs/lb/{args.prefix}-fwedu_orig.yaml"
+    out2_file = None
+    write_configs(out_file, out2_file, default_config_text, dclm_data_text, fwedu_paths)
 
-def write_configs(out_file, out2_file, default_config_text, dclm_data_text, paths, ratio):
+def write_configs(out_file, out2_file, default_config_text, dclm_data_text, paths, ratio=None):
+    print (f"Writing {len(paths)} paths")
 
     def modify_default_config_text(default_config_text, out_file):
         default_config_text = default_config_text.replace("run_name: peteish7-anneal-from-1T-dclmx1", "run_name: " + out_file.split("/")[-1].split(".yaml")[0])
