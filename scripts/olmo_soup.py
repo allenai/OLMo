@@ -11,24 +11,6 @@ Example usage:
         -o /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-50B-nowup-moremath-dclm07-fw2-se-flan-soup/step11931
 ```
 
-Merge any three checkpoints out of five:
-
-```bash
-for i in $(seq 1 5); do
-    for j in $(seq $((i+1)) 5); do
-        for k in $(seq $((j+1)) 5); do
-            echo "Merging $i $j $k"
-            python scripts/olmo_soup.py -c \
-                /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-50B-nowup-moremath-dclm07-fw2-se-flan-seed$i/step11931 \
-                /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-50B-nowup-moremath-dclm07-fw2-se-flan-seed$j/step11931 \
-                /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-50B-nowup-moremath-dclm07-fw2-se-flan-seed$k/step11931 \
-                -o /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-50B-nowup-moremath-dclm07-fw2-se-flan-soup-$i$j$k/step11931
-        done
-    done
-done
-```
-
-
 Author: Luca Soldaini (@soldni)
 
 """  # noqa
