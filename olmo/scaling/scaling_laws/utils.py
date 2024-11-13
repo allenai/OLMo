@@ -1,5 +1,6 @@
 import argparse
 import csv
+import json
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
@@ -110,7 +111,7 @@ minimums_rc = {
     "csqa": 0.2,
 }
 
-maximums_rc = {"mmlu_stem": 0.9, "arc_easy": 0.85}
+maximums_rc = {} #{"mmlu_stem": 0.9, "arc_easy": 0.85}
 
 
 @dataclass
@@ -125,7 +126,6 @@ class DownstreamTaskPrediction:
 
     def get_accuracy_keys(self):
         return self.task_accuracy_key if isinstance(self.task_accuracy_key, list) else [self.task_accuracy_key]
-
 
 
 downstream_5_shot: Dict[str, DownstreamTaskPrediction] = {
@@ -145,17 +145,17 @@ downstream_mmlu_var: Dict[str, DownstreamTaskPrediction] = {
         task_loss_key=[f"eval/downstream_bpb/{key}_var_bpb_bpb" for key in mmlu_names],
         task_accuracy_key=[f"eval/downstream/{key}_var_len_norm" for key in mmlu_names],
         task_minimum=0.25,
-        task_maximum=0.9,
+        task_maximum=1.0 #0.9,
     )
 }
 
-for key in mmlu_names:
-    downstream_mmlu_var[key] = DownstreamTaskPrediction(
-        task_loss_key=f"eval/downstream_bpb/{key}_var_bpb_bpb",
-        task_accuracy_key=f"eval/downstream/{key}_var_len_norm",
-        task_minimum=minimums_rc.get(key, 0.25),
-        task_maximum=maximums_rc.get(key, 0.9),
-    )
+# for key in mmlu_names:
+#     downstream_mmlu_var[key] = DownstreamTaskPrediction(
+#         task_loss_key=f"eval/downstream_bpb/{key}_var_bpb_bpb",
+#         task_accuracy_key=f"eval/downstream/{key}_var_len_norm",
+#         task_minimum=minimums_rc.get(key, 0.25),
+#         task_maximum=maximums_rc.get(key, 0.9),
+#     )
 
 
 downstream_0_shot: Dict[str, DownstreamTaskPrediction] = {
@@ -295,6 +295,16 @@ WEIGHT_BY_KEY = {
     "mmlu_humanities_var_bpb": 0.335,
     "mmlu_social_sciences_var_bpb": 0.219,
     "mmlu_other_var_bpb": 0.231,
+
+    "eval/downstream_bpb/mmlu_stem_var_bpb_bpb": 0.215,
+    "eval/downstream_bpb/mmlu_humanities_var_bpb_bpb": 0.335,
+    "eval/downstream_bpb/mmlu_social_sciences_var_bpb_bpb": 0.219,
+    "eval/downstream_bpb/mmlu_other_var_bpb_bpb": 0.231,
+
+    "eval/downstream/mmlu_stem_var_len_norm": 0.215,
+    "eval/downstream/mmlu_humanities_var_len_norm": 0.335,
+    "eval/downstream/mmlu_social_sciences_var_len_norm": 0.219,
+    "eval/downstream/mmlu_other_var_len_norm": 0.231,
 }
 
 for task_name, task in tasks.items():
@@ -303,7 +313,7 @@ for task_name, task in tasks.items():
 
 def prettify(rel_error, is_percentage=True):
     if is_percentage:
-        return f"{rel_error * 100:+.1f}%"
+        return f"{rel_error * 100:+.2f}%"
     else:
         return f"{rel_error:.2f}"
 
@@ -323,6 +333,13 @@ def parse_args():
     args.keys = KEYS_BY_KEY[args.key]
 
     return args
+
+
+def get_final_configs(config_path: str):
+    with open(config_path) as f:
+        configs = json.load(f)
+        configs = {name: FinalConfig(**config) for name, config in configs.items()}
+    return configs
 
 
 def get_data_by_name(configs: Dict[str, ExtrapolateNConfig], keys: List[str], min_step: Optional[int] = None):
@@ -395,7 +412,100 @@ def get_final_data_by_name(configs, keys, num_to_avg=1):
                 data_by_name[name]["ns"].append(n)
                 data_by_name[name]["ds"].append(d)
                 data_by_name[name]["ys"].append(y)
+        data_by_name[name]["mode"] = config.mode
     return data_by_name
+
+
+def get_n_d_data_by_name(configs, keys, num_to_avg=1):
+    data_by_name: Dict = defaultdict(lambda: {"xs": [], "ys": []})
+    for name, config in configs.items():
+        n = config.n
+        for path in config.paths:
+            with open(path) as file_ref:
+                reader = csv.DictReader(file_ref)
+                rows = [row for row in reader]
+                rows = rows[-num_to_avg:]
+                ds, ys = [], []
+                for row in rows:
+                    d = int(float(row["throughput/total_tokens"]))
+                    y = np.average(
+                        [float(row[key]) for key in keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in keys]
+                    )
+                    ds.append(d)
+                    ys.append(y)
+                d = np.mean(ds)
+                y = np.mean(ys)
+                data_by_name[name]["xs"].append([n, d])
+                data_by_name[name]["ys"].append(y)
+        data_by_name[name]["mode"] = config.mode
+    return data_by_name
+
+
+def get_n_d_predictions(data_by_name, coefficients):
+    predicted_data_by_name = {}
+    plotted_predicted_data_by_name = {}
+    for name, data in data_by_name.items():
+        predicted_data_by_name[name] = {
+            "ds": data["ds"],
+            "ys": [chinchilla_n_d_fit([n, d], coefficients) for n, d in zip(data["ns"], data["ds"])],
+        }
+        ds = np.linspace(min(data["ds"]), max(data["ds"]), 100)
+        ns = [data["ns"][0]] * len(ds)
+        plotted_predicted_data_by_name[name] = {
+            "ds": ds,
+            "ys": [chinchilla_n_d_fit([n, d], coefficients) for n, d in zip(ns, ds)],
+        }
+    return predicted_data_by_name, plotted_predicted_data_by_name
+
+
+def plot_n_d_predictions(configs, data_by_name, ax):
+    for name, data in data_by_name.items():
+        config = configs[name]
+        # plt.scatter(data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=10)
+        for i, (d, y) in enumerate(zip(data["ds"], data["ys"])):
+            ax.scatter(d, y, color=config.color, marker=MARKERS[i], s=50)
+
+        predicted_data = predicted_data_by_name[name]
+        for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["ys"]):
+            rel_error = (y_pred - y) / y
+            ax.annotate(
+                f"{rel_error * 100:+.1f}%",
+                (d, y),
+                textcoords="offset points",
+                xytext=(6, 6),
+                ha="center",
+                fontsize=8,
+                color=config.color,
+            )
+
+            if config.mode == "eval":
+                results += (
+                    f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)}"
+                )
+
+    # plot the fitted curve
+    for name, data in plotted_predicted_data_by_name.items():
+        config = configs[name]
+        ax.plot(
+            data["ds"],
+            data["ys"],
+            color=config.color,
+            linestyle="--",
+            linewidth=2.0,
+            label=f'{config.label} ({"fitted" if config.mode == "train" else "predicted"})',
+        )
+    ax.text(
+        x=0.20,
+        y=0.25,
+        s=f"L(N, D) = {A:.2f} / N^{alpha:.2f} + {B:.2f} / D^{beta:.2f} + {E:.2f}",
+        fontsize=10,
+        transform=ax.transAxes,
+    )
+
+    ax.legend(loc="upper right", ncols=1, fontsize=10)
+    ax.set_xlabel("Tokens (D)")
+    ax.set_ylabel("Accuracy" if args.accuracy else "Loss")
+    ax.set_title(task_name)
 
 
 MODEL_FLOPS = {
@@ -408,6 +518,7 @@ MODEL_FLOPS = {
     "7b": 49412071424,
     "13b": 91335915520,
 }
+
 
 def get_flops_data_by_name(configs, keys, num_to_avg=1):
     data_by_name: Dict = defaultdict(lambda: {"fs": [], "ys": []})
@@ -434,12 +545,18 @@ def get_flops_data_by_name(configs, keys, num_to_avg=1):
     return data_by_name
 
 
+def moving_average(arr, n):
+    ret = np.cumsum(arr, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return np.concat([ret[:n-1] / np.arange(1, n), ret[n - 1:] / n])
 
-def get_downstream_data_by_name(configs, keys, num_to_avg=-1):
-    # TODO: weight_by_key may not be working correctly for mmlu
+
+def get_downstream_data_by_name(configs, keys, moving_avg=1, skip_perc=0.0, last_n_points=-1):
     loss_keys = tasks[keys].get_loss_keys()
     accuracy_keys = tasks[keys].get_accuracy_keys()
-    data_by_name: Dict = defaultdict(lambda: {"xs": [], "ys": []})
+
+    data_by_name: Dict = defaultdict(lambda: {"xs": [], "ys": [], "ds": [], "ns": []})
+
 
     for name, config in configs.items():
         n = config.n
@@ -447,27 +564,91 @@ def get_downstream_data_by_name(configs, keys, num_to_avg=-1):
             with open(path) as file_ref:
                 reader = csv.DictReader(file_ref)
                 rows = [row for row in reader]
-                rows = rows[-20:]
-                xs, ys = [], []
+                xs, ys, ds, ns = [], [], [], []
                 for row in rows:
+                    d = int(float(row["throughput/total_tokens"]))
                     x = np.average(
-                        [float(row[key]) for key in loss_keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in loss_keys]
+                        [float(row[key]) for key in loss_keys],
+                        weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in loss_keys],
                     )
                     y = np.average(
-                        [float(row[key]) for key in accuracy_keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in accuracy_keys]
+                        [float(row[key]) for key in accuracy_keys],
+                        weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in accuracy_keys],
                     )
                     xs.append(x)
                     ys.append(y)
-                # x = np.mean(xs)
-                # y = np.mean(ys)
-                # data_by_name[name]["xs"].append(x)
-                # data_by_name[name]["ys"].append(y)
+                    ds.append(d)
+                    ns.append(n)
+
+                if config.mode == "train":
+                    # skip initial ckpts
+                    
+                    xs = xs[int(np.ceil(skip_perc * len(xs))):]
+                    ys = ys[int(np.ceil(skip_perc * len(ys))):]
+                    ds = ds[int(np.ceil(skip_perc * len(ds))):]
+                    ns = ns[int(np.ceil(skip_perc * len(ns))):]
+
+
+                    # apply moving_avg
+                    xs = moving_average(xs, n=moving_avg).tolist()
+                    # ys = ys[moving_avg-1:]
+                    # ds = ds[moving_avg-1:]
+                    # ns = ns[moving_avg-1:]
+
+                    # last n points
+                    if last_n_points > 0:
+                        xs = xs[-last_n_points:]
+                        ys = ys[-last_n_points:]
+                        ds = ds[-last_n_points:]
+                        ns = ns[-last_n_points:]
 
                 data_by_name[name]["xs"] += xs
                 data_by_name[name]["ys"] += ys
+                data_by_name[name]["ds"] += ds
+                data_by_name[name]["ns"] += ns
 
     return data_by_name
 
+
+# def get_loss_data_by_name(configs, keys, moving_avg=1):
+#     loss_keys = tasks[keys].get_loss_keys()
+
+#     data_by_name: Dict = defaultdict(lambda: {"ns": [], "ys": [], "ds": []})
+
+#     for name, config in configs.items():
+#         n = config.n
+#         for path in config.paths:
+#             with open(path) as file_ref:
+#                 reader = csv.DictReader(file_ref)
+#                 rows = [row for row in reader]
+#                 xs, ys, ds = [], [], []
+#                 for row in rows:
+#                     d = int(float(row["throughput/total_tokens"]))
+#                     y = np.average(
+#                         [float(row[key]) for key in loss_keys],
+#                         weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in loss_keys],
+#                     )
+#                     xs.append(x)
+#                     ys.append(y)
+#                     ds.append(d)
+
+#                 if config.mode == "train":
+
+#                     # apply moving_avg
+#                     xs = moving_average(xs, n=moving_avg).tolist()
+#                     ys = ys[moving_avg-1:]
+#                     ds = ds[moving_avg-1:]
+
+#                     # take final point
+#                     xs = xs[-1:]
+#                     ys = ys[-1:]
+#                     ds = ds[-1:]
+
+#                 data_by_name[name]["xs"] += xs
+#                 data_by_name[name]["ys"] += ys
+#                 data_by_name[name]["ds"] += ds
+
+#     return data_by_name
 
 
 def get_ax(name):
@@ -498,12 +679,13 @@ def chinchilla_contaminated_fit(x, a, b, c, d):
 
 
 # Scipy curve_fit with least squares
-def get_coefficients(train_xs, train_ys, fitting_func, p0):
+def get_coefficients(train_xs, train_ys, fitting_func, p0, disp=True):
     if isinstance(train_xs[0], list):
         train_xs = np.array(train_xs).transpose()
     coeffs = scipy.optimize.curve_fit(fitting_func, train_xs, train_ys, p0=p0, maxfev=50000)[0]
     coeffs_string = ", ".join([chr(ord("a") + i) + f" = {coeffs[i]:.2f}" for i in range(len(coeffs))])
-    print(f"{fitting_func.__name__}: {coeffs_string}")
+    if disp:
+        print(f"{fitting_func.__name__}: {coeffs_string}")
     return coeffs
 
 
@@ -533,6 +715,10 @@ def grad_chinchilla_d_lr_fit(x, p):
     grad_E = 1
     grad_F = x[1]
     return [grad_b, grad_beta, grad_E, grad_F]
+
+
+def chinchilla_n_d_fit_e(x, p0, p1, p2, p3, p4):
+    return np.exp(p0) / x[0] ** p2 + np.exp(p1) / x[1] ** p3 + p4
 
 
 # x[0] = n, x[1] = d
