@@ -15,7 +15,7 @@ gantry run \
   --workspace ai2/13B \
   --task-name $NAME \
   --description "Peteish1 annealing : $NAME with seed $SEED" \
-  --priority high \
+  --priority urgent \
   --preemptible \
   --beaker-image dirkg/OLMo \
   --cluster ai2/augusta-google-1 \
