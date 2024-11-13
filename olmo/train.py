@@ -1392,3 +1392,44 @@ class TrainerForEval(Trainer):
             gc.enable()
         else:
             gc.disable()
+
+
+    def load_trainer_state_dict(self, state_dict: Dict[str, Any]) -> None:
+        # Dataset / dataloader position.
+        checkpoint_epoch = state_dict.get("epoch") or 0
+        self.global_step = state_dict["global_step"]
+        self.global_train_examples_seen_this_epoch = state_dict.get(
+            "global_train_examples_seen_this_epoch",
+            state_dict.get(  # for backwards compatibility
+                "global_train_examples_seen",
+                state_dict.get("global_data_step", self.global_step) * self.cfg.global_train_batch_size,
+            ),
+        )
+        self.global_train_tokens_seen = state_dict.get(
+            "global_train_tokens_seen",
+            state_dict.get("global_data_step", self.global_step)  # for backwards compatibility
+            * self.cfg.global_train_batch_size
+            * self.cfg.model.max_sequence_length,
+        )
+
+        if not self.cfg.restore_dataloader:
+            self.epoch = 0
+            self.global_train_tokens_seen = 0
+            self.global_train_examples_seen_this_epoch = 0
+        elif self.epoch is None:
+            self.epoch = checkpoint_epoch
+        elif checkpoint_epoch != self.epoch:
+            log.info(f"Starting new epoch (epoch = {self.epoch})")
+            self.global_train_examples_seen_this_epoch = 0
+
+        # RNG states.
+        if "rng" in state_dict and state_dict.get("world_size", get_world_size()) == get_world_size():
+            log.info("Restoring RNG states...")
+            rng_state = state_dict["rng"]
+            self.restore_rng_state(rng_state)
+        else:
+            log.warning(
+                "Trainer will not restore RNG states since the RNG states in the checkpoint are missing or invalid. "
+                "This typically happens when restoring from an unsharded checkpoint or a checkpoint that was saved "
+                "with a different world size. If that's the case you can safely ignore this warning."
+            )
