@@ -268,8 +268,8 @@ def grad_tissue_fit(x, p):
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_F, grad_r]
 
 
-def sigmoid(x, L, x0, k, b):
-    o = L / (1 + np.exp(-k * (x - x0))) + b
+def sigmoid(x, a, x0, k, b):
+    o = a / (1 + np.exp(-k * (x - x0))) + b
     return o
 
 

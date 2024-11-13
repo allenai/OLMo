@@ -132,7 +132,7 @@ core_names = [
     "socialiqa",
     "winogrande",
 ]
-core_small_names = ["hellaswag", "arc_challenge", "csqa", "openbookqa", "piqa", "socialiqa"]
+core_small_names = ["hellaswag", "arc_challenge", "piqa", "csqa", "socialiqa"]
 mmlu_names = ["mmlu_stem", "mmlu_humanities", "mmlu_social_sciences", "mmlu_other"]
 
 core_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
@@ -186,7 +186,7 @@ def get_task_sets(keys):
         elif keys[0] == "mmlu":
             keys = list(mmlu_var_tasks.keys()) + list(mmlu_subset_var_tasks.keys())
         elif keys[0] == "main":
-            keys = list(core_small_5shot_tasks.keys()) + list(mmlu_var_tasks.keys())
+            keys = list(mmlu_var_tasks.keys()) + list(core_small_5shot_tasks.keys())
     return keys
 
 
@@ -310,10 +310,6 @@ KEYS_BY_KEY = {
 }
 
 WEIGHT_BY_KEY = {
-    "mmlu_stem_var_bpb": 0.215,
-    "mmlu_humanities_var_bpb": 0.335,
-    "mmlu_social_sciences_var_bpb": 0.219,
-    "mmlu_other_var_bpb": 0.231,
     "eval/downstream_bpb/mmlu_stem_var_bpb_bpb": 0.215,
     "eval/downstream_bpb/mmlu_humanities_var_bpb_bpb": 0.335,
     "eval/downstream_bpb/mmlu_social_sciences_var_bpb_bpb": 0.219,
@@ -322,6 +318,10 @@ WEIGHT_BY_KEY = {
     "eval/downstream/mmlu_humanities_var_len_norm": 0.335,
     "eval/downstream/mmlu_social_sciences_var_len_norm": 0.219,
     "eval/downstream/mmlu_other_var_len_norm": 0.231,
+    "eval/downstream/mmlu_stem_mc_5shot_len_norm": 0.215,
+    "eval/downstream/mmlu_humanities_mc_5shot_len_norm": 0.335,
+    "eval/downstream/mmlu_social_sciences_mc_5shot_len_norm": 0.219,
+    "eval/downstream/mmlu_other_mc_5shot_len_norm": 0.231,
 }
 
 
@@ -344,7 +344,7 @@ for task_name, task in tasks.items():
 
 def prettify(rel_error, is_percentage=True):
     if is_percentage:
-        return f"{rel_error * 100:+.2f}%"
+        return f"{rel_error * 100:+.1f}%"
     else:
         return f"{rel_error:.2f}"
 

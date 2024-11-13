@@ -58,5 +58,14 @@
         "n": 1279395840,
         "label": "1b",
         "color": "teal"
+    },
+    "7b": {
+        "paths": [
+            "scripts/scaling/data/peteish-final-new/7B-28xC-anneal-new.csv"
+        ],
+        "mode": "eval",
+        "n": 6887575552,
+        "label": "7b",
+        "color": "darkviolet"
     }
 }
