@@ -147,13 +147,13 @@ class ICLMetric(Metric):
         for doc_id in loglikelihood_dict:
             # each doc_id might have a different number of continuation
             num_continuations = len(loglikelihood_dict[doc_id].keys())
-            bpbs = torch.tensor([float("inf")] * num_continuations)
+            bpbs = torch.tensor([-float("inf")] * num_continuations)
             loglikelihoods = torch.tensor([-float("inf")] * num_continuations)
 
             skip_document = False
             for cont_id in loglikelihood_dict[doc_id]:
                 try:
-                    bpbs[cont_id] = -loglikelihood_dict[doc_id][cont_id]
+                    bpbs[cont_id] = loglikelihood_dict[doc_id][cont_id]
                     loglikelihoods[cont_id] = loglikelihood_dict[doc_id][cont_id] / normalizer_dict[doc_id][cont_id]
                 except IndexError:
                     # We didn't process all of the continuations, so skip this document.
@@ -193,8 +193,9 @@ class ICLMetric(Metric):
         if soft_scores:
             outputs["_soft"] = torch.tensor(sum(soft_scores) / len(soft_scores))
             outputs["_soft_log"] = torch.tensor(sum(soft_log_scores) / len(soft_log_scores))
-            outputs["_correct_bpb"] = torch.tensor(sum(correct_bpb) / len(correct_bpb))
-            outputs["_incorrect_bpb"] = torch.tensor(sum(incorrect_bpb) / len(incorrect_bpb))
+            outputs["_ce"] = -torch.tensor(sum(soft_log_scores) / len(soft_log_scores))
+            outputs["_correct_bpb"] = -torch.tensor(sum(correct_bpb) / len(correct_bpb))
+            outputs["_incorrect_bpb"] = -torch.tensor(sum(incorrect_bpb) / len(incorrect_bpb))
 
         return outputs
 
