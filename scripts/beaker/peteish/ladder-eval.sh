@@ -5,20 +5,17 @@ IFS=$'\n\t'
 
 BEAKER_LEADER_REPLICA_HOSTNAME=$1
 shift
-
 NUM_NODES=$1
 shift
-
 NUM_GPUS=$1
 shift
-
 BEAKER_REPLICA_RANK=$1
 shift
-
 CHECKPOINT=$1
 shift
-
 SUFFIX=$1
+shift
+NUM_CHECKPOINTS=1
 shift
 
 # Setup Python environment.
@@ -49,18 +46,20 @@ export NCCL_IB_HCA="^=mlx5_bond_0"
 export NCCL_SOCKET_IFNAME=ib
 # export NCCL_IB_GID_INDEX=0
 
+port=$(comm -23 <(seq 49152 65535 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 1)
+
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
   --nproc-per-node "${NUM_GPUS}" \
   --rdzv_id 12347 \
   --rdzv_backend static \
-  --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
+  --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:${port}" \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/eval.py \
     /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/${CHECKPOINT}/step0-unsharded/config.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
-      --save_interval_ephemeral=1000 \
+      --save_num_checkpoints_to_keep=$NUM_CHECKPOINTS \
       --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/${CHECKPOINT}-${SUFFIX}" \
       --wandb.group="${CHECKPOINT}-${SUFFIX}" \
       --wandb.name="${CHECKPOINT}-${SUFFIX}" \

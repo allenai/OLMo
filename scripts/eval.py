@@ -127,9 +127,12 @@ def main(cfg: TrainConfig) -> None:
         # This globbing does not work with remote paths.
         load_paths = [
             path
-            for path in sorted(glob.glob(f"{cfg.load_path}/step*"), key=lambda x: int(x.split('/')[-1].replace('-unsharded', '').split('step')[-1]), reverse=True)
+            for path in sorted(glob.glob(f"{cfg.load_path}/step*"), key=lambda x: int(x.split('/')[-1].replace('-unsharded', '').split('step')[-1]))
             if (Path(path) / "model.pt").is_file() or (Path(path) / "model").is_dir() # Filter whether checkpoint actually exists
         ]
+        if cfg.save_num_checkpoints_to_keep != -1:
+            load_paths = load_paths[-cfg.save_num_checkpoints_to_keep:]
+
 
     for load_path in load_paths:
         step = int(load_path.split('/')[-1].replace('-unsharded', '').split('step')[-1])
