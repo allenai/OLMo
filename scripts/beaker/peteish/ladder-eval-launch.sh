@@ -3,38 +3,8 @@
 set -ex
 
 NUM_NODES=1
-NUM_GPUS=1
-SUFFIX=backfill_last_checkpoint
-
-# checkpoints=(
-#     peteish-150M-1xC
-#     peteish-190M-10xC
-#     peteish-190M-1xC
-#     peteish-190M-2xC
-#     peteish-190M-5xC
-#     peteish-1B-1xC
-#     peteish-1B-2xC
-#     peteish-1B-5xC
-#     peteish-370M-10xC
-#     peteish-370M-1xC
-#     peteish-370M-5xC
-#     peteish-600M-10xC
-#     peteish-600M-1xC
-#     peteish-600M-2xC
-#     peteish-600M-5xC
-#     peteish-760M-10xC
-#     peteish-760M-1xC
-#     peteish-760M-2xC
-#     peteish-760M-5xC
-# )
-
-# checkpoints=(
-#     peteish-const-190M-10xC
-#     peteish-const-1B-10xC
-#     peteish-const-370M-10xC
-#     peteish-const-600M-10xC
-#     peteish-const-760M-10xC
-# )
+NUM_GPUS=2
+BACKFILL_SUFFIX=backfill_last
 
 checkpoints=(
     peteish-final-190M-10xC
@@ -84,9 +54,12 @@ for checkpoint in ${checkpoints[@]}; do
     --env OMP_NUM_THREADS=${NUM_GPUS} \
     --env OLMO_TASK=model \
     --env-secret WANDB_API_KEY=WANDB_API_KEY \
+    --env BACKFILL_SUFFIX=${BACKFILL_SUFFIX} \
+    --env CHECKPOINT=/weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/${checkpoint} \
+    --env NUM_CHECKPOINTS=1 \
     --shared-memory 10GiB \
     --yes \
     --timeout=-1 \
-    -- /bin/bash -c "scripts/beaker/peteish/ladder-eval.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${NUM_GPUS} \$BEAKER_REPLICA_RANK ${checkpoint} ${SUFFIX}" 1 &
+    -- /bin/bash -c "scripts/beaker/peteish/ladder-eval.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK ${NUM_NODES} ${NUM_GPUS}" &
 
 done

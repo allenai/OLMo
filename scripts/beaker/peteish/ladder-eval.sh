@@ -3,20 +3,15 @@
 set -exuo pipefail
 IFS=$'\n\t'
 
-BEAKER_LEADER_REPLICA_HOSTNAME=$1
-shift
-NUM_NODES=$1
-shift
-NUM_GPUS=$1
-shift
-BEAKER_REPLICA_RANK=$1
-shift
-CHECKPOINT=$1
-shift
-SUFFIX=$1
-shift
-NUM_CHECKPOINTS=$1
-shift
+BEAKER_LEADER_REPLICA_HOSTNAME=$1; shift
+BEAKER_REPLICA_RANK=$1; shift
+NUM_NODES=$1; shift
+NUM_GPUS=$1; shift
+
+
+CHECKPOINT=${CHECKPOINT:-""}
+BACKFILL_SUFFIX=${BACKFILL_SUFFIX:-"backfill"}
+NUM_CHECKPOINTS=${NUM_CHECKPOINTS:-"-1"}
 
 # Setup Python environment.
 conda shell.bash activate base
@@ -57,10 +52,11 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/eval.py \
-    /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/${CHECKPOINT}/step0-unsharded/config.yaml \
+    ${CHECKPOINT}/step0-unsharded/config.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_num_checkpoints_to_keep=$NUM_CHECKPOINTS \
-      --save_folder="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/${CHECKPOINT}-${SUFFIX}" \
-      --wandb.group="${CHECKPOINT}-${SUFFIX}" \
-      --wandb.name="${CHECKPOINT}-${SUFFIX}" \
-      --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/${CHECKPOINT}"
+      --save_folder="${CHECKPOINT}-${BACKFILL_SUFFIX}" \
+      --load_path="${CHECKPOINT}" \
+      --wandb.project="olmo-ladder" \
+      --wandb.group="${CHECKPOINT}-${BACKFILL_SUFFIX}" \
+      --wandb.name="${CHECKPOINT}-${BACKFILL_SUFFIX}"
