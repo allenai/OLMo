@@ -46,6 +46,9 @@ from olmo.util import (
 log = logging.getLogger("train")
 
 
+def extract_step(str: str) -> int:
+    return int(str.split('/')[-1].split("-")[0].removeprefix("step"))
+
 def main(cfg: TrainConfig) -> None:
     # Ensure run name set.
     if cfg.run_name is None:
@@ -127,15 +130,24 @@ def main(cfg: TrainConfig) -> None:
         # This globbing does not work with remote paths.
         load_paths = [
             path
-            for path in sorted(glob.glob(f"{cfg.load_path}/step*"), key=lambda x: int(x.split('/')[-1].replace('-unsharded', '').split('step')[-1]))
+            for path in glob.glob(f"{cfg.load_path}/step*")
             if (Path(path) / "model.pt").is_file() or (Path(path) / "model").is_dir() # Filter whether checkpoint actually exists
         ]
+
+        # If we have duplicate steps, we want to keep the shortest path (e.g. no -unsharded)
+        load_paths = [
+            min([path for path in load_paths if extract_step(path) == step], key=lambda path: len(path))
+            for step in set(map(extract_step, load_paths))
+        ]
+
+        load_paths = sorted(load_paths, key=extract_step)
+
         if cfg.save_num_checkpoints_to_keep != -1:
             load_paths = load_paths[-cfg.save_num_checkpoints_to_keep:]
 
 
     for load_path in load_paths:
-        step = int(load_path.split('/')[-1].replace('-unsharded', '').split('step')[-1])
+        step = extract_step(load_path)
 
         # Initialize the model.
         log.info("Building model...")
@@ -250,6 +262,7 @@ def main(cfg: TrainConfig) -> None:
             log.info("Starting evaluating...")
             eval_metrics = trainer.eval()
             if wandb.run is not None:
+                eval_metrics["throughput/total_tokens"] = trainer.global_train_tokens_seen
                 wandb.log(eval_metrics, step=step)
             log.info("Evaluating complete")
 
