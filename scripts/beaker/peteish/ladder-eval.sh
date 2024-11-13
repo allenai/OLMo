@@ -77,5 +77,5 @@ torchrun \
       --save_folder="${CHECKPOINT}-${BACKFILL_SUFFIX}" \
       --load_path="${CHECKPOINT}" \
       --wandb.project="olmo-ladder" \
-      --wandb.group="${CHECKPOINT}-${BACKFILL_SUFFIX}" \
-      --wandb.name="${CHECKPOINT}-${BACKFILL_SUFFIX}"
+      --wandb.group="$(basename $CHECKPOINT)-${BACKFILL_SUFFIX}" \
+      --wandb.name="$(basename $CHECKPOINT)-${BACKFILL_SUFFIX}"
