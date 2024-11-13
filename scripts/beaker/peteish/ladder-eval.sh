@@ -15,7 +15,7 @@ CHECKPOINT=$1
 shift
 SUFFIX=$1
 shift
-NUM_CHECKPOINTS=1
+NUM_CHECKPOINTS=$1
 shift
 
 # Setup Python environment.
