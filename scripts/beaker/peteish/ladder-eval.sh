@@ -41,12 +41,33 @@ export NCCL_IB_HCA="^=mlx5_bond_0"
 export NCCL_SOCKET_IFNAME=ib
 # export NCCL_IB_GID_INDEX=0
 
+
+function EPHEMERAL_PORT() {
+    LOW_BOUND=49152
+    RANGE=16384
+    while true; do
+        CANDIDATE=$[$LOW_BOUND + ($RANDOM % $RANGE)]
+        (echo -n >/dev/tcp/127.0.0.1/${CANDIDATE}) >/dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo $CANDIDATE
+            break
+        fi
+    done
+}
+
+if [ $NUM_NODES -eq 1 ]; then
+    PORT=$(EPHEMERAL_PORT)
+else
+    PORT=29400
+fi
+
+
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
   --nproc-per-node "${NUM_GPUS}" \
   --rdzv_id 12347 \
   --rdzv_backend static \
-  --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
+  --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:${PORT}" \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/eval.py \
