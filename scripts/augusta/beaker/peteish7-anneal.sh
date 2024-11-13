@@ -39,6 +39,7 @@ export NCCL_FASTRAK_USE_LLCM=1
 export NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY=/dev/aperture_devices
 
 # Install flash-attn
+# Flash is already installed in the docker image.
 #conda install -y pytorch-cuda==12.4 packaging ninja cccl cuda-nvcc libcusolver-dev cuda-profiler-api libcusparse-dev libcublas-dev -c pytorch -c nvidia
 #pip install flash-attn==2.5.9.post1 --no-build-isolation
 pip install '.[train]'
@@ -78,8 +79,8 @@ torchrun \
       --device_train_microbatch_size=2 \
       --activation_checkpointing=one_in_four \
       --compile.fullgraph=false \
-      --fused_loss=false \
-      --model.flash_attention=false \
+      --fused_loss=true \
+      --model.flash_attention=true \
       --data.num_workers=8 \
       --no_pre_train_checkpoint \
       --optimizer.metrics_log_interval=10 \
