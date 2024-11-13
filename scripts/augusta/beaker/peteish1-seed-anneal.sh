@@ -71,7 +71,7 @@ torchrun \
   scripts/train.py \
     $FILENAME \
       --run_name=$RUN_NAME \
-      --wandb.grop=$NAME \
+      --wandb.group=$NAME \
       --save_interval_ephemeral=10000 \
       --eval_interval=10000 \
       --seed=$SEED \
