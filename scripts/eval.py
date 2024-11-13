@@ -103,7 +103,7 @@ def main(cfg: TrainConfig) -> None:
             name=cfg.wandb.name,
             tags=cfg.wandb.tags,
             config=cfg.asdict(exclude=["wandb"]),
-            id=cfg.wandb.id,
+            id=cfg.wandb.id,  # type: ignore
             resume="allow",
         )
 

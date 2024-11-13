@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
+from olmo.scaling.scaling_laws.fitting_functions import get_coefficients_huber_nolog
 from olmo.scaling.scaling_laws.utils import (
     ExtrapolateNConfig,
     downstream_bpb,
     get_ax,
-    get_coefficients_huber_nolog,
     get_data_by_name,
     validation,
 )

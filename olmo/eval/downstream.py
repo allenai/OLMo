@@ -2263,19 +2263,19 @@ label_to_task_map = {
         OEEvalTaskWithNewline,
         {"dataset_path": "copa", "dataset_name": "rc_0shot", "metric_type": "bpb"},
     ),
-    "copycolors_10way": (
+    "copycolors_10way_new": (
         OEEvalTaskWithNewline,
         {"dataset_path": "copycolors", "dataset_name": "10way", "metric_type": "acc"},
     ),
-    "copycolors_10way_bpb": (
+    "copycolors_10way_bpb_new": (
         OEEvalTaskWithNewline,
         {"dataset_path": "copycolors", "dataset_name": "10way", "metric_type": "bpb"},
     ),
-    "copycolors_xl_10way": (
+    "copycolors_xl_10way_new": (
         OEEvalTaskWithNewline,
         {"dataset_path": "copycolors", "dataset_name": "xl_10way", "metric_type": "acc"},
     ),
-    "copycolors_xl_10way_bpb": (
+    "copycolors_xl_10way_bpb_new": (
         OEEvalTaskWithNewline,
         {"dataset_path": "copycolors", "dataset_name": "xl_10way", "metric_type": "bpb"},
     ),

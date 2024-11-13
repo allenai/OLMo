@@ -6,7 +6,7 @@ from typing import Dict, List
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .utils import get_coefficients
+from .fitting_functions import get_coefficients
 
 
 @dataclass

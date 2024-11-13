@@ -4,21 +4,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from olmo.scaling.scaling_laws.fitting_functions import (
-    chinchilla_fit,
-    chinchilla_flops_fit,
-    get_coefficients,
-    get_coefficients_huber,
-    grad_chinchilla_flops_fit,
-)
+from olmo.scaling.scaling_laws.fitting_functions import get_coefficients, sigmoid
 from olmo.scaling.scaling_laws.utils import (
+    get_downstream_data_by_name,
     get_final_configs,
-    get_flops_data_by_name,
     prettify,
     tasks,
 )
 
 MARKERS = ["s", "P", "p", "*"]
+
+# MARKERS = {"1xC": "s", "2xC": "P", "5xC": "p", "10xC": "*"}
 
 
 def parse_args():
@@ -31,9 +27,6 @@ def parse_args():
     )
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
-    parser.add_argument(
-        "-a", "--accuracy", action="store_true", default=False, help="Predict accuracy metrics directly"
-    )
     args = parser.parse_args()
 
     return args
@@ -55,34 +48,28 @@ def main():
     results = "Task Name | Actual Value | Predicted Value | Relative Error"
 
     for i, task_name in enumerate(args.keys):
-        task = tasks[task_name]
-        keys = task.get_accuracy_keys() if args.accuracy else task.get_loss_keys()
+        data_by_name = get_downstream_data_by_name(configs, task_name)
 
-        data_by_name = get_flops_data_by_name(configs, keys, num_to_avg=args.num_to_avg)
-
-        train_fs, train_ys = [], []
+        train_xs, train_ys = [], []
         for name, data in data_by_name.items():
             config = configs[name]
             if config.mode == "train":
-                train_fs += data["fs"]
+                train_xs += data["xs"]
                 train_ys += data["ys"]
+
+        # add ideal points (these are not plotted) # TODO: should we plot?
+        train_xs.append(0.0001)
+        train_ys.append(tasks[task_name].task_maximum)
+        train_xs.append(2.6)  # TODO: make task-specific
+        train_ys.append(tasks[task_name].task_minimum)
 
         # fit the parameters
 
-        if args.accuracy:
-            coefficients = get_coefficients(train_fs, train_ys, chinchilla_fit, p0=[3.0, 0.5, 0.1])
-        else:
-            coefficients = get_coefficients_huber(
-                train_fs,
-                train_ys,
-                chinchilla_flops_fit,
-                grad_chinchilla_flops_fit,
-                p0=[3.0, -0.09, 0.1],
-                bounds=[(0, None), (None, 0), (None, None)],
-                max_iter=10000,
-            )
+        coefficients = get_coefficients(
+            train_xs, train_ys, sigmoid, p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, 1.0]
+        )
 
-        a, b, E = coefficients
+        L, x0, k, b = coefficients
 
         # make predictions
         predicted_data_by_name = {}
@@ -90,13 +77,13 @@ def main():
         for name, data in data_by_name.items():
             config = configs[name]
             predicted_data_by_name[name] = {
-                "fs": data["fs"],
-                "ys": [chinchilla_fit(flops, *coefficients) for flops in data["fs"]],
+                "xs": data["xs"],
+                "ys": [sigmoid(x, *coefficients) for x in data["xs"]],
             }
-            fs = np.linspace(min(data["fs"]), max(data["fs"]), 100)
+            xs = np.linspace(min(data["xs"]), max(data["xs"]), 100)
             plotted_predicted_data_by_name[name] = {
-                "fs": fs,
-                "ys": [chinchilla_fit(flops, *coefficients) for flops in fs],
+                "xs": xs,
+                "ys": [sigmoid(x, *coefficients) for x in xs],
             }
 
         ax = axes[i][0]
@@ -105,32 +92,32 @@ def main():
         for name, data in data_by_name.items():
             config = configs[name]
             # plt.scatter(data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=10)
-            for i, (f, y) in enumerate(zip(data["fs"], data["ys"])):
-                ax.scatter(f, y, color=config.color, marker=MARKERS[i], s=50)
+            for i, (x, y) in enumerate(zip(data["xs"], data["ys"])):
+                ax.scatter(x, y, color=config.color, marker="o", s=10)
 
-            predicted_data = predicted_data_by_name[name]
-            for f, y, y_pred in zip(data["fs"], data["ys"], predicted_data["ys"]):
-                rel_error = (y_pred - y) / y
-                ax.annotate(
-                    f"{rel_error * 100:+.1f}%",
-                    (f, y),
-                    textcoords="offset points",
-                    xytext=(6, 6),
-                    ha="center",
-                    fontsize=8,
-                    color=config.color,
-                )
-
-                if config.mode == "eval":
-                    results += (
-                        f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)}"
+            if config.mode == "eval":
+                predicted_data = predicted_data_by_name[name]
+                for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data["ys"]):
+                    rel_error = (y_pred - y) / y
+                    ax.annotate(
+                        f"{prettify(rel_error)}",
+                        (x, y),
+                        textcoords="offset points",
+                        xytext=(6, 6),
+                        ha="center",
+                        fontsize=8,
+                        color=config.color,
                     )
+
+                results += (
+                    f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)}"
+                )
 
         # plot the fitted curve
         for name, data in plotted_predicted_data_by_name.items():
             config = configs[name]
             ax.plot(
-                data["fs"],
+                data["xs"],
                 data["ys"],
                 color=config.color,
                 linestyle="--",
@@ -139,16 +126,15 @@ def main():
             )
         ax.text(
             x=0.20,
-            y=0.25,
-            s=f"L(F) = {a:.2f} F ^ {b:.2f} + {E:.2f}",
+            y=0.55,
+            s=f"σ(L, x0, k, b) = {L:.2f} / (1 + e^(-({k:.2f}(x - {x0:.2f})))) + {b:.2f}",
             fontsize=10,
-            transform=ax.transAxes,
+            transform=plt.gca().transAxes,
         )
 
-        ax.set_xscale("log")
         ax.legend(loc="upper right", ncols=1, fontsize=10)
-        ax.set_xlabel("Flops (F)")
-        ax.set_ylabel("Accuracy" if args.accuracy else "Loss")
+        ax.set_xlabel("Task Loss (x)")
+        ax.set_ylabel("Task accuracy")
         ax.set_title(task_name)
 
     fig.tight_layout()

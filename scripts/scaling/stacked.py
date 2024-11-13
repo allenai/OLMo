@@ -1,25 +1,25 @@
 import argparse
-import json
 
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from olmo.scaling.scaling_laws.utils import (
-    FinalConfig,
-    get_coefficients,
-    get_final_data_by_name,
-    get_downstream_data_by_name,
-    get_coefficients_huber,
+from olmo.scaling.scaling_laws.fitting_functions import (
     chinchilla_n_d_fit,
+    get_coefficients,
+    get_coefficients_huber,
     grad_chinchilla_n_d_fit,
     sigmoid,
-    tasks,
-    downstream_5_shot,
-    downstream_mmlu_var,
+)
+from olmo.scaling.scaling_laws.utils import (
+    core_5shot_tasks,
+    core_small_5shot_tasks,
+    get_downstream_data_by_name,
     get_final_configs,
+    mmlu_subset_var_tasks,
+    mmlu_var_tasks,
     prettify,
-    moving_average,
+    tasks,
 )
 
 MARKERS = ["s", "P", "p", "*"]
@@ -36,16 +36,23 @@ def parse_args():
         "--num_to_avg", type=int, default=1, help="Number of final ckpts to average (for final loss fitting)"
     )
     parser.add_argument(
-        "--moving_avg", type=int, default=1, help="Number of final ckpts to keep moving average over (for loss to accuracy fitting)"
+        "--moving_avg",
+        type=int,
+        default=1,
+        help="Number of final ckpts to keep moving average over (for loss to accuracy fitting)",
     )
     parser.add_argument(
-        "--skip_perc", type=float, default=0.0, help="Percentage of intermediate ckpts to skip from the beginning (for loss to accuracy fitting)"
+        "--skip_perc",
+        type=float,
+        default=0.0,
+        help="Percentage of intermediate ckpts to skip from the beginning (for loss to accuracy fitting)",
     )
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
     args = parser.parse_args()
 
     return args
+
 
 def str_chinchilla_n_d_fit(coefficients):
     a, b, alpha, beta, E = coefficients
@@ -59,28 +66,28 @@ def main():
     configs = get_final_configs(args.config_path)
 
     if len(args.keys) == 1:
-        if args.keys[0] == "all":
-            args.keys = tasks.keys()
+        if args.keys[0] == "core":
+            args.keys = core_5shot_tasks.keys()
+        elif args.keys[0] == "mmlu":
+            args.keys = list(mmlu_var_tasks.keys()) + list(mmlu_subset_var_tasks.keys())
         elif args.keys[0] == "main":
-            args.keys = list(downstream_5_shot.keys()) + list(downstream_mmlu_var.keys())
+            args.keys = list(core_small_5shot_tasks.keys()) + list(mmlu_var_tasks.keys())
 
     sns.set_style("whitegrid")
 
     num_tasks = len(args.keys)
-    fig, axes = plt.subplots(num_tasks, 3, figsize=(6*3, 4.5 * num_tasks), squeeze=False)
+    fig, axes = plt.subplots(num_tasks, 3, figsize=(6 * 3, 4.5 * num_tasks), squeeze=False)
 
     results = "Task Name | Loss Error | Accuracy Error | Stacked Accuracy Error"
 
     for r, task_name in enumerate(args.keys):
-        task = tasks[task_name]
-
         loss_error = None
         acc_error = None
         cum_acc_error = None
 
         # Step 1
 
-        keys = task.get_loss_keys()
+        # keys = task.get_loss_keys()
         # data_by_name = get_final_data_by_name(configs, keys, num_to_avg=args.num_to_avg)
         data_by_name = get_downstream_data_by_name(configs, task_name, moving_avg=args.moving_avg, last_n_points=1)
 
@@ -179,13 +186,15 @@ def main():
 
         # Step 2
 
-        data_by_name = get_downstream_data_by_name(configs, task_name, moving_avg=args.moving_avg, skip_perc=args.skip_perc)
+        data_by_name = get_downstream_data_by_name(
+            configs, task_name, moving_avg=args.moving_avg, skip_perc=args.skip_perc
+        )
 
         # Add row for predicted loss from step 1
         for name, data in data_by_name.items():
             config = configs[name]
             if config.mode == "eval":
-                predicted_data = predicted_data_by_name[name] # step1 predictions
+                predicted_data = predicted_data_by_name[name]  # step1 predictions
                 data["xs"] += predicted_data["xs"]
                 data["ys"] += data["ys"]
                 data["ds"] += data["ds"]
@@ -210,7 +219,11 @@ def main():
         ## Step 2: fit the parameters
 
         coefficients = get_coefficients(
-            train_xs, train_ys, sigmoid, p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, 1.0], disp=False,
+            train_xs,
+            train_ys,
+            sigmoid,
+            p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, 1.0],
+            disp=False,
         )
 
         L, x0, k, b = coefficients
@@ -227,7 +240,9 @@ def main():
 
             # include ideal points
             # max_ideal_point will have smaller loss value
-            xs = np.linspace(min(min(data["xs"]), max_ideal_point[0]), max(max(data["xs"]), min_ideal_point[0]), 100)
+            xs = np.linspace(
+                min(min(data["xs"]), max_ideal_point[0]), max(max(data["xs"]), min_ideal_point[0]), 100
+            )
 
             plotted_predicted_data_by_name[name] = {
                 "xs": xs,
@@ -307,7 +322,6 @@ def main():
         # Append results
         results += f"\n{task_name} | {prettify(loss_error)} | {prettify(acc_error)} | {prettify(cum_acc_error)}"
 
-    
     fig.tight_layout()
     fig.subplots_adjust(top=0.95)
     fig.savefig(args.output_path, dpi=300)

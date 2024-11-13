@@ -4,13 +4,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
+from olmo.scaling.scaling_laws.fitting_functions import (
+    chinchilla_n_d_lr_power_minus_logtd_fit,
+    get_coefficients_huber,
+    grad_chinchilla_n_d_lr_power_minus_logtd_fit,
+)
 from olmo.scaling.scaling_laws.utils import (
     ExtrapolateNConfig,
-    chinchilla_n_d_lr_power_minus_logtd_fit,
     get_ax,
-    get_coefficients_huber,
     get_data_by_name,
-    grad_chinchilla_n_d_lr_power_minus_logtd_fit,
     parse_args,
 )
 
