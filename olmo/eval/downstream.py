@@ -32,18 +32,21 @@ class ICLMetric(Metric):
 
         self.add_state("loglikelihoods", default=[], dist_reduce_fx=None)
         self.add_state("labels", default=[], dist_reduce_fx=None)
+        self.add_state("normalizers", default=[], dist_reduce_fx=None)
 
     def reset(
         self,
     ):
         self.loglikelihoods = []
         self.labels = []
+        self.normalizers = []
 
     def update(self, batch: Dict[str, Any], lm_logits: torch.Tensor, dc_lm_logits=None):
         lm_logits = F.log_softmax(lm_logits, dim=-1)
 
         if self.metric_type == "pmi_dc":
             assert dc_lm_logits is not None, "PMI_DC acc type selected but no domain conditional logits provided"
+
 
         for idx, (doc_id, cont_id) in enumerate(zip(batch["doc_id"], batch["cont_id"])):
             # [cont_len]: continuation is padded for batching
@@ -55,7 +58,9 @@ class ICLMetric(Metric):
                 batch["ctx_len"][idx] - 1 : batch["ctx_len"][idx] + batch["cont_len"][idx] - 1
             ]
 
-            log_likelihood: torch.Tensor
+            # by default express log_likelihoods as bpb's
+            log_likelihood = torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum() / batch["cont_byte_len"][idx] * LOG_2_OF_E
+            normalizer = torch.tensor(LOG_2_OF_E / batch["cont_byte_len"][idx], dtype=log_likelihood.dtype, device=log_likelihood.device)
             if self.metric_type == "pmi_dc":
                 assert dc_lm_logits is not None
                 # get domain conditional continuation logits: [cont_len, vocab]
@@ -64,27 +69,18 @@ class ICLMetric(Metric):
                 ]
 
                 # gather log-probs at continuation token indices but divide by domain conditional prob
-                log_likelihood = (
-                    torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
-                    / torch.gather(dc_lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
-                )
+                normalizer *= torch.gather(dc_lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
             elif self.metric_type == "acc" or self.metric_type == "f1":
                 # gather log-probs at continuation token indices
-                log_likelihood = torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
+                pass
             elif self.metric_type == "len_norm" or self.metric_type == "ce_loss":
-                log_likelihood = (
-                    torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum() / batch["cont_str_len"][idx]
-                )
+                normalizer = torch.tensor(batch["cont_byte_len"][idx], dtype=log_likelihood.dtype, device=log_likelihood.device)
                 if self.metric_type == "ce_loss":
-                    log_likelihood = -log_likelihood
+                    normalizer *= -1
             elif self.metric_type == "bpb":
                 # bits per byte
-                log_likelihood = (
-                    -torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum()
-                    / batch["cont_byte_len"][idx]
-                    * LOG_2_OF_E
-                )
-                if log_likelihood > 100000000:
+                normalizer *= -torch.tensor(batch["cont_byte_len"][idx] / LOG_2_OF_E, dtype=log_likelihood.dtype, device=log_likelihood.device)
+                if (log_likelihood / normalizer) > 100000000:
                     log.info("Abnormally high log_likelihood!")
                     log.info(f'batch["cont_byte_len"][idx] = {batch["cont_byte_len"][idx]}')
                     log.info(f"cont_tokens = {cont_tokens}")
@@ -98,6 +94,9 @@ class ICLMetric(Metric):
             self.loglikelihoods.append(
                 torch.Tensor((doc_id, cont_id, log_likelihood)).to(batch["continuation"][idx].device)
             )
+            self.normalizers.append(
+                torch.Tensor((doc_id, cont_id, normalizer)).to(batch["continuation"][idx].device)
+            )
             self.labels.append(
                 torch.LongTensor((doc_id, cont_id, batch["label_id"][idx])).to(batch["label_id"][idx].device)
             )
@@ -108,6 +107,7 @@ class ICLMetric(Metric):
         # states should have been synced from all accelerators at this point
         # account for duplicates here because of DistributedSampler compensating for drop_last=False
         loglikelihood_dict: Dict[int, Dict[int, float]] = {}
+        normalizer_dict: Dict[int, Dict[int, float]] = {}
         label_dict = {}
 
         # collect labels
@@ -123,10 +123,20 @@ class ICLMetric(Metric):
             if int(cont_id.item()) not in loglikelihood_dict[int(doc_id.item())]:
                 loglikelihood_dict[int(doc_id.item())][int(cont_id.item())] = loglikelihood
 
+        # collect normalizers
+        for doc_id, cont_id, loglikelihood in self.normalizers:
+            if int(doc_id.item()) not in normalizer_dict:
+                normalizer_dict[int(doc_id.item())] = {}
+
+            if int(cont_id.item()) not in normalizer_dict[int(doc_id.item())]:
+                normalizer_dict[int(doc_id.item())][int(cont_id.item())] = loglikelihood
+
         # compute acc
         correct = []
         soft_scores = []
         soft_log_scores = []
+        correct_bpb = []
+        incorrect_bpb = []
 
         preds: Optional[List[float]] = None
         labels: Optional[List[int]] = None
@@ -137,12 +147,14 @@ class ICLMetric(Metric):
         for doc_id in loglikelihood_dict:
             # each doc_id might have a different number of continuation
             num_continuations = len(loglikelihood_dict[doc_id].keys())
+            bpbs = torch.tensor([-float("inf")] * num_continuations)
             loglikelihoods = torch.tensor([-float("inf")] * num_continuations)
 
             skip_document = False
             for cont_id in loglikelihood_dict[doc_id]:
                 try:
-                    loglikelihoods[cont_id] = loglikelihood_dict[doc_id][cont_id]
+                    bpbs[cont_id] = loglikelihood_dict[doc_id][cont_id]
+                    loglikelihoods[cont_id] = loglikelihood_dict[doc_id][cont_id] / normalizer_dict[doc_id][cont_id]
                 except IndexError:
                     # We didn't process all of the continuations, so skip this document.
                     skip_document = True
@@ -161,6 +173,10 @@ class ICLMetric(Metric):
                 correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
                 soft_scores.append(torch.softmax(loglikelihoods, dim=0)[label_dict[doc_id]].item())
                 soft_log_scores.append(torch.log_softmax(loglikelihoods, dim=0)[label_dict[doc_id]].item())
+                correct_bpb.append(bpbs[label_dict[doc_id]].item())
+
+                incorrect_indices = [i for i in range(num_continuations) if i != label_dict[doc_id]]
+                incorrect_bpb.extend(bpbs[incorrect_indices].tolist())
 
         if self.metric_type == "f1":
             assert preds is not None
@@ -177,6 +193,8 @@ class ICLMetric(Metric):
         if soft_scores:
             outputs["_soft"] = torch.tensor(sum(soft_scores) / len(soft_scores))
             outputs["_soft_log"] = torch.tensor(sum(soft_log_scores) / len(soft_log_scores))
+            outputs["_correct_bpb"] = torch.tensor(sum(correct_bpb) / len(correct_bpb))
+            outputs["_incorrect_bpb"] = torch.tensor(sum(incorrect_bpb) / len(incorrect_bpb))
 
         return outputs
 
