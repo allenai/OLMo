@@ -254,7 +254,7 @@ def main(cfg: TrainConfig) -> None:
             trainer.restore_checkpoint(
                 load_path,
                 load_optimizer_state=False,
-                load_trainer_state=False,
+                load_trainer_state=True,
                 sharded_checkpointer=cfg.load_path_sharded_checkpointer,
             )
             log.info("Checkpoint successfully loaded")
