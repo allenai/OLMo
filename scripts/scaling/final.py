@@ -14,6 +14,7 @@ from olmo.scaling.scaling_laws.fitting_functions import (
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
     get_final_data_by_name,
+    get_task_sets,
     prettify,
     tasks,
 )
@@ -50,7 +51,7 @@ def fit_step1(data_by_name, is_accuracy: bool = False):
 
     if is_accuracy:
         p0 = [1.0, 1.0, -0.01, -0.5, 0.1]
-        coefficients = get_coefficients(train_nds, train_ys, chinchilla_n_d_fit_e, p0=p0)
+        coefficients = get_coefficients(train_nds, train_ys, chinchilla_n_d_fit_e, p0=p0, disp=False)
 
     else:
         p0 = [3.0, 6.0, 0.1, 0.2, 1.0]
@@ -64,6 +65,7 @@ def fit_step1(data_by_name, is_accuracy: bool = False):
             p0=p0,
             bounds=bounds,
             max_iter=1000000,
+            disp=False,
         )
 
     return coefficients
@@ -158,8 +160,7 @@ def main():
 
     configs = get_final_configs(args.config_path)
 
-    if len(args.keys) == 1 and args.keys[0] == "all":
-        args.keys = tasks.keys()
+    args.keys = get_task_sets(args.keys)
 
     sns.set_style("whitegrid")
 

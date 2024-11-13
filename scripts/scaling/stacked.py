@@ -12,19 +12,16 @@ from olmo.scaling.scaling_laws.fitting_functions import (
     sigmoid,
 )
 from olmo.scaling.scaling_laws.utils import (
-    core_5shot_tasks,
-    core_small_5shot_tasks,
     get_downstream_data_by_name,
     get_final_configs,
-    mmlu_subset_var_tasks,
-    mmlu_var_tasks,
+    get_task_sets,
     prettify,
     tasks,
 )
 
-MARKERS = ["s", "P", "p", "*"]
+# MARKERS = ["s", "P", "p", "*"]
 
-# MARKERS = {"1xC": "s", "2xC": "P", "5xC": "p", "10xC": "*"}
+MARKERS = {"1xC": "s", "2xC": "P", "5xC": "p", "10xC": "*"}
 
 
 def parse_args():
@@ -65,13 +62,7 @@ def main():
 
     configs = get_final_configs(args.config_path)
 
-    if len(args.keys) == 1:
-        if args.keys[0] == "core":
-            args.keys = core_5shot_tasks.keys()
-        elif args.keys[0] == "mmlu":
-            args.keys = list(mmlu_var_tasks.keys()) + list(mmlu_subset_var_tasks.keys())
-        elif args.keys[0] == "main":
-            args.keys = list(core_small_5shot_tasks.keys()) + list(mmlu_var_tasks.keys())
+    args.keys = get_task_sets(args.keys)
 
     sns.set_style("whitegrid")
 
@@ -143,8 +134,8 @@ def main():
         # plot the actual data
         for name, data in data_by_name.items():
             config = configs[name]
-            for i, (d, y) in enumerate(zip(data["ds"], data["xs"])):
-                ax.scatter(d, y, color=config.color, marker=MARKERS[i], s=50)
+            for i, (d, y, length) in enumerate(zip(data["ds"], data["xs"], data["ls"])):
+                ax.scatter(d, y, color=config.color, marker=MARKERS.get(length, "*"), s=50)
 
             predicted_data = predicted_data_by_name[name]
             for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["xs"]):

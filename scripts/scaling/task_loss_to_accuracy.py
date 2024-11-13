@@ -8,6 +8,7 @@ from olmo.scaling.scaling_laws.fitting_functions import get_coefficients, sigmoi
 from olmo.scaling.scaling_laws.utils import (
     get_downstream_data_by_name,
     get_final_configs,
+    get_task_sets,
     prettify,
     tasks,
 )
@@ -37,8 +38,7 @@ def main():
 
     configs = get_final_configs(args.config_path)
 
-    if len(args.keys) == 1 and args.keys[0] == "all":
-        args.keys = tasks.keys()
+    args.keys = get_task_sets(args.keys)
 
     sns.set_style("whitegrid")
 
@@ -66,7 +66,11 @@ def main():
         # fit the parameters
 
         coefficients = get_coefficients(
-            train_xs, train_ys, sigmoid, p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, 1.0]
+            train_xs,
+            train_ys,
+            sigmoid,
+            p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, 1.0],
+            disp=False,
         )
 
         L, x0, k, b = coefficients
@@ -91,11 +95,11 @@ def main():
         # plot the actual data
         for name, data in data_by_name.items():
             config = configs[name]
-            # plt.scatter(data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=10)
-            for i, (x, y) in enumerate(zip(data["xs"], data["ys"])):
-                ax.scatter(x, y, color=config.color, marker="o", s=10)
+            predicted_data = predicted_data_by_name[name]
 
-            if config.mode == "eval":
+            if config.mode == "train":
+                ax.scatter(data["xs"], data["ys"], color=config.color, marker="o", s=10)
+            else:
                 predicted_data = predicted_data_by_name[name]
                 for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data["ys"]):
                     rel_error = (y_pred - y) / y

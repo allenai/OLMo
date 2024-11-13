@@ -7,8 +7,6 @@ from typing import Dict, List, Optional, Union
 
 import numpy as np
 
-from olmo.scaling.fitting_functions import *
-
 
 @dataclass
 class ExtrapolateNConfig:
@@ -179,6 +177,17 @@ mmlu_subset_var_tasks: Dict[str, DownstreamTaskPrediction] = {
     )
     for key in mmlu_names
 }
+
+
+def get_task_sets(keys):
+    if len(keys) == 1:
+        if keys[0] == "core":
+            keys = core_5shot_tasks.keys()
+        elif keys[0] == "mmlu":
+            keys = list(mmlu_var_tasks.keys()) + list(mmlu_subset_var_tasks.keys())
+        elif keys[0] == "main":
+            keys = list(core_small_5shot_tasks.keys()) + list(mmlu_var_tasks.keys())
+    return keys
 
 
 def get_bpb_keys(tasks: Dict[str, DownstreamTaskPrediction]) -> List[str]:
@@ -468,19 +477,24 @@ def moving_average(arr, n):
     return np.concat([ret[: n - 1] / np.arange(1, n), ret[n - 1 :] / n])
 
 
+def get_length(path):
+    return path.split("/")[-1].split(".csv")[0].split("-")[1]
+
+
 def get_downstream_data_by_name(configs, keys, moving_avg=1, skip_perc=0.0, last_n_points=-1):
     loss_keys = tasks[keys].get_loss_keys()
     accuracy_keys = tasks[keys].get_accuracy_keys()
 
-    data_by_name: Dict = defaultdict(lambda: {"xs": [], "ys": [], "ds": [], "ns": []})
+    data_by_name: Dict = defaultdict(lambda: {"xs": [], "ys": [], "ds": [], "ns": [], "ls": []})
 
     for name, config in configs.items():
         n = config.n
         for path in config.paths:
+            length = get_length(path)
             with open(path) as file_ref:
                 reader = csv.DictReader(file_ref)
                 rows = [row for row in reader]
-                xs, ys, ds, ns = [], [], [], []
+                xs, ys, ds, ns, ls = [], [], [], [], []
                 for row in rows:
                     d = int(float(row["throughput/total_tokens"]))
                     x = np.average(
@@ -495,6 +509,7 @@ def get_downstream_data_by_name(configs, keys, moving_avg=1, skip_perc=0.0, last
                     ys.append(y)
                     ds.append(d)
                     ns.append(n)
+                    ls.append(length)
 
                 if config.mode == "train":
                     # skip initial ckpts
@@ -503,12 +518,14 @@ def get_downstream_data_by_name(configs, keys, moving_avg=1, skip_perc=0.0, last
                     ys = ys[int(np.ceil(skip_perc * len(ys))) :]
                     ds = ds[int(np.ceil(skip_perc * len(ds))) :]
                     ns = ns[int(np.ceil(skip_perc * len(ns))) :]
+                    ls = ls[int(np.ceil(skip_perc * len(ls))) :]
 
                     # apply moving_avg
                     xs = moving_average(xs, n=moving_avg).tolist()
                     # ys = ys[moving_avg-1:]
                     # ds = ds[moving_avg-1:]
                     # ns = ns[moving_avg-1:]
+                    # ls = ls[moving_avg-1:]
 
                     # last n points
                     if last_n_points > 0:
@@ -516,11 +533,13 @@ def get_downstream_data_by_name(configs, keys, moving_avg=1, skip_perc=0.0, last
                         ys = ys[-last_n_points:]
                         ds = ds[-last_n_points:]
                         ns = ns[-last_n_points:]
+                        ls = ls[-last_n_points:]
 
                 data_by_name[name]["xs"] += xs
                 data_by_name[name]["ys"] += ys
                 data_by_name[name]["ds"] += ds
                 data_by_name[name]["ns"] += ns
+                data_by_name[name]["ls"] += ls
 
     return data_by_name
 
