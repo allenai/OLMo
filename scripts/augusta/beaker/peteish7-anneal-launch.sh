@@ -8,11 +8,18 @@ shift
 NAME=$1
 shift
 
+if [ -z $1 ]; then
+  PRIORITY='high'
+else
+  PRIORITY=$1
+fi
+
+
 gantry run \
   --workspace ai2/13B \
   --task-name $NAME \
   --description "Peteish7 annealing: $NAME" \
-  --priority high \
+  --priority ${PRIORITY} \
   --preemptible \
   --beaker-image dirkg/OLMo \
   --cluster ai2/augusta-google-1 \
