@@ -215,6 +215,7 @@ def main():
             p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, 1.0],
             bounds=([-np.inf, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
             disp=False,
+            return_cov=True,
         )
 
         L, x0, k, b = coefficients
