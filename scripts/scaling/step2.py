@@ -20,7 +20,10 @@ def parse_args():
         "-k", "--keys", nargs="+", default=[], help="Key(s) for tasks"
     )
     parser.add_argument(
-        "--num_to_avg", type=int, default=1, help="Number of final ckpts to average (for final loss fitting)"
+        "--moving_avg",
+        type=int,
+        default=1,
+        help="Number of final ckpts to keep moving average over (for loss to accuracy fitting)",
     )
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
@@ -45,7 +48,7 @@ def main():
     results = "Task Name | Actual Value | Predicted Value | Relative Error"
 
     for i, task_name in enumerate(args.keys):
-        data_by_name = get_downstream_data_by_name(configs, task_name, moving_avg=args.num_to_avg)
+        data_by_name = get_downstream_data_by_name(configs, task_name, moving_avg=args.moving_avg)
 
         train_xs, train_ys = [], []
         for name, data in data_by_name.items():
@@ -57,7 +60,7 @@ def main():
         # add ideal points (these are not plotted) # TODO: should we plot? [jiachengl: Let's not plot them, too ugly :)]
         train_xs.append(0.0)
         train_ys.append(tasks[task_name].task_maximum)
-        train_xs.append(2.6)  # TODO: make task-specific
+        train_xs.append(3.0)  # TODO: make task-specific
         train_ys.append(tasks[task_name].task_minimum)
 
         # fit the parameters
@@ -66,6 +69,7 @@ def main():
             train_ys,
             sigmoid,
             p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, 1.0],
+            bounds=([-np.inf, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, np.inf]),
             disp=False,
         )
         a, x0, k, b = coefficients

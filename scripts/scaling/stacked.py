@@ -80,7 +80,7 @@ def main():
 
         # keys = task.get_loss_keys()
         # data_by_name = get_final_data_by_name(configs, keys, num_to_avg=args.num_to_avg)
-        data_by_name = get_downstream_data_by_name(configs, task_name, moving_avg=args.moving_avg, last_n_points=1)
+        data_by_name = get_downstream_data_by_name(configs, task_name, moving_avg=args.num_to_avg, last_n_points=1)
 
         train_nds, train_xs = [], []
         for name, data in data_by_name.items():
@@ -199,8 +199,8 @@ def main():
 
         # add ideal points
         # TODO: make x task-specific
-        min_ideal_point = (2.6, tasks[task_name].task_minimum)
-        max_ideal_point = (0.0001, tasks[task_name].task_maximum)
+        min_ideal_point = (3.0, tasks[task_name].task_minimum)
+        max_ideal_point = (0.0, tasks[task_name].task_maximum)
 
         train_xs.append(min_ideal_point[0])
         train_ys.append(min_ideal_point[1])
@@ -214,6 +214,7 @@ def main():
             train_ys,
             sigmoid,
             p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, 1.0],
+            bounds=([-np.inf, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
             disp=False,
         )
 

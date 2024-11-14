@@ -17,10 +17,10 @@ def chinchilla_contaminated_fit(x, a, b, c, d):
 
 
 # Scipy curve_fit with least squares
-def get_coefficients(train_xs, train_ys, fitting_func, p0, disp=True):
+def get_coefficients(train_xs, train_ys, fitting_func, p0, bounds=(-np.inf, np.inf), disp=True):
     if isinstance(train_xs[0], list):
         train_xs = np.array(train_xs).transpose()
-    coeffs = scipy.optimize.curve_fit(fitting_func, train_xs, train_ys, p0=p0, maxfev=50000)[0]
+    coeffs = scipy.optimize.curve_fit(fitting_func, train_xs, train_ys, p0=p0, bounds=bounds, maxfev=50000)[0]
     coeffs_string = ", ".join([chr(ord("a") + i) + f" = {coeffs[i]:.2f}" for i in range(len(coeffs))])
     if disp:
         print(f"{fitting_func.__name__}: {coeffs_string}")
