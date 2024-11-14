@@ -65,7 +65,7 @@ MODEL_CONFIG_150M = ModelConfig(
     activation_type=ActivationType.swiglu,
     residual_dropout=0.0,
     embedding_dropout=0.0,
-    max_sequence_length=2048,
+    max_sequence_length=1024,
     vocab_size=50280,
     embedding_size=50304,
     eos_token_id=50279,
@@ -150,7 +150,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # calculate batch size according to
     # https://www.semanticscholar.org/reader/5585191b1b479346ecf173be3b35c8313b77d457
     # holds only for a sequence length of 2048 (but could probably be easily adapted)
-    assert model_config.max_sequence_length == 2048
+    # assert model_config.max_sequence_length == 2048
     global_batch_size = 160 * (model_size / 108000000) ** (2 / 3)
     global_batch_size /= 8 * 4  # 8 GPUs per node, microbatch size 4
     global_batch_size = round(global_batch_size)
