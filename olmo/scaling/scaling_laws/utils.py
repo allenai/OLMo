@@ -185,8 +185,12 @@ def get_task_sets(keys):
             keys = core_5shot_tasks.keys()
         elif keys[0] == "mmlu":
             keys = list(mmlu_var_tasks.keys()) + list(mmlu_subset_var_tasks.keys())
+        elif keys[0] == "mmlu_subset":
+            keys = list(mmlu_subset_var_tasks.keys())
         elif keys[0] == "main":
             keys = list(mmlu_var_tasks.keys()) + list(core_small_5shot_tasks.keys())
+        elif keys[0] == "all":
+            keys = list(mmlu_var_tasks.keys()) + list(core_5shot_tasks.keys())
     return keys
 
 

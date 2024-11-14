@@ -16,9 +16,7 @@ from olmo.scaling.scaling_laws.utils import (
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-k", "--keys", nargs="+", default=[], help="Key(s) for tasks"
-    )
+    parser.add_argument("-k", "--keys", nargs="+", default=[], help="Key(s) for tasks")
     parser.add_argument(
         "--moving_avg",
         type=int,
@@ -57,6 +55,10 @@ def main():
                 train_xs += data["xs"]
                 train_ys += data["ys"]
 
+            else:
+                data["xs"] = data["xs"][-1:]
+                data["ys"] = data["ys"][-1:]
+
         # add ideal points (these are not plotted)
         train_xs.append(0.0)
         train_ys.append(tasks[task_name].task_maximum)
@@ -71,6 +73,7 @@ def main():
             p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, 1.0],
             bounds=([-np.inf, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, np.inf]),
             disp=False,
+            return_cov=True,
         )
         a, x0, k, b = coefficients
 
@@ -96,13 +99,15 @@ def main():
         for j, x_val in enumerate(plotted_predicted_data["xs"]):
             # Partial derivatives
             jacobian[j, 0] = 1 / (1 + np.exp(-k * (x_val - x0)))
-            jacobian[j, 1] = a * k * np.exp(-k * (x_val - x0)) / (1 + np.exp(-k * (x_val - x0)))**2
-            jacobian[j, 2] = a * (x_val - x0) * np.exp(-k * (x_val - x0)) / (1 + np.exp(-k * (x_val - x0)))**2
+            jacobian[j, 1] = a * k * np.exp(-k * (x_val - x0)) / (1 + np.exp(-k * (x_val - x0))) ** 2
+            jacobian[j, 2] = a * (x_val - x0) * np.exp(-k * (x_val - x0)) / (1 + np.exp(-k * (x_val - x0))) ** 2
             jacobian[j, 3] = 1
 
         # Compute standard errors for predictions
         intermediate = np.sum(jacobian @ cov @ jacobian.T, axis=1)
-        std_errors = np.sqrt(intermediate.clip(min=0.0))  # TODO: DANGER, this approximation may be bad.
+        # TODO: DANGER, this approximation may be bad.
+        std_errors = np.sqrt(intermediate.clip(min=0.0))
+        # std_errors = np.sqrt(np.abs(intermediate))
 
         # Compute prediction intervals
         plotted_y_lower = plotted_predicted_data["ys"] - 1.96 * std_errors
@@ -154,14 +159,19 @@ def main():
             linewidth=1.5,
         )
 
-        ax.fill_between(plotted_predicted_data["xs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3) #, label="95% Prediction Interval")
+        ax.fill_between(
+            plotted_predicted_data["xs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3
+        )  # , label="95% Prediction Interval")
 
         ax.legend(loc="upper right", ncols=1, fontsize=8)
         ax.set_xlabel("Task loss")
         ax.set_ylabel("Task accuracy")
 
         ax.set_ylim([0, 1.0])
-        ax.set_title(f'{task_name}\nσ(L) = {a:.2f} / (1 + e^(-{k:.2f}(L - {x0:.2f}))) + {b:.2f}\navg unsigned rel error on fitting = {avg_unsigned_rel_err * 100:.2f}%', fontsize=10)
+        ax.set_title(
+            f"{task_name}\nσ(L) = {a:.2f} / (1 + e^(-{k:.2f}(L - {x0:.2f}))) + {b:.2f}\navg unsigned rel error on fitting = {avg_unsigned_rel_err * 100:.2f}%",
+            fontsize=10,
+        )
 
     fig.tight_layout()
     fig.savefig(args.output_path, dpi=300)

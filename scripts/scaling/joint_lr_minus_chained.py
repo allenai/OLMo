@@ -4,14 +4,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
+from olmo.scaling.scaling_laws.fitting_functions import (
+    chinchilla_n_d_lr_minus_fit,
+    sigmoid,
+)
 from olmo.scaling.scaling_laws.utils import (
     ExtrapolateNConfig,
-    chinchilla_n_d_lr_minus_fit,
     get_ax,
     get_data_by_name,
     parse_args,
 )
-from olmo.scaling.scaling_laws.stacked_predictions import sigmoid
 
 
 def main():
@@ -55,7 +57,9 @@ def main():
     for name, data in data_by_name.items():
         config = configs[name]
         ax = axs[get_ax(name)]
-        ax.scatter(data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=10, alpha=0.25)
+        ax.scatter(
+            data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=10, alpha=0.25
+        )
 
     # plot the fitted curve
     for name, data in predicted_data_by_name.items():

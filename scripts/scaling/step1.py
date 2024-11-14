@@ -19,15 +19,12 @@ from olmo.scaling.scaling_laws.utils import (
     tasks,
 )
 
-
 MARKERS = ["s", "P", "p", "*", "o"]
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-k", "--keys", nargs="+", default=[], help="Key(s) for tasks"
-    )
+    parser.add_argument("-k", "--keys", nargs="+", default=[], help="Key(s) for tasks")
     parser.add_argument(
         "--num_to_avg", type=int, default=1, help="Number of final ckpts to average (for final loss fitting)"
     )
@@ -159,7 +156,10 @@ def plot_step1(
     ax.legend(loc="upper right", ncols=1, fontsize=8)
     ax.set_xlabel("Tokens (D)")
     ax.set_ylabel("Task accuracy" if is_accuracy else "Task loss")
-    ax.set_title(f'{task_name}\n{fit_str}\navg unsigned rel error on fitting = {avg_unsigned_rel_error * 100:.2f}%', fontsize=9)
+    ax.set_title(
+        f"{task_name}\n{fit_str}\navg unsigned rel error on fitting = {avg_unsigned_rel_error * 100:.2f}%",
+        fontsize=9,
+    )
 
 
 def main():

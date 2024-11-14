@@ -277,7 +277,15 @@ def sigmoid(x, a, x0, k, b):
 
 # Scipy minimize w/ Huber loss
 def get_coefficients_huber(
-    train_xs, train_ys, fitting_func, grad_func, p0, bounds, disp: bool = True, max_iter: int = 10000, return_cov: bool = False,
+    train_xs,
+    train_ys,
+    fitting_func,
+    grad_func,
+    p0,
+    bounds,
+    disp: bool = True,
+    max_iter: int = 10000,
+    return_cov: bool = False,
 ):
     def huber_loss(x, delta):
         if np.abs(x) < delta:
