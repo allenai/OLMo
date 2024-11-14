@@ -139,7 +139,7 @@ core_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
     f"{key}_rc_5shot": DownstreamTaskPrediction(
         task_loss_key=f"eval/downstream_bpb/{key}_rc_5shot_bpb_bpb",
         task_accuracy_key=f"eval/downstream/{key}_rc_5shot_len_norm"
-        if key not in ["arc_easy", "winogrande"]
+        if key not in ["arc_easy", "winogrande", "boolq"]
         else f"eval/downstream/{key}_rc_5shot_acc",
         task_minimum=minimums_rc.get(key, 0.25),
         task_maximum=maximums_rc.get(key, 1.0),

@@ -198,8 +198,7 @@ def main():
                 train_ys += data["ys"]
 
         # add ideal points
-        # TODO: make x task-specific
-        min_ideal_point = (3.0, tasks[task_name].task_minimum)
+        min_ideal_point = (max(train_xs), tasks[task_name].task_minimum)
         max_ideal_point = (0.0, tasks[task_name].task_maximum)
 
         train_xs.append(min_ideal_point[0])
@@ -209,7 +208,7 @@ def main():
 
         ## Step 2: fit the parameters
 
-        coefficients = get_coefficients(
+        coefficients, cov = get_coefficients(
             train_xs,
             train_ys,
             sigmoid,
@@ -221,25 +220,41 @@ def main():
         L, x0, k, b = coefficients
 
         ## Step 2: make predictions
+        # predicted_data_by_name = {}
+        # plotted_predicted_data_by_name = {}
+        # for name, data in data_by_name.items():
+        #     config = configs[name]
+        #     predicted_data_by_name[name] = {
+        #         "xs": data["xs"],
+        #         "ys": [sigmoid(x, *coefficients) for x in data["xs"]],
+        #     }
+
+        #     # include ideal points
+        #     # max_ideal_point will have smaller loss value
+        #     xs = np.linspace(
+        #         min(min(data["xs"]), max_ideal_point[0]), max(max(data["xs"]), min_ideal_point[0]), 100
+        #     )
+
+        #     plotted_predicted_data_by_name[name] = {
+        #         "xs": xs,
+        #         "ys": [sigmoid(x, *coefficients) for x in xs],
+        #     }
+
+        # make predictions
         predicted_data_by_name = {}
-        plotted_predicted_data_by_name = {}
         for name, data in data_by_name.items():
             config = configs[name]
             predicted_data_by_name[name] = {
                 "xs": data["xs"],
                 "ys": [sigmoid(x, *coefficients) for x in data["xs"]],
             }
-
-            # include ideal points
-            # max_ideal_point will have smaller loss value
-            xs = np.linspace(
-                min(min(data["xs"]), max_ideal_point[0]), max(max(data["xs"]), min_ideal_point[0]), 100
-            )
-
-            plotted_predicted_data_by_name[name] = {
-                "xs": xs,
-                "ys": [sigmoid(x, *coefficients) for x in xs],
-            }
+        xmin = 0.9 * min(min(data["xs"]) for data in data_by_name.values())
+        xmax = max(max(data["xs"]) for data in data_by_name.values())
+        xs = np.linspace(xmin, xmax, 100)
+        plotted_predicted_data = {
+            "xs": xs,
+            "ys": [sigmoid(x, *coefficients) for x in xs],
+        }
 
         ## Step 2: plot
 
@@ -267,22 +282,18 @@ def main():
                     label = f"{config.label} ({label}): {prettify(rel_error)}"
                     ax.scatter(x, y, color=config.color, marker=marker, s=10, label=label)
 
-        # plot ideal points
-        ax.scatter(min_ideal_point[0], min_ideal_point[1], color="grey", marker="^", s=20)
-        ax.scatter(max_ideal_point[0], max_ideal_point[1], color="grey", marker="^", s=20)
+        # # plot ideal points
+        # ax.scatter(min_ideal_point[0], min_ideal_point[1], color="grey", marker="^", s=20)
+        # ax.scatter(max_ideal_point[0], max_ideal_point[1], color="grey", marker="^", s=20)
 
         # plot the fitted curve
-        for name, data in plotted_predicted_data_by_name.items():
-            config = configs[name]
-            if config.mode == "train":
-                ax.plot(
-                    data["xs"],
-                    data["ys"],
-                    color=config.color,
-                    linestyle="--",
-                    linewidth=2.0,
-                    label=f'{config.label} ({"fitted" if config.mode == "train" else "predicted"})',
-                )
+        ax.plot(
+            plotted_predicted_data["xs"],
+            plotted_predicted_data["ys"],
+            color="black",
+            linestyle="--",
+            linewidth=1.5,
+        )
         ax.text(
             x=0.20,
             y=0.55,
@@ -292,6 +303,7 @@ def main():
         )
 
         ax.legend(loc="upper right", ncols=1, fontsize=10)
+        ax.set_ylim([0, 1.0])
         ax.set_xlabel("Task Loss (x)")
         ax.set_ylabel("Task accuracy")
         ax.set_title(task_name)
@@ -307,6 +319,7 @@ def main():
 
         ax.set_xscale("log")
         ax.legend(loc="upper left", ncols=1, fontsize=10)
+        ax.set_ylim([0, 1.0])
         ax.set_xlabel("Tokens (D)")
         ax.set_ylabel("Task accuracy")
         ax.set_title(task_name)

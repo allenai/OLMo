@@ -50,7 +50,7 @@ def fit_step1(data_by_name, is_accuracy: bool = False):
 
     if is_accuracy:
         p0 = [1.0, 1.0, -0.01, -0.5, 0.1]
-        coefficients = get_coefficients(train_nds, train_ys, chinchilla_n_d_fit_e, p0=p0, disp=False)
+        coefficients, _ = get_coefficients(train_nds, train_ys, chinchilla_n_d_fit_e, p0=p0, disp=False)
     else:
         p0 = [3.0, 6.0, 0.1, 0.2, 1.0]
         bounds = [(0, None), (0, None), (0, None), (None, None), (None, None)]

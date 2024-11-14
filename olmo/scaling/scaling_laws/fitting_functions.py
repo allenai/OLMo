@@ -17,13 +17,15 @@ def chinchilla_contaminated_fit(x, a, b, c, d):
 
 
 # Scipy curve_fit with least squares
-def get_coefficients(train_xs, train_ys, fitting_func, p0, bounds=(-np.inf, np.inf), disp=True):
+def get_coefficients(train_xs, train_ys, fitting_func, p0, bounds=(-np.inf, np.inf), disp=True, return_cov=False):
     if isinstance(train_xs[0], list):
         train_xs = np.array(train_xs).transpose()
-    coeffs = scipy.optimize.curve_fit(fitting_func, train_xs, train_ys, p0=p0, bounds=bounds, maxfev=50000)[0]
-    coeffs_string = ", ".join([chr(ord("a") + i) + f" = {coeffs[i]:.2f}" for i in range(len(coeffs))])
+    coeffs, cov = scipy.optimize.curve_fit(fitting_func, train_xs, train_ys, p0=p0, bounds=bounds, maxfev=500000)
     if disp:
+        coeffs_string = ", ".join([chr(ord("a") + i) + f" = {coeffs[i]:.2f}" for i in range(len(coeffs))])
         print(f"{fitting_func.__name__}: {coeffs_string}")
+    if return_cov:
+        return coeffs, cov
     return coeffs
 
 
@@ -275,7 +277,7 @@ def sigmoid(x, a, x0, k, b):
 
 # Scipy minimize w/ Huber loss
 def get_coefficients_huber(
-    train_xs, train_ys, fitting_func, grad_func, p0, bounds, disp: bool = True, max_iter: int = 10000
+    train_xs, train_ys, fitting_func, grad_func, p0, bounds, disp: bool = True, max_iter: int = 10000, return_cov: bool = False,
 ):
     def huber_loss(x, delta):
         if np.abs(x) < delta:
@@ -320,6 +322,18 @@ def get_coefficients_huber(
     coeffs = res.x
     if disp:
         print(f"coeffs: {coeffs}")
+
+    # TODO: review
+    if return_cov:
+        if res.hess_inv is not None:
+            if isinstance(res.hess_inv, scipy.sparse.linalg.LinearOperator):
+                hess_inv = res.hess_inv.todense()
+            else:
+                hess_inv = res.hess_inv
+            cov = np.array(hess_inv)
+        else:
+            cov = None
+        return coeffs, cov
     return coeffs
 
 
