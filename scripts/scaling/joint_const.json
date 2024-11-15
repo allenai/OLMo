@@ -1,36 +1,36 @@
 {
-    "150m-10xC": {
-        "path": "wandb/amberish-const/150M-10xC_val-all.csv",
+    "190m-10xC": {
+        "path": "wandb/peteish-const/190M-10xC.csv",
         "mode": "train",
-        "n": 151898880,
-        "label": "150m-10xC",
+        "n": 190354176,
+        "label": "190m-10xC",
         "color": "darkred"
     },
-    "300m-10xC": {
-        "path": "wandb/amberish-const/300M-10xC_val-all.csv",
+    "370m-10xC": {
+        "path": "wandb/peteish-const/370M-10xC.csv",
         "mode": "train",
-        "n": 319980544,
-        "label": "300m-10xC",
+        "n": 371262464,
+        "label": "370m-10xC",
         "color": "darkorange"
     },
-    "530m-10xC": {
-        "path": "wandb/amberish-const/530M-10xC_val-all.csv",
+    "600m-10xC": {
+        "path": "wandb/peteish-const/600M-10xC.csv",
         "mode": "train",
-        "n": 530074944,
-        "label": "530m-10xC",
+        "n": 597382464,
+        "label": "600m-10xC",
         "color": "goldenrod"
     },
-    "750m-10xC": {
-        "path": "wandb/amberish-const/750M-10xC_val-all.csv",
+    "760m-10xC": {
+        "path": "wandb/peteish-const/760M-10xC.csv",
         "mode": "train",
-        "n": 681297408,
-        "label": "750m-10xC",
+        "n": 758220288,
+        "label": "760m-10xC",
         "color": "darkgreen"
     },
     "1b-10xC": {
-        "path": "wandb/amberish-const/1B-10xC_val-all.csv",
+        "path": "wandb/peteish-const/1B-10xC.csv",
         "mode": "train",
-        "n": 1176832000,
+        "n": 1279395840,
         "label": "1b-10xC",
         "color": "teal"
     }

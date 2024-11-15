@@ -1,73 +1,71 @@
 {
-    "150m": {
+    "190m": {
         "paths": [
-            "wandb/amberish-rulebased/150M-1xC.csv",
-            "wandb/amberish-rulebased/150M-2xC.csv",
-            "wandb/amberish-rulebased/150M-5xC.csv",
-            "wandb/amberish-rulebased/150M-10xC.csv"
+            "scripts/scaling/data/peteish-final-new/190M-1xC.csv",
+            "scripts/scaling/data/peteish-final-new/190M-2xC.csv",
+            "scripts/scaling/data/peteish-final-new/190M-5xC.csv",
+            "scripts/scaling/data/peteish-final-new/190M-10xC.csv"
         ],
         "mode": "train",
-        "n": 151898880,
-        "label": "150m",
+        "n": 190354176,
+        "label": "190m",
         "color": "darkred"
     },
-    "300m": {
+    "370m": {
         "paths": [
-            "wandb/amberish-rulebased/300M-1xC.csv",
-            "wandb/amberish-rulebased/300M-2xC.csv",
-            "wandb/amberish-rulebased/300M-5xC.csv",
-            "wandb/amberish-rulebased/300M-10xC.csv"
+            "scripts/scaling/data/peteish-final-new/370M-1xC.csv",
+            "scripts/scaling/data/peteish-final-new/370M-2xC.csv",
+            "scripts/scaling/data/peteish-final-new/370M-5xC.csv",
+            "scripts/scaling/data/peteish-final-new/370M-10xC.csv"
         ],
         "mode": "train",
-        "n": 319980544,
-        "label": "300m",
+        "n": 371262464,
+        "label": "370m",
         "color": "darkorange"
     },
-    "530m": {
+    "600m": {
         "paths": [
-            "wandb/amberish-rulebased/530M-1xC.csv",
-            "wandb/amberish-rulebased/530M-2xC.csv",
-            "wandb/amberish-rulebased/530M-5xC.csv",
-            "wandb/amberish-rulebased/530M-10xC.csv"
+            "scripts/scaling/data/peteish-final-new/600M-1xC.csv",
+            "scripts/scaling/data/peteish-final-new/600M-2xC.csv",
+            "scripts/scaling/data/peteish-final-new/600M-5xC.csv",
+            "scripts/scaling/data/peteish-final-new/600M-10xC.csv"
         ],
         "mode": "train",
-        "n": 530074944,
-        "label": "530m",
+        "n": 597382464,
+        "label": "600m",
         "color": "goldenrod"
     },
-    "700m": {
+    "760m": {
         "paths": [
-            "wandb/amberish-rulebased/750M-1xC.csv",
-            "wandb/amberish-rulebased/750M-2xC.csv",
-            "wandb/amberish-rulebased/750M-5xC.csv",
-            "wandb/amberish-rulebased/750M-10xC.csv"
+            "scripts/scaling/data/peteish-final-new/760M-1xC.csv",
+            "scripts/scaling/data/peteish-final-new/760M-2xC.csv",
+            "scripts/scaling/data/peteish-final-new/760M-5xC.csv",
+            "scripts/scaling/data/peteish-final-new/760M-10xC.csv"
         ],
         "mode": "train",
-        "n": 681297408,
-        "label": "750m",
+        "n": 758220288,
+        "label": "760m",
         "color": "darkgreen"
     },
     "1b": {
         "paths": [
-            "wandb/amberish-rulebased/1B-1xC.csv",
-            "wandb/amberish-rulebased/1B-2xC.csv",
-            "wandb/amberish-rulebased/1B-5xC.csv",
-            "wandb/amberish-rulebased/1B-10xC.csv"
+            "scripts/scaling/data/peteish-final-new/1B-1xC.csv",
+            "scripts/scaling/data/peteish-final-new/1B-2xC.csv",
+            "scripts/scaling/data/peteish-final-new/1B-5xC.csv",
+            "scripts/scaling/data/peteish-final-new/1B-10xC.csv"
         ],
         "mode": "train",
-        "n": 1176832000,
+        "n": 1279395840,
         "label": "1b",
         "color": "teal"
     },
-    "3b": {
+    "7b": {
         "paths": [
-            "wandb/amberish-rulebased/3B-1xC.csv",
-            "wandb/amberish-rulebased/3B-2xC.csv",
-            "wandb/amberish-rulebased/3B-5xC.csv"
+            "scripts/scaling/data/peteish-final-new/7B-28xC-anneal-new.csv"
         ],
         "mode": "eval",
-        "n": 3002871040,
-        "label": "3b",
-        "color": "darkmagenta"
+        "n": 6887575552,
+        "label": "7b",
+        "color": "darkviolet"
     }
 }

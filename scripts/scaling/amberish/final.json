@@ -1,0 +1,73 @@
+{
+    "150m": {
+        "paths": [
+            "wandb/amberish-rulebased/150M-1xC.csv",
+            "wandb/amberish-rulebased/150M-2xC.csv",
+            "wandb/amberish-rulebased/150M-5xC.csv",
+            "wandb/amberish-rulebased/150M-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 151898880,
+        "label": "150m",
+        "color": "darkred"
+    },
+    "300m": {
+        "paths": [
+            "wandb/amberish-rulebased/300M-1xC.csv",
+            "wandb/amberish-rulebased/300M-2xC.csv",
+            "wandb/amberish-rulebased/300M-5xC.csv",
+            "wandb/amberish-rulebased/300M-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 319980544,
+        "label": "300m",
+        "color": "darkorange"
+    },
+    "530m": {
+        "paths": [
+            "wandb/amberish-rulebased/530M-1xC.csv",
+            "wandb/amberish-rulebased/530M-2xC.csv",
+            "wandb/amberish-rulebased/530M-5xC.csv",
+            "wandb/amberish-rulebased/530M-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 530074944,
+        "label": "530m",
+        "color": "goldenrod"
+    },
+    "700m": {
+        "paths": [
+            "wandb/amberish-rulebased/750M-1xC.csv",
+            "wandb/amberish-rulebased/750M-2xC.csv",
+            "wandb/amberish-rulebased/750M-5xC.csv",
+            "wandb/amberish-rulebased/750M-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 681297408,
+        "label": "750m",
+        "color": "darkgreen"
+    },
+    "1b": {
+        "paths": [
+            "wandb/amberish-rulebased/1B-1xC.csv",
+            "wandb/amberish-rulebased/1B-2xC.csv",
+            "wandb/amberish-rulebased/1B-5xC.csv",
+            "wandb/amberish-rulebased/1B-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 1176832000,
+        "label": "1b",
+        "color": "teal"
+    },
+    "3b": {
+        "paths": [
+            "wandb/amberish-rulebased/3B-1xC.csv",
+            "wandb/amberish-rulebased/3B-2xC.csv",
+            "wandb/amberish-rulebased/3B-5xC.csv"
+        ],
+        "mode": "eval",
+        "n": 3002871040,
+        "label": "3b",
+        "color": "darkmagenta"
+    }
+}
