@@ -65,7 +65,7 @@ MODEL_CONFIG_150M = ModelConfig(
     activation_type=ActivationType.swiglu,
     residual_dropout=0.0,
     embedding_dropout=0.0,
-    max_sequence_length=1024,
+    max_sequence_length=512,
     vocab_size=50280,
     embedding_size=50304,
     eos_token_id=50279,
@@ -163,7 +163,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # device batch size based on the hardware we're running on.
     device_batch_size = {
         "150M": 32,
-        "300M": 40,
+        "300M": 64,
         "530M": 8,
         "750M": 8,
         "1B": 2,
