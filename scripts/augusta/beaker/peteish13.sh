@@ -68,6 +68,7 @@ torchrun \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
       --save_interval_ephemeral=1000 \
+      --save_num_checkpoints_to_keep=2 \
       --eval_interval=1000 \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
