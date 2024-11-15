@@ -38,4 +38,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/augusta/beaker/peteish1-seed-anneal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK $SEED"
+  -- /bin/bash -c "scripts/augusta/peteish1-seed-anneal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK $SEED"

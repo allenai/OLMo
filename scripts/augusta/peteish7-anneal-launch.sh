@@ -44,4 +44,4 @@ gantry run \
   --timeout=-1 \
   --allow-dirty \
   --retries 10 \
-  -- /bin/bash -c "scripts/augusta/beaker/peteish7-anneal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/augusta/peteish7-anneal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK"
