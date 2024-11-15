@@ -1,46 +1,37 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -euxo pipefail
-
-HOSTPATTERN=$1
-shift
+set -ex
 
 NUM_NODES=$1
 shift
 
-HOSTS=$(
-  grep -E $HOSTPATTERN ~/hostfiles/hosts | \
-  fgrep -hv \# | \
-  parallel 'echo {} $(ssh {} curl -s http://metadata.google.internal/computeMetadata/v1/instance/attributes/physical_host -H \"Metadata-Flavor: Google\")' | \
-  sort -k 2 | \
-  head -$NUM_NODES | \
-  cut -f 1 -d" " | \
-  paste -sd,
-)
-
-RUN_NAME=peteish7-medlr-$(date -u +"%Y%m%d_%H%M%S")
-SAVE_FOLDER=/mnt/localssd/runs/$RUN_NAME
-mkdir -p $SAVE_FOLDER
-
-./scripts/augusta/launch_train.sh $HOSTS \
-  configs/peteish7-google.yaml \
-    --run_name=$RUN_NAME \
-    --wandb.group=peteish7-medlr \
-    --save_interval_ephemeral=1000 \
-    --eval_interval=1000 \
-    --fsdp.sharding_strategy=HYBRID_SHARD \
-    --fsdp.hybrid_sharding_num_model_replicas=$NUM_NODES \
-    --save_folder=$SAVE_FOLDER \
-    --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/peteish7-medlr/" \
-    --save_overwrite \
-    '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
-    --sharded_checkpointer=olmo_core \
-    --device_train_microbatch_size=2 \
-    --activation_checkpointing=one_in_four \
-    --compile.fullgraph=false \
-    --fused_loss=true \
-    --model.flash_attention=true \
-    --data.num_workers=8 \
-    --optimizer.learning_rate=6.0e-4 \
-    --optimizer.metrics_log_interval=10 \
-    --data.prefetch_factor=8 2>&1 | tee $SAVE_FOLDER/log.txt
+gantry run \
+  --workspace ai2/13B \
+  --task-name peteish7-medlr \
+  --description "Peteish7 with medium learning rate" \
+  --priority high \
+  --preemptible \
+  --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
+  --cluster ai2/augusta-google-1 \
+  --gpus 8 \
+  --replicas "${NUM_NODES}" \
+  --leader-selection \
+  --host-networking \
+  --budget ai2/oe-training \
+  --no-nfs \
+  --propagate-failure \
+  --propagate-preemption \
+  --synchronized-start-timeout 15m \
+  --no-python \
+  --env LOG_FILTER_TYPE=local_rank0_only \
+  --env OMP_NUM_THREADS=8 \
+  --env OLMO_TASK=model \
+  --env-secret WANDB_API_KEY=DIRKG_WANDB_API_KEY \
+  --env-secret AWS_ACCESS_KEY_ID=DIRKG_AWS_ACCESS_KEY_ID \
+  --env-secret AWS_SECRET_ACCESS_KEY=DIRKG_AWS_SECRET_ACCESS_KEY \
+  --shared-memory 10GiB \
+  --yes \
+  --timeout=-1 \
+  --allow-dirty \
+  --retries 10 \
+  -- /bin/bash -c "scripts/augusta/beaker/peteish7-medlr.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK"
