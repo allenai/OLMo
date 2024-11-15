@@ -1,9 +1,3 @@
-import json
-from pathlib import Path
-from typing import Any, List
-
-from datasets import Dataset, DatasetDict
-
 from olmo import util
 
 
@@ -20,41 +14,29 @@ def test_dir_is_empty(tmp_path):
     assert not util.dir_is_empty(dir)
 
 
-def _create_and_store_test_hf_dataset(data: List[Any], dataset_path: Path):
-    dataset_path.mkdir(parents=True, exist_ok=True)
-    test_file_path = dataset_path / "test.json"
-    with test_file_path.open("w") as f:
-        json.dump(data, f)
+def test_flatten_dict():
+    # basic flattening
+    test_dict = {"a": 0, "b": {"e": 5, "f": 1}, "c": 2}
+    assert util.flatten_dict(test_dict) == {"a": 0, "b.e": 5, "b.f": 1, "c": 2}
 
-
-def test_load_hf_dataset_gets_correct_data(tmp_path: Path):
-    dataset_path = tmp_path / "test_dataset"
-    cache_path = tmp_path / "cache"
-
-    data = [{"foo": i} for i in range(10)]
-    _create_and_store_test_hf_dataset(data, dataset_path)
-
-    dataset = util.load_hf_dataset(str(dataset_path), name=None, split="test", datasets_cache_dir=str(cache_path))
-    assert isinstance(dataset, (Dataset, DatasetDict))
-    for i in range(10):
-        assert dataset[i]["foo"] == i
-
-
-def test_load_hf_dataset_caches_dataset(tmp_path: Path):
-    dataset_path = tmp_path / "test_dataset"
-    cache_path = tmp_path / "cache"
-
-    data = [{"foo": i} for i in range(10)]
-    _create_and_store_test_hf_dataset(data, dataset_path)
-
-    dataset = util.load_hf_dataset(str(dataset_path), name=None, split="test", datasets_cache_dir=str(cache_path))
-    assert isinstance(dataset, (Dataset, DatasetDict))
-    assert dataset[0]["foo"] == 0
-
-    # Overwrite dataset data and check that old data is loaded
-    data = [{"bar": i} for i in range(10)]
-    _create_and_store_test_hf_dataset(data, dataset_path)
-
-    dataset = util.load_hf_dataset(str(dataset_path), name=None, split="test", datasets_cache_dir=str(cache_path))
-    assert isinstance(dataset, (Dataset, DatasetDict))
-    assert dataset[0]["foo"] == 0
+    # Should flatten nested dicts into a single dict with dotted keys.
+    test_dict_with_list_of_dicts = {
+        "a": 0,
+        "b": {"e": [{"x": {"z": [222, 333]}}, {"y": {"g": [99, 100]}}], "f": 1},
+        "c": 2,
+    }
+    assert util.flatten_dict(test_dict_with_list_of_dicts) == {
+        "a": 0,
+        "b.e": [{"x": {"z": [222, 333]}}, {"y": {"g": [99, 100]}}],  # doesnt get flattened
+        "b.f": 1,
+        "c": 2,
+    }
+    assert util.flatten_dict(test_dict_with_list_of_dicts, include_lists=True) == {
+        "a": 0,
+        "b.e.0.x.z.0": 222,
+        "b.e.0.x.z.1": 333,
+        "b.e.1.y.g.0": 99,
+        "b.e.1.y.g.1": 100,
+        "b.f": 1,
+        "c": 2,
+    }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from glob import glob
 from pathlib import Path
@@ -56,7 +57,6 @@ __all__ = [
     "FSDPWrapStrategy",
     "FSDPConfig",
     "CheckpointType",
-    "SkipType",
 ]
 
 C = TypeVar("C", bound="BaseConfig")
@@ -158,6 +158,12 @@ class BaseConfig:
                     del out[name]
         return out
 
+    def update_with(self, **kwargs):
+        result = deepcopy(self)
+        for key, value in kwargs.items():
+            setattr(result, key, value)
+        return result
+
 
 class LayerNormType(StrEnum):
     default = "default"
@@ -190,22 +196,6 @@ class BlockType(StrEnum):
     """
     A block similar to the sequential block with slightly different
     implementations of operations like attention to imitate the behavior of Llama.
-    """
-
-
-class SkipType(StrEnum):
-    """
-    This only works with DDP and block_group_size = 1
-    """
-
-    dist_zero = "dist_zero"
-    """
-    distribute the tokens + embedding representations being input to the model to deeper layers
-    """
-
-    aggregate_n = "aggregate_n"
-    """
-    aggregate activations from previous layers into the final skip connection
     """
 
 
@@ -325,6 +315,11 @@ class ModelConfig(BaseConfig):
     apply RoPE at the precision of the input.
     """
 
+    rope_theta: int = 10_000
+    """
+    The theta setting for RoPE.
+    """
+
     flash_attention: bool = False
     """
     If ``True``, use ``FlashAttention``.
@@ -354,6 +349,11 @@ class ModelConfig(BaseConfig):
     embedding_dropout: float = 0.1
     """
     The dropout probability for embeddings.
+    """
+
+    embedding_layer_norm: bool = False
+    """
+    Apply layer norm directly to the embeddings.
     """
 
     layer_norm_type: LayerNormType = LayerNormType.default
@@ -414,16 +414,6 @@ class ModelConfig(BaseConfig):
     substantially.
     """
 
-    skip_type: Optional[SkipType] = None
-    """
-    Type of skip connection to use.
-    """
-
-    skip_ratio: int = 4
-    """
-    number of layers between skip connections
-    """
-
     weight_tying: bool = True
     """
     Whether to tie output linear weights to the input embedding.
@@ -467,6 +457,22 @@ class ModelConfig(BaseConfig):
     See :data:`TrainConfig.precision` instead.
     """
 
+    scale_emb_init: bool = False
+    """
+    If ``True``, embeddings are scaled up by ``sqrt(d_model)`` during initialization.
+    Currently this is only used with `full_megatron` init when ``emb_init_std`` is unset.
+    """
+
+    emb_init_std: Optional[float] = None
+    """
+    Override the standard deviation to use when initializing the embedding weights.
+    """
+
+    norm_after: bool = False
+    """
+    Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
+    """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
@@ -507,6 +513,11 @@ class OptimizerConfig(BaseConfig):
     Deprecated. Use ``decay_norm_and_bias`` and ``decay_embeddings`` instead.
     """
 
+    selective_updates: bool = False
+    """
+    If ``True``, optimizer parameter and state updates are skipped when the corresponding gradient is 0.
+    """
+
     decay_norm_and_bias: bool = False
     decay_embeddings: bool = False
     metrics_log_interval: Optional[int] = None
@@ -514,6 +525,12 @@ class OptimizerConfig(BaseConfig):
     The interval with which to collect and log detailed parameter-specific metrics.
     This only applies when logging to W&B, since these metrics won't be logged to the console.
     If not set, defaults to the wandb `log_interval`.
+    """
+
+    record_update_metrics: bool = False
+    """
+    Whether to record detailed metrics about the optimizer's parameter updates, like the norm and max
+    of the update with AdamW.
     """
 
     def __post_init__(self):
@@ -539,6 +556,8 @@ class SchedulerType(StrEnum):
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
     max_scheduler = "max_scheduler"
     constant = "constant"
+    cosine_linear_envelope = "cosine_linear_envelope"
+    constant_with_warmup = "constant_with_warmup"
 
 
 class SchedulerUnits(StrEnum):
@@ -593,6 +612,7 @@ class DataConfig(BaseConfig):
     label_mask_paths: Optional[List[str]] = None
     pad_direction: PaddingDirection = PaddingDirection.right
     generate_attention_mask: bool = False
+    generate_doc_lengths: bool = False
     num_workers: int = 0
     drop_last: bool = False
     pin_memory: bool = False
@@ -604,16 +624,13 @@ class DataConfig(BaseConfig):
 
     @property
     def effective_memmap_dtype(self):
-        if self.memmap_dtype == "uint8":
-            return np.uint8
-        if self.memmap_dtype == "uint16":
-            return np.uint16
-        elif self.memmap_dtype == "uint32":
-            return np.uint32
-        elif self.memmap_dtype == "uint64":
-            return np.uint64
-        # default to uint16 if not set
-        return np.uint16
+        try:
+            # getattr will check this is part of numpy module, while np.dtype will check
+            # if this is a valid numpy dtype.
+            np.dtype(dtype := getattr(np, self.memmap_dtype))
+        except (AttributeError, TypeError) as e:
+            raise TypeError(f"Value {self.memmap_dtype} is not a valid numpy type") from e
+        return dtype
 
 
 class EvaluatorType(StrEnum):
@@ -792,7 +809,7 @@ class FSDPConfig(BaseConfig):
     FSDP instance.
     """
 
-    precision: FSDPPrecision = FSDPPrecision.pure
+    precision: Optional[FSDPPrecision] = FSDPPrecision.pure
 
     hybrid_sharding_num_model_replicas: Optional[int] = None
     """
@@ -835,6 +852,11 @@ class ActivationCheckpointingStrategy(StrEnum):
     one_in_four = "one_in_four"
     """
     Checkpoint one in four transformer layers.
+    """
+
+    one_in_eight = "one_in_eight"
+    """
+    Checkpoint one in eight transformer layers.
     """
 
     two_in_three = "two_in_three"
@@ -942,7 +964,7 @@ class TrainConfig(BaseConfig):
     How often (in batches) to check if the run has been canceled or reached its time limit.
     """
 
-    save_interval: int = 1000
+    save_interval: Optional[int] = 1000
     """
     How often (in terms of steps) to save sharded training state checkpoints.
     """
@@ -995,7 +1017,7 @@ class TrainConfig(BaseConfig):
 
     load_path: Optional[str] = None
     """
-    The path to a training checkpoint to restore/resume from.
+    The path to a training checkpoint to restore/resume from. If not set, then training begins from scratch.
 
     Note that you can make use of the "path.last_checkpoint" Omegaconfig YAML resolver here, which takes
     a local or remote directory and resolves to the latest checkpoint (sharded or unsharded) in that directory.
@@ -1004,11 +1026,21 @@ class TrainConfig(BaseConfig):
     ```bash
     --load_path='${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/v1_5-mix-run-001}'
     ```
+
+    If `try_load_latest_save` is set and saved checkpoints exist, then `load_path` will be overriden
+    by the latest saved checkpoint.
     """
 
     load_path_sharded_checkpointer: Optional[ShardedCheckpointerType] = None
     """
     The sharded checkpointer type to use to load the initial checkpoint from ``load_path``.
+    """
+
+    try_load_latest_save: bool = False
+    """
+    If set, then training will be resumed from the latest checkpoint in the local save folder, falling
+    back to the latest checkpoint in the remote save folder if none exists. If there are no checkpoints
+    in the local and remote save folders, then checkpoint loading will fall back to `load_path`.
     """
 
     reset_optimizer_state: bool = False
@@ -1120,7 +1152,7 @@ class TrainConfig(BaseConfig):
     Settings for compiling the model with ``torch.compile()``.
     """
 
-    distributed_strategy: Optional[DistributedStrategy] = None
+    distributed_strategy: Optional[DistributedStrategy] = DistributedStrategy.fsdp
     """
     Distributed strategy for OLMo model (eg. single GPU, DDP, FSDP).
     """
@@ -1139,6 +1171,11 @@ class TrainConfig(BaseConfig):
     """
     If ``True``, we add the auxiliary loss function from PaLM that encourages the softmax
     normalizing term to be close to 0.
+    """
+
+    auxiliary_loss_multiplier: Optional[float] = 1e-4
+    """
+    Used with `softmax_auxiliary_loss`. PaLM uses 1e-4, Chameleon uses 1e-5.
     """
 
     time_limit: Optional[float] = None
@@ -1192,7 +1229,15 @@ class TrainConfig(BaseConfig):
 
     hf_datasets_cache_dir: Optional[str] = None
     """
+    Deprecated, HF datasets are now stored in `olmo_data.hf_datasets`.
+
     Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
+    """
+
+    module_outputs_save_steps: Optional[List[int]] = None
+    """
+    Outputs of model submodules are saved during the provided steps. Submodule outputs
+    can be compared using `scripts/compare_module_outputs.py`.
     """
 
     @property
@@ -1207,9 +1252,11 @@ class TrainConfig(BaseConfig):
             raise ValueError(f"Unexpected precision type '{self.precision}'")
 
     @property
-    def fsdp_precision(self) -> MixedPrecision:
+    def fsdp_precision(self) -> Optional[MixedPrecision]:
         if self.fsdp is not None:
-            if self.fsdp.precision == FSDPPrecision.pure:
+            if self.fsdp.precision is None:
+                return None
+            elif self.fsdp.precision == FSDPPrecision.pure:
                 return MixedPrecision(
                     param_dtype=self.autocast_precision,
                     reduce_dtype=self.autocast_precision,

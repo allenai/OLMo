@@ -42,11 +42,12 @@ from .config import (
     InitFnType,
     LayerNormType,
     ModelConfig,
-    SkipType,
+    ShardedCheckpointerType,
+    TrainConfig,
 )
 from .exceptions import OLMoConfigurationError
 from .initialization import init_normal
-from .torch_util import ensure_finite_
+from .torch_util import ensure_finite_, get_cumulative_document_lengths
 
 if sys.version_info.minor > 8:
     from collections.abc import MutableMapping
@@ -76,7 +77,7 @@ log = logging.getLogger(__name__)
 
 
 def activation_checkpoint_function(cfg: ModelConfig):
-    preserve_rng_state = (
+    preserve_rng_state = not (
         (cfg.attention_dropout == 0.0) and (cfg.embedding_dropout == 0.0) and (cfg.residual_dropout == 0.0)
     )
     from torch.utils.checkpoint import checkpoint
@@ -96,6 +97,7 @@ def should_checkpoint_block(strategy: Optional[ActivationCheckpointingStrategy],
         or (strategy == ActivationCheckpointingStrategy.one_in_two and block_idx % 2 == 0)
         or (strategy == ActivationCheckpointingStrategy.one_in_three and block_idx % 3 == 0)
         or (strategy == ActivationCheckpointingStrategy.one_in_four and block_idx % 4 == 0)
+        or (strategy == ActivationCheckpointingStrategy.one_in_eight and block_idx % 8 == 0)
         or (strategy == ActivationCheckpointingStrategy.two_in_three and block_idx % 3 != 0)
         or (strategy == ActivationCheckpointingStrategy.three_in_four and block_idx % 4 != 0)
     ):
@@ -278,7 +280,9 @@ class RotaryEmbedding(nn.Module):
 
         with torch.autocast(device.type, enabled=False):
             dim = self.config.d_model // self.config.n_heads
-            inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2, device=device, dtype=torch.float) / dim))
+            inv_freq = 1.0 / (
+                self.config.rope_theta ** (torch.arange(0, dim, 2, device=device, dtype=torch.float) / dim)
+            )
             seq = torch.arange(seq_len, device=device, dtype=torch.float)
             freqs = einsum("i , j -> i j", seq, inv_freq)
             positions = torch.cat((freqs, freqs), dim=-1)
@@ -415,7 +419,7 @@ class OLMoBlock(nn.Module):
         self.__cache = cache
         assert config.d_model % config.n_heads == 0
 
-        self._activation_checkpoint_fn = None
+        self._activation_checkpoint_fn: Optional[Callable] = None
 
         # Dropout.
         self.dropout = Dropout(config.residual_dropout)
@@ -459,11 +463,16 @@ class OLMoBlock(nn.Module):
             self.rotary_emb = RotaryEmbedding(config, self.__cache)
 
         self.flash_attn_func = None
+        self.flash_attn_varlen_func = None
         if config.flash_attention:
             try:
-                from flash_attn import flash_attn_func  # type: ignore
+                from flash_attn import (  # type: ignore
+                    flash_attn_func,
+                    flash_attn_varlen_func,
+                )
 
                 self.flash_attn_func = flash_attn_func
+                self.flash_attn_varlen_func = flash_attn_varlen_func
             except ModuleNotFoundError:
                 pass
 
@@ -492,9 +501,11 @@ class OLMoBlock(nn.Module):
         init_normal(self.attn_out, std=attn_out_std, init_cutoff_factor=cutoff_factor)
         init_normal(self.ff_out, std=ff_out_std, init_cutoff_factor=cutoff_factor)
 
-    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+    def set_activation_checkpointing(
+        self, strategy: Optional[ActivationCheckpointingStrategy], checkpoint_func: Optional[Callable] = None
+    ):
         if strategy == ActivationCheckpointingStrategy.fine_grained:
-            self._activation_checkpoint_fn = activation_checkpoint_function(self.config)
+            self._activation_checkpoint_fn = checkpoint_func or activation_checkpoint_function(self.config)
         else:
             self._activation_checkpoint_fn = None
 
@@ -521,12 +532,30 @@ class OLMoBlock(nn.Module):
         attn_mask: Optional[torch.Tensor] = None,
         dropout_p: float = 0.0,
         is_causal: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
         Computes scaled dot product attention on query, key and value tensors, using an optional
         attention mask if passed, and applying dropout if a probability greater than 0.0 is specified.
         """
-        if self.flash_attn_func is not None and attn_mask is None:
+        if max_doc_len is not None and cu_doc_lens is not None:
+            assert self.flash_attn_varlen_func is not None, "flash-attn is required for document masking"
+            assert attn_mask is None, "attn-mask is currently not supported with document masking"
+            B, T, D = q.size(0), q.size(2), q.size(3)
+            r = self.flash_attn_varlen_func(
+                q.transpose(1, 2).view(B * T, -1, D),
+                k.transpose(1, 2).view(B * T, -1, D),
+                v.transpose(1, 2).view(B * T, -1, D),
+                cu_doc_lens,
+                cu_doc_lens,
+                max_doc_len,
+                max_doc_len,
+                dropout_p=dropout_p,
+                causal=is_causal,
+            )
+            return r.view(B, T, -1, D).transpose(1, 2)
+        elif self.flash_attn_func is not None and attn_mask is None:
             r = self.flash_attn_func(
                 q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), dropout_p=dropout_p, causal=is_causal
             )
@@ -558,6 +587,8 @@ class OLMoBlock(nn.Module):
         attention_bias: Optional[torch.Tensor] = None,
         layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         B, T, C = q.size()  # batch size, sequence length, d_model
         dtype = k.dtype
@@ -606,6 +637,8 @@ class OLMoBlock(nn.Module):
             attn_mask=attention_bias,
             dropout_p=0.0 if not self.training else self.config.attention_dropout,
             is_causal=attention_bias is None,
+            max_doc_len=max_doc_len,
+            cu_doc_lens=cu_doc_lens,
         )
 
         # Re-assemble all head outputs side-by-side.
@@ -621,6 +654,8 @@ class OLMoBlock(nn.Module):
         attention_bias: Optional[torch.FloatTensor] = None,
         layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         raise NotImplementedError
 
@@ -637,14 +672,12 @@ class OLMoBlock(nn.Module):
 class OLMoSequentialBlock(OLMoBlock):
     """
     This is a typical transformer block where the output is computed as ``MLP(LN(x + Attention(LN(x))))``
-    (plus another skip connection).
+    (plus another skip connection). To compute it as ``LN(MLP(x + LN(Attention(x))))``,
+    use the flag `norm_after`.
     """
 
     def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
         super().__init__(layer_id, config, cache)
-        # Layer norms.
-        self.attn_norm = LayerNorm.build(config)
-        self.ff_norm = LayerNorm.build(config)
         # Attention input projection. Projects x -> (q, k, v)
 
         head_dim = config.d_model // config.n_heads
@@ -660,6 +693,10 @@ class OLMoSequentialBlock(OLMoBlock):
         self.ff_proj = nn.Linear(
             config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
         )
+
+        # Layer norms.
+        self.attn_norm = LayerNorm.build(config, size=config.d_model)
+        self.ff_norm = LayerNorm.build(config, size=config.d_model)
 
     def reset_parameters(self):
         super().reset_parameters()
@@ -688,6 +725,8 @@ class OLMoSequentialBlock(OLMoBlock):
         attention_bias: Optional[torch.Tensor] = None,
         layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         # Get query, key, value projections.
         # shape:
@@ -696,10 +735,17 @@ class OLMoSequentialBlock(OLMoBlock):
         #                      k, v: (batch_size, seq_len, d_model // n_heads)
         #  - for group query attn q: (batch_size, seq_len, d_model)
         #                      k, v: (batch_size, seq_len, d_model // n_kv_heads)
-        if self._activation_checkpoint_fn is not None:
-            qkv = self.att_proj(self._activation_checkpoint_fn(self.attn_norm, x))
+
+        # apply norm before
+        if not self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                h = self._activation_checkpoint_fn(self.attn_norm, x)
+            else:
+                h = self.attn_norm(x)
         else:
-            qkv = self.att_proj(self.attn_norm(x))
+            h = x
+
+        qkv = self.att_proj(h)
 
         if self.config.clip_qkv is not None:
             qkv.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
@@ -709,10 +755,33 @@ class OLMoSequentialBlock(OLMoBlock):
         # Get attention scores.
         if self._activation_checkpoint_fn is not None:
             att, cache = self._activation_checkpoint_fn(  # type: ignore
-                self.attention, q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache
+                self.attention,
+                q,
+                k,
+                v,
+                attention_bias,
+                layer_past=layer_past,
+                use_cache=use_cache,
+                max_doc_len=max_doc_len,
+                cu_doc_lens=cu_doc_lens,
             )
         else:
-            att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
+            att, cache = self.attention(
+                q,
+                k,
+                v,
+                attention_bias,
+                layer_past=layer_past,
+                use_cache=use_cache,
+                max_doc_len=max_doc_len,
+                cu_doc_lens=cu_doc_lens,
+            )
+
+        if self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                att = self._activation_checkpoint_fn(self.attn_norm, att)
+            else:
+                att = self.attn_norm(att)
 
         # Add attention scores.
         # shape: (B, T, C)
@@ -721,16 +790,27 @@ class OLMoSequentialBlock(OLMoBlock):
         # Add feed-forward projection.
         # shape: (batch_size, seq_len, d_model)
         og_x = x
-        if self._activation_checkpoint_fn is not None:
-            x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
-        else:
-            x = self.ff_norm(x)
+
+        if not self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+            else:
+                x = self.ff_norm(x)
+
         x = self.ff_proj(x)
+
         if self._activation_checkpoint_fn is not None:
             x = self._activation_checkpoint_fn(self.act, x)  # type: ignore
         else:
             x = self.act(x)
         x = self.ff_out(x)
+
+        if self.config.norm_after:
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.ff_norm, x)  # type: ignore
+            else:
+                x = self.ff_norm(x)
+
         x = self.dropout(x)
         x = og_x + x
 
@@ -807,7 +887,14 @@ class OLMoLlamaBlock(OLMoBlock):
         attn_mask: Optional[torch.Tensor] = None,
         dropout_p: float = 0.0,
         is_causal: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
+        if max_doc_len is not None or cu_doc_lens is not None:
+            raise NotImplementedError(
+                f"attention document masking is not implemented for {self.__class__.__name__}"
+            )
+
         attn_weights = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(q.size(-1))
 
         if is_causal:
@@ -831,6 +918,8 @@ class OLMoLlamaBlock(OLMoBlock):
         attention_bias: Optional[torch.Tensor] = None,
         layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         use_cache: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         # Get query, key, value projections.
         # shape:
@@ -848,7 +937,16 @@ class OLMoLlamaBlock(OLMoBlock):
             v.clamp_(min=-self.config.clip_qkv, max=self.config.clip_qkv)
 
         # Get attention scores.
-        att, cache = self.attention(q, k, v, attention_bias, layer_past=layer_past, use_cache=use_cache)
+        att, cache = self.attention(
+            q,
+            k,
+            v,
+            attention_bias,
+            layer_past=layer_past,
+            use_cache=use_cache,
+            max_doc_len=max_doc_len,
+            cu_doc_lens=cu_doc_lens,
+        )
 
         # Add attention scores.
         # shape: (B, T, C)
@@ -885,7 +983,7 @@ class OLMoOutput(NamedTuple):
     Attention keys and values from each block.
     """
 
-    hidden_states: Optional[Tuple[torch.Tensor]]
+    hidden_states: Optional[Tuple[torch.Tensor, ...]]
     """
     Hidden states from each block.
     """
@@ -918,6 +1016,8 @@ class OLMoBlockGroup(nn.ModuleList):
         attention_bias: Optional[torch.FloatTensor] = None,
         layers_past: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None,
         use_cache: bool = False,
+        max_doc_len: Optional[int] = None,
+        cu_doc_lens: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[List[Tuple[torch.Tensor, torch.Tensor]]]]:
         attn_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = [] if use_cache else None
         for block_idx, block in enumerate(self):
@@ -926,11 +1026,24 @@ class OLMoBlockGroup(nn.ModuleList):
             if should_checkpoint_block(self.activation_checkpointing_strategy, block_idx):
                 # shape: (batch_size, seq_len, d_model)
                 x, cache = self._activation_checkpoint_fn(  # type: ignore
-                    block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                    block,
+                    x,
+                    attention_bias=attention_bias,
+                    layer_past=layer_past,
+                    use_cache=use_cache,
+                    max_doc_len=max_doc_len,
+                    cu_doc_lens=cu_doc_lens,
                 )
             else:
                 # shape: (batch_size, seq_len, d_model)
-                x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
+                x, cache = block(
+                    x,
+                    attention_bias=attention_bias,
+                    layer_past=layer_past,
+                    use_cache=use_cache,
+                    max_doc_len=max_doc_len,
+                    cu_doc_lens=cu_doc_lens,
+                )
             if attn_key_values is not None:
                 assert cache is not None
                 attn_key_values.append(cache)
@@ -940,10 +1053,12 @@ class OLMoBlockGroup(nn.ModuleList):
         for block in self:
             block.reset_parameters()
 
-    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+    def set_activation_checkpointing(
+        self, strategy: Optional[ActivationCheckpointingStrategy], checkpoint_func: Optional[Callable] = None
+    ):
         self.activation_checkpointing_strategy = strategy
         for block in self:
-            block.set_activation_checkpointing(strategy)
+            block.set_activation_checkpointing(strategy, checkpoint_func=checkpoint_func)
 
 
 class OLMo(nn.Module):
@@ -1016,6 +1131,9 @@ class OLMo(nn.Module):
                     )
                 }
             )
+        if config.embedding_layer_norm:
+            self.transformer.update({"emb_norm": LayerNorm.build(config)})
+
         # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
         if init_params and self.config.init_device != "meta":
             self.reset_parameters()
@@ -1027,14 +1145,16 @@ class OLMo(nn.Module):
             get_causal_attention_bias(self.__cache, config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
 
-    def set_activation_checkpointing(self, strategy: Optional[ActivationCheckpointingStrategy]):
+    def set_activation_checkpointing(
+        self, strategy: Optional[ActivationCheckpointingStrategy], checkpoint_func: Optional[Callable] = None
+    ):
         self.activation_checkpointing_strategy = strategy
         if self.config.block_group_size != 1:
             for block_group in self.transformer.block_groups:
-                block_group.set_activation_checkpointing(strategy)
+                block_group.set_activation_checkpointing(strategy, checkpoint_func=checkpoint_func)
         else:
             for block in self.transformer.blocks:
-                block.set_activation_checkpointing(strategy)
+                block.set_activation_checkpointing(strategy, checkpoint_func=checkpoint_func)
 
     @property
     def device(self) -> torch.device:
@@ -1052,13 +1172,17 @@ class OLMo(nn.Module):
             # Note: We may potentially want to multiply the std by a factor of sqrt(d) in case of `scale_logits`
             # and `weight_tying`. However, we are currently not using either, and may need to rethink the init logic
             # if/when we do want it.
-            wte_std = self.config.init_std
+            wte_std = self.config.emb_init_std or self.config.init_std
             wte_cutoff_factor = self.config.init_cutoff_factor
         elif self.config.init_fn == InitFnType.mitchell:
-            wte_std = 1.0 / math.sqrt(self.config.d_model)
+            wte_std = self.config.emb_init_std or 1.0 / math.sqrt(self.config.d_model)
             wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
         elif self.config.init_fn == InitFnType.full_megatron:
             wte_std = self.config.init_std
+            if self.config.emb_init_std is not None:
+                wte_std = self.config.emb_init_std
+            elif self.config.scale_emb_init:
+                wte_std *= math.sqrt(self.config.d_model)
             wte_cutoff_factor = self.config.init_cutoff_factor or 3.0
         else:
             raise NotImplementedError(self.config.init_fn)
@@ -1130,6 +1254,8 @@ class OLMo(nn.Module):
         use_cache: bool = False,
         last_logits_only: bool = False,
         output_hidden_states: Optional[bool] = None,
+        doc_lens: Optional[torch.Tensor] = None,
+        max_doc_lens: Optional[Sequence[int]] = None,
     ) -> OLMoOutput:
         """
         :param input_ids: A tensor of shape `(batch_size, seq_len)`.
@@ -1160,6 +1286,9 @@ class OLMo(nn.Module):
         :param use_cache: If `True`, return key and value tensors for each block.
         :param last_logits_only: If `True`, only compute the logits for the last token of each sequence.
             This can speed up decoding when you only care about the next token.
+        :param doc_lens: Document lengths to use in attention for intra-document masking.
+            Shape `(batch_size, max_docs)`.
+        :param max_doc_lens: Maximum document length for each instance in the batch.
         """
         output_hidden_states = output_hidden_states if output_hidden_states is not None else False
 
@@ -1172,9 +1301,19 @@ class OLMo(nn.Module):
         else:
             past_length = past_key_values[0][0].size(-2)
 
+        max_doc_len: Optional[int] = None
+        cu_doc_lens: Optional[torch.Tensor] = None
+        if doc_lens is not None and max_doc_lens is not None:
+            max_doc_len = max(max_doc_lens)
+            cu_doc_lens = get_cumulative_document_lengths(doc_lens)
+
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
         x = self.transformer.wte(input_ids) if input_embeddings is None else input_embeddings  # type: ignore
+
+        # Apply embedding layer norm.
+        if self.config.embedding_layer_norm:
+            x = self.transformer.emb_norm(x)
 
         if not (self.config.alibi or self.config.rope):
             # Get positional embeddings.
@@ -1184,7 +1323,7 @@ class OLMo(nn.Module):
             pos_emb = self.transformer.wpe(pos)  # type: ignore
             x = pos_emb + x
 
-        # Add input + positional embeddings and apply dropout.
+        # Apply dropout.
         # shape: (batch_size, seq_len, d_model)
         x = self.transformer.emb_drop(x)  # type: ignore
 
@@ -1235,10 +1374,6 @@ class OLMo(nn.Module):
         # decoder layers
         all_hidden_states = []
 
-        aggregate_activation = None
-        if self.config.skip_type == SkipType.dist_zero:
-            zero_activation = x
-
         # Apply blocks one-by-one.
         if self.config.block_group_size == 1:
             for block_idx, block in enumerate(self.transformer.blocks):
@@ -1250,20 +1385,24 @@ class OLMo(nn.Module):
                 if should_checkpoint_block(self.activation_checkpointing_strategy, block_idx):
                     # shape: (batch_size, seq_len, d_model)
                     x, cache = self._activation_checkpoint_fn(
-                        block, x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache
+                        block,
+                        x,
+                        attention_bias=attention_bias,
+                        layer_past=layer_past,
+                        use_cache=use_cache,
+                        max_doc_len=max_doc_len,
+                        cu_doc_lens=cu_doc_lens,
                     )
                 else:
                     # shape: (batch_size, seq_len, d_model)
-                    x, cache = block(x, attention_bias=attention_bias, layer_past=layer_past, use_cache=use_cache)
-
-                    if self.config.skip_type == SkipType.dist_zero and (block_idx + 1) % self.config.skip_ratio == 0:
-                        x = x + zero_activation 
-                    elif self.config.skip_type == SkipType.aggregate_n and (block_idx + 1) % self.config.skip_ratio == 0:
-                        if aggregate_activation is None:
-                            aggregate_activation = x
-                        else:
-                            aggregate_activation = aggregate_activation + x
-
+                    x, cache = block(
+                        x,
+                        attention_bias=attention_bias,
+                        layer_past=layer_past,
+                        use_cache=use_cache,
+                        max_doc_len=max_doc_len,
+                        cu_doc_lens=cu_doc_lens,
+                    )
                 if attn_key_values is not None:
                     assert cache is not None
                     attn_key_values.append(cache)
@@ -1281,14 +1420,16 @@ class OLMo(nn.Module):
                     ]
                 )
                 x, cache = block_group(
-                    x, attention_bias=attention_bias, layers_past=layers_past, use_cache=use_cache
+                    x,
+                    attention_bias=attention_bias,
+                    layers_past=layers_past,
+                    use_cache=use_cache,
+                    max_doc_len=max_doc_len,
+                    cu_doc_lens=cu_doc_lens,
                 )
                 if attn_key_values is not None:
                     assert cache is not None
                     attn_key_values.extend(cache)
-
-        if aggregate_activation is not None:
-            x = x + aggregate_activation
 
         if last_logits_only:
             # shape: (batch_size, 1, d_model)
@@ -1310,7 +1451,11 @@ class OLMo(nn.Module):
         if self.config.scale_logits:
             logits.mul_(1 / math.sqrt(self.config.d_model))
 
-        return OLMoOutput(logits=logits, attn_key_values=attn_key_values, hidden_states=tuple(all_hidden_states) if output_hidden_states else None)  # type: ignore[arg-type]
+        return OLMoOutput(
+            logits=logits,
+            attn_key_values=attn_key_values,
+            hidden_states=tuple(all_hidden_states) if output_hidden_states else None,
+        )
 
     def get_fsdp_wrap_policy(self, wrap_strategy: Optional[FSDPWrapStrategy] = None):
         if wrap_strategy is None:
@@ -1609,15 +1754,26 @@ class OLMo(nn.Module):
             model.load_state_dict(model._make_state_dict_compatible(state_dict)[0])
             model = model.to(torch.device(device))
         else:
-            from .checkpoint import load_model_state
+            train_config = TrainConfig.load(config_path)
+            if train_config.sharded_checkpointer == ShardedCheckpointerType.olmo_core:
+                from olmo_core.distributed.checkpoint import (  # type: ignore
+                    load_model_and_optim_state,
+                )
 
-            # Initialize model on target device. In this case the state dict is loaded in-place
-            # so it's not necessary to start on CPU if the target device is a GPU.
-            model_config.init_device = device
-            model = OLMo(model_config)
+                model_config.init_device = device
+                model = OLMo(model_config)
+                load_model_and_optim_state(checkpoint_dir, model)
+            else:
+                # train_config.sharded_checkpointer == ShardedCheckpointerType.torch_new
+                from .checkpoint import load_model_state
 
-            # Load state dict in place.
-            load_model_state(checkpoint_dir, model)
+                # Initialize model on target device. In this case the state dict is loaded in-place
+                # so it's not necessary to start on CPU if the target device is a GPU.
+                model_config.init_device = device
+                model = OLMo(model_config)
+
+                # Load state dict in place.
+                load_model_state(checkpoint_dir, model)
 
         return model.eval()
 

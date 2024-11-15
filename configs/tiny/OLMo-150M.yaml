@@ -46,7 +46,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 1.0e-3
+  learning_rate: 6.0e-4
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
