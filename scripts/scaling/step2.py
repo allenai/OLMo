@@ -6,7 +6,7 @@ import seaborn as sns
 
 from olmo.scaling.scaling_laws.fitting_functions import get_coefficients, sigmoid
 from olmo.scaling.scaling_laws.utils import (
-    get_downstream_data_by_name,
+    get_step2_data_by_name,
     get_final_configs,
     get_task_sets,
     prettify,
@@ -18,13 +18,10 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-k", "--keys", nargs="+", default=[], help="Key(s) for tasks")
     parser.add_argument(
-        "-a", "--acc_metric", default="rc_acc", choices=["rc_acc", "mc_acc"], help="Accuracy metric"
+        "-y", "--y_metric", default="rc_acc", choices=["rc_acc", "mc_acc"], help="Metric to predict"
     )
     parser.add_argument(
-        "--moving_avg",
-        type=int,
-        default=1,
-        help="Number of final ckpts to keep moving average over (for loss to accuracy fitting)",
+        "--moving_avg", type=int, default=1, help="Moving average for bpb loss"
     )
     parser.add_argument(
         "--skip_perc",
@@ -37,6 +34,36 @@ def parse_args():
     args = parser.parse_args()
 
     return args
+
+
+def fit_step2(data_by_name, task_name, y_metric):
+    train_xs, train_ys = [], []
+    for name, data in data_by_name.items():
+        if data["mode"] == "train":
+            train_xs += data["xs"]
+            train_ys += data["ys"]
+        else:
+            data["xs"] = data["xs"][-1:]
+            data["ys"] = data["ys"][-1:]
+
+    # add ideal points (these are not plotted)
+    train_xs.append(0.0)
+    train_ys.append(tasks[task_name].task_maximum)
+    train_xs.append(max(train_xs))
+    train_ys.append(tasks[task_name].task_minimum)
+
+    # fit the parameters
+    coefficients, cov = get_coefficients(
+        train_xs,
+        train_ys,
+        sigmoid,
+        p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, 1.0],
+        bounds=([-1.0, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
+        disp=False,
+        return_cov=True,
+    )
+
+    return coefficients, cov
 
 
 def main():
@@ -55,35 +82,9 @@ def main():
     results = "Task Name | Actual Value | Predicted Value | Relative Error"
 
     for i, task_name in enumerate(args.keys):
-        data_by_name = get_downstream_data_by_name(configs, task_name, acc_metric=args.acc_metric, moving_avg=args.moving_avg, skip_perc=args.skip_perc)
+        data_by_name = get_step2_data_by_name(configs, task_name, y_metric=args.y_metric, moving_avg=args.moving_avg, skip_perc=args.skip_perc)
 
-        train_xs, train_ys = [], []
-        for name, data in data_by_name.items():
-            config = configs[name]
-            if config.mode == "train":
-                train_xs += data["xs"]
-                train_ys += data["ys"]
-
-            else:
-                data["xs"] = data["xs"][-1:]
-                data["ys"] = data["ys"][-1:]
-
-        # add ideal points (these are not plotted)
-        train_xs.append(0.0)
-        train_ys.append(tasks[task_name].task_maximum)
-        train_xs.append(max(train_xs))
-        train_ys.append(tasks[task_name].task_minimum)
-
-        # fit the parameters
-        coefficients, cov = get_coefficients(
-            train_xs,
-            train_ys,
-            sigmoid,
-            p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, 1.0],
-            bounds=([-np.inf, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
-            disp=False,
-            return_cov=True,
-        )
+        coefficients, cov = fit_step2(data_by_name, task_name, args.y_metric)
         a, x0, k, b = coefficients
 
         # make predictions
@@ -174,7 +175,12 @@ def main():
 
         ax.legend(loc="upper right", ncols=1, fontsize=8)
         ax.set_xlabel("Task loss")
-        ax.set_ylabel(f"Task {'RC accuracy' if args.acc_metric == 'rc_acc' else 'MC accuracy'}")
+        if args.y_metric == "rc_acc":
+            ax.set_ylabel("Task RC accuracy")
+        elif args.y_metric == "mc_acc":
+            ax.set_ylabel("Task MC accuracy")
+        else:
+            raise ValueError(f"Invalid y_metric: {args.y_metric}")
         ax.set_ylim([0, 1.0])
         ax.set_title(
             f"{task_name}\nAcc(L) = {a:.2f} / (1 + e^(-{k:.2f}(L - {x0:.2f}))) + {b:.2f}\navg rel error on fitting = {avg_unsigned_rel_err * 100:.2f}%",

@@ -12,7 +12,7 @@ from olmo.scaling.scaling_laws.fitting_functions import (
     sigmoid,
 )
 from olmo.scaling.scaling_laws.utils import (
-    get_downstream_data_by_name,
+    get_step2_data_by_name,
     get_final_configs,
     get_task_sets,
     prettify,
@@ -80,7 +80,7 @@ def main():
 
         # keys = task.get_loss_keys()
         # data_by_name = get_final_data_by_name(configs, keys, num_to_avg=args.num_to_avg)
-        data_by_name = get_downstream_data_by_name(configs, task_name, moving_avg=args.moving_avg, last_n_points=1)
+        data_by_name = get_step2_data_by_name(configs, task_name, moving_avg=args.moving_avg, last_n_points=1)
 
         train_nds, train_xs = [], []
         for name, data in data_by_name.items():
@@ -177,7 +177,7 @@ def main():
 
         # Step 2
 
-        data_by_name = get_downstream_data_by_name(
+        data_by_name = get_step2_data_by_name(
             configs, task_name, moving_avg=args.moving_avg, skip_perc=args.skip_perc
         )
 

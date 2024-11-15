@@ -441,15 +441,24 @@ def get_data_by_name(configs: Dict[str, ExtrapolateNConfig], keys: List[str], mi
     return data_by_name
 
 
-def get_final_data_by_name(configs, keys, num_to_avg=1):
-    data_by_name: Dict = defaultdict(lambda: {"ns": [], "ds": [], "ys": []})
+def get_step1_data_by_name(configs, task_name, y_metric="rc_bpb", moving_avg=1):
+    task = tasks[task_name]
+    if y_metric == "rc_bpb":
+        keys = task.get_loss_keys()
+    elif y_metric == "rc_acc":
+        keys = task.get_accuracy_keys()
+    else:
+        raise ValueError(f"Invalid y_metric: {y_metric}")
+
+    data_by_name: Dict = defaultdict(lambda: {"ns": [], "ds": [], "ys": [], "ls": []})
     for name, config in configs.items():
         n = config.n
         for path in config.paths:
+            length = get_length(path)
             with open(path) as file_ref:
                 reader = csv.DictReader(file_ref)
                 rows = [row for row in reader]
-                rows = rows[-num_to_avg:]
+                rows = rows[-moving_avg:]
                 ds, ys = [], []
                 for row in rows:
                     d = int(float(row["throughput/total_tokens"]))
@@ -458,11 +467,12 @@ def get_final_data_by_name(configs, keys, num_to_avg=1):
                     )
                     ds.append(d)
                     ys.append(y)
-                d = np.mean(ds)
+                d = ds[-1]
                 y = np.mean(ys)
                 data_by_name[name]["ns"].append(n)
                 data_by_name[name]["ds"].append(d)
                 data_by_name[name]["ys"].append(y)
+                data_by_name[name]["ls"].append(length)
         data_by_name[name]["mode"] = config.mode
     return data_by_name
 
@@ -501,12 +511,15 @@ def get_length(path):
     return path.split("/")[-1].split(".csv")[0].split("-")[1]
 
 
-def get_downstream_data_by_name(configs, keys, acc_metric="rc_acc", moving_avg=1, skip_perc=0.0, last_n_points=-1):
-    loss_keys = tasks[keys].get_loss_keys()
-    if acc_metric == "rc_acc":
-        accuracy_keys = tasks[keys].get_accuracy_keys()
-    elif acc_metric == "mc_acc":
-        accuracy_keys = tasks[keys].get_mc_accuracy_keys()
+def get_step2_data_by_name(configs, task_name, y_metric="rc_acc", moving_avg=1, skip_perc=0.0, last_n_points=-1):
+    task = tasks[task_name]
+    loss_keys = task.get_loss_keys()
+    if y_metric == "rc_acc":
+        accuracy_keys = task.get_accuracy_keys()
+    elif y_metric == "mc_acc":
+        accuracy_keys = task.get_mc_accuracy_keys()
+    else:
+        raise ValueError(f"Invalid y_metric: {y_metric}")
 
     data_by_name: Dict = defaultdict(lambda: {"xs": [], "ys": [], "ds": [], "ns": [], "ls": []})
 
@@ -563,6 +576,8 @@ def get_downstream_data_by_name(configs, keys, acc_metric="rc_acc", moving_avg=1
                 data_by_name[name]["ds"] += ds
                 data_by_name[name]["ns"] += ns
                 data_by_name[name]["ls"] += ls
+
+        data_by_name[name]["mode"] = config.mode
 
     return data_by_name
 

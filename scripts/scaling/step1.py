@@ -6,19 +6,16 @@ import seaborn as sns
 
 from olmo.scaling.scaling_laws.fitting_functions import (
     chinchilla_n_d_fit,
-    chinchilla_n_d_fit_e,
     chinchilla_n_d_negated_fit,
-    get_coefficients,
     get_coefficients_huber,
     grad_chinchilla_n_d_fit,
     grad_chinchilla_n_d_negated_fit,
 )
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
-    get_final_data_by_name,
+    get_step1_data_by_name,
     get_task_sets,
     prettify,
-    tasks,
 )
 
 MARKERS = ["s", "P", "p", "*", "o"]
@@ -28,28 +25,43 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-k", "--keys", nargs="+", default=[], help="Key(s) for tasks")
     parser.add_argument(
-        "--num_to_avg", type=int, default=1, help="Number of final ckpts to average (for final loss fitting)"
+        "-y", "--y_metric", default="rc_bpb", choices=["rc_bpb", "rc_acc"], help="Metric to predict"
+    )
+    parser.add_argument(
+        "--moving_avg", type=int, default=1, help="Moving average for bpb loss"
     )
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
-    parser.add_argument(
-        "-a", "--accuracy", action="store_true", default=False, help="Predict accuracy metrics directly"
-    )
     args = parser.parse_args()
+
+    args.keys = get_task_sets(args.keys)
 
     return args
 
 
-def fit_step1(data_by_name, is_accuracy: bool = False):
+def fit_step1(data_by_name, y_metric):
     train_nds, train_ys = [], []
     for name, data in data_by_name.items():
         if data["mode"] == "train":
             train_nds += [[n, d] for n, d in zip(data["ns"], data["ds"])]
             train_ys += data["ys"]
 
-    if is_accuracy:
+    if y_metric == "rc_bpb":
+        p0 = [3.0, 6.0, 0.1, 0.2, 1.0]
+        bounds = [(0, None), (0, None), (0, None), (0, None), (0, None)]
+        coefficients = get_coefficients_huber(
+            train_nds,
+            train_ys,
+            chinchilla_n_d_fit,
+            grad_chinchilla_n_d_fit,
+            p0=p0,
+            bounds=bounds,
+            max_iter=1000000,
+            disp=False,
+        )
+    elif y_metric == "rc_acc":
         p0 = [2.0, 2.0, 0.2, 0.2, 1.0]
-        bounds = [(0, None), (0, None), (0, None), (None, None), (None, None)]
+        bounds = [(0, None), (0, None), (0, None), (0, None), (0, None)]
         coefficients = get_coefficients_huber(
             train_nds,
             train_ys,
@@ -61,30 +73,24 @@ def fit_step1(data_by_name, is_accuracy: bool = False):
             disp=False,
         )
     else:
-        p0 = [3.0, 6.0, 0.1, 0.2, 1.0]
-        bounds = [(0, None), (0, None), (0, None), (None, None), (None, None)]
-        coefficients = get_coefficients_huber(
-            train_nds,
-            train_ys,
-            chinchilla_n_d_fit,
-            grad_chinchilla_n_d_fit,
-            p0=p0,
-            bounds=bounds,
-            max_iter=1000000,
-            disp=False,
-        )
+        raise ValueError(f"Unknown y_metric: {y_metric}")
 
     return coefficients
 
 
-def predict_step1(data_by_name, coefficients, is_accuracy: bool = False):
+def predict_step1(data_by_name, coefficients, y_metric):
     predicted_data_by_name = {}
     plotted_predicted_data_by_name = {}
 
     dmin = 0.8 * min([min(data["ds"]) for data in data_by_name.values()])
     dmax = 1.2 * max([max(data["ds"]) for data in data_by_name.values()])
 
-    func = chinchilla_n_d_negated_fit if is_accuracy else chinchilla_n_d_fit
+    if y_metric == "rc_bpb":
+        func = chinchilla_n_d_fit
+    elif y_metric == "rc_acc":
+        func = chinchilla_n_d_negated_fit
+    else:
+        raise ValueError(f"Unknown y_metric: {y_metric}")
 
     for name, data in data_by_name.items():
         predicted_data_by_name[name] = {
@@ -119,7 +125,7 @@ def plot_step1(
     plotted_predicted_data_by_name,
     task_name,
     fit_str,
-    is_accuracy=False,
+    y_metric,
     ax=plt.gca(),
 ):
     # plot the actual and predicted data
@@ -169,7 +175,12 @@ def plot_step1(
     ax.set_xscale("log")
     ax.legend(loc="upper right", ncols=1, fontsize=8)
     ax.set_xlabel("Tokens (D)")
-    ax.set_ylabel("Task accuracy" if is_accuracy else "Task loss")
+    if y_metric == "rc_bpb":
+        ax.set_ylabel("Task loss")
+    elif y_metric == "rc_acc":
+        ax.set_ylabel("Task RC accuracy")
+    else:
+        raise ValueError(f"Unknown y_metric: {y_metric}")
     ax.set_title(
         f"{task_name}\n{fit_str}\navg rel error on fitting = {avg_unsigned_rel_error * 100:.2f}%",
         fontsize=9,
@@ -178,10 +189,7 @@ def plot_step1(
 
 def main():
     args = parse_args()
-
     configs = get_final_configs(args.config_path)
-
-    args.keys = get_task_sets(args.keys)
 
     sns.set_style("whitegrid")
     num_tasks = len(args.keys)
@@ -192,16 +200,14 @@ def main():
     results = "Task Name | Actual Value | Predicted Value | Relative Error"
 
     for i, task_name in enumerate(args.keys):
-        task = tasks[task_name]
-        keys = task.get_accuracy_keys() if args.accuracy else task.get_loss_keys()
-        data_by_name = get_final_data_by_name(configs, keys, num_to_avg=args.num_to_avg)
+        data_by_name = get_step1_data_by_name(configs, task_name, y_metric=args.y_metric, moving_avg=args.moving_avg)
 
         # fit the parameters
-        coefficients = fit_step1(data_by_name, args.accuracy)
+        coefficients = fit_step1(data_by_name, args.y_metric)
 
         # make predictions
         predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error) = predict_step1(
-            data_by_name, coefficients, is_accuracy=args.accuracy
+            data_by_name, coefficients, y_metric=args.y_metric
         )
         results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)}"
 
@@ -212,7 +218,7 @@ def main():
             plotted_predicted_data_by_name,
             task_name,
             str_chinchilla_n_d_fit(coefficients),
-            args.accuracy,
+            args.y_metric,
             axes[i // num_cols][i % num_cols],
         )
 
