@@ -19,6 +19,7 @@ def main(wandb_run_path: str):
     run = api.run(wandb_run_path)
     print(run.group)
 
+
 if __name__ == "__main__":
     prepare_cli_environment()
     main()

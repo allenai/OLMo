@@ -22,7 +22,7 @@ def main(wandb_run_path: str, step: int):
     api = wandb.Api()
     run = api.run(wandb_run_path)
     learning_rate_key = "optim/learning_rate_group0"
-    for data in run.scan_history(keys=["_step", learning_rate_key], min_step=step-1, max_step=step+1):
+    for data in run.scan_history(keys=["_step", learning_rate_key], min_step=step - 1, max_step=step + 1):
         data_step = int(data["_step"])
         if data_step == step:
             lr = data[learning_rate_key]
@@ -30,6 +30,7 @@ def main(wandb_run_path: str, step: int):
             break
     else:
         raise RuntimeError(f"Could not find step {step} in {wandb_run_path}")
+
 
 if __name__ == "__main__":
     prepare_cli_environment()
