@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from olmo.scaling.scaling_laws.fitting_functions import get_coefficients, sigmoid
+from olmo.scaling.scaling_laws.fitting_functions import get_coefficients, sigmoid, get_std_errors
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
     get_step2_data_by_name,
@@ -106,21 +106,7 @@ def main():
             "ys": [sigmoid(x, *coefficients) for x in xs],
         }
 
-        # Compute standard errors for prediction
-        # Compute the Jacobian matrix of partial derivatives with respect to parameters
-        jacobian = np.zeros((len(plotted_predicted_data["xs"]), len(coefficients)))
-        for j, x_val in enumerate(plotted_predicted_data["xs"]):
-            # Partial derivatives
-            jacobian[j, 0] = 1 / (1 + np.exp(-k * (x_val - x0)))
-            jacobian[j, 1] = a * k * np.exp(-k * (x_val - x0)) / (1 + np.exp(-k * (x_val - x0))) ** 2
-            jacobian[j, 2] = a * (x_val - x0) * np.exp(-k * (x_val - x0)) / (1 + np.exp(-k * (x_val - x0))) ** 2
-            jacobian[j, 3] = 1
-
-        # Compute standard errors for predictions
-        intermediate = np.sum(jacobian @ cov @ jacobian.T, axis=1)
-        # TODO: DANGER, this approximation may be bad.
-        std_errors = np.sqrt(intermediate.clip(min=0.0))
-        # std_errors = np.sqrt(np.abs(intermediate))
+        std_errors = get_std_errors(plotted_predicted_data["xs"], plotted_predicted_data["ys"], coefficients, cov)
 
         # Compute prediction intervals
         plotted_y_lower = plotted_predicted_data["ys"] - 1.96 * std_errors
@@ -144,6 +130,11 @@ def main():
             )
             for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data["ys"]):
                 rel_error = (y_pred - y) / y
+                std_error = get_std_errors([x], [y_pred], coefficients, cov)[0]
+                y_lower = y_pred - 1.96 * std_error
+                y_upper = y_pred + 1.96 * std_error
+                rel_error_lower = (y_lower - y) / y
+                rel_error_upper = (y_upper - y) / y
 
                 if config.mode == "train":
                     unsigned_rel_errs.append(abs(rel_error))
@@ -159,7 +150,7 @@ def main():
                         color=config.color,
                     )
                     results += (
-                        f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)}"
+                        f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} +/- {prettify(1.96 * std_error, False)} | {prettify(rel_error)}"
                     )
         avg_unsigned_rel_err = np.mean(unsigned_rel_errs)
 
@@ -174,7 +165,7 @@ def main():
 
         ax.fill_between(
             plotted_predicted_data["xs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3
-        )  # , label="95% Prediction Interval")
+        )
 
         ax.legend(loc="lower right", ncols=1, fontsize=8)
         ax.set_xlabel("Task loss")

@@ -50,7 +50,7 @@ def fit_step1(data_by_name, y_metric):
     if y_metric == "rc_bpb":
         p0 = [3.0, 6.0, 0.1, 0.2, 1.0]
         bounds = [(0, None), (0, None), (0, None), (0, None), (0, None)]
-        coefficients = get_coefficients_huber(
+        coefficients, cov = get_coefficients_huber(
             train_nds,
             train_ys,
             chinchilla_n_d_fit,
@@ -59,11 +59,12 @@ def fit_step1(data_by_name, y_metric):
             bounds=bounds,
             max_iter=1000000,
             disp=False,
+            return_cov=True,
         )
     elif y_metric == "rc_acc":
         p0 = [2.0, 2.0, 0.2, 0.2, 1.0]
-        bounds = [(0, None), (0, None), (0, None), (0, None), (0, None)]
-        coefficients = get_coefficients_huber(
+        bounds = [(0, None), (0, None), (0, None), (None, None), (None, None)]
+        coefficients, cov = get_coefficients_huber(
             train_nds,
             train_ys,
             chinchilla_n_d_negated_fit,
@@ -72,11 +73,12 @@ def fit_step1(data_by_name, y_metric):
             bounds=bounds,
             max_iter=1000000,
             disp=False,
+            return_cov=True
         )
     else:
         raise ValueError(f"Unknown y_metric: {y_metric}")
 
-    return coefficients
+    return coefficients, cov
 
 
 def predict_step1(data_by_name, coefficients, y_metric):
@@ -206,7 +208,7 @@ def main():
         )
 
         # fit the parameters
-        coefficients = fit_step1(data_by_name, args.y_metric)
+        coefficients, cov = fit_step1(data_by_name, args.accuracy)
 
         # make predictions
         predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error) = predict_step1(
@@ -214,8 +216,7 @@ def main():
         )
         results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)}"
 
-        plot_step1(
-            configs,
+        plot_step1(configs,
             data_by_name,
             predicted_data_by_name,
             plotted_predicted_data_by_name,

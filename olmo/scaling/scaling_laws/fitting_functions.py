@@ -29,6 +29,19 @@ def get_coefficients(train_xs, train_ys, fitting_func, p0, bounds=(-np.inf, np.i
     return coeffs
 
 
+def get_std_errors(xs, ys, coefficients, cov, fitting_func, grad_fitting_func):
+    # Compute the Jacobian matrix
+    jacobian = np.zeros((len(xs), len(coefficients)))
+    for j, x in enumerate(xs):
+        jacobian[j] = grad_fitting_func(x, coefficients)
+
+    # Compute standard errors for predictions
+    intermediate = np.sum(jacobian @ cov @ jacobian.T, axis=1)
+    std_errors = np.sqrt(intermediate.clip(min=0.0))
+
+    return std_errors
+
+
 # x = flops
 # p[0] = A, p[1] = B, p[2] = E
 def chinchilla_flops_fit(x, p):
@@ -315,6 +328,8 @@ def sigmoid(x, a, x0, k, b):
     o = a / (1 + np.exp(-k * (x - x0))) + b
     return o
 
+def exponential_fit(x, a, b, c):
+    return a * np.exp(b * x) + c
 
 # Scipy minimize w/ Huber loss
 def get_coefficients_huber(

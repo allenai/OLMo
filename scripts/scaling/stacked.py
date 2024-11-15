@@ -1,5 +1,5 @@
 import argparse
-
+import re
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -46,6 +46,8 @@ def parse_args():
     )
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
+    parser.add_argument("--target_n", type=str, required=False, default="")
+    parser.add_argument("--target_d", type=str, required=False, default="")
     args = parser.parse_args()
 
     return args
@@ -57,6 +59,45 @@ def str_chinchilla_n_d_fit(coefficients):
     return f"L(N, D) = {A:.2f} / N^{alpha:.2f} + {B:.2f} / D^{beta:.2f} + {E:.2f}"
 
 
+# These are updated with actual Peteish count
+MODEL_PARAMS = {
+    "190M": 190354176,
+    "370M": 371262464,
+    "600M": 597382464,
+    "760M": 758220288,
+    "1B": 1279395840,
+    "3B": 3169537280,
+    "7B": 6887575552,
+    "13B": 13202396160,
+}
+
+
+_number_unit_re = re.compile(r"^([0-9]+)([a-zA-Z]+)$")
+_run_name_re = re.compile(r"^([^-]+)-([^-]+)-([^-]+)$")
+
+
+def parse_size(size: str) -> int:
+    return MODEL_PARAMS[size]
+
+
+def parse_length(length: str, model_size: int) -> int:
+    length_in_tokens, length_unit = _number_unit_re.match(length.strip().upper()).groups()  # type: ignore
+    length_in_tokens = int(length_in_tokens)
+    if length_unit == "C" or length_unit == "XC":
+        length_in_tokens *= 20 * model_size
+    elif length_unit == "K":
+        length_in_tokens *= 1000
+    elif length_unit == "M":
+        length_in_tokens *= 1000000
+    elif length_unit == "B":
+        length_in_tokens *= 1000000000
+    elif length_unit == "T":
+        length_in_tokens *= 1000000000000
+    else:
+        raise ValueError(f"Could not parse length '{args.length}'")
+    return length_in_tokens
+
+
 def main():
     args = parse_args()
 
@@ -66,8 +107,15 @@ def main():
 
     sns.set_style("whitegrid")
 
+    if args.target_n:
+        pred_n = parse_size(args.target_n)
+        pred_d = parse_length(args.target_d, pred_n)
+
+
     num_tasks = len(args.keys)
     fig, axes = plt.subplots(num_tasks, 3, figsize=(6 * 3, 4.5 * num_tasks), squeeze=False)
+
+    accs = 0
 
     results = "Task Name | Loss Error | Accuracy Error | Stacked Accuracy Error"
 
@@ -138,7 +186,7 @@ def main():
                 ax.scatter(d, y, color=config.color, marker=MARKERS.get(length, "*"), s=50)
 
             predicted_data = predicted_data_by_name[name]
-            for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["xs"]):
+            for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["xs"]):
                 rel_error = (y_pred - y) / y
                 ax.annotate(
                     f"{prettify(rel_error)}",
@@ -174,6 +222,8 @@ def main():
         ax.set_xlabel("Tokens (D)")
         ax.set_ylabel("Loss")
         ax.set_title(task_name)
+
+        step1_coefficients = coefficients
 
         # Step 2
 
@@ -309,6 +359,11 @@ def main():
         ax.set_ylabel("Task accuracy")
         ax.set_title(task_name)
 
+        if args.target_n:
+            predicted_loss = chinchilla_n_d_fit([pred_n, pred_d], step1_coefficients)
+            predicted_acc = sigmoid(predicted_loss, *coefficients)
+            print(f"Predicted {task_name} acc for {args.target_n}-{args.target_d}: {predicted_acc:.3f}")
+
         # Stacked plot
 
         ax = axes[r][2]
@@ -334,14 +389,8 @@ def main():
 
     print(results)
 
-    # y_1b_3T = chinchilla_flops_fit([1176832000, 3e12], coefficients)
-    # print(f"Predicted final loss for 1b-3T: {y_1b_3T:.3f}")
-    # y_7b_2T = chinchilla_flops_fit([6682316800, 2e12], coefficients)
-    # print(f"Predicted final loss for 7b-2T: {y_7b_2T:.3f}")
-    # y_7b_3T = chinchilla_flops_fit([6682316800, 3e12], coefficients)
-    # print(f"Predicted final loss for 7b-3T: {y_7b_3T:.3f}")
-    # y_13b_5T = chinchilla_flops_fit([13e9, 5e12], coefficients)
-    # print(f"Predicted final loss for 13b-5T: {y_13b_5T:.3f}")
+
+    
 
 
 if __name__ == "__main__":
