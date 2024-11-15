@@ -102,6 +102,8 @@ v3_validation = [
 class DownstreamTaskPrediction:
     task_loss_key: Union[str, List[str]]
     task_accuracy_key: Union[str, List[str]]
+    task_mc_loss_key: Union[str, List[str]]
+    task_mc_accuracy_key: Union[str, List[str]]
     task_minimum: float = 0.25
     task_maximum: float = 1.0
 
@@ -110,6 +112,12 @@ class DownstreamTaskPrediction:
 
     def get_accuracy_keys(self):
         return self.task_accuracy_key if isinstance(self.task_accuracy_key, list) else [self.task_accuracy_key]
+
+    def get_mc_loss_keys(self):
+        return self.task_mc_loss_key if isinstance(self.task_mc_loss_key, list) else [self.task_mc_loss_key]
+
+    def get_mc_accuracy_keys(self):
+        return self.task_mc_accuracy_key if isinstance(self.task_mc_accuracy_key, list) else [self.task_mc_accuracy_key]
 
 
 minimums_rc: Dict[str, float] = {
@@ -132,7 +140,7 @@ core_names = [
     "socialiqa",
     "winogrande",
 ]
-core_small_names = ["hellaswag", "arc_challenge", "piqa", "csqa", "socialiqa"]
+core_small_names = ["hellaswag", "arc_challenge", "arc_easy", "piqa", "csqa", "socialiqa", "openbookqa"]
 mmlu_names = ["mmlu_stem", "mmlu_humanities", "mmlu_social_sciences", "mmlu_other"]
 
 core_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
@@ -141,6 +149,8 @@ core_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_accuracy_key=f"eval/downstream/{key}_rc_5shot_len_norm"
         if key not in ["arc_easy", "winogrande", "boolq"]
         else f"eval/downstream/{key}_rc_5shot_acc",
+        task_mc_loss_key=f"eval/downstream_bpb/{key}_mc_5shot_bpb_bpb",
+        task_mc_accuracy_key=f"eval/downstream/{key}_mc_5shot_acc",
         task_minimum=minimums_rc.get(key, 0.25),
         task_maximum=maximums_rc.get(key, 1.0),
     )
@@ -151,8 +161,10 @@ core_small_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
     f"{key}_rc_5shot": DownstreamTaskPrediction(
         task_loss_key=f"eval/downstream_bpb/{key}_rc_5shot_bpb_bpb",
         task_accuracy_key=f"eval/downstream/{key}_rc_5shot_len_norm"
-        if key not in ["arc_easy", "winogrande"]
+        if key not in ["arc_easy", "winogrande", "boolq"]
         else f"eval/downstream/{key}_rc_5shot_acc",
+        task_mc_loss_key=f"eval/downstream_bpb/{key}_mc_5shot_bpb_bpb",
+        task_mc_accuracy_key=f"eval/downstream/{key}_mc_5shot_acc",
         task_minimum=minimums_rc.get(key, 0.25),
         task_maximum=maximums_rc.get(key, 1.0),
     )
@@ -163,6 +175,8 @@ mmlu_var_tasks: Dict[str, DownstreamTaskPrediction] = {
     "mmlu_avg_var": DownstreamTaskPrediction(
         task_loss_key=[f"eval/downstream_bpb/{key}_var_bpb_bpb" for key in mmlu_names],
         task_accuracy_key=[f"eval/downstream/{key}_var_len_norm" for key in mmlu_names],
+        task_mc_loss_key=[f"eval/downstream_bpb/{key}_mc_5shot_bpb_bpb" for key in mmlu_names],
+        task_mc_accuracy_key=[f"eval/downstream/{key}_mc_5shot_len_norm" for key in mmlu_names],
         task_minimum=0.25,
         task_maximum=1.0,  # 0.9,
     )
@@ -172,6 +186,8 @@ mmlu_subset_var_tasks: Dict[str, DownstreamTaskPrediction] = {
     key: DownstreamTaskPrediction(
         task_loss_key=f"eval/downstream_bpb/{key}_var_bpb_bpb",
         task_accuracy_key=f"eval/downstream/{key}_var_len_norm",
+        task_mc_loss_key=f"eval/downstream_bpb/{key}_mc_5shot_bpb_bpb",
+        task_mc_accuracy_key=f"eval/downstream/{key}_mc_5shot_len_norm",
         task_minimum=minimums_rc.get(key, 0.25),
         task_maximum=maximums_rc.get(key, 0.9),
     )
@@ -485,9 +501,12 @@ def get_length(path):
     return path.split("/")[-1].split(".csv")[0].split("-")[1]
 
 
-def get_downstream_data_by_name(configs, keys, moving_avg=1, skip_perc=0.0, last_n_points=-1):
+def get_downstream_data_by_name(configs, keys, acc_metric="rc_acc", moving_avg=1, skip_perc=0.0, last_n_points=-1):
     loss_keys = tasks[keys].get_loss_keys()
-    accuracy_keys = tasks[keys].get_accuracy_keys()
+    if acc_metric == "rc_acc":
+        accuracy_keys = tasks[keys].get_accuracy_keys()
+    elif acc_metric == "mc_acc":
+        accuracy_keys = tasks[keys].get_mc_accuracy_keys()
 
     data_by_name: Dict = defaultdict(lambda: {"xs": [], "ys": [], "ds": [], "ns": [], "ls": []})
 

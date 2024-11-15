@@ -18,10 +18,19 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-k", "--keys", nargs="+", default=[], help="Key(s) for tasks")
     parser.add_argument(
+        "-a", "--acc_metric", default="rc_acc", choices=["rc_acc", "mc_acc"], help="Accuracy metric"
+    )
+    parser.add_argument(
         "--moving_avg",
         type=int,
         default=1,
         help="Number of final ckpts to keep moving average over (for loss to accuracy fitting)",
+    )
+    parser.add_argument(
+        "--skip_perc",
+        type=float,
+        default=0.0,
+        help="Percentage of intermediate ckpts to skip from the beginning (for loss to accuracy fitting)",
     )
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
@@ -39,14 +48,14 @@ def main():
 
     sns.set_style("whitegrid")
     num_tasks = len(args.keys)
-    num_cols = min(3, num_tasks)
+    num_cols = min(4, num_tasks)
     num_rows = (num_tasks + num_cols - 1) // num_cols
-    fig, axes = plt.subplots(num_rows, num_cols, figsize=(3.5 * num_cols, 3 * num_rows), squeeze=False)
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(3.75 * num_cols, 3.25 * num_rows), squeeze=False)
 
     results = "Task Name | Actual Value | Predicted Value | Relative Error"
 
     for i, task_name in enumerate(args.keys):
-        data_by_name = get_downstream_data_by_name(configs, task_name, moving_avg=args.moving_avg)
+        data_by_name = get_downstream_data_by_name(configs, task_name, acc_metric=args.acc_metric, moving_avg=args.moving_avg, skip_perc=args.skip_perc)
 
         train_xs, train_ys = [], []
         for name, data in data_by_name.items():
@@ -71,7 +80,7 @@ def main():
             train_ys,
             sigmoid,
             p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, 1.0],
-            bounds=([-np.inf, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, np.inf]),
+            bounds=([-np.inf, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
             disp=False,
             return_cov=True,
         )
@@ -136,7 +145,7 @@ def main():
                     unsigned_rel_errs.append(abs(rel_error))
                 else:
                     ax.annotate(
-                        f"{prettify(rel_error)}",
+                        f"{np.abs(rel_error) * 100:.1f}%",
                         (x, y),
                         textcoords="offset points",
                         xytext=(3, 3),
@@ -165,12 +174,11 @@ def main():
 
         ax.legend(loc="upper right", ncols=1, fontsize=8)
         ax.set_xlabel("Task loss")
-        ax.set_ylabel("Task accuracy")
-
+        ax.set_ylabel(f"Task {'RC accuracy' if args.acc_metric == 'rc_acc' else 'MC accuracy'}")
         ax.set_ylim([0, 1.0])
         ax.set_title(
-            f"{task_name}\nσ(L) = {a:.2f} / (1 + e^(-{k:.2f}(L - {x0:.2f}))) + {b:.2f}\navg unsigned rel error on fitting = {avg_unsigned_rel_err * 100:.2f}%",
-            fontsize=10,
+            f"{task_name}\nAcc(L) = {a:.2f} / (1 + e^(-{k:.2f}(L - {x0:.2f}))) + {b:.2f}\navg rel error on fitting = {avg_unsigned_rel_err * 100:.2f}%",
+            fontsize=9,
         )
 
     fig.tight_layout()
