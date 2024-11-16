@@ -124,6 +124,8 @@ minimums_rc: Dict[str, float] = {
     "piqa": 0.5,
     "socialiqa": 1 / 3,
     "csqa": 0.2,
+    "boolq": 0.5,
+    "winogrande": 0.5,
 }
 
 maximums_rc: Dict[str, float] = {}  # {"mmlu_stem": 0.9, "arc_easy": 0.85}
@@ -144,7 +146,7 @@ core_small_names = ["hellaswag", "arc_challenge", "arc_easy", "piqa", "csqa", "s
 mmlu_names = ["mmlu_stem", "mmlu_humanities", "mmlu_social_sciences", "mmlu_other"]
 
 core_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
-    f"{key}_rc_5shot": DownstreamTaskPrediction(
+    f"{key}_5shot": DownstreamTaskPrediction(
         task_loss_key=f"eval/downstream_bpb/{key}_rc_5shot_bpb_bpb",
         task_accuracy_key=f"eval/downstream/{key}_rc_5shot_len_norm"
         if key not in ["arc_easy", "winogrande", "boolq"]
@@ -158,7 +160,7 @@ core_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
 }
 
 core_small_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
-    f"{key}_rc_5shot": DownstreamTaskPrediction(
+    f"{key}_5shot": DownstreamTaskPrediction(
         task_loss_key=f"eval/downstream_bpb/{key}_rc_5shot_bpb_bpb",
         task_accuracy_key=f"eval/downstream/{key}_rc_5shot_len_norm"
         if key not in ["arc_easy", "winogrande", "boolq"]
@@ -205,6 +207,8 @@ def get_task_sets(keys):
             keys = list(mmlu_subset_var_tasks.keys())
         elif keys[0] == "main":
             keys = list(mmlu_var_tasks.keys()) + list(core_small_5shot_tasks.keys())
+        elif keys[0] == "main_mc":
+            keys = ["mmlu_avg_var", "arc_challenge_5shot"]
         elif keys[0] == "all":
             keys = list(mmlu_var_tasks.keys()) + list(core_5shot_tasks.keys())
     return keys
@@ -328,6 +332,8 @@ KEYS_BY_KEY = {
     "all-bpb": downstream_bpb,
     "c4": ["eval/c4_en-validation/CrossEntropyLoss"],
 }
+for task_name, task in tasks.items():
+    KEYS_BY_KEY[task_name] = task.task_loss_key if isinstance(task.task_loss_key, list) else [task.task_loss_key]
 
 WEIGHT_BY_KEY = {
     "eval/downstream_bpb/mmlu_stem_var_bpb_bpb": 0.215,
@@ -357,9 +363,6 @@ MODEL_FLOPS = {
     "7b": 49412071424,
     "13b": 91335915520,
 }
-
-for task_name, task in tasks.items():
-    KEYS_BY_KEY[task_name] = task.task_loss_key if isinstance(task.task_loss_key, list) else [task.task_loss_key]
 
 
 def prettify(rel_error, is_percentage=True):
@@ -508,7 +511,10 @@ def moving_average(arr, n):
 
 
 def get_length(path):
-    return path.split("/")[-1].split(".csv")[0].split("-")[1]
+    try:
+        return path.split("/")[-1].split(".csv")[0].split("-")[1]
+    except:
+        return ""
 
 
 def get_step2_data_by_name(configs, task_name, y_metric="rc_acc", moving_avg=1, skip_perc=0.0, last_n_points=-1):

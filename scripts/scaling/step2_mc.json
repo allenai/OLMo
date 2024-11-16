@@ -1,0 +1,20 @@
+{
+    "7b-4T-70k-300k": {
+        "paths": [
+            "wandb/peteish7_eval_full_70k-300k.csv"
+        ],
+        "mode": "train",
+        "n": 6887575552,
+        "label": "7b-4T-70k-300k",
+        "color": "darkviolet"
+    },
+    "7b-4T-final": {
+        "paths": [
+            "wandb/peteish7_eval_anneal.csv"
+        ],
+        "mode": "eval",
+        "n": 6887575552,
+        "label": "7b-4T-final",
+        "color": "magenta"
+    }
+}
