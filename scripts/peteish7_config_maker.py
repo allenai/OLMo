@@ -55,7 +55,10 @@ def get_batch_s3_size(s3_uris: List[str]):
 
     
     # Convert results to dictionary
-    sizes = dict(results)
+    sizes = {}
+    for s3_uri, size in results:
+        sizes[s3_uri] = sizes.get(s3_uri, 0) + size
+    # sizes = dict(results)
     return sizes
     
     
