@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- A bunch of annealing configs
+- `constant_with_warmup` learning rate schedule
+- `one_in_eight` configuration for activation checkpointing
+- New tokenizer in the source instead of from huggingface
+- Improved support for GCS
+
+
 ## [v0.5.1](https://github.com/allenai/OLMo/releases/tag/v0.5.1) - 2024-10-17
 
 ### Added
@@ -14,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added ability to try loading latest checkpoint from save folder using `--try_load_latest_save`.
 - Added support for flash attention and gradient checkpointing to `hf_olmo`.
 - Added an eval-only script that evaluates existing checkpoints on specified tasks.
+- Added to `scripts.compare_wandb_configs.py` the ability to more easily compare differences in data mixes and evaluation tasks.
 - Added `effective_n_kv_heads` to OLMoConfig for hacky VLLM support.
 
 
