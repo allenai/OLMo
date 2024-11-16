@@ -42,6 +42,7 @@ export NCCL_FASTRAK_USE_LLCM=1
 export NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY=/dev/aperture_devices
 
 # Install flash-attn
+# Flash is already installed in the docker image.
 #conda install -y pytorch-cuda==12.4 packaging ninja cccl cuda-nvcc libcusolver-dev cuda-profiler-api libcusparse-dev libcublas-dev -c pytorch -c nvidia
 #pip install flash-attn==2.5.9.post1 --no-build-isolation
 pip install '.[train]'
@@ -70,22 +71,21 @@ torchrun \
   scripts/train.py \
     $FILENAME \
       --run_name=$RUN_NAME \
-      --wandb.grop=$NAME \
+      --wandb.group=$NAME \
       --seed=$SEED \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas=$BEAKER_REPLICA_COUNT \
       --save_folder=$SAVE_FOLDER \
       --save_overwrite \
+      --save_num_checkpoints_to_keep=2 \
       --device_train_microbatch_size=4 \
       --device_eval_batch_size=8 \
       --activation_checkpointing=whole_layer \
       --compile.fullgraph=false \
-      --fused_loss=false \
-      --model.flash_attention=false \
+      --fused_loss=true \
+      --model.flash_attention=true \
       --data.num_workers=8 \
       --optimizer.metrics_log_interval=10 \
       --data.prefetch_factor=8 \
       --remote_save_folder=gs://ai2-llm/checkpoints/OLMo-medium/$NAME \
-      '--load_path=${path.last_checkpoint:${remote_save_folder}}' \
-      --try_load_latest_save=true \
-      --restore_dataloader=true
+      --try_load_latest_save=true

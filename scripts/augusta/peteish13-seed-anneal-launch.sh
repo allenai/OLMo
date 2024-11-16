@@ -17,7 +17,7 @@ gantry run \
   --description "Peteish13 annealing : $NAME with seed $SEED" \
   --priority high \
   --preemptible \
-  --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
+  --beaker-image dirkg/OLMo \
   --cluster ai2/augusta-google-1 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
