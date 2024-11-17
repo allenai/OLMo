@@ -1,5 +1,7 @@
-# python scripts/scaling/predict.py -k main -c scripts/scaling/final.json -n 6887575552 -d 3945065873408 -t 7b
+# python scripts/scaling/predict.py -k main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -n 6887575552 -d 3945065873408 -t 7b
+# python scripts/scaling/predict.py -k main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -n 13202396160 -d 5000080130048 -t 13b
 # python scripts/scaling/predict.py -k main_mc -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2_mc.json -y mc_acc -n 6887575552 -d 3945065873408 -t 7b-4T-final
+# python scripts/scaling/predict.py -k main_mc -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2_mc.json -y mc_acc  -n 13202396160 -d 5000080130048 -t 13b-5T-final
 
 import argparse
 

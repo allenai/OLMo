@@ -1,3 +1,6 @@
+# python scripts/scaling/step2.py -k main -c scripts/scaling/step2.json -o figure/peteish-final/step2_main.png
+# python scripts/scaling/step2.py -k main_mc -c scripts/scaling/step2_mc.json -o figure/peteish-final/step2_mc_main.png -y mc_acc
+
 import argparse
 
 import matplotlib.pyplot as plt
@@ -173,7 +176,7 @@ def main():
             plotted_predicted_data["xs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3
         )  # , label="95% Prediction Interval")
 
-        ax.legend(loc="upper right", ncols=1, fontsize=8)
+        ax.legend(loc="lower right", ncols=1, fontsize=8)
         ax.set_xlabel("Task loss")
         if args.y_metric == "rc_acc":
             ax.set_ylabel("Task RC accuracy")

@@ -70,29 +70,21 @@ def main(args):
     if args.y_axis == ["eval/all-validation/CrossEntropyLoss"]:
         args.y_axis = [f"eval/{d}/CrossEntropyLoss" for d in validation]
 
-    if args.y_axis == ["eval/all-validation-and-bpb/CrossEntropyLoss"]:
-        args.y_axis = [f"eval/{d}/CrossEntropyLoss" for d in validation] + [
-            f"eval/downstream_bpb/{d}_bpb" for d in downstream_bpb
-        ]
-
     elif args.y_axis == ["eval/all-v3-validation/CrossEntropyLoss"]:
         args.y_axis = [f"eval/{d}/CrossEntropyLoss" for d in v3_validation]
 
+    elif args.y_axis == ["eval/all-validation-and-bpb/CrossEntropyLoss"]:
+        args.y_axis = [f"eval/{d}/CrossEntropyLoss" for d in validation] + downstream_bpb
+
     elif args.y_axis == ["eval/downstream/all"]:
-        args.y_axis = [f"eval/downstream/{d}" for d in downstream]
+        args.y_axis = downstream
 
     elif args.y_axis == ["eval/validation-and-bpb-and-downstream"]:
-        args.y_axis = (
-            [f"eval/{d}/CrossEntropyLoss" for d in validation]
-            + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_bpb]
-            + [f"eval/downstream/{d}" for d in downstream]
-        )
+        args.y_axis = [f"eval/{d}/CrossEntropyLoss" for d in validation] + downstream_bpb + downstream
 
     elif args.y_axis == ["eval/validation-and-bpb-and-downstream-newline"]:
         args.y_axis = (
-            [f"eval/{d}/CrossEntropyLoss" for d in validation]
-            + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_bpb]
-            + [f"eval/downstream/{d}" for d in downstream]
+            [f"eval/{d}/CrossEntropyLoss" for d in validation] + downstream_bpb + downstream
             + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_newline_bpb]
             + [f"eval/downstream/{d}" for d in downstream_newline]
         )
@@ -252,8 +244,8 @@ if __name__ == "__main__":
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/amberish-rulebased-3B-5xC' -y eval/validation-and-bpb-and-downstream -o wandb/amberish-rulebased/3B-5xC.csv
 
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish7' -y eval/downstream/arc_easy_acc -o wandb/peteish7_train.csv
-    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish7-eval' -y eval/validation-and-bpb-and-downstream -o wandb/peteish7_eval_final.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish7-eval' -y eval/validation-and-bpb-and-downstream -e -o wandb/peteish7_eval_full.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish13-eval' -y eval/validation-and-bpb-and-downstream -o wandb/peteish13_eval_final.csv
 
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-190M-1xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/190M-1xC.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-370M-1xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-final/370M-1xC.csv

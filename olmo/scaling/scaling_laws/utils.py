@@ -234,6 +234,16 @@ def get_accuracy_keys(tasks: Dict[str, DownstreamTaskPrediction]) -> List[str]:
     return accuracy_keys
 
 
+def get_mc_accuracy_keys(tasks: Dict[str, DownstreamTaskPrediction]) -> List[str]:
+    mc_accuracy_keys: List[str] = []
+    for _, task in tasks.items():
+        if isinstance(task.task_mc_accuracy_key, list):
+            mc_accuracy_keys += task.task_mc_accuracy_key
+        else:
+            mc_accuracy_keys.append(task.task_mc_accuracy_key)
+    return mc_accuracy_keys
+
+
 # Special case for testing with old tokenizer:
 
 downstream_newline = [
@@ -323,9 +333,9 @@ downstream_newline_bpb = [
     "socialiqa_newline_mc_5shot_bpb",
 ]
 
-tasks = {**core_5shot_tasks, **mmlu_var_tasks, **mmlu_subset_var_tasks}
+tasks = {**core_5shot_tasks, **mmlu_var_tasks}
 downstream_bpb = get_bpb_keys(tasks)
-downstream = get_accuracy_keys(tasks)
+downstream = get_accuracy_keys(tasks) + get_mc_accuracy_keys(tasks)
 
 KEYS_BY_KEY = {
     "all-val-lm": [f"eval/{val}/CrossEntropyLoss" for val in validation],
@@ -530,58 +540,76 @@ def get_step2_data_by_name(configs, task_name, y_metric="rc_acc", moving_avg=1, 
     data_by_name: Dict = defaultdict(lambda: {"xs": [], "ys": [], "ds": [], "ns": [], "ls": []})
 
     for name, config in configs.items():
-        n = config.n
-        for path in config.paths:
-            length = get_length(path)
-            with open(path) as file_ref:
-                reader = csv.DictReader(file_ref)
-                rows = [row for row in reader]
-                xs, ys, ds, ns, ls = [], [], [], [], []
-                for row in rows:
-                    d = int(float(row["throughput/total_tokens"]))
+        if name == "external":
+            xs, ys = [], []
+            for path in config.paths:
+                with open(path) as f:
+                    data = json.load(f)
                     x = np.average(
-                        [float(row[key]) for key in loss_keys],
+                        [float(data[key]) for key in loss_keys],
                         weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in loss_keys],
                     )
                     y = np.average(
-                        [float(row[key]) for key in accuracy_keys],
+                        [float(data[key]) for key in accuracy_keys],
                         weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in accuracy_keys],
                     )
                     xs.append(x)
                     ys.append(y)
-                    ds.append(d)
-                    ns.append(n)
-                    ls.append(length)
+            data_by_name[name] = {"xs": xs, "ys": ys, "ds": [], "ns": [], "ls": []}
 
-                if config.mode == "train":
-                    # skip initial ckpts
+        else:
+            n = config.n
+            for path in config.paths:
+                length = get_length(path)
+                with open(path) as file_ref:
+                    reader = csv.DictReader(file_ref)
+                    rows = [row for row in reader]
+                    xs, ys, ds, ns, ls = [], [], [], [], []
+                    for row in rows:
+                        d = int(float(row["throughput/total_tokens"]))
+                        x = np.average(
+                            [float(row[key]) for key in loss_keys],
+                            weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in loss_keys],
+                        )
+                        y = np.average(
+                            [float(row[key]) for key in accuracy_keys],
+                            weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in accuracy_keys],
+                        )
+                        xs.append(x)
+                        ys.append(y)
+                        ds.append(d)
+                        ns.append(n)
+                        ls.append(length)
 
-                    xs = xs[int(np.ceil(skip_perc * len(xs))) :]
-                    ys = ys[int(np.ceil(skip_perc * len(ys))) :]
-                    ds = ds[int(np.ceil(skip_perc * len(ds))) :]
-                    ns = ns[int(np.ceil(skip_perc * len(ns))) :]
-                    ls = ls[int(np.ceil(skip_perc * len(ls))) :]
+                    if config.mode == "train":
+                        # skip initial ckpts
 
-                    # apply moving_avg
-                    xs = moving_average(xs, n=moving_avg).tolist()
-                    # ys = ys[moving_avg-1:]
-                    # ds = ds[moving_avg-1:]
-                    # ns = ns[moving_avg-1:]
-                    # ls = ls[moving_avg-1:]
+                        xs = xs[int(np.ceil(skip_perc * len(xs))) :]
+                        ys = ys[int(np.ceil(skip_perc * len(ys))) :]
+                        ds = ds[int(np.ceil(skip_perc * len(ds))) :]
+                        ns = ns[int(np.ceil(skip_perc * len(ns))) :]
+                        ls = ls[int(np.ceil(skip_perc * len(ls))) :]
 
-                    # last n points
-                    if last_n_points > 0:
-                        xs = xs[-last_n_points:]
-                        ys = ys[-last_n_points:]
-                        ds = ds[-last_n_points:]
-                        ns = ns[-last_n_points:]
-                        ls = ls[-last_n_points:]
+                        # apply moving_avg
+                        xs = moving_average(xs, n=moving_avg).tolist()
+                        # ys = ys[moving_avg-1:]
+                        # ds = ds[moving_avg-1:]
+                        # ns = ns[moving_avg-1:]
+                        # ls = ls[moving_avg-1:]
 
-                data_by_name[name]["xs"] += xs
-                data_by_name[name]["ys"] += ys
-                data_by_name[name]["ds"] += ds
-                data_by_name[name]["ns"] += ns
-                data_by_name[name]["ls"] += ls
+                        # last n points
+                        if last_n_points > 0:
+                            xs = xs[-last_n_points:]
+                            ys = ys[-last_n_points:]
+                            ds = ds[-last_n_points:]
+                            ns = ns[-last_n_points:]
+                            ls = ls[-last_n_points:]
+
+                    data_by_name[name]["xs"] += xs
+                    data_by_name[name]["ys"] += ys
+                    data_by_name[name]["ds"] += ds
+                    data_by_name[name]["ns"] += ns
+                    data_by_name[name]["ls"] += ls
 
         data_by_name[name]["mode"] = config.mode
 

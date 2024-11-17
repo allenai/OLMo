@@ -1,12 +1,12 @@
 {
-    "7b-4T-70k-300k": {
+    "7b-4T-70k-end": {
         "paths": [
-            "wandb/peteish7_eval_full_70k-300k.csv"
+            "wandb/peteish7_eval_70k-end.csv"
         ],
         "mode": "train",
         "n": 6887575552,
-        "label": "7b-4T-70k-300k",
-        "color": "darkviolet"
+        "label": "7b-4T-70k-end",
+        "color": "violet"
     },
     "7b-4T-final": {
         "paths": [
@@ -15,6 +15,15 @@
         "mode": "eval",
         "n": 6887575552,
         "label": "7b-4T-final",
-        "color": "magenta"
+        "color": "darkviolet"
+    },
+    "13b-5T-final": {
+        "paths": [
+            "wandb/peteish13_eval_final.csv"
+        ],
+        "mode": "eval",
+        "n": 13202396160,
+        "label": "13b-5T-final",
+        "color": "darkmagenta"
     }
 }
