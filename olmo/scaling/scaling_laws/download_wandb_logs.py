@@ -93,6 +93,9 @@ def main(args):
             + [f"eval/downstream/{d}" for d in downstream]
             + [f"eval/downstream/{d}_soft" for d in downstream]
             + [f"eval/downstream/{d}_soft_log" for d in downstream]
+            + [f"eval/downstream/{d}_incorrect_bpb" for d in downstream]
+            + [f"eval/downstream/{d}_correct_bpb" for d in downstream]
+            + [f"eval/downstream/{d}_ce" for d in downstream]
         )
 
     elif args.y_axis == ["eval/validation-and-bpb-and-downstream-newline"]:
