@@ -78,4 +78,5 @@ torchrun \
       --load_path="${CHECKPOINT}" \
       --wandb.project="olmo-ladder" \
       --wandb.group="$(basename $CHECKPOINT)-${BACKFILL_SUFFIX}" \
-      --wandb.name="$(basename $CHECKPOINT)-${BACKFILL_SUFFIX}"
+      --wandb.name="$(basename $CHECKPOINT)-${BACKFILL_SUFFIX}" \
+      --save_overwrite
