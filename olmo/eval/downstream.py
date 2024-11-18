@@ -1866,6 +1866,7 @@ label_to_task_map = {
 
 # This standardizes the metrics we should eval for the ladder.
 # Train and test sets are added when applicable.
+# No subsampling happens in these sets.
 label_to_task_map_new = {
     "arc_challenge_train_rc_5shot": (
         OEEvalTask,
