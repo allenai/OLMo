@@ -8,8 +8,8 @@ BEAKER_REPLICA_RANK=$1; shift
 NUM_NODES=$1; shift
 NUM_GPUS=$1; shift
 
-
 CHECKPOINT=${CHECKPOINT:-""}
+CONFIG=${CONFIG:-"${CHECKPOINT}/step0-unsharded/config.yaml"}
 BACKFILL_SUFFIX=${BACKFILL_SUFFIX:-"backfill"}
 NUM_CHECKPOINTS=${NUM_CHECKPOINTS:-"-1"}
 
@@ -71,7 +71,7 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/eval.py \
-    ${CHECKPOINT}/step0-unsharded/config.yaml \
+    $CONFIG \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_num_checkpoints_to_keep=$NUM_CHECKPOINTS \
       --save_folder="${CHECKPOINT}-${BACKFILL_SUFFIX}" \
