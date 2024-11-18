@@ -38,6 +38,13 @@ class OLMoConfig(PretrainedConfig):
         return self.d_model
 
     @property
+    def intermediate_size(self):
+        if hasattr(self, "mlp_hidden_size") and self.mlp_hidden_size is not None:
+            return self.mlp_hidden_size // 2
+        else:
+            return (self.mlp_ratio * self.d_model) // 2
+
+    @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
             if self.multi_query_attention is True:
