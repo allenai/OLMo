@@ -5,7 +5,7 @@ from typing import List, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .utils import chinchilla_fit, get_coefficients
+from .fitting_functions import chinchilla_fit, get_coefficients
 
 
 @dataclass

@@ -558,6 +558,7 @@ class SchedulerType(StrEnum):
     max_scheduler = "max_scheduler"
     constant = "constant"
     cosine_linear_envelope = "cosine_linear_envelope"
+    constant_with_warmup = "constant_with_warmup"
 
 
 class SchedulerUnits(StrEnum):
@@ -853,6 +854,11 @@ class ActivationCheckpointingStrategy(StrEnum):
     one_in_four = "one_in_four"
     """
     Checkpoint one in four transformer layers.
+    """
+
+    one_in_eight = "one_in_eight"
+    """
+    Checkpoint one in eight transformer layers.
     """
 
     two_in_three = "two_in_three"

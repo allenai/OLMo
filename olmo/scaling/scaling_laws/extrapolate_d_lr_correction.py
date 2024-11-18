@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .extrapolate_d import ExtrapolateDConfig
-from .utils import chinchilla_fit, get_coefficients_huber
+from .fitting_functions import chinchilla_fit, get_coefficients_huber
 
 
 def get_data_at_n(config: ExtrapolateDConfig):

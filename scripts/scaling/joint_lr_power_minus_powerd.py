@@ -3,13 +3,15 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 
+from olmo.scaling.scaling_laws.fitting_functions import (
+    chinchilla_n_d_lr_power_minus_powerd_fit,
+    get_coefficients_huber,
+    grad_chinchilla_n_d_lr_power_minus_powerd_fit,
+)
 from olmo.scaling.scaling_laws.utils import (
     ExtrapolateNConfig,
-    chinchilla_n_d_lr_power_minus_powerd_fit,
     get_ax,
-    get_coefficients_huber,
     get_data_by_name,
-    grad_chinchilla_n_d_lr_power_minus_powerd_fit,
     parse_args,
 )
 
@@ -71,7 +73,9 @@ def main():
     for name, data in data_by_name.items():
         config = configs[name]
         ax = axs[get_ax(name)]
-        ax.scatter(data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=10, alpha=0.4)
+        ax.scatter(
+            data["ds"], data["ys"], color="white", edgecolors=config.color, label=config.label, s=10, alpha=0.4
+        )
 
     # plot the fitted curve
     for name, data in predicted_data_by_name.items():

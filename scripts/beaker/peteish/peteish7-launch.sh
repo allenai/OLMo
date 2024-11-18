@@ -2,7 +2,7 @@
 
 set -ex
 
-NUM_NODES=16
+NUM_NODES=64
 
 gantry run \
   --workspace ai2/OLMo-pretraining-stability \
@@ -21,7 +21,7 @@ gantry run \
   --weka oe-training-default:/weka/oe-training-default \
   --propagate-failure \
   --propagate-preemption \
-  --synchronized-start-timeout 90m \
+  --synchronized-start-timeout 180m \
   --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \

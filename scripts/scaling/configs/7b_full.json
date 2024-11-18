@@ -1,0 +1,70 @@
+{
+    "190m": {
+        "paths": [
+            "scripts/scaling/data/peteish-final-new/190M-1xC.csv",
+            "scripts/scaling/data/peteish-final-new/190M-2xC.csv",
+            "scripts/scaling/data/peteish-final-new/190M-5xC.csv",
+            "scripts/scaling/data/peteish-final-new/190M-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 190354176,
+        "label": "190m",
+        "color": "darkred"
+    },
+    "370m": {
+        "paths": [
+            "scripts/scaling/data/peteish-final-new/370M-1xC.csv",
+            "scripts/scaling/data/peteish-final-new/370M-2xC.csv",
+            "scripts/scaling/data/peteish-final-new/370M-5xC.csv",
+            "scripts/scaling/data/peteish-final-new/370M-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 371262464,
+        "label": "300m",
+        "color": "darkorange"
+    },
+    "600m": {
+        "paths": [
+            "scripts/scaling/data/peteish-final-new/600M-1xC.csv",
+            "scripts/scaling/data/peteish-final-new/600M-2xC.csv",
+            "scripts/scaling/data/peteish-final-new/600M-5xC.csv",
+            "scripts/scaling/data/peteish-final-new/600M-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 597382464,
+        "label": "600m",
+        "color": "goldenrod"
+    },
+    "760m": {
+        "paths": [
+            "scripts/scaling/data/peteish-final-new/760M-1xC.csv",
+            "scripts/scaling/data/peteish-final-new/760M-2xC.csv",
+            "scripts/scaling/data/peteish-final-new/760M-5xC.csv",
+            "scripts/scaling/data/peteish-final-new/760M-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 758220288,
+        "label": "760m",
+        "color": "darkgreen"
+    },
+    "1b": {
+        "paths": [
+            "scripts/scaling/data/peteish-final-new/1B-1xC.csv",
+            "scripts/scaling/data/peteish-final-new/1B-2xC.csv",
+            "scripts/scaling/data/peteish-final-new/1B-5xC.csv",
+            "scripts/scaling/data/peteish-final-new/1B-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 1279395840,
+        "label": "1b",
+        "color": "teal"
+    },
+    "7b": {
+        "paths": ["scripts/scaling/data/peteish-final-new/7B-28xC-anneal-new.csv"],
+        "mode": "eval",
+        "n": 6887575552,
+        "label": "7b",
+        "color": "darkmagenta"
+
+    }
+ }

@@ -1965,6 +1965,7 @@ class OlmoCoreCheckpointer(Checkpointer):
                 f"train/rank{get_global_rank()}.pt",
                 trainer_state,
                 upload_to=upload_to,
+                save_overwrite=self.cfg.save_overwrite,
             )
 
             self._save_config(checkpoint_dir, upload_to=upload_to)

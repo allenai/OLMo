@@ -690,7 +690,9 @@ class Scheduler(metaclass=ABCMeta):
         assert 0 <= warmup_min_lr < initial_lr
         return warmup_min_lr + (initial_lr - warmup_min_lr) * min(step, warmup_steps) / warmup_steps
 
-    def _linear_decay(self, initial_lr: float, alpha_f: float, step: int, decay_steps: int, max_steps: int) -> float:
+    def _linear_decay(
+        self, initial_lr: float, alpha_f: float, step: int, decay_steps: int, max_steps: int
+    ) -> float:
         return initial_lr * (alpha_f + (1.0 - alpha_f) * (max_steps - step) / decay_steps)
 
 
@@ -719,6 +721,7 @@ class WSD(Scheduler):
     decay_steps: int
     alpha_f: float = 0.1
     t_max: Optional[int] = None
+
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
         max_steps = max_steps if self.t_max is None else self.t_max
         eta_min = initial_lr * self.alpha_f
@@ -833,6 +836,17 @@ class CosLinearEnvelope(Scheduler):
             linear_envelope = 1 - (step / max_steps)
             cosine_schedule = (initial_lr - eta_min) * (1 + cos(pi * step / max_steps)) / 2
             return eta_min + linear_envelope * cosine_schedule
+
+
+@dataclass
+class ConstantWithWarmupScheduler(Scheduler):
+    warmup_steps: int
+
+    def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
+        if step < self.warmup_steps:
+            return self._linear_warmup(initial_lr, step, self.warmup_steps)
+        del max_steps
+        return initial_lr
 
 
 PARAM_GROUP_FIELDS = ("sharded", "max_grad_norm", "max_grad_norm_ratio", "param_names")
@@ -1050,6 +1064,15 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             alpha_f=sched_cfg.alpha_f,
             t_max=None if sched_cfg.t_max is None else int(sched_cfg.t_max),
             warmup_min_lr=sched_cfg.warmup_min_lr,
+        )
+    elif sched_cfg.name == SchedulerType.constant_with_warmup:
+        return ConstantWithWarmupScheduler(
+            grad_clip_warmup_steps=(
+                None if sched_cfg.grad_clip_warmup_steps is None else int(sched_cfg.grad_clip_warmup_steps)
+            ),
+            grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
+            warmup_min_lr=sched_cfg.warmup_min_lr,
+            warmup_steps=int(sched_cfg.t_warmup),
         )
     else:
         raise NotImplementedError

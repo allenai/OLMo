@@ -12,6 +12,9 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+CONFIG_PATH=$1
+shift
+
 # Setup Python environment.
 conda shell.bash activate base
 
@@ -49,9 +52,12 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/peteish7-weka.yaml \
-      --run_name="${GANTRY_TASK_NAME}" \
-      --save_interval_ephemeral=500 \
+    ${CONFIG_PATH} \
+      --save_interval_ephemeral=null \
+      --fsdp.sharding_strategy=HYBRID_SHARD \
+      --fsdp.hybrid_sharding_num_model_replicas=2 \
       --save_overwrite
 
      # '--load_path=${path.last_checkpoint:${save_folder}}' \
+     # --fsdp.sharding_strategy=HYBRID_SHARD \
+     # --fsdp.hybrid_sharding_num_model_replicas=2 \

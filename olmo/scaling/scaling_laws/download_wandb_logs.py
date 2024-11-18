@@ -88,14 +88,15 @@ def main(args):
             + [f"eval/downstream/{d}" for d in downstream]
         )
     elif args.y_axis == ["eval/validation-and-soft-and-downstream"]:
+        downstream2 = [d.removeprefix("eval/downstream/") for d in downstream]
         args.y_axis = (
-            [f"eval/{d}/CrossEntropyLoss" for d in validation]
-            + [f"eval/downstream/{d}" for d in downstream]
-            + [f"eval/downstream/{d}_soft" for d in downstream]
-            + [f"eval/downstream/{d}_soft_log" for d in downstream]
-            + [f"eval/downstream/{d}_incorrect_bpb" for d in downstream]
-            + [f"eval/downstream/{d}_correct_bpb" for d in downstream]
-            + [f"eval/downstream/{d}_ce" for d in downstream]
+            # [f"eval/{d}/CrossEntropyLoss" for d in validation]
+            [f"eval/downstream/{d}" for d in downstream2]
+            + [f"eval/downstream/{d}_soft" for d in downstream2]
+            + [f"eval/downstream/{d}_soft_log" for d in downstream2]
+            + [f"eval/downstream/{d}_incorrect_bpb" for d in downstream2]
+            + [f"eval/downstream/{d}_correct_bpb" for d in downstream2]
+            + [f"eval/downstream/{d}_ce" for d in downstream2]
         )
 
     elif args.y_axis == ["eval/validation-and-bpb-and-downstream-newline"]:
@@ -133,7 +134,6 @@ def main(args):
                 keys=[args.x_axis] + args.y_axis,
                 page_size=10000,
             )  # page_size cannot be too big, it will make it faster but it will start to downsample
-
             config = json.loads(wb_run.json_config)
             batch_size_in_tokens = (
                 config["global_train_batch_size"]["value"] * config["model"]["value"]["max_sequence_length"]

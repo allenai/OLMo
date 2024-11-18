@@ -3,14 +3,16 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 
+from olmo.scaling.scaling_laws.fitting_functions import (
+    get_coefficients_huber,
+    grad_tissue_fit,
+    tissue_fit,
+)
 from olmo.scaling.scaling_laws.utils import (
     ExtrapolateNConfig,
     get_ax,
-    get_coefficients_huber,
     get_data_by_name,
-    grad_tissue_fit,
     parse_args,
-    tissue_fit,
 )
 
 

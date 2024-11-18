@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
+from olmo.scaling.scaling_laws.fitting_functions import get_coefficients_huber_nolog
 from olmo.scaling.scaling_laws.utils import (
     ExtrapolateNConfig,
     downstream_bpb,
     get_ax,
-    get_coefficients_huber_nolog,
     get_data_by_name,
     validation,
 )
@@ -33,7 +33,7 @@ def parse_args():
     elif args.key == "all-bpb":
         args.keys = [f"eval/downstream_bpb/{task}_bpb" for task in downstream_bpb]
     elif args.key == "hellaswag-5shot":
-        args.keys = [f"eval/downstream_bpb/hellaswag_rc_5shot_bpb_bpb"]
+        args.keys = ["eval/downstream_bpb/hellaswag_rc_5shot_bpb_bpb"]
     elif args.key == "mmlu-var":
         args.keys = [
             f"eval/downstream_bpb/{task}_bpb"

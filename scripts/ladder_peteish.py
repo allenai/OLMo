@@ -101,15 +101,14 @@ MODEL_CONFIGS = {
 #     key: flops_for_model(val) for key, val in MODEL_CONFIGS.items()
 # }
 
-# TODO: Update these numbers with actual Peteish count
 MODEL_GFLOPS = {
-    "190M": 1518912000,
-    "370M": 2931234816,
-    "600M": 4507848576,
-    "760M": 5604811776,
-    "1B": 9083695104,
-    "3B": 21304118784,
-    "7B": 47360532480,
+    "190M": 1903391232,
+    "370M": 3443922944,
+    "600M": 5180751744,
+    "760M": 6373843968,
+    "1B": 10109071360,
+    "3B": 22970355200,
+    "7B": 49412071424,
     "13B": 91335915520,
 }
 
@@ -592,6 +591,7 @@ if __name__ == "__main__":
         eval_interval=1,
         alpha_f=0.1,
         batch_size_divisor=32,
+        scheduler_type="cosine_with_warmup",
     )
 
     nodecounts_parser = subparsers.add_parser("nodecounts")
