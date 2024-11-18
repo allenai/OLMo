@@ -85,7 +85,7 @@ torchrun \
       --remote_save_folder="gs://ai2-llm/shanea/checkpoints/OLMo-medium/$NAME/" \
       --try_load_latest_save \
       --save_overwrite \
-      --load_path=gs://ai2-llm/checkpoints/OLMo-medium/$(python ./scripts/group_name_from_wandb.py $ORIGINAL_WANDB_RUN_ID)/step$START_STEP \
+      --load_path=gs://ai2-llm/checkpoints/OLMo-small/$(python ./scripts/group_name_from_wandb.py $ORIGINAL_WANDB_RUN_ID)/step$START_STEP \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=4 \
       --device_eval_batch_size=8 \
@@ -104,3 +104,6 @@ torchrun \
       --no_pre_train_checkpoint \
       --optimizer.metrics_log_interval=10 \
       --data.prefetch_factor=8
+
+
+# --load_path=gs://ai2-llm/checkpoints/OLMo-medium/$(python ./scripts/group_name_from_wandb.py $ORIGINAL_WANDB_RUN_ID)/step$START_STEP \
