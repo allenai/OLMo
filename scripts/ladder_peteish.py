@@ -370,7 +370,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         + [
             EvaluatorConfig(label=label, type=EvaluatorType.downstream)
             for label in label_to_task_map_new.keys()
-            if "train" not in label
+            if "_train_" not in label and "_mc_" not in label and "_var" not in label
         ],
         data=DataConfig(
             num_workers=32,
