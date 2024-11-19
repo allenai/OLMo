@@ -390,6 +390,7 @@ class LionW(Optimizer):
         self._signed_update_total_norm: Optional[torch.Tensor] = None
         self._device: Optional[torch.device] = device
 
+    # TODO: this is where optim metrics are computed
     def get_post_step_metrics(
         self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
     ) -> Dict[str, torch.Tensor]:

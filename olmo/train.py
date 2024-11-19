@@ -890,6 +890,7 @@ class Trainer:
             metrics["train/ZLoss"] = z_batch_loss.item()
 
         # Maybe collect post-step optimizer-specific metrics.
+        # TODO: this is where optim metrics are sorted and logged
         if should_log_optim_metrics_this_step:
             optim_metrics = self.optim.get_post_step_metrics(
                 self.dist_model, process_group=self.dist_model.process_group
