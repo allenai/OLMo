@@ -7,8 +7,8 @@ NUM_NODES=8
 gantry run \
   --allow-dirty \
   --workspace ai2/OLMo-tiny \
-  --task-name peteish7-eval \
-  --description "Pete-ish 7B eval" \
+  --task-name peteish13-eval \
+  --description "Pete-ish 13B eval" \
   --priority high \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
@@ -38,4 +38,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/peteish/peteish7-eval.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/peteish/peteish13-eval.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"

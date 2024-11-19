@@ -49,12 +49,12 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/eval.py \
-    configs/peteish7-weka.yaml \
+    configs/peteish13-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --save_interval_ephemeral=500 \
       --save_overwrite \
       --device_eval_batch_size=16 \
-      --wandb.group="peteish7" \
-      --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7"
+      --wandb.group="peteish13-highlr" \
+      --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish13-highlr-zlossfix/step596057"
 
      # '--load_path=${path.last_checkpoint:${save_folder}}' \
