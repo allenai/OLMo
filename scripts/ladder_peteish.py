@@ -224,6 +224,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     }.get(args.model, 4)
 
     device_batch_size = args.device_batch_size if args.device_batch_size > 0 else default_device_batch_size
+    device_eval_batch_size = args.device_eval_batch_size if args.device_eval_batch_size > 0 else device_batch_size
 
     if args.batch_size < 0:
         global_batch_size = get_batch_size(model_config, model_size, args.batch_size_divisor)
@@ -294,7 +295,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         max_grad_norm=1.0,
         speed_monitor=SpeedMonitorConfig(window_size=1),
         eval_interval=eval_interval,
-        device_eval_batch_size=device_batch_size,
+        device_eval_batch_size=device_eval_batch_size,
         evaluators=[
             EvaluatorConfig(
                 label="all-small-ppl-validation",
@@ -558,6 +559,7 @@ if __name__ == "__main__":
             help="Global batch size should be divisible by this number",
         )
         subparser.add_argument("--device_batch_size", type=int, required=False, default=-1)
+        subparser.add_argument("--device_eval_batch_size", type=int, required=False, default=-1)
         subparser.add_argument(
             "--s3",
             action=argparse.BooleanOptionalAction,
