@@ -366,7 +366,11 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             EvaluatorConfig(label="natural_qs_open_ppl", type=EvaluatorType.downstream),
             EvaluatorConfig(label="arc_easy_ppl", type=EvaluatorType.downstream),
         ]
-        + [EvaluatorConfig(label=label, type=EvaluatorType.downstream) for label in label_to_task_map_new.keys()],
+        + [
+            EvaluatorConfig(label=label, type=EvaluatorType.downstream)
+            for label in label_to_task_map_new.keys()
+            if "train" not in label
+        ],
         data=DataConfig(
             num_workers=32,
             drop_last=True,
@@ -446,6 +450,17 @@ def flops_for_model(model_config: Union[ModelConfig, str]) -> int:
 
 def flops_cmd(args: argparse.Namespace):
     cfg = config_from_args(args)
+
+    from olmo.eval import build_evaluator
+    from olmo.tokenizer import Tokenizer
+    from tqdm import tqdm
+
+    device = torch.device("cpu")
+    tokenizer = Tokenizer.from_train_config(cfg)
+    for eval_cfg in tqdm(cfg.evaluators):
+        evaluator = build_evaluator(cfg, eval_cfg, tokenizer, device)
+        print(evaluator)
+    exit()
 
     flops = flops_for_model(cfg.model)
     length_in_tokens = parse_length(args.length, parse_size(args.model))
