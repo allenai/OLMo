@@ -146,7 +146,7 @@ core_names = [
     "socialiqa",
     "winogrande",
 ]
-core_small_names = ["hellaswag", "arc_challenge", "piqa", "csqa"]
+core_small_names = ["hellaswag", "arc_easy", "arc_challenge", "piqa", "csqa", "socialiqa", "openbookqa"]
 mmlu_names = ["mmlu_stem", "mmlu_humanities", "mmlu_social_sciences", "mmlu_other"]
 
 core_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
@@ -493,7 +493,7 @@ def get_step1_data_by_name(configs, task_name, y_metric="rc_bpb", moving_avg=1):
     else:
         raise ValueError(f"Invalid y_metric: {y_metric}")
 
-    data_by_name: Dict = defaultdict(lambda: {"ns": [], "ds": [], "ys": [], "ls": []})
+    data_by_name: Dict = defaultdict(lambda: {"ns": [], "ds": [], "ys": [], "ls": [], "fs": []})
     for name, config in configs.items():
         n = config.n
         for path in config.paths:
@@ -505,18 +505,21 @@ def get_step1_data_by_name(configs, task_name, y_metric="rc_bpb", moving_avg=1):
                 ds, ys, fs = [], [], []
                 for row in rows:
                     d = int(float(row["throughput/total_tokens"]))
-                    f = d * MODEL_FLOPS[name]
+                    f = d * MODEL_FLOPS[name.split("-")[0]]
                     y = np.average(
                         [float(row[key]) for key in keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in keys]
                     )
                     ds.append(d)
                     ys.append(y)
+                    fs.append(f)
                 d = ds[-1]
                 y = np.mean(ys)
+                f = fs[-1]
                 data_by_name[name]["ns"].append(n)
                 data_by_name[name]["ds"].append(d)
                 data_by_name[name]["ys"].append(y)
                 data_by_name[name]["ls"].append(length)
+                data_by_name[name]["fs"].append(f)
         data_by_name[name]["mode"] = config.mode
     return data_by_name
 

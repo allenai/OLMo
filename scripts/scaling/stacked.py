@@ -95,7 +95,7 @@ def parse_length(length: str, model_size: int) -> int:
     elif length_unit == "T":
         length_in_tokens *= 1000000000000
     else:
-        raise ValueError(f"Could not parse length '{args.length}'")
+        raise ValueError(f"Could not parse length '{length}'")
     return length_in_tokens
 
 
@@ -114,8 +114,6 @@ def main():
 
     num_tasks = len(args.keys)
     fig, axes = plt.subplots(num_tasks, 3, figsize=(6 * 3, 4.5 * num_tasks), squeeze=False)
-
-    accs = 0
 
     results = "Task Name | Loss Error | Accuracy Error | Stacked Accuracy Error"
 

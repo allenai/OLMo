@@ -171,7 +171,7 @@ def plot_step2(
     elif y_metric == "mc_acc":
         ax.set_ylabel("Task MC accuracy")
     else:
-        raise ValueError(f"Invalid y_metric: {args.y_metric}")
+        raise ValueError(f"Invalid y_metric: {y_metric}")
     ax.set_ylim([0, 1.0])
     ax.set_title(
         f"{task_name}\n{fit_str}\navg rel error on fitting = {avg_unsigned_rel_err * 100:.2f}%",
