@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `one_in_eight` configuration for activation checkpointing
 - New tokenizer in the source instead of from huggingface
 - Improved support for GCS
+- `torch.compile()` now only compiles each block, not the whole model.
+- Support for `torch.compile()` with `dynamic=True`
+- Resetting the `torch.compile()` after every evaluation, because evaluation messes with the compiled versions
 
 
 ## [v0.5.1](https://github.com/allenai/OLMo/releases/tag/v0.5.1) - 2024-10-17

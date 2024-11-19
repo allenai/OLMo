@@ -434,9 +434,7 @@ _gcs_retry = GCSRetry(predicate=_gcs_is_retriable, initial=1.0, maximum=10.0, mu
 
 
 def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
-    from google.cloud import storage as gcs
-
-    storage_client = gcs.Client()
+    storage_client = _get_gcs_client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(key)
     if not save_overwrite and blob.exists():
@@ -446,9 +444,8 @@ def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool =
 
 def _gcs_file_size(bucket_name: str, key: str) -> int:
     from google.api_core.exceptions import NotFound
-    from google.cloud import storage as gcs
 
-    storage_client = gcs.Client()
+    storage_client = _get_gcs_client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(key)
     try:
@@ -461,9 +458,8 @@ def _gcs_file_size(bucket_name: str, key: str) -> int:
 
 def _gcs_get_bytes_range(bucket_name: str, key: str, bytes_start: int, num_bytes: int) -> bytes:
     from google.api_core.exceptions import NotFound
-    from google.cloud import storage as gcs
 
-    storage_client = gcs.Client()
+    storage_client = _get_gcs_client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(key)
     try:

@@ -64,6 +64,9 @@ def main(cfg: TrainConfig) -> None:
 
     barrier()
 
+    # Set CUDA device.
+    torch.cuda.set_device(f"cuda:{get_local_rank()}")
+    torch.cuda.empty_cache()
     device = torch.device("cuda")
 
     # Fill some configuration options.
@@ -142,6 +145,13 @@ def main(cfg: TrainConfig) -> None:
     # Call before wrapping model in FSDP / DDP, so that computation is correct and saved.
     _ = olmo_model.num_fwd_flops
     _ = olmo_model.num_bck_flops
+
+    # Compile one block at a time.
+    if cfg.compile is not None:
+        if cfg.model.block_group_size != 1:
+            raise OLMoConfigurationError("Compile is only supported with block_group_size 1.")
+        for block in olmo_model.transformer.blocks:
+            block.compile(**cfg.compile.asdict())
 
     olmo_model.set_activation_checkpointing(cfg.activation_checkpointing)
 
@@ -250,6 +260,7 @@ def main(cfg: TrainConfig) -> None:
         indices_file=indices_file,
     ) as trainer:
         if cfg.try_load_latest_save:
+            checkpoint_dir = None
             if (
                 cfg.save_folder is not None
                 and (checkpoint_dir := find_latest_checkpoint(cfg.save_folder)) is not None
@@ -262,6 +273,29 @@ def main(cfg: TrainConfig) -> None:
             ):
                 log.info("Setting load path to remote checkpoint %s", checkpoint_dir)
                 cfg.load_path = str(checkpoint_dir)
+            if checkpoint_dir is not None and not cfg.restore_dataloader:
+                log.info(
+                    "You set restore_dataloader=False, but try_load_latest_save=True. If we were to run like "
+                    "this, it would overwrite your previous checkpoints. I will assume you didn't mean that, "
+                    "and set restore_dataloader=True."
+                )
+                cfg.restore_dataloader = True
+            if checkpoint_dir is not None and cfg.reset_trainer_state:
+                log.info(
+                    "You set both reset_trainer_state=True, and try_load_latest_save=True. If we were to "
+                    "run like this, it would reset your trainer state right now even though we're in the "
+                    "middle of a run. I will assume you didn't mean that, and set "
+                    "reset_trainer_state=False."
+                )
+                cfg.reset_trainer_state = False
+            if checkpoint_dir is not None and cfg.reset_optimizer_state:
+                log.info(
+                    "You set both reset_optimizer_state=True, and try_load_latest_save=True. If we were to "
+                    "run like this, it would reset your optimizer state right now even though we're in the "
+                    "middle of a run. I will assume you didn't mean that, and set "
+                    "reset_optimizer_state=False."
+                )
+                cfg.reset_optimizer_state = False
 
         if not cfg.dry_run and not cfg.no_pre_train_checkpoint and cfg.load_path is None:
             if cfg.distributed_strategy == DistributedStrategy.ddp:
@@ -325,17 +359,6 @@ def main(cfg: TrainConfig) -> None:
             checkpoint_path, _ = trainer.save_checkpoint(checkpoint_type=CheckpointType.unsharded)
             log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
 
-        if cfg.compile is not None:
-            # TODO (epwalsh): trying to compile the whole train step results in a compile-time error from within
-            # the optimizer. We should investigate this further at some point.
-            #  trainer.train_step = torch.compile(trainer.train_step, **cfg.compile.asdict())
-            trainer.train_batch = torch.compile(trainer.train_batch, **cfg.compile.asdict())  # type: ignore
-            # TODO (epwalsh): compiling the `eval_batch()` method is a little sketchy since the inputs will look
-            # different for different eval tasks. That might be okay, but it might not be.
-            #  trainer.eval_batch = torch.compile(trainer.eval_batch, **cfg.compile.asdict())  # type: ignore
-            # Alternatively, could just do this:
-            #  trainer.fsdp_model = torch.compile(trainer.fsdp_model, **cfg.compile.asdict())
-
         if not cfg.dry_run:
             log.info("Starting training...")
             trainer.fit()
@@ -355,7 +378,13 @@ if __name__ == "__main__":
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
 
     # Initialize process group.
-    dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30))
+    device_as_string = f"cuda:{get_local_rank()}"
+    torch.cuda.set_device(
+        device_as_string
+    )  # Set this early to prevent GPU 0 from picking up a bunch of tensors it shouldn't have.
+    dist.init_process_group(
+        backend="nccl", timeout=timedelta(minutes=30), device_id=torch.device(device_as_string)
+    )
     log.info("Process group initialized")
 
     prepare_cli_environment()
