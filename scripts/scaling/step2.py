@@ -9,8 +9,8 @@ import seaborn as sns
 
 from olmo.scaling.scaling_laws.fitting_functions import get_coefficients, sigmoid
 from olmo.scaling.scaling_laws.utils import (
-    get_step2_data_by_name,
     get_final_configs,
+    get_step2_data_by_name,
     get_task_sets,
     prettify,
     tasks,
@@ -23,9 +23,7 @@ def parse_args():
     parser.add_argument(
         "-y", "--y_metric", default="rc_acc", choices=["rc_acc", "mc_acc"], help="Metric to predict"
     )
-    parser.add_argument(
-        "--moving_avg", type=int, default=1, help="Moving average for bpb loss"
-    )
+    parser.add_argument("--moving_avg", type=int, default=1, help="Moving average for bpb loss")
     parser.add_argument(
         "--skip_perc",
         type=float,
@@ -85,7 +83,9 @@ def main():
     results = "Task Name | Actual Value | Predicted Value | Relative Error"
 
     for i, task_name in enumerate(args.keys):
-        data_by_name = get_step2_data_by_name(configs, task_name, y_metric=args.y_metric, moving_avg=args.moving_avg, skip_perc=args.skip_perc)
+        data_by_name = get_step2_data_by_name(
+            configs, task_name, y_metric=args.y_metric, moving_avg=args.moving_avg, skip_perc=args.skip_perc
+        )
 
         coefficients, cov = fit_step2(data_by_name, task_name, args.y_metric)
         a, x0, k, b = coefficients

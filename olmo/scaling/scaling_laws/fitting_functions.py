@@ -76,6 +76,7 @@ def grad_chinchilla_n_d_fit(x, p):
     grad_E = 1
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E]
 
+
 # x[0] = n, x[1] = d
 # p[0] = a = log(A), p[1] = b = log(B), p[2] = alpha, p[3] = beta, p[4] = E
 # p[5] = p, p[6] = L0, p[7] = k, p[8] = q
@@ -427,7 +428,6 @@ def get_coefficients_huber_nolog(
     # res = scipy.optimize.minimize(loss_fn, p0, args=(train_xs, train_ys, delta), jac=jac_fn, tol=0.0, method='BFGS', options={'gtol': 1e-10, 'maxiter': 10000, 'disp': True})
     # print(res.message)
     coeffs = res.x
-    loss = res.fun
     if disp:
         print(f"coeffs: {coeffs}")
     return coeffs

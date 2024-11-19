@@ -1,3 +1,6 @@
+# python scripts/scaling/step1.py -k main -c scripts/scaling/final.json -o figure/peteish-final/step1_main.png
+# python scripts/scaling/step1.py -k core_small_avg -c scripts/scaling/final.json -o figure/peteish-final/step1_core_small_avg.png
+
 import argparse
 
 import matplotlib.pyplot as plt
@@ -27,9 +30,7 @@ def parse_args():
     parser.add_argument(
         "-y", "--y_metric", default="rc_bpb", choices=["rc_bpb", "rc_acc"], help="Metric to predict"
     )
-    parser.add_argument(
-        "--moving_avg", type=int, default=1, help="Moving average for bpb loss"
-    )
+    parser.add_argument("--moving_avg", type=int, default=1, help="Moving average for bpb loss")
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
     args = parser.parse_args()
@@ -200,7 +201,9 @@ def main():
     results = "Task Name | Actual Value | Predicted Value | Relative Error"
 
     for i, task_name in enumerate(args.keys):
-        data_by_name = get_step1_data_by_name(configs, task_name, y_metric=args.y_metric, moving_avg=args.moving_avg)
+        data_by_name = get_step1_data_by_name(
+            configs, task_name, y_metric=args.y_metric, moving_avg=args.moving_avg
+        )
 
         # fit the parameters
         coefficients = fit_step1(data_by_name, args.y_metric)

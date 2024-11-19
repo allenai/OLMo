@@ -12,8 +12,8 @@ from olmo.scaling.scaling_laws.fitting_functions import (
     sigmoid,
 )
 from olmo.scaling.scaling_laws.utils import (
-    get_step2_data_by_name,
     get_final_configs,
+    get_step2_data_by_name,
     get_task_sets,
     prettify,
     tasks,

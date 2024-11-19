@@ -117,7 +117,11 @@ class DownstreamTaskPrediction:
         return self.task_mc_loss_key if isinstance(self.task_mc_loss_key, list) else [self.task_mc_loss_key]
 
     def get_mc_accuracy_keys(self):
-        return self.task_mc_accuracy_key if isinstance(self.task_mc_accuracy_key, list) else [self.task_mc_accuracy_key]
+        return (
+            self.task_mc_accuracy_key
+            if isinstance(self.task_mc_accuracy_key, list)
+            else [self.task_mc_accuracy_key]
+        )
 
 
 minimums_rc: Dict[str, float] = {
@@ -142,15 +146,17 @@ core_names = [
     "socialiqa",
     "winogrande",
 ]
-core_small_names = ["hellaswag", "arc_challenge", "arc_easy", "piqa", "csqa", "socialiqa", "openbookqa"]
+core_small_names = ["hellaswag", "arc_challenge", "piqa", "csqa"]
 mmlu_names = ["mmlu_stem", "mmlu_humanities", "mmlu_social_sciences", "mmlu_other"]
 
 core_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
     f"{key}_5shot": DownstreamTaskPrediction(
         task_loss_key=f"eval/downstream_bpb/{key}_rc_5shot_bpb_bpb",
-        task_accuracy_key=f"eval/downstream/{key}_rc_5shot_len_norm"
-        if key not in ["arc_easy", "winogrande", "boolq"]
-        else f"eval/downstream/{key}_rc_5shot_acc",
+        task_accuracy_key=(
+            f"eval/downstream/{key}_rc_5shot_len_norm"
+            if key not in ["arc_easy", "winogrande", "boolq"]
+            else f"eval/downstream/{key}_rc_5shot_acc"
+        ),
         task_mc_loss_key=f"eval/downstream_bpb/{key}_mc_5shot_bpb_bpb",
         task_mc_accuracy_key=f"eval/downstream/{key}_mc_5shot_acc",
         task_minimum=minimums_rc.get(key, 0.25),
@@ -162,15 +168,35 @@ core_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
 core_small_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
     f"{key}_5shot": DownstreamTaskPrediction(
         task_loss_key=f"eval/downstream_bpb/{key}_rc_5shot_bpb_bpb",
-        task_accuracy_key=f"eval/downstream/{key}_rc_5shot_len_norm"
-        if key not in ["arc_easy", "winogrande", "boolq"]
-        else f"eval/downstream/{key}_rc_5shot_acc",
+        task_accuracy_key=(
+            f"eval/downstream/{key}_rc_5shot_len_norm"
+            if key not in ["arc_easy", "winogrande", "boolq"]
+            else f"eval/downstream/{key}_rc_5shot_acc"
+        ),
         task_mc_loss_key=f"eval/downstream_bpb/{key}_mc_5shot_bpb_bpb",
         task_mc_accuracy_key=f"eval/downstream/{key}_mc_5shot_acc",
         task_minimum=minimums_rc.get(key, 0.25),
         task_maximum=maximums_rc.get(key, 1.0),
     )
     for key in core_small_names
+}
+
+core_small_avg_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
+    "core_small_avg_5shot": DownstreamTaskPrediction(
+        task_loss_key=[f"eval/downstream_bpb/{key}_rc_5shot_bpb_bpb" for key in core_small_names],
+        task_accuracy_key=[
+            (
+                f"eval/downstream/{key}_rc_5shot_len_norm"
+                if key not in ["arc_easy", "winogrande", "boolq"]
+                else f"eval/downstream/{key}_rc_5shot_acc"
+            )
+            for key in core_small_names
+        ],
+        task_mc_loss_key=[f"eval/downstream_bpb/{key}_mc_5shot_bpb_bpb" for key in core_small_names],
+        task_mc_accuracy_key=[f"eval/downstream/{key}_mc_5shot_acc" for key in core_small_names],
+        task_minimum=0.25,
+        task_maximum=1.0,
+    )
 }
 
 mmlu_var_tasks: Dict[str, DownstreamTaskPrediction] = {
@@ -201,6 +227,8 @@ def get_task_sets(keys):
     if len(keys) == 1:
         if keys[0] == "core":
             keys = core_5shot_tasks.keys()
+        elif keys[0] == "core_small_avg":
+            keys = ["core_small_avg_5shot"]
         elif keys[0] == "mmlu":
             keys = list(mmlu_var_tasks.keys()) + list(mmlu_subset_var_tasks.keys())
         elif keys[0] == "mmlu_subset":
@@ -333,9 +361,11 @@ downstream_newline_bpb = [
     "socialiqa_newline_mc_5shot_bpb",
 ]
 
-tasks = {**core_5shot_tasks, **mmlu_var_tasks}
-downstream_bpb = get_bpb_keys(tasks)
-downstream = get_accuracy_keys(tasks) + get_mc_accuracy_keys(tasks)
+tasks = {**mmlu_var_tasks, **mmlu_subset_var_tasks, **core_5shot_tasks, **core_small_avg_5shot_tasks}
+downstream_bpb = get_bpb_keys({**mmlu_var_tasks, **core_5shot_tasks})
+downstream = get_accuracy_keys({**mmlu_var_tasks, **core_5shot_tasks}) + get_mc_accuracy_keys(
+    {**mmlu_var_tasks, **core_5shot_tasks}
+)
 
 KEYS_BY_KEY = {
     "all-val-lm": [f"eval/{val}/CrossEntropyLoss" for val in validation],

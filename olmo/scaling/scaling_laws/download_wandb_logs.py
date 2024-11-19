@@ -84,7 +84,9 @@ def main(args):
 
     elif args.y_axis == ["eval/validation-and-bpb-and-downstream-newline"]:
         args.y_axis = (
-            [f"eval/{d}/CrossEntropyLoss" for d in validation] + downstream_bpb + downstream
+            [f"eval/{d}/CrossEntropyLoss" for d in validation]
+            + downstream_bpb
+            + downstream
             + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_newline_bpb]
             + [f"eval/downstream/{d}" for d in downstream_newline]
         )

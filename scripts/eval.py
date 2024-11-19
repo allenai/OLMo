@@ -1,26 +1,21 @@
 """Run this script with 'torchrun'."""
 
+import glob
 import logging
 import sys
 from datetime import timedelta
 from pathlib import Path
-from typing import Optional, TextIO
-import glob
 
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import ShardingStrategy
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from olmo.config import (
-    DDPGradSyncMode,
-    DistributedStrategy,
-    TrainConfig,
-)
+import wandb
+from olmo.config import DDPGradSyncMode, DistributedStrategy, TrainConfig
 from olmo.eval import build_evaluators
 from olmo.exceptions import OLMoCliError, OLMoConfigurationError
 from olmo.model import OLMo
@@ -122,17 +117,21 @@ def main(cfg: TrainConfig) -> None:
     if cfg.load_path is None:
         raise OLMoConfigurationError("To run eval you must provide a load_path")
     elif "://" in cfg.load_path:
-        raise OLMoConfigurationError("Eval does not support remote paths. Please specify a local path or WEKA mounted path.")
-    if 'step' in cfg.load_path.split('/')[-1]:
+        raise OLMoConfigurationError(
+            "Eval does not support remote paths. Please specify a local path or WEKA mounted path."
+        )
+    if "step" in cfg.load_path.split("/")[-1]:
         load_paths = [cfg.load_path]
     else:
         # This globbing only works with local paths
         load_paths = list(glob.glob(f"{cfg.load_path}/step*"))
         load_paths = [x for x in load_paths if x[-1].isdigit()]
-        load_paths = list(sorted(load_paths, key=lambda x: int(x.split('/')[-1].replace('-unsharded', '').split('step')[-1])))
+        load_paths = list(
+            sorted(load_paths, key=lambda x: int(x.split("/")[-1].replace("-unsharded", "").split("step")[-1]))
+        )
 
     for load_path in load_paths:
-        step = int(load_path.split('/')[-1].replace('-unsharded', '').split('step')[-1])
+        step = int(load_path.split("/")[-1].replace("-unsharded", "").split("step")[-1])
 
         # Initialize the model.
         log.info("Building model...")
@@ -146,7 +145,9 @@ def main(cfg: TrainConfig) -> None:
             assert cfg.ddp is not None, "DistributedStrategy ddp needs cfg.ddp to be set!"
 
             if cfg.model.init_device != "cuda":
-                raise OLMoConfigurationError("DDP does not work with init_device set to anything other than `cuda`.")
+                raise OLMoConfigurationError(
+                    "DDP does not work with init_device set to anything other than `cuda`."
+                )
 
             if cfg.ddp.find_unused_params is True and cfg.ddp.grad_sync_mode != DDPGradSyncMode.micro_batch:
                 raise OLMoConfigurationError(
@@ -189,12 +190,16 @@ def main(cfg: TrainConfig) -> None:
                 )
 
                 if num_model_replicas <= 0:
-                    raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must be a positive integer")
+                    raise OLMoConfigurationError(
+                        "fsdp.hybrid_sharding_num_model_replicas must be a positive integer"
+                    )
 
                 if get_world_size() % num_model_replicas != 0:
                     raise OLMoConfigurationError("fsdp.hybrid_sharding_num_model_replicas must divide world size")
 
-                device_mesh = init_device_mesh("cuda", (num_model_replicas, get_world_size() // num_model_replicas))
+                device_mesh = init_device_mesh(
+                    "cuda", (num_model_replicas, get_world_size() // num_model_replicas)
+                )
                 hybrid_sharding_fsdp_kwargs["device_mesh"] = device_mesh
 
             dist_model = FSDP(

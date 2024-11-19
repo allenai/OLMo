@@ -7,7 +7,6 @@ import seaborn as sns
 from olmo.scaling.scaling_laws.fitting_functions import (
     combined_fit,
     get_coefficients_huber,
-    get_coefficients_huber_nolog,
     grad_combined_fit,
 )
 from olmo.scaling.scaling_laws.utils import (

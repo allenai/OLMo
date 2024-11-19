@@ -6,19 +6,16 @@
 import argparse
 
 import numpy as np
-
-from olmo.scaling.scaling_laws.fitting_functions import (
-    chinchilla_n_d_fit,
-    sigmoid,
-)
-from olmo.scaling.scaling_laws.utils import (
-    get_step1_data_by_name,
-    get_step2_data_by_name,
-    get_final_configs,
-    get_task_sets,
-)
 from step1 import fit_step1
 from step2 import fit_step2
+
+from olmo.scaling.scaling_laws.fitting_functions import chinchilla_n_d_fit, sigmoid
+from olmo.scaling.scaling_laws.utils import (
+    get_final_configs,
+    get_step1_data_by_name,
+    get_step2_data_by_name,
+    get_task_sets,
+)
 
 
 def parse_args():
@@ -29,9 +26,7 @@ def parse_args():
     parser.add_argument(
         "-y", "--y_metric", default="rc_acc", choices=["rc_acc", "mc_acc"], help="Metric to predict"
     )
-    parser.add_argument(
-        "--moving_avg", type=int, default=1, help="Moving average for bpb loss"
-    )
+    parser.add_argument("--moving_avg", type=int, default=1, help="Moving average for bpb loss")
     parser.add_argument(
         "--skip_perc",
         type=float,
@@ -42,7 +37,9 @@ def parse_args():
     parser.add_argument("--step2-config-path", type=str, default=None, help="Path to config file for step2")
     parser.add_argument("-n", "--n", type=int, required=True, help="Model size of the target model")
     parser.add_argument("-d", "--d", type=int, required=True, help="Data size of the target model")
-    parser.add_argument("-t", "--target-name", type=str, default=None, help="Path to the csv file of the target model")
+    parser.add_argument(
+        "-t", "--target-name", type=str, default=None, help="Path to the csv file of the target model"
+    )
     args = parser.parse_args()
 
     args.keys = get_task_sets(args.keys)
