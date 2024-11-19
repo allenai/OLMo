@@ -9,6 +9,9 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+SEED=$1
+shift
+
 # augusta specific environment
 export LD_LIBRARY_PATH="/var/lib/tcpxo/lib64:${LD_LIBRARY_PATH}"
 export NCCL_CROSS_NIC=0
@@ -66,14 +69,13 @@ torchrun \
     configs/peteish1-google.yaml \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
-      --seed=3142 \
-      --stop_at=3 \
       --optimizer.learning_rate=7.81e-3 \
       --save_interval_ephemeral=250 \
       --eval_interval=1000 \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
       --fsdp.wrapping_strategy=by_block_and_size \
+      --load_path="gs://ai2-llm/shanea/checkpoints/OLMo-medium/peteish1-muplr-initseed${SEED}/step0" \
       --save_folder=$SAVE_FOLDER \
       --remote_save_folder="gs://ai2-llm/shanea/checkpoints/OLMo-medium/$NAME/" \
       --try_load_latest_save \

@@ -5,9 +5,12 @@ set -ex
 NUM_NODES=$1
 shift
 
+SEED=$1
+shift
+
 gantry run \
   --workspace ai2/OLMo-mup \
-  --task-name peteish1-muplr-initseed3142 \
+  --task-name peteish1-muplr-initseed${SEED} \
   --description "Peteish1 muP LR" \
   --priority high \
   --preemptible \
@@ -33,4 +36,4 @@ gantry run \
   --timeout=-1 \
   --allow-dirty \
   --retries 10 \
-  -- /bin/bash -c "scripts/augusta/beaker/peteish1-muplr-2.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/augusta/beaker/peteish1-muplr-2.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK $SEED"
