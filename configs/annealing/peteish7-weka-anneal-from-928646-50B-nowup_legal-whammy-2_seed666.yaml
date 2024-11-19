@@ -1,5 +1,5 @@
-run_name: peteish7-weka-anneal-from-928646-50B-nowup_legal-whammy-2
-seed: 7201
+run_name: peteish7-weka-anneal-from-928646-50B-nowup_legal-whammy-2_seed666
+seed: 666
 dry_run: false
 
 wandb:
