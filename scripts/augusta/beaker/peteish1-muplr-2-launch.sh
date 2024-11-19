@@ -7,7 +7,7 @@ shift
 
 gantry run \
   --workspace ai2/OLMo-mup \
-  --task-name peteish1-muplr-initseed3141 \
+  --task-name peteish1-muplr-initseed3142 \
   --description "Peteish1 muP LR" \
   --priority high \
   --preemptible \

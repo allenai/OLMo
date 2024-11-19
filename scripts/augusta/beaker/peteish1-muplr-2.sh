@@ -66,7 +66,7 @@ torchrun \
     configs/peteish1-google.yaml \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
-      --seed=3141 \
+      --seed=3142 \
       --stop_at=3 \
       --optimizer.learning_rate=7.81e-3 \
       --save_interval_ephemeral=250 \
