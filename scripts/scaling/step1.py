@@ -32,9 +32,11 @@ def parse_args():
     )
     parser.add_argument("--moving_avg", type=int, default=1, help="Moving average for bpb loss")
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
-    parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
+    parser.add_argument("-o", "--output-path", type=str, required=False, help="Path to write output figure")
     args = parser.parse_args()
 
+    if not args.keys:
+        args.keys = ["main"]
     args.keys = get_task_sets(args.keys)
 
     return args
@@ -198,7 +200,9 @@ def main():
     num_tasks = len(args.keys)
     num_cols = min(4, num_tasks)
     num_rows = (num_tasks + num_cols - 1) // num_cols
-    fig, axes = plt.subplots(num_rows, num_cols, figsize=(3.75 * num_cols, 3.25 * num_rows), squeeze=False)
+
+    if args.output_path:
+        fig, axes = plt.subplots(num_rows, num_cols, figsize=(3.75 * num_cols, 3.25 * num_rows), squeeze=False)
 
     results = "Task Name | Actual Value | Predicted Value | Relative Error"
 
@@ -208,7 +212,7 @@ def main():
         )
 
         # fit the parameters
-        coefficients, cov = fit_step1(data_by_name, args.accuracy)
+        coefficients, cov = fit_step1(data_by_name, args.y_metric)
 
         # make predictions
         predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error) = predict_step1(
@@ -216,18 +220,20 @@ def main():
         )
         results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)}"
 
-        plot_step1(configs,
-            data_by_name,
-            predicted_data_by_name,
-            plotted_predicted_data_by_name,
-            task_name,
-            str_chinchilla_n_d_fit(coefficients),
-            args.y_metric,
-            axes[i // num_cols][i % num_cols],
-        )
+        if args.output_path:
+            plot_step1(configs,
+                data_by_name,
+                predicted_data_by_name,
+                plotted_predicted_data_by_name,
+                task_name,
+                str_chinchilla_n_d_fit(coefficients),
+                args.y_metric,
+                axes[i // num_cols][i % num_cols],
+            )
 
-    fig.tight_layout()
-    fig.savefig(args.output_path, dpi=300)
+    if args.output_path:
+        fig.tight_layout()
+        fig.savefig(args.output_path, dpi=300)
 
     print(results)
 

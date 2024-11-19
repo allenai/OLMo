@@ -502,9 +502,10 @@ def get_step1_data_by_name(configs, task_name, y_metric="rc_bpb", moving_avg=1):
                 reader = csv.DictReader(file_ref)
                 rows = [row for row in reader]
                 rows = rows[-moving_avg:]
-                ds, ys = [], []
+                ds, ys, fs = [], [], []
                 for row in rows:
                     d = int(float(row["throughput/total_tokens"]))
+                    f = d * MODEL_FLOPS[name]
                     y = np.average(
                         [float(row[key]) for key in keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in keys]
                     )

@@ -452,9 +452,10 @@ def flops_for_model(model_config: Union[ModelConfig, str]) -> int:
 def flops_cmd(args: argparse.Namespace):
     cfg = config_from_args(args)
 
+    from tqdm import tqdm
+
     from olmo.eval import build_evaluator
     from olmo.tokenizer import Tokenizer
-    from tqdm import tqdm
 
     device = torch.device("cpu")
     tokenizer = Tokenizer.from_train_config(cfg)

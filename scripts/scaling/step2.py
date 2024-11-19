@@ -7,7 +7,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from olmo.scaling.scaling_laws.fitting_functions import get_coefficients, sigmoid, get_std_errors
+from olmo.scaling.scaling_laws.fitting_functions import (
+    get_coefficients,
+    get_std_errors,
+    grad_sigmoid_fit,
+    sigmoid,
+    sigmoid_fit,
+)
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
     get_step2_data_by_name,
@@ -106,7 +112,7 @@ def main():
             "ys": [sigmoid(x, *coefficients) for x in xs],
         }
 
-        std_errors = get_std_errors(plotted_predicted_data["xs"], plotted_predicted_data["ys"], coefficients, cov)
+        std_errors = get_std_errors(plotted_predicted_data["xs"], plotted_predicted_data["ys"], coefficients, cov, sigmoid_fit, grad_sigmoid_fit)
 
         # Compute prediction intervals
         plotted_y_lower = plotted_predicted_data["ys"] - 1.96 * std_errors
@@ -130,7 +136,8 @@ def main():
             )
             for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data["ys"]):
                 rel_error = (y_pred - y) / y
-                std_error = get_std_errors([x], [y_pred], coefficients, cov)[0]
+                std_error = get_std_errors([x], [y_pred], coefficients, cov, sigmoid_fit, grad_sigmoid_fit)[0]
+                delta_error = 1.96 * std_error
                 y_lower = y_pred - 1.96 * std_error
                 y_upper = y_pred + 1.96 * std_error
                 rel_error_lower = (y_lower - y) / y
@@ -150,7 +157,7 @@ def main():
                         color=config.color,
                     )
                     results += (
-                        f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} +/- {prettify(1.96 * std_error, False)} | {prettify(rel_error)}"
+                        f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} ± {prettify(delta_error, False)} | {prettify(rel_error)}"
                     )
         avg_unsigned_rel_err = np.mean(unsigned_rel_errs)
 
