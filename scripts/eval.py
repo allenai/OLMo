@@ -239,7 +239,6 @@ def main(cfg: TrainConfig) -> None:
             optim=optim,
             scheduler=scheduler,
         ) as trainer:
-
             log.info(f"Loading checkpoint from {load_path}...")
             trainer.restore_checkpoint(
                 load_path,

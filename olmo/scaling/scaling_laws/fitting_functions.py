@@ -328,24 +328,28 @@ def sigmoid(x, a, x0, k, b):
     o = a / (1 + np.exp(-k * (x - x0))) + b
     return o
 
+
 def sigmoid_fit(x, p):
     o = p[0] / (1 + np.exp(-p[2] * (x - p[1]))) + p[3]
     return o
 
+
 def grad_sigmoid_fit(x, p):
     exp_term = np.exp(-p[2] * (x - p[1]))
-    denom = (1 + exp_term)
+    denom = 1 + exp_term
     o = p[0] / denom + p[3]
-    
+
     grad_a = 1 / denom
-    grad_x0 = p[0] * p[2] * exp_term / (denom ** 2)
-    grad_k = p[0] * (x - p[1]) * exp_term / (denom ** 2)
+    grad_x0 = p[0] * p[2] * exp_term / (denom**2)
+    grad_k = p[0] * (x - p[1]) * exp_term / (denom**2)
     grad_b = 1
-    
+
     return [grad_a, grad_x0, grad_k, grad_b]
+
 
 def exponential_fit(x, a, b, c):
     return a * np.exp(b * x) + c
+
 
 # Scipy minimize w/ Huber loss
 def get_coefficients_huber(

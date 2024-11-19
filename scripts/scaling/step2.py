@@ -73,6 +73,117 @@ def fit_step2(data_by_name, task_name, y_metric):
     return coefficients, cov
 
 
+def predict_step2(configs, data_by_name, coefficients, cov, y_metric):
+    predicted_data_by_name = {}
+    for name, data in data_by_name.items():
+        config = configs[name]
+        predicted_data_by_name[name] = {
+            "xs": data["xs"],
+            "ys": [sigmoid(x, *coefficients) for x in data["xs"]],
+        }
+        if config.mode == "eval":
+            for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data_by_name[name]["ys"]):
+                rel_error = (y_pred - y) / y
+                std_error = get_std_errors([x], [y_pred], coefficients, cov, sigmoid_fit, grad_sigmoid_fit)[0]
+                delta_error = 1.96 * std_error
+
+    xmin = 0.9 * min(min(data["xs"]) for data in data_by_name.values())
+    xmax = max(max(data["xs"]) for data in data_by_name.values())
+    xs = np.linspace(xmin, xmax, 100)
+    plotted_predicted_data = {
+        "xs": xs,
+        "ys": [sigmoid(x, *coefficients) for x in xs],
+    }
+
+    return predicted_data_by_name, plotted_predicted_data, (y, y_pred, rel_error, delta_error)
+
+
+def plot_step2(
+    configs,
+    data_by_name,
+    predicted_data_by_name,
+    plotted_predicted_data,
+    task_name,
+    fit_str,
+    y_metric,
+    coefficients,
+    cov,
+    ax=plt.gca(),
+):
+    std_errors = get_std_errors(
+        plotted_predicted_data["xs"],
+        plotted_predicted_data["ys"],
+        coefficients,
+        cov,
+        sigmoid_fit,
+        grad_sigmoid_fit,
+    )
+
+    # Compute prediction intervals
+    plotted_y_lower = plotted_predicted_data["ys"] - 1.96 * std_errors
+    plotted_y_upper = plotted_predicted_data["ys"] + 1.96 * std_errors
+    unsigned_rel_errs = []
+    for name, data in data_by_name.items():
+        config = configs[name]
+        predicted_data = predicted_data_by_name[name]
+
+        ax.scatter(
+            data["xs"],
+            data["ys"],
+            color=config.color,
+            marker="o",
+            s=10,
+            label=f"{config.label} ({'fitted' if config.mode == 'train' else 'predicted'})",
+        )
+        for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data["ys"]):
+            rel_error = (y_pred - y) / y
+
+            if config.mode == "train":
+                unsigned_rel_errs.append(abs(rel_error))
+            else:
+                ax.annotate(
+                    f"{np.abs(rel_error) * 100:.1f}%",
+                    (x, y),
+                    textcoords="offset points",
+                    xytext=(3, 3),
+                    ha="left",
+                    va="bottom",
+                    fontsize=8,
+                    color=config.color,
+                )
+    avg_unsigned_rel_err = np.mean(unsigned_rel_errs)
+
+    # plot the fitted curve
+    ax.plot(
+        plotted_predicted_data["xs"],
+        plotted_predicted_data["ys"],
+        color="black",
+        linestyle="--",
+        linewidth=1.5,
+    )
+
+    ax.fill_between(plotted_predicted_data["xs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
+
+    ax.legend(loc="lower right", ncols=1, fontsize=8)
+    ax.set_xlabel("Task loss")
+    if y_metric == "rc_acc":
+        ax.set_ylabel("Task RC accuracy")
+    elif y_metric == "mc_acc":
+        ax.set_ylabel("Task MC accuracy")
+    else:
+        raise ValueError(f"Invalid y_metric: {args.y_metric}")
+    ax.set_ylim([0, 1.0])
+    ax.set_title(
+        f"{task_name}\n{fit_str}\navg rel error on fitting = {avg_unsigned_rel_err * 100:.2f}%",
+        fontsize=9,
+    )
+
+
+def str_sigmoid(coefficients):
+    a, x0, k, b = coefficients
+    return f"Acc(L) = {a:.2f} / (1 + e^(-{k:.2f}(L - {x0:.2f}))) + {b:.2f}"
+
+
 def main():
     args = parse_args()
 
@@ -97,95 +208,26 @@ def main():
         a, x0, k, b = coefficients
 
         # make predictions
-        predicted_data_by_name = {}
-        for name, data in data_by_name.items():
-            config = configs[name]
-            predicted_data_by_name[name] = {
-                "xs": data["xs"],
-                "ys": [sigmoid(x, *coefficients) for x in data["xs"]],
-            }
-        xmin = 0.9 * min(min(data["xs"]) for data in data_by_name.values())
-        xmax = max(max(data["xs"]) for data in data_by_name.values())
-        xs = np.linspace(xmin, xmax, 100)
-        plotted_predicted_data = {
-            "xs": xs,
-            "ys": [sigmoid(x, *coefficients) for x in xs],
-        }
+        predicted_data_by_name, plotted_predicted_data, (y, y_pred, rel_error, delta_error) = predict_step2(
+            configs, data_by_name, coefficients, cov, y_metric=args.y_metric
+        )
 
-        std_errors = get_std_errors(plotted_predicted_data["xs"], plotted_predicted_data["ys"], coefficients, cov, sigmoid_fit, grad_sigmoid_fit)
-
-        # Compute prediction intervals
-        plotted_y_lower = plotted_predicted_data["ys"] - 1.96 * std_errors
-        plotted_y_upper = plotted_predicted_data["ys"] + 1.96 * std_errors
-
-        ax = axes[i // num_cols][i % num_cols]
+        results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)}"
 
         # plot the actual and predicted data
-        unsigned_rel_errs = []
-        for name, data in data_by_name.items():
-            config = configs[name]
-            predicted_data = predicted_data_by_name[name]
+        ax = axes[i // num_cols][i % num_cols]
 
-            ax.scatter(
-                data["xs"],
-                data["ys"],
-                color=config.color,
-                marker="o",
-                s=10,
-                label=f"{config.label} ({'fitted' if config.mode == 'train' else 'predicted'})",
-            )
-            for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data["ys"]):
-                rel_error = (y_pred - y) / y
-                std_error = get_std_errors([x], [y_pred], coefficients, cov, sigmoid_fit, grad_sigmoid_fit)[0]
-                delta_error = 1.96 * std_error
-                y_lower = y_pred - 1.96 * std_error
-                y_upper = y_pred + 1.96 * std_error
-                rel_error_lower = (y_lower - y) / y
-                rel_error_upper = (y_upper - y) / y
-
-                if config.mode == "train":
-                    unsigned_rel_errs.append(abs(rel_error))
-                else:
-                    ax.annotate(
-                        f"{np.abs(rel_error) * 100:.1f}%",
-                        (x, y),
-                        textcoords="offset points",
-                        xytext=(3, 3),
-                        ha="left",
-                        va="bottom",
-                        fontsize=8,
-                        color=config.color,
-                    )
-                    results += (
-                        f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} ± {prettify(delta_error, False)} | {prettify(rel_error)}"
-                    )
-        avg_unsigned_rel_err = np.mean(unsigned_rel_errs)
-
-        # plot the fitted curve
-        ax.plot(
-            plotted_predicted_data["xs"],
-            plotted_predicted_data["ys"],
-            color="black",
-            linestyle="--",
-            linewidth=1.5,
-        )
-
-        ax.fill_between(
-            plotted_predicted_data["xs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3
-        )
-
-        ax.legend(loc="lower right", ncols=1, fontsize=8)
-        ax.set_xlabel("Task loss")
-        if args.y_metric == "rc_acc":
-            ax.set_ylabel("Task RC accuracy")
-        elif args.y_metric == "mc_acc":
-            ax.set_ylabel("Task MC accuracy")
-        else:
-            raise ValueError(f"Invalid y_metric: {args.y_metric}")
-        ax.set_ylim([0, 1.0])
-        ax.set_title(
-            f"{task_name}\nAcc(L) = {a:.2f} / (1 + e^(-{k:.2f}(L - {x0:.2f}))) + {b:.2f}\navg rel error on fitting = {avg_unsigned_rel_err * 100:.2f}%",
-            fontsize=9,
+        plot_step2(
+            configs,
+            data_by_name,
+            predicted_data_by_name,
+            plotted_predicted_data,
+            task_name,
+            str_sigmoid(coefficients),
+            args.y_metric,
+            coefficients,
+            cov,
+            ax=ax,
         )
 
     fig.tight_layout()

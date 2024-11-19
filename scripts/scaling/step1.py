@@ -75,7 +75,7 @@ def fit_step1(data_by_name, y_metric):
             bounds=bounds,
             max_iter=1000000,
             disp=False,
-            return_cov=True
+            return_cov=True,
         )
     else:
         raise ValueError(f"Unknown y_metric: {y_metric}")
@@ -83,7 +83,7 @@ def fit_step1(data_by_name, y_metric):
     return coefficients, cov
 
 
-def predict_step1(data_by_name, coefficients, y_metric):
+def predict_step1(configs, data_by_name, coefficients, y_metric):
     predicted_data_by_name = {}
     plotted_predicted_data_by_name = {}
 
@@ -109,7 +109,7 @@ def predict_step1(data_by_name, coefficients, y_metric):
             "ys": [func([n, d], coefficients) for n, d in zip(ns, ds)],
         }
 
-        if data["mode"] == "eval":
+        if configs[name].mode == "eval":
             predicted_data = predicted_data_by_name[name]
             for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["ys"]):
                 rel_error = (y_pred - y) / y
@@ -216,12 +216,13 @@ def main():
 
         # make predictions
         predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error) = predict_step1(
-            data_by_name, coefficients, y_metric=args.y_metric
+            configs, data_by_name, coefficients, y_metric=args.y_metric
         )
         results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)}"
 
         if args.output_path:
-            plot_step1(configs,
+            plot_step1(
+                configs,
                 data_by_name,
                 predicted_data_by_name,
                 plotted_predicted_data_by_name,

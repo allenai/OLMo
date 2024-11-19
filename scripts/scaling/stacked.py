@@ -112,7 +112,6 @@ def main():
         pred_n = parse_size(args.target_n)
         pred_d = parse_length(args.target_d, pred_n)
 
-
     num_tasks = len(args.keys)
     fig, axes = plt.subplots(num_tasks, 3, figsize=(6 * 3, 4.5 * num_tasks), squeeze=False)
 
@@ -389,9 +388,6 @@ def main():
     fig.savefig(args.output_path, dpi=300)
 
     print(results)
-
-
-    
 
 
 if __name__ == "__main__":

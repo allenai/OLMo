@@ -1387,7 +1387,6 @@ class Trainer:
 
 @dataclass
 class TrainerForEval(Trainer):
-
     def close(self, exit_code: int = 0) -> None:
         gc_cuda()
 
