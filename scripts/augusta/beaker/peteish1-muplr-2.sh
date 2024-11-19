@@ -9,9 +9,6 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
-SEED=$1
-shift
-
 # augusta specific environment
 export LD_LIBRARY_PATH="/var/lib/tcpxo/lib64:${LD_LIBRARY_PATH}"
 export NCCL_CROSS_NIC=0
