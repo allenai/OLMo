@@ -78,10 +78,7 @@ torchrun \
       --load_path="gs://ai2-llm/shanea/checkpoints/OLMo-medium/peteish1-muplr-initseed${SEED}/step0" \
       --save_folder=$SAVE_FOLDER \
       --remote_save_folder="gs://ai2-llm/shanea/checkpoints/OLMo-medium/$NAME/" \
-      --reset_optimizer_state \
-      --reset_trainer_state \
-      --stop_at=2 \
-      --evaluators=[] \
+      --try_load_latest_save \
       --save_overwrite \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=4 \
