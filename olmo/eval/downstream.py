@@ -1966,8 +1966,8 @@ label_to_task_map_new = {
     ),
     "boolq_train_rc_5shot": (
         OEEvalTask,
-        {"dataset_path": "boolq", "dataset_name": "train_rc_5shot", "metric_type": "len_norm"},
-    ),  # this used to be acc
+        {"dataset_path": "boolq", "dataset_name": "train_rc_5shot", "metric_type": "acc"},
+    ),  # kept acc here, since len_norm can bias towards "yes"
     "boolq_train_rc_5shot_bpb": (
         OEEvalTask,
         {"dataset_path": "boolq", "dataset_name": "train_rc_5shot", "metric_type": "bpb"},
@@ -1982,7 +1982,7 @@ label_to_task_map_new = {
     ),
     "boolq_val_rc_5shot": (
         OEEvalTask,
-        {"dataset_path": "boolq", "dataset_name": "val_rc_5shot", "metric_type": "len_norm"},
+        {"dataset_path": "boolq", "dataset_name": "val_rc_5shot", "metric_type": "acc"},
     ),
     "boolq_val_rc_5shot_bpb": (
         OEEvalTask,
