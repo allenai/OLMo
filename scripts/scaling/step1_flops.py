@@ -49,8 +49,8 @@ def fit_step1(data_by_name, y_metric):
             train_ys += data["ys"]
 
     if y_metric == "rc_bpb":
-        p0 = [-0.1, 0.3, 0.1]
-        bounds = ([-np.inf, -np.inf, -np.inf], [0.0, np.inf, np.inf])
+        p0 = [2.0, -0.3, 0.1]
+        bounds = ([0, -np.inf, -np.inf], [np.inf, 0, np.inf])
         coefficients, cov = get_coefficients(
             train_fs,
             train_ys,
@@ -69,6 +69,8 @@ def fit_step1(data_by_name, y_metric):
 def predict_step1(configs, data_by_name, coefficients, y_metric):
     predicted_data_by_name = {}
     plotted_predicted_data_by_name = {}
+
+    unsigned_rel_errors = []
 
     fmin = 0.8 * min([min(data["fs"]) for data in data_by_name.values()])
     fmax = 1.2 * max([max(data["fs"]) for data in data_by_name.values()])
@@ -95,8 +97,13 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
             predicted_data = predicted_data_by_name[name]
             for f, y, y_pred in zip(data["fs"], data["ys"], predicted_data["ys"]):
                 rel_error = (y_pred - y) / y
+        else:
+            predicted_data = predicted_data_by_name[name]
+            for f, y, y_pred in zip(data["fs"], data["ys"], predicted_data["ys"]):
+                rel_error_t = (y_pred - y) / y
+                unsigned_rel_errors.append(np.abs(rel_error_t))
 
-    return predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error)
+    return predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error), unsigned_rel_errors
 
 
 def str_chinchilla_flops_fit(coefficients):
@@ -182,6 +189,8 @@ def main():
     num_cols = min(4, num_tasks)
     num_rows = (num_tasks + num_cols - 1) // num_cols
 
+    fitting_error = 0
+
     if args.output_path:
         fig, axes = plt.subplots(num_rows, num_cols, figsize=(3.75 * num_cols, 3.25 * num_rows), squeeze=False)
 
@@ -196,10 +205,17 @@ def main():
         coefficients, cov = fit_step1(data_by_name, args.y_metric)
 
         # make predictions
-        predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error) = predict_step1(
-            configs, data_by_name, coefficients, y_metric=args.y_metric
-        )
-        results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)}"
+        (
+            predicted_data_by_name,
+            plotted_predicted_data_by_name,
+            (y, y_pred, rel_error),
+            unsigned_rel_errors,
+        ) = predict_step1(configs, data_by_name, coefficients, y_metric=args.y_metric)
+
+        avg_unsigned_rel_error = np.mean(unsigned_rel_errors)
+        fitting_error += avg_unsigned_rel_error
+
+        results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)} | {prettify(avg_unsigned_rel_error)}"
 
         if args.output_path:
             plot_step1(
@@ -218,6 +234,7 @@ def main():
         fig.savefig(args.output_path, dpi=300)
 
     print(results)
+    print("Total fitting error: ", prettify(fitting_error / num_tasks))
 
 
 if __name__ == "__main__":
