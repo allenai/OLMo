@@ -25,3 +25,9 @@ python scripts/scaling/stacked.py -c scripts/scaling/final/7b_full.json -o stack
 python scripts/scaling/stacked.py -c scripts/scaling/final/7b_full.json -o stacked.png -k main --moving_avg 20 --skip_perc 0.1
 ```
 
+
+## Variance Analysis
+
+```
+python scripts/scaling/variance_analysis.py -c scripts/scaling/configs/1b_easy.json -o pngs/test.png -k all --last_n_points 20
+```

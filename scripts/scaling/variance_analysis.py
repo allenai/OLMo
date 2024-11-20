@@ -5,8 +5,8 @@ import numpy as np
 import seaborn as sns
 
 from olmo.scaling.scaling_laws.utils import (
-    get_downstream_data_by_name,
     get_final_configs,
+    get_step2_data_by_name,
     get_task_sets,
 )
 
@@ -85,7 +85,7 @@ def main():
     num_tasks = len(args.keys)
     fig, axes = plt.subplots(num_tasks, 2, figsize=(6 * 2, 4.5 * num_tasks), squeeze=False)
 
-    results = "Task Name | Task Loss Std Dev | Task Loss Coeff of Var | Accuracy Std Dev | Accuracy Coeff of Var"
+    results = "Task Name | Task Loss Coeff of Var | Accuracy Coeff of Var"
 
     num_tasks = len(args.keys)
 
@@ -93,12 +93,14 @@ def main():
     acc_coeffs = {}
 
     for r, task_name in enumerate(args.keys):
-        data_by_name = get_downstream_data_by_name(configs, task_name, moving_avg=args.moving_avg)
+        data_by_name = get_step2_data_by_name(configs, task_name, moving_avg=args.moving_avg)
         last_n_points = args.last_n_points
 
         for name, data in data_by_name.items():
             config = configs[name]
             if config.mode == "eval":  # we are assuming that we have results of intermediate steps here
+                total_points = len(data["ds"])
+                start_point = int(np.ceil(0.3 * total_points))
                 ds = data["ds"][-last_n_points:]
                 xs = data["xs"][-last_n_points:]
                 ys = data["ys"][-last_n_points:]
@@ -108,7 +110,10 @@ def main():
                 acc_std_dev = np.std(ys)
                 acc_coeff_of_var = acc_std_dev / np.mean(ys)
 
-                results += f"\n{task_name} | {loss_std_dev:.5f} | {loss_coeff_of_var:.5f} | {acc_std_dev:.5f} | {acc_coeff_of_var:.5f}"
+                # results += f"\n{task_name} | {loss_std_dev:.5f} | {loss_coeff_of_var:.5f} | {acc_std_dev:.5f} | {acc_coeff_of_var:.5f}"
+                # results += f"\n{task_name.replace('_', ' ').replace('5shot', '5-shot')} & {round(loss_coeff_of_var, 3)} & {round(acc_coeff_of_var, 3)} \\\\"
+
+                results += f"\n{task_name.replace('_', ' ').replace('5shot', '5-shot')} & {round(loss_coeff_of_var, 3) * 100:.1f}\\% & {round(acc_coeff_of_var, 3) * 100:.1f}\\% \\\\"
 
                 loss_coeffs[task_name] = loss_coeff_of_var
                 acc_coeffs[task_name] = acc_coeff_of_var
@@ -117,50 +122,50 @@ def main():
 
                 ax = axes[r][0]
 
-                axins = ax.inset_axes([0.63, 0.33, 0.35, 0.35])  # bottom right
+                # axins = ax.inset_axes([0.63, 0.33, 0.35, 0.35])  # bottom right
 
-                for ax_ in [ax, axins]:
+                for ax_ in [ax]:  # , axins]:
                     ax_.scatter(
-                        data["ds"][:-last_n_points],
-                        data["xs"][:-last_n_points],
-                        color=config.color,
+                        data["ds"][start_point:-last_n_points],
+                        data["xs"][start_point:-last_n_points],
+                        color="teal",
                         alpha=0.3,
                         marker="o",
                         s=10,
                     )
-                    ax_.scatter(ds, xs, color="blue", alpha=0.3, marker="o", s=10)
+                    ax_.scatter(ds, xs, color="orange", marker="o", s=10)
 
-                inset_zoom_step1(ax, axins, data["ds"], xs)
+                # inset_zoom_step1(ax, axins, data["ds"], xs)
 
                 # ax.set_xscale("log")
                 # ax.legend(loc="upper right", ncols=1, fontsize=10)
                 ax.set_xlabel("Tokens (D)")
                 ax.set_ylabel("Loss")
-                ax.set_title(task_name)
+                ax.set_title(f"{task_name} coefficient of variance: {loss_coeff_of_var:.3f}")
 
                 # Step 2
 
                 ax = axes[r][1]
 
-                axins = ax.inset_axes([0.63, 0.33, 0.35, 0.35])  # bottom right
+                # axins = ax.inset_axes([0.63, 0.33, 0.35, 0.35])  # bottom right
 
-                for ax_ in [ax, axins]:
+                for ax_ in [ax]:  # , axins]:
                     ax_.scatter(
-                        data["xs"][:-last_n_points],
-                        data["ys"][:-last_n_points],
-                        color=config.color,
+                        data["xs"][start_point:-last_n_points],
+                        data["ys"][start_point:-last_n_points],
+                        color="teal",
                         alpha=0.3,
                         marker="o",
                         s=10,
                     )
-                    ax_.scatter(xs, ys, color="blue", alpha=0.3, marker="o", s=10)
+                    ax_.scatter(xs, ys, color="orange", marker="o", s=10)
 
-                inset_zoom_step2(ax, axins, xs[-1], ys[-1])
+                # inset_zoom_step2(ax, axins, xs[-1], ys[-1])
 
                 # ax.legend(loc="upper right", ncols=1, fontsize=10)
                 ax.set_xlabel("Task Loss")
                 ax.set_ylabel("Accuracy")
-                ax.set_title(task_name)
+                ax.set_title(f"{task_name} coefficient of variance: {acc_coeff_of_var:.3f}")
                 break
 
     fig.tight_layout()
@@ -171,7 +176,7 @@ def main():
 
     mean_loss_coeff = np.mean(list(loss_coeffs.values()))
     mean_acc_coeff = np.mean(list(acc_coeffs.values()))
-    epsilon = 0.001
+    epsilon = 0.0  # 0.001
 
     print(
         f"avg loss coeff: {mean_loss_coeff}. tasks above threshold: ",
