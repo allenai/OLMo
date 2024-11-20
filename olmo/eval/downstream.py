@@ -198,7 +198,7 @@ class ICLMetric(Metric):
             outputs[f"_ce"] = -torch.tensor(sum(soft_log_scores[1.0]) / len(soft_log_scores[1.0]))
 
             for temp in soft_log_scores:
-                outputs[f"_ce_temp{int(temp)*100}pc"] = -torch.tensor(sum(soft_log_scores[temp]) / len(soft_log_scores[temp]))
+                outputs[f"_ce_temp{int(temp*100)}pc"] = -torch.tensor(sum(soft_log_scores[temp]) / len(soft_log_scores[temp]))
         return outputs
 
 
