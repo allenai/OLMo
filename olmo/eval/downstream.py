@@ -59,8 +59,8 @@ class ICLMetric(Metric):
             ]
 
             # by default express log_likelihoods as bpb's
-            log_likelihood = torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum() / batch["cont_byte_len"][idx] * LOG_2_OF_E
-            normalizer = torch.tensor(LOG_2_OF_E / batch["cont_byte_len"][idx], dtype=log_likelihood.dtype, device=log_likelihood.device)
+            log_likelihood = torch.gather(lm_cont_logits, 1, cont_tokens.unsqueeze(-1)).sum() * LOG_2_OF_E / batch["cont_byte_len"][idx]
+            normalizer = LOG_2_OF_E / batch["cont_byte_len"][idx]
             if self.metric_type == "pmi_dc":
                 assert dc_lm_logits is not None
                 # get domain conditional continuation logits: [cont_len, vocab]
@@ -79,7 +79,7 @@ class ICLMetric(Metric):
                     normalizer *= -1
             elif self.metric_type == "bpb":
                 # bits per byte
-                normalizer = torch.tensor(-1, dtype=log_likelihood.dtype, device=log_likelihood.device)
+                normalizer = -1
                 if (log_likelihood / normalizer) > 100000000:
                     log.info("Abnormally high log_likelihood!")
                     log.info(f'batch["cont_byte_len"][idx] = {batch["cont_byte_len"][idx]}')
@@ -134,8 +134,8 @@ class ICLMetric(Metric):
         # compute acc
         correct = []
         soft_log_scores = {
-            temp: []
-            for temp in [2.0, 1.0, 0.5, 0.3, 0.2, 0.1]
+            log_temp.item(): []
+            for log_temp in torch.arange(-2, 1, 0.25).exp()
         }
         correct_bpb = []
         incorrect_bpb = []
@@ -198,7 +198,7 @@ class ICLMetric(Metric):
             outputs[f"_ce"] = -torch.tensor(sum(soft_log_scores[1.0]) / len(soft_log_scores[1.0]))
 
             for temp in soft_log_scores:
-                outputs[f"_ce_temp{int(temp)/100}pc"] = -torch.tensor(sum(soft_log_scores[temp]) / len(soft_log_scores[temp]))
+                outputs[f"_ce_temp{int(temp)*100}pc"] = -torch.tensor(sum(soft_log_scores[temp]) / len(soft_log_scores[temp]))
         return outputs
 
 
