@@ -119,12 +119,12 @@ Example: To download checkpoint at step 2000:
 ```bash
 python scripts/download_checkpoints.py checkpoints/official/OLMo-1B.csv --save-dir ./checkpoints/ --step 2000
 ```
-**Note**: All checkpoints in `checkpoints/official/` are unsharded files.
+**Note**: All checkpoints in `checkpoints/official/` are unsharded.
 
 2. Resume training using the downloaded checkpoint. You can specify either a local path or URL using the --load_path argument: For example, to resume training from step 2000 of the OLMo 1B run:
 
 ```bash
-torchrun --nproc_per_node=8 scripts/train.py configs/official/OLMo-1B.yaml     --load_path=checkpoints/step2000 --save_folder=./new_checkpoints --run_name=olmo_test --save_overwrite
+torchrun --nproc_per_node=8 scripts/train.py configs/official/OLMo-1B.yaml --load_path=checkpoints/step2000 --save_folder=./new_checkpoints --run_name=olmo_test
 ```
 The command above:
 - Loads the checkpoint from `checkpoints/step2000`
@@ -133,9 +133,6 @@ The command above:
 - Overwrites existing checkpoints in the save folder.
 
 ### Inspecting training data
-
-To inspect the exact tokens used in training batches for OLMo models, first download the training data. If you don't have an R2 API key, use the public HTTP URLs and update your configuration file with the local data paths. After completing this setup, you can use the inspection tools to examine the training batches.
-
 Find the data order file URL in the [Models Overview](#models-overview) table. For example, the OLMo-7B model's first epoch data order file is located at [https://olmo-checkpoints.org/ai2-llm/olmo-medium/wvc30anm/train_data/global_indices.npy](https://olmo-checkpoints.org/ai2-llm/olmo-small/46zc5fly/train_data/global_indices.npy).
 Once you have that you can use this snippet to inspect the data within a particular batch:
 

@@ -31,7 +31,6 @@ pyrightconfig.json
 doc/_build/
 *.swp
 .DS_Store
-readme_misc.md
 
 # python
 

@@ -268,10 +268,9 @@ def main(cfg: TrainConfig) -> None:
                     )
                     cfg.save_num_unsharded_checkpoints_to_keep = cfg.save_num_checkpoints_to_keep
             elif cfg.distributed_strategy == DistributedStrategy.fsdp:
-                # checkpoint_type = (
-                #     CheckpointType.sharded if cfg.save_num_checkpoints_to_keep != 0 else CheckpointType.unsharded
-                # )
-                checkpoint_type = CheckpointType.unsharded
+                checkpoint_type = (
+                    CheckpointType.sharded if cfg.save_num_checkpoints_to_keep != 0 else CheckpointType.unsharded
+                )
             else:
                 raise NotImplementedError(f"Distributed strategy {cfg.distributed_strategy} not supported yet!")
 
@@ -298,9 +297,7 @@ def main(cfg: TrainConfig) -> None:
                 cfg.load_path,
                 load_optimizer_state=not cfg.reset_optimizer_state,
                 load_trainer_state=not cfg.reset_trainer_state,
-                # sharded_checkpointer=cfg.load_path_sharded_checkpointer,
-                sharded_checkpointer= False,
-                checkpoint_type=CheckpointType.unsharded
+                sharded_checkpointer=cfg.load_path_sharded_checkpointer,
             )
             log.info("Checkpoint successfully loaded")
 
