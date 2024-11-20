@@ -121,38 +121,6 @@ def plot_step1(
     y_metric,
     ax=plt.gca(),
 ):
-    # plot the actual and predicted data
-    unsigned_rel_errors = []
-    for name, data in data_by_name.items():
-        config = configs[name]
-        predicted_data = predicted_data_by_name[name]
-
-        for i, (f, y) in enumerate(zip(data["fs"], data["ys"])):
-            ax.scatter(
-                f,
-                y,
-                color=config.color,
-                marker=MARKERS[i] if config.mode == "train" else "o",
-                s=50,
-            )
-
-        for f, y, y_pred in zip(data["fs"], data["ys"], predicted_data["ys"]):
-            rel_error = (y_pred - y) / y
-            if config.mode == "train":
-                unsigned_rel_errors.append(np.abs(rel_error))
-            else:
-                ax.annotate(
-                    f"{prettify(rel_error)}",
-                    (f, y),
-                    textcoords="offset points",
-                    xytext=(3, 3),
-                    ha="left",
-                    va="bottom",
-                    fontsize=8,
-                    color=config.color,
-                )
-    avg_unsigned_rel_error = np.mean(unsigned_rel_errors)
-
     # plot the fitted curve
     for name, data in plotted_predicted_data_by_name.items():
         config = configs[name]
@@ -164,6 +132,47 @@ def plot_step1(
             linewidth=1.5,
             label=f'{config.label} ({"fitted" if config.mode == "train" else "predicted"})',
         )
+
+    # plot the actual and predicted data
+    unsigned_rel_errors = []
+    for name, data in data_by_name.items():
+        config = configs[name]
+        predicted_data = predicted_data_by_name[name]
+
+        for i, (f, y) in enumerate(zip(data["fs"], data["ys"])):
+            ax.scatter(
+                f,
+                y,
+                color=config.color,
+                marker=MARKERS[i] if config.mode == "train" else "x",
+                s=50 if config.mode == "train" else 10,
+                label=f"{config.label} (target)" if config.mode == "eval" else None,
+            )
+
+        for f, y, y_pred in zip(data["fs"], data["ys"], predicted_data["ys"]):
+            rel_error = (y_pred - y) / y
+            if config.mode == "train":
+                unsigned_rel_errors.append(np.abs(rel_error))
+            else:
+                ax.scatter(
+                    f,
+                    y_pred,
+                    color=config.color,
+                    marker="o",
+                    s=10,
+                    label=f"{config.label} ({'predicted'})",
+                )
+                ax.annotate(
+                    f"{prettify(rel_error)}",
+                    (f, y),
+                    textcoords="offset points",
+                    xytext=(3, 3),
+                    ha="left",
+                    va="bottom",
+                    fontsize=8,
+                    color=config.color,
+                )
+    avg_unsigned_rel_error = np.mean(unsigned_rel_errors)
 
     ax.set_xscale("log")
     ax.legend(loc="upper right", ncols=1, fontsize=8)

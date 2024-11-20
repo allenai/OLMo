@@ -131,9 +131,9 @@ def plot_step2(
             data["xs"],
             data["ys"],
             color=config.color,
-            marker="o",
+            marker="o" if config.mode == "train" else "x",
             s=10,
-            label=f"{config.label} ({'fitted' if config.mode == 'train' else 'predicted'})",
+            label=f"{config.label} ({'fitted' if config.mode == 'train' else 'target'})",
         )
         for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data["ys"]):
             rel_error = (y_pred - y) / y
@@ -141,6 +141,14 @@ def plot_step2(
             if config.mode == "train":
                 unsigned_rel_errs.append(abs(rel_error))
             else:
+                ax.scatter(
+                    x,
+                    y_pred,
+                    color=config.color,
+                    marker="o",
+                    s=10,
+                    label=f"{config.label} ({'predicted'})",
+                )
                 ax.annotate(
                     f"{np.abs(rel_error) * 100:.1f}%",
                     (x, y),
