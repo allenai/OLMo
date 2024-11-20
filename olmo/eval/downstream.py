@@ -133,8 +133,10 @@ class ICLMetric(Metric):
 
         # compute acc
         correct = []
-        soft_scores = []
-        soft_log_scores = []
+        soft_log_scores = {
+            temp: []
+            for temp in [2.0, 1.0, 0.5, 0.3, 0.2, 0.1]
+        }
         correct_bpb = []
         incorrect_bpb = []
 
@@ -171,8 +173,8 @@ class ICLMetric(Metric):
                 labels.append(label_dict[doc_id])
             else:
                 correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
-                soft_scores.append(torch.softmax(loglikelihoods, dim=0)[label_dict[doc_id]].item())
-                soft_log_scores.append(torch.log_softmax(loglikelihoods, dim=0)[label_dict[doc_id]].item())
+                for temp in soft_log_scores:
+                    soft_log_scores[temp].append(torch.log_softmax(loglikelihoods / temp, dim=0)[label_dict[doc_id]].item())
                 correct_bpb.append(bpbs[label_dict[doc_id]].item())
 
                 incorrect_indices = [i for i in range(num_continuations) if i != label_dict[doc_id]]
@@ -190,11 +192,13 @@ class ICLMetric(Metric):
             "": torch.tensor(score),
         }
 
-        if soft_scores:
-            outputs["_ce"] = -torch.tensor(sum(soft_log_scores) / len(soft_log_scores))
+        if soft_log_scores:
             outputs["_correct_bpb"] = -torch.tensor(sum(correct_bpb) / len(correct_bpb))
             outputs["_incorrect_bpb"] = -torch.tensor(sum(incorrect_bpb) / len(incorrect_bpb))
+            outputs[f"_ce"] = -torch.tensor(sum(soft_log_scores[1.0]) / len(soft_log_scores[1.0]))
 
+            for temp in soft_log_scores:
+                outputs[f"_ce_temp{int(temp)/100}pc"] = -torch.tensor(sum(soft_log_scores[temp]) / len(soft_log_scores[temp]))
         return outputs
 
 
