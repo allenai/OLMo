@@ -13,6 +13,7 @@ from olmo.scaling.scaling_laws.fitting_functions import (
     get_coefficients_huber,
     grad_chinchilla_n_d_fit,
     grad_chinchilla_n_d_negated_fit,
+    get_std_errors,
 )
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
@@ -138,11 +139,29 @@ def plot_step1(
     task_name,
     fit_str,
     y_metric,
+    coefficients,
+    cov,
     ax=plt.gca(),
 ):
     # plot the fitted curve
     for name, data in plotted_predicted_data_by_name.items():
         config = configs[name]
+
+        if config.mode == "eval":
+            std_errors = get_std_errors(
+                [[config.n, d] for d in data["ds"]],
+                data["ys"],
+                coefficients,
+                cov,
+                chinchilla_n_d_fit,
+                grad_chinchilla_n_d_fit,
+            )
+
+            # Compute prediction intervals
+            plotted_y_lower = data["ys"] - 1.96 * std_errors
+            plotted_y_upper = data["ys"] + 1.96 * std_errors
+            # ax.fill_between(data["ds"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
+
         ax.plot(
             data["ds"],
             data["ys"],
@@ -179,7 +198,7 @@ def plot_step1(
                     color=config.color,
                     marker="o",
                     s=10,
-                    label=f"{config.label} ({'predicted'})",
+                    # label=f"{config.label} ({'predicted'})",
                 )
                 ax.annotate(
                     f"{prettify(rel_error)}",
@@ -254,6 +273,8 @@ def main():
                 task_name,
                 str_chinchilla_n_d_fit(coefficients),
                 args.y_metric,
+                coefficients,
+                cov,
                 axes[i // num_cols][i % num_cols],
             )
 
