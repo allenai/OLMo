@@ -74,12 +74,12 @@ class ICLMetric(Metric):
                 # gather log-probs at continuation token indices
                 pass
             elif self.metric_type == "len_norm" or self.metric_type == "ce_loss":
-                normalizer = torch.tensor(batch["cont_byte_len"][idx], dtype=log_likelihood.dtype, device=log_likelihood.device)
+                normalizer *= batch["cont_str_len"][idx]
                 if self.metric_type == "ce_loss":
                     normalizer *= -1
             elif self.metric_type == "bpb":
                 # bits per byte
-                normalizer *= -torch.tensor(batch["cont_byte_len"][idx] / LOG_2_OF_E, dtype=log_likelihood.dtype, device=log_likelihood.device)
+                normalizer = torch.tensor(-1, dtype=log_likelihood.dtype, device=log_likelihood.device)
                 if (log_likelihood / normalizer) > 100000000:
                     log.info("Abnormally high log_likelihood!")
                     log.info(f'batch["cont_byte_len"][idx] = {batch["cont_byte_len"][idx]}')
@@ -191,8 +191,6 @@ class ICLMetric(Metric):
         }
 
         if soft_scores:
-            outputs["_soft"] = torch.tensor(sum(soft_scores) / len(soft_scores))
-            outputs["_soft_log"] = torch.tensor(sum(soft_log_scores) / len(soft_log_scores))
             outputs["_ce"] = -torch.tensor(sum(soft_log_scores) / len(soft_log_scores))
             outputs["_correct_bpb"] = -torch.tensor(sum(correct_bpb) / len(correct_bpb))
             outputs["_incorrect_bpb"] = -torch.tensor(sum(incorrect_bpb) / len(incorrect_bpb))
