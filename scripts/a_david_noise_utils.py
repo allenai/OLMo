@@ -329,7 +329,7 @@ ce_columns = [
     'eval/dolma_wiki-validation/CrossEntropyLoss',
 ]
 
-N_LAST_CKPTS = 10
+N_LAST_CKPTS = 20
 PLOT_AVG_PRED = False
 
 pd.options.mode.chained_assignment = None
@@ -457,13 +457,32 @@ def get_last_n_predicted_error(df: pd.DataFrame, full_df: pd.DataFrame):
     N = N_LAST_CKPTS
     eval_row_lastn = full_df[full_df["mode"]=="eval"].iloc[-N:]
     y_lastn = eval_row_lastn["y"]
+    y_lastn_max = eval_row_lastn["y"].max()
+    y_lastn_min = eval_row_lastn["y"].min()
     y_lastn_mean = eval_row_lastn["y"].mean()
     rel_error = (y_pred - y) / y
+    rel_error_lastn = (y_pred - y_lastn) / y_lastn
+    rel_error_lastn_max = rel_error_lastn.max()
+    rel_error_lastn_min = rel_error_lastn.min()
     rel_error_lastn_mean = (y_pred - y_lastn_mean) / y_lastn_mean
+
+    abs_error = (y_pred - y)
+    abs_error_lastn = (y_pred - y_lastn)
+    abs_error_lastn_mean = (y_pred - y_lastn_mean)
+
+    # Calculate NRMSE using last N checkpoints
+    nrmse_range = np.sqrt(np.mean((y_pred - y_lastn)**2)) / (y_lastn_max - y_lastn_min)
+    nrmse_mean = np.sqrt(np.mean((y_pred - y_lastn)**2)) / np.mean(y_lastn)
+    nrmse_std = np.sqrt(np.mean((y_pred - y_lastn)**2)) / np.std(y_lastn)
+
+    # Calculate NRMSE using last N checkpoints
+    rme = np.mean((y_pred - y_lastn)) / np.mean(y_lastn)
+    nrme_std = np.mean((y_pred - y_lastn)) / np.std(y_lastn)
     
     # add # std dev from pred target
     y_lastn_std = np.std(y_lastn)
     y_lastn_coeff_var = y_lastn_std / y_lastn_mean
+    y_lastn_coeff_var_range = y_lastn_std / (y_lastn_max - y_lastn_min)
     z_score = (y_pred - y_lastn_mean) / y_lastn_std
 
     y_lastn_std_uniform = (y_lastn.max() - y_lastn.min()) / 12**(1/2)
@@ -474,13 +493,30 @@ def get_last_n_predicted_error(df: pd.DataFrame, full_df: pd.DataFrame):
         "y": y,
         "y_lastn": y_lastn.tolist(),
         "y_pred": y_pred,
+        "y_pred_lastn_std": y_lastn_std,
+        "y_pred_lastn_std_uniform": y_lastn_std_uniform,
+        "y_lastn_mean": y_lastn_mean,
         "y_lastn_std": y_lastn_std,
+        "y_lastn_range": [y_lastn_min, y_lastn_max],
         "y_lastn_z_score": z_score,
         "y_lastn_std_uniform": y_lastn_std_uniform,
         "y_lastn_std_score": y_lastn_std_score,
         "y_lastn_coeff_var": y_lastn_coeff_var,
+        "y_lastn_coeff_var_range": y_lastn_coeff_var_range,
+        "abs_error": abs_error,
+        "abs_error_lastn": abs_error_lastn.tolist(),
+        "abs_error_lastn_mean": abs_error_lastn_mean,
+        "nrmse_lastn_range": nrmse_range,
+        "nrmse_lastn_mean": nrmse_mean,
+        "nrmse_lastn_std": nrmse_std,
+        "rme_lastn": rme,
+        "nrme_lastn_std": nrme_std,
         "rel_error": rel_error,
-        "rel_error_lastn_mean": rel_error_lastn_mean
+        "rel_error_lastn": rel_error_lastn,
+        "rel_error_lastn_max": rel_error_lastn_max,
+        "rel_error_lastn_min": rel_error_lastn_min,
+        "rel_error_lastn_range": [rel_error_lastn_max, rel_error_lastn_min, rel_error_lastn_mean, (rel_error_lastn_max-rel_error_lastn_min)],
+        "rel_error_lastn_mean": rel_error_lastn_mean.tolist()
     }
 
 
@@ -960,6 +996,8 @@ def get_name_size_length(run_name: str):
 
 
 def prettify(rel_error):
+    if isinstance(rel_error, list):
+        return "[" + ', '.join([f"{e * 100:+.1f}%" for e in rel_error]) + "]"
     return f"{rel_error * 100:+.1f}%"
 
 
@@ -968,6 +1006,20 @@ def prct(rel_error):
 
 
 def round_str(n):
+    if isinstance(n, list):
+        return "[" + ', '.join([f"{i:.4f}" for i in n]) + "]"
+    return f"{n:.1f}"
+
+
+def round_str_long(n):
+    if isinstance(n, list):
+        return "[" + ', '.join([f"{i:.4f}" for i in n]) + "]"
+    return f"{n:.4f}"
+
+
+def std_str(n):
+    if isinstance(n, list):
+        return f"{n[1]:.4f} ± {n[2]:.4f} [{n[3]:.4f}, {n[4]:.4f}]"
     return f"{n:.1f}"
 
 
@@ -1003,7 +1055,7 @@ def print_error_table(stacked_error: dict[str, dict]):
     display(Markdown(mkdn))
 
 
-def print_step_error_table(step1_error: dict[str, dict]=None, step2_error: dict[str, dict]=None, stacked_error: dict[str, dict]=None, entry_value: str='rel_error'):
+def print_step_error_table(step1_error: dict[str, dict]=None, step2_error: dict[str, dict]=None, stacked_error: dict[str, dict]=None, entry_value: str='rel_error', show_avg=True):
     from IPython.display import display, Markdown
 
     targets = step1_error.keys()
@@ -1016,6 +1068,15 @@ def print_step_error_table(step1_error: dict[str, dict]=None, step2_error: dict[
             'Target accuracy std. dev.',
         ]
         format = sci_str
+    elif 'y_pred_lastn_std' in entry_value:
+        labels = ['Target task loss', '--', 'Target accuracy']
+        format = std_str
+    elif 'abs' in entry_value:
+        labels = ['Target task loss absolute error', '--', 'Target accuracy absolute error']
+        format = round_str_long
+    elif entry_value == 'y_pred':
+        labels = ['Predicted task loss', '--', 'Predicted accuracy']
+        format = round_str_long
     elif entry_value == 'y_lastn_coeff_var':
         labels = [
             'Target task loss coefficient of variation',
@@ -1023,6 +1084,13 @@ def print_step_error_table(step1_error: dict[str, dict]=None, step2_error: dict[
             'Target accuracy coefficient of variation',
         ]
         format = prct
+    elif entry_value == 'y_lastn_range':
+        labels = [
+            'Target task loss (min, max, mean, range)',
+            '--',
+            'Target accuracy (min, max, mean, range)',
+        ]
+        format = round_str
     elif entry_value == 'y_lastn_z_score':
         labels = [
             'Target task loss z-score',
@@ -1036,6 +1104,13 @@ def print_step_error_table(step1_error: dict[str, dict]=None, step2_error: dict[
     elif entry_value == 'y_lastn_std_score':
         labels = 'standardized score'
         format = round_str
+    elif entry_value == 'rel_error_lastn_range':
+        labels = [
+            'Step 1 error (min, max, mean, range)',
+            'Step 2 error (min, max, mean, range)',
+            'Stacked error (min, max, mean, range)',
+        ]
+        format = prettify
     else:
         labels = [
             'Step 1 error',
@@ -1059,21 +1134,22 @@ def print_step_error_table(step1_error: dict[str, dict]=None, step2_error: dict[
                 if _error_dict is not None:
                     mkdn += f" {format(_error_dict[target][task][entry_value])} |"
 
-    EXCLUDED = ['BoolQ', 'MMLU-Stem', 'MMLU-Humanities', 'MMLU-Social-Science', 'MMLU-Other']
+    if show_avg:
+        EXCLUDED = ['BoolQ', 'MMLU-Stem', 'MMLU-Humanities', 'MMLU-Social-Science', 'MMLU-Other']
 
-    # mkdn += f"\n| **Avg signed {label}** | "
-    # for target in targets:
-    #     for _error_dict in [step1_error, step2_error, stacked_error]:
-    #         if _error_dict is not None:
-    #             errors = [t[entry_value] for name, t in _error_dict[target].items() if not any([substr in name for substr in EXCLUDED])]
-    #             mkdn += f"**{format(np.mean(errors))}** |"
+        # mkdn += f"\n| **Avg signed {label}** | "
+        # for target in targets:
+        #     for _error_dict in [step1_error, step2_error, stacked_error]:
+        #         if _error_dict is not None:
+        #             errors = [t[entry_value] for name, t in _error_dict[target].items() if not any([substr in name for substr in EXCLUDED])]
+        #             mkdn += f"**{format(np.mean(errors))}** |"
 
-    mkdn += f"\n| **Avg unsigned {labels[-1].lower()}** (excl. BoolQ, MMLU subsets) | "
-    for target in targets:
-        for _error_dict in [step1_error, step2_error, stacked_error]:
-            if _error_dict is not None:
-                errors = [t[entry_value] for name, t in _error_dict[target].items() if not any([substr in name for substr in EXCLUDED])]
-                mkdn += f"**{format(np.mean(np.abs(errors)))}** |"
+        mkdn += f"\n| **Avg unsigned {labels[-1].lower()}** (excl. BoolQ, MMLU subsets) | "
+        for target in targets:
+            for _error_dict in [step1_error, step2_error, stacked_error]:
+                if _error_dict is not None:
+                    errors = [t[entry_value] for name, t in _error_dict[target].items() if not any([substr in name for substr in EXCLUDED])]
+                    mkdn += f"**{format(np.mean(np.abs(errors)))}** |"
     
     # print(mkdn)
     display(Markdown(mkdn))
