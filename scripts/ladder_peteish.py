@@ -486,6 +486,24 @@ def train_cmd(args: argparse.Namespace):
     main(cfg)
 
 
+def eval_cmd(args: argparse.Namespace):
+    cfg = config_from_args(args)
+    log.info(f"save folder from config: {cfg.save_folder}")
+
+    try:
+        mp.set_start_method("spawn", force=True)
+    except RuntimeError as e:
+        print(f"failed to set multiprocessing start method: {e}")
+    torch.cuda.set_device(f"cuda:{get_local_rank()}")
+    dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30))
+    prepare_cli_environment()
+    add_cached_path_clients()
+
+    from eval import main
+
+    main(cfg)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(os.path.basename(__file__))
     subparsers = parser.add_subparsers(required=True)
@@ -535,7 +553,10 @@ if __name__ == "__main__":
     train_parser = subparsers.add_parser("train")
     train_parser.set_defaults(func=train_cmd)
 
-    for subparser in [dump_parser, train_parser]:
+    eval_parser = subparsers.add_parser("eval")
+    eval_parser.set_defaults(func=eval_cmd)
+
+    for subparser in [dump_parser, train_parser, eval_parser]:
         subparser.add_argument("--model", type=str, required=True)
         subparser.add_argument("--data", type=str, required=True)
         subparser.add_argument("--length", type=str, default="2xC")
