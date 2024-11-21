@@ -483,7 +483,8 @@ def get_last_n_predicted_error(df: pd.DataFrame, full_df: pd.DataFrame):
     y_lastn_std = np.std(y_lastn)
     y_lastn_coeff_var = y_lastn_std / y_lastn_mean
     y_lastn_coeff_var_range = y_lastn_std / (y_lastn_max - y_lastn_min)
-    z_score = (y_pred - y_lastn_mean) / y_lastn_std
+    # z_score = (y_pred - y_lastn_mean) / y_lastn_std
+    z_score = (y_pred - y) / y_lastn_std
 
     y_lastn_std_uniform = (y_lastn.max() - y_lastn.min()) / 12**(1/2)
     y_lastn_std_score = (y_pred - y_lastn_mean) / y_lastn_std_uniform
@@ -498,20 +499,20 @@ def get_last_n_predicted_error(df: pd.DataFrame, full_df: pd.DataFrame):
         "y_lastn_mean": y_lastn_mean,
         "y_lastn_std": y_lastn_std,
         "y_lastn_range": [y_lastn_min, y_lastn_max],
-        "y_lastn_z_score": z_score,
+        "y_lastn_z_score": abs(z_score),
         "y_lastn_std_uniform": y_lastn_std_uniform,
         "y_lastn_std_score": y_lastn_std_score,
         "y_lastn_coeff_var": y_lastn_coeff_var,
         "y_lastn_coeff_var_range": y_lastn_coeff_var_range,
-        "abs_error": abs_error,
+        "abs_error": abs(abs_error),
         "abs_error_lastn": abs_error_lastn.tolist(),
         "abs_error_lastn_mean": abs_error_lastn_mean,
         "nrmse_lastn_range": nrmse_range,
         "nrmse_lastn_mean": nrmse_mean,
         "nrmse_lastn_std": nrmse_std,
         "rme_lastn": rme,
-        "nrme_lastn_std": nrme_std,
-        "rel_error": rel_error,
+        "nrme_lastn_std": abs(nrme_std),
+        "rel_error": abs(rel_error),
         "rel_error_lastn": rel_error_lastn,
         "rel_error_lastn_max": rel_error_lastn_max,
         "rel_error_lastn_min": rel_error_lastn_min,
