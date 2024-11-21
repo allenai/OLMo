@@ -1,4 +1,5 @@
 import argparse
+from datetime import timedelta
 import logging
 import os
 import re
@@ -476,7 +477,7 @@ def train_cmd(args: argparse.Namespace):
     except RuntimeError as e:
         print(f"failed to set multiprocessing start method: {e}")
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
-    dist.init_process_group(backend="nccl")
+    dist.init_process_group(backend="nccl", timeout=timedelta(minutes=30))
     prepare_cli_environment()
     add_cached_path_clients()
 
