@@ -11,7 +11,7 @@ from olmo.scaling.scaling_laws.fitting_functions import (
 )
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
-    get_final_data_by_name,
+    get_step1_data_by_name,
     get_task_sets,
     prettify,
     tasks,
@@ -23,25 +23,25 @@ MARKERS = ["s", "P", "p", "*", "o"]
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-k", "--keys", nargs="+", default=[], help="Key(s) for tasks")
-    parser.add_argument(
-        "--num_to_avg", type=int, default=1, help="Number of final ckpts to average (for final loss fitting)"
-    )
+    parser.add_argument("--moving_avg", type=int, default=1, help="Moving average for bpb loss")
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
     args = parser.parse_args()
 
+    args.keys = get_task_sets(args.keys)
+
     return args
 
 
-def fit_step12(data_by_name):
+def fit_step12(data_by_name, task_name):
     train_nds, train_ys = [], []
     for name, data in data_by_name.items():
         if data["mode"] == "train":
             train_nds += [[n, d] for n, d in zip(data["ns"], data["ds"])]
             train_ys += data["ys"]
 
-    p0 = [3.0, 5.0, 0.2, 0.3, 1.0, -0.5, 1.0, 3.0, 1.0]
-    bounds = [(0, None), (0, None), (0, 1), (0, 1), (0, None), (-0.9999, 0), (0, None), (0, None), (0, 1)]
+    p0 = [3.0, 5.0, 0.2, 0.3, 0.0, tasks[task_name].task_minimum - 1.0, 1.0]
+    bounds = [(0, 10), (0, 10), (0, 1), (0, 1), (-10, 10), (-0.9999, 0), (0, 1)]
     coefficients = get_coefficients_huber(
         train_nds,
         train_ys,
@@ -84,9 +84,11 @@ def predict_step12(data_by_name, coefficients):
 
 
 def str_combined_fit(coefficients):
-    a, b, alpha, beta, E, p, L0, k, q = coefficients
+    a, b, alpha, beta, E, p, q = coefficients
     A, B = np.exp(a), np.exp(b)
-    return f"L(N, D) = {A:.2f} / N^{alpha:.2f} + {B:.2f} / D^{beta:.2f} + {E:.2f}\nAcc(L) = {p:.2f} / (1 + e^(-{k:.2f} (L - {L0:.2f}))) + {q:.2f}"
+    return (
+        f"Acc(N, D) = {p:.2f} / (1 + e^-({A:.2f} / N^{alpha:.2f} \n + {B:.2f} / D^{beta:.2f} + {E:.2f})) + {q:.2f}"
+    )
 
 
 def plot_step12(
@@ -143,7 +145,7 @@ def plot_step12(
         )
 
     ax.set_xscale("log")
-    ax.legend(loc="lower right", ncols=1, fontsize=8)
+    ax.legend(ncols=1, fontsize=7)
     ax.set_xlabel("Tokens (D)")
     ax.set_ylabel("Task accuracy")
     ax.set_title(
@@ -154,10 +156,7 @@ def plot_step12(
 
 def main():
     args = parse_args()
-
     configs = get_final_configs(args.config_path)
-
-    args.keys = get_task_sets(args.keys)
 
     sns.set_style("whitegrid")
     num_tasks = len(args.keys)
@@ -168,12 +167,10 @@ def main():
     results = "Task Name | Actual Value | Predicted Value | Relative Error"
 
     for i, task_name in enumerate(args.keys):
-        task = tasks[task_name]
-        keys = task.get_accuracy_keys()
-        data_by_name = get_final_data_by_name(configs, keys, num_to_avg=args.num_to_avg)
+        data_by_name = get_step1_data_by_name(configs, task_name, y_metric="rc_acc", moving_avg=args.moving_avg)
 
         # fit the parameters
-        coefficients = fit_step12(data_by_name)
+        coefficients = fit_step12(data_by_name, task_name)
 
         # make predictions
         predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error) = predict_step12(

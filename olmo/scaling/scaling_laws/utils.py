@@ -146,7 +146,7 @@ core_names = [
     "socialiqa",
     "winogrande",
 ]
-core_small_names = ["hellaswag", "arc_easy", "arc_challenge", "piqa", "csqa", "socialiqa", "openbookqa"]
+core_small_names = ["hellaswag", "arc_challenge", "arc_easy", "piqa", "csqa", "socialiqa", "openbookqa"]
 mmlu_names = ["mmlu_stem", "mmlu_humanities", "mmlu_social_sciences", "mmlu_other"]
 
 core_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {

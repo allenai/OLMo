@@ -92,27 +92,25 @@ def grad_chinchilla_n_d_fit(x, p):
 
 # x[0] = n, x[1] = d
 # p[0] = a = log(A), p[1] = b = log(B), p[2] = alpha, p[3] = beta, p[4] = E
-# p[5] = p, p[6] = L0, p[7] = k, p[8] = q
+# p[5] = p, p[6] = q
 def combined_fit(x, p):
     step1 = np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4]
-    step2 = p[5] / (1 + np.exp(-p[7] * (step1 - p[6]))) + p[8]
+    step2 = p[5] / (1 + np.exp(-step1)) + p[6]
     step2 = max(1e-6, step2)
     return step2
 
 
 def grad_combined_fit(x, p):
     step1 = np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4]
-    grad_p = 1 / (1 + np.exp(-p[7] * (step1 - p[6])))
-    grad_k = p[5] * grad_p * (1 - grad_p) * (step1 - p[6])
-    grad_L0 = p[5] * grad_p * (1 - grad_p) * (-p[7])
-    grad_step1 = p[5] * grad_p * (1 - grad_p) * p[7]
+    grad_p = 1 / (1 + np.exp(-step1))
+    grad_step1 = p[5] * grad_p * (1 - grad_p)
     grad_q = 1
     grad_a = grad_step1 * np.exp(p[0]) / x[0] ** p[2]
     grad_b = grad_step1 * np.exp(p[1]) / x[1] ** p[3]
     grad_alpha = grad_step1 * np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
     grad_beta = grad_step1 * np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
     grad_E = grad_step1 * 1
-    return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_p, grad_k, grad_L0, grad_q]
+    return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_p, grad_q]
 
 
 # x[0] = n, x[1] = d

@@ -452,18 +452,6 @@ def flops_for_model(model_config: Union[ModelConfig, str]) -> int:
 def flops_cmd(args: argparse.Namespace):
     cfg = config_from_args(args)
 
-    from tqdm import tqdm
-
-    from olmo.eval import build_evaluator
-    from olmo.tokenizer import Tokenizer
-
-    device = torch.device("cpu")
-    tokenizer = Tokenizer.from_train_config(cfg)
-    for eval_cfg in tqdm(cfg.evaluators):
-        evaluator = build_evaluator(cfg, eval_cfg, tokenizer, device)
-        print(evaluator)
-    exit()
-
     flops = flops_for_model(cfg.model)
     length_in_tokens = parse_length(args.length, parse_size(args.model))
     print("Expected model flops: ", round(flops * length_in_tokens / 1e18, 3), "x 10^9 GFlops")
