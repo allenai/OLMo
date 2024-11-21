@@ -7,13 +7,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
+from typing import Any, List, Tuple
+
 from olmo.scaling.scaling_laws.fitting_functions import (
     chinchilla_n_d_fit,
     chinchilla_n_d_negated_fit,
     get_coefficients_huber,
     grad_chinchilla_n_d_fit,
     grad_chinchilla_n_d_negated_fit,
-    get_std_errors,
 )
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
@@ -50,6 +51,8 @@ def fit_step1(data_by_name, y_metric):
             train_nds += [[n, d] for n, d in zip(data["ns"], data["ds"])]
             train_ys += data["ys"]
 
+    bounds: List[Tuple[Any, Any]]
+
     if y_metric == "rc_bpb":
         p0 = [3.0, 6.0, 0.1, 0.2, 1.0]
         bounds = [(0, None), (0, None), (0, None), (0, None), (0, None)]
@@ -82,6 +85,17 @@ def fit_step1(data_by_name, y_metric):
         raise ValueError(f"Unknown y_metric: {y_metric}")
 
     return coefficients, cov
+
+
+def scale_data_by_name(data_by_name):
+    dmin = 0.8 * min([min(data["ds"]) for data in data_by_name.values()])
+    dmax = 1.2 * max([max(data["ds"]) for data in data_by_name.values()])
+
+    for name, data in data_by_name.items():
+        data["ds"] = ((np.array(data["ds"]) - dmin) / (dmax - dmin)).tolist()
+        # data["fs"] = np.log(np.array(data["fs"]).astype(float)).tolist()
+
+    return data_by_name
 
 
 def predict_step1(configs, data_by_name, coefficients, y_metric):
@@ -143,23 +157,34 @@ def plot_step1(
     cov,
     ax=plt.gca(),
 ):
+    # plotted_predicted_data = {"xs": [], "ys": [], "name": []}
+    # for name, data in plotted_predicted_data_by_name.items():
+    #     config = configs[name]
+    #     plotted_predicted_data["xs"] += [[config.n, d] for d in data["ds"]]
+    #     plotted_predicted_data["ys"] += data["ys"]
+
+    # std_errors = get_std_errors(
+    #     plotted_predicted_data["xs"],
+    #     plotted_predicted_data["ys"],
+    #     coefficients,
+    #     cov,
+    #     chinchilla_n_d_fit,
+    #     grad_chinchilla_n_d_fit,
+    # )
+
+    # error_i = 0
+
     # plot the fitted curve
     for name, data in plotted_predicted_data_by_name.items():
         config = configs[name]
 
-        if config.mode == "eval":
-            std_errors = get_std_errors(
-                [[config.n, d] for d in data["ds"]],
-                data["ys"],
-                coefficients,
-                cov,
-                chinchilla_n_d_fit,
-                grad_chinchilla_n_d_fit,
-            )
+        # if config.mode == "eval":
+            # std_errors_ = std_errors[error_i:error_i+100] * 0.0001
+            # error_i += 100
 
-            # Compute prediction intervals
-            plotted_y_lower = data["ys"] - 1.96 * std_errors
-            plotted_y_upper = data["ys"] + 1.96 * std_errors
+            # # Compute prediction intervals
+            # plotted_y_lower = data["ys"] - 1.96 * np.mean(std_errors)  # * 0.0001
+            # plotted_y_upper = data["ys"] + 1.96 * np.mean(std_errors)  # * 0.0001
             # ax.fill_between(data["ds"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
 
         ax.plot(
@@ -247,6 +272,8 @@ def main():
         data_by_name = get_step1_data_by_name(
             configs, task_name, y_metric=args.y_metric, moving_avg=args.moving_avg
         )
+
+        # data_by_name = scale_data_by_name(data_by_name)
 
         # fit the parameters
         coefficients, cov = fit_step1(data_by_name, args.y_metric)

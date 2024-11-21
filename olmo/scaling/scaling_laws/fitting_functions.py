@@ -335,7 +335,6 @@ def sigmoid_fit(x, p):
 def grad_sigmoid_fit(x, p):
     exp_term = np.exp(-p[2] * (x - p[1]))
     denom = 1 + exp_term
-    o = p[0] / denom + p[3]
 
     grad_a = 1 / denom
     grad_x0 = p[0] * p[2] * exp_term / (denom**2)

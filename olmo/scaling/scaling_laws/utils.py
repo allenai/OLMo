@@ -557,7 +557,7 @@ def moving_average(arr, n):
 def get_length(path):
     try:
         return path.split("/")[-1].split(".csv")[0].split("-")[1]
-    except:
+    except IndexError:
         return ""
 
 
@@ -626,6 +626,7 @@ def get_step2_data_by_name(configs, task_name, y_metric="rc_acc", moving_avg=1, 
 
                         # apply moving_avg
                         xs = moving_average(xs, n=moving_avg).tolist()
+                        # ys = moving_average(ys, n=moving_avg).tolist()
                         # ys = ys[moving_avg-1:]
                         # ds = ds[moving_avg-1:]
                         # ns = ns[moving_avg-1:]

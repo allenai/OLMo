@@ -7,7 +7,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from olmo.scaling.scaling_laws.fitting_functions import get_coefficients, chinchilla_flops_fit, grad_chinchilla_flops_fit, get_std_errors
+from olmo.scaling.scaling_laws.fitting_functions import (
+    get_coefficients,
+)
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
     get_step1_data_by_name,
@@ -50,6 +52,9 @@ def fit_step1(data_by_name, y_metric):
 
     if y_metric == "rc_bpb":
         p0 = [2.0, -0.3, 0.1]
+
+        # test_output = chinchilla_flops(train_fs, *p0)
+
         bounds = ([0, -np.inf, -np.inf], [np.inf, 0, np.inf])
         coefficients, cov = get_coefficients(
             train_fs,
@@ -64,6 +69,17 @@ def fit_step1(data_by_name, y_metric):
         raise ValueError(f"Unknown y_metric: {y_metric}")
 
     return coefficients, cov
+
+
+def scale_data_by_name(data_by_name):
+    fmin = 0.8 * min([min(data["fs"]) for data in data_by_name.values()])
+    fmax = 1.2 * max([max(data["fs"]) for data in data_by_name.values()])
+
+    for name, data in data_by_name.items():
+        data["fs"] = ((np.array(data["fs"]) - fmin) / (fmax - fmin)).tolist()
+        # data["fs"] = np.log(np.array(data["fs"]).astype(float)).tolist()
+
+    return data_by_name
 
 
 def predict_step1(configs, data_by_name, coefficients, y_metric):
@@ -123,27 +139,26 @@ def plot_step1(
     cov,
     ax=plt.gca(),
 ):
+    # fmin = min(min(data["fs"]) for data in plotted_predicted_data_by_name.values())
+    # fmax = max(max(data["fs"]) for data in plotted_predicted_data_by_name.values())
+    # fs = np.linspace(fmin, fmax, 100)
+    # plotted_predicted_data = {
+    #     "fs": fs,
+    #     "ys": [chinchilla_flops(f, *coefficients) for f in fs],
+    # }
 
-    fmin = min(min(data["fs"]) for data in plotted_predicted_data_by_name.values())
-    fmax = max(max(data["fs"]) for data in plotted_predicted_data_by_name.values())
-    fs = np.linspace(fmin, fmax, 100)
-    plotted_predicted_data = {
-        "fs": fs,
-        "ys": [chinchilla_flops(f, *coefficients) for f in fs],
-    }
+    # std_errors = get_std_errors(
+    #     plotted_predicted_data["fs"],
+    #     plotted_predicted_data["ys"],
+    #     coefficients,
+    #     cov,
+    #     chinchilla_flops_fit,
+    #     grad_chinchilla_flops_fit,
+    # )
 
-    std_errors = get_std_errors(
-        plotted_predicted_data["fs"],
-        plotted_predicted_data["ys"],
-        coefficients,
-        cov,
-        chinchilla_flops_fit,
-        grad_chinchilla_flops_fit,
-    )
-
-    # Compute prediction intervals
-    plotted_y_lower = plotted_predicted_data["ys"] - 1.96 * std_errors
-    plotted_y_upper = plotted_predicted_data["ys"] + 1.96 * std_errors
+    # # Compute prediction intervals
+    # plotted_y_lower = plotted_predicted_data["ys"] - 1.96 * std_errors
+    # plotted_y_upper = plotted_predicted_data["ys"] + 1.96 * std_errors
 
     # ax.fill_between(plotted_predicted_data["fs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
 
@@ -235,6 +250,8 @@ def main():
         data_by_name = get_step1_data_by_name(
             configs, task_name, y_metric=args.y_metric, moving_avg=args.moving_avg
         )
+
+        # data_by_name = scale_data_by_name(data_by_name)
 
         # fit the parameters
         coefficients, cov = fit_step1(data_by_name, args.y_metric)

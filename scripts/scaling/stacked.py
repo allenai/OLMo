@@ -269,25 +269,6 @@ def main():
         L, x0, k, b = coefficients
 
         ## Step 2: make predictions
-        # predicted_data_by_name = {}
-        # plotted_predicted_data_by_name = {}
-        # for name, data in data_by_name.items():
-        #     config = configs[name]
-        #     predicted_data_by_name[name] = {
-        #         "xs": data["xs"],
-        #         "ys": [sigmoid(x, *coefficients) for x in data["xs"]],
-        #     }
-
-        #     # include ideal points
-        #     # max_ideal_point will have smaller loss value
-        #     xs = np.linspace(
-        #         min(min(data["xs"]), max_ideal_point[0]), max(max(data["xs"]), min_ideal_point[0]), 100
-        #     )
-
-        #     plotted_predicted_data_by_name[name] = {
-        #         "xs": xs,
-        #         "ys": [sigmoid(x, *coefficients) for x in xs],
-        #     }
 
         # make predictions
         predicted_data_by_name = {}
