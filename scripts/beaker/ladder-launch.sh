@@ -7,15 +7,9 @@ PRIORITY=$2
 shift
 shift
 
-if [[ $NUM_NODES -eq 1 ]]; then
-  MULTI_NODE_ARGS=""
-  COMMAND="scripts/beaker/ladder.sh localhost ${NUM_NODES} 0 $*"
-  MORE_CLUSTER_NODES=""
-else
-  MULTI_NODE_ARGS="--replicas ${NUM_NODES} --leader-selection --host-networking --propagate-failure --propagate-preemption --synchronized-start-timeout 10m"
-  COMMAND="scripts/beaker/ladder.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK $*"
-  MORE_CLUSTER_NODES=""
-fi
+MULTI_NODE_ARGS=""
+COMMAND="scripts/beaker/ladder.sh localhost ${NUM_NODES} 0 $*"
+MORE_CLUSTER_NODES=""
 
 gantry run \
   --workspace ai2/cheap_decisions \
