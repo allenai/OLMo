@@ -192,7 +192,7 @@ class ICLMetric(Metric):
             "": torch.tensor(score),
         }
 
-        if soft_log_scores:
+        if correct_bpb:
             outputs["_correct_bpb"] = -torch.tensor(sum(correct_bpb) / len(correct_bpb))
             outputs["_incorrect_bpb"] = -torch.tensor(sum(incorrect_bpb) / len(incorrect_bpb))
             outputs[f"_ce"] = -torch.tensor(sum(soft_log_scores[1.0]) / len(soft_log_scores[1.0]))
