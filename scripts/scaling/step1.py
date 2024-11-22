@@ -1,13 +1,12 @@
-# python scripts/scaling/step1.py -k main -c scripts/scaling/final.json -o figure/peteish-final/step1_main.png
-# python scripts/scaling/step1.py -k core_small_avg -c scripts/scaling/final.json -o figure/peteish-final/step1_core_small_avg.png
+# python scripts/scaling/step1.py -k main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_main.png
+# python scripts/scaling/step1.py -k core_small_avg -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_core_small_avg.png
 
 import argparse
+from typing import Any, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-
-from typing import Any, List, Tuple
 
 from olmo.scaling.scaling_laws.fitting_functions import (
     chinchilla_n_d_fit,
@@ -105,7 +104,7 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
     unsigned_rel_errors = []
 
     dmin = 0.8 * min([min(data["ds"]) for data in data_by_name.values()])
-    dmax = 1.2 * max([max(data["ds"]) for data in data_by_name.values()])
+    dmax = 1.5 * max([max(data["ds"]) for data in data_by_name.values()])
 
     if y_metric == "rc_bpb":
         func = chinchilla_n_d_fit
@@ -113,6 +112,8 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
         func = chinchilla_n_d_negated_fit
     else:
         raise ValueError(f"Unknown y_metric: {y_metric}")
+
+    y, y_pred, rel_error = 0, 0, 0
 
     for name, data in data_by_name.items():
         predicted_data_by_name[name] = {
@@ -179,13 +180,13 @@ def plot_step1(
         config = configs[name]
 
         # if config.mode == "eval":
-            # std_errors_ = std_errors[error_i:error_i+100] * 0.0001
-            # error_i += 100
+        # std_errors_ = std_errors[error_i:error_i+100] * 0.0001
+        # error_i += 100
 
-            # # Compute prediction intervals
-            # plotted_y_lower = data["ys"] - 1.96 * np.mean(std_errors)  # * 0.0001
-            # plotted_y_upper = data["ys"] + 1.96 * np.mean(std_errors)  # * 0.0001
-            # ax.fill_between(data["ds"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
+        # # Compute prediction intervals
+        # plotted_y_lower = data["ys"] - 1.96 * np.mean(std_errors)  # * 0.0001
+        # plotted_y_upper = data["ys"] + 1.96 * np.mean(std_errors)  # * 0.0001
+        # ax.fill_between(data["ds"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
 
         ax.plot(
             data["ds"],
@@ -208,7 +209,7 @@ def plot_step1(
                 y,
                 color=config.color,
                 marker=MARKERS[i] if config.mode == "train" else "x",
-                s=50 if config.mode == "train" else 10,
+                s=50 if config.mode == "train" else 20,
                 label=f"{config.label} (target)" if config.mode == "eval" else None,
             )
 
@@ -222,17 +223,17 @@ def plot_step1(
                     y_pred,
                     color=config.color,
                     marker="o",
-                    s=10,
+                    s=20,
                     # label=f"{config.label} ({'predicted'})",
                 )
                 ax.annotate(
-                    f"{prettify(rel_error)}",
+                    f"{abs(rel_error) * 100:.1f}%",
                     (d, y),
                     textcoords="offset points",
                     xytext=(3, 3),
                     ha="left",
                     va="bottom",
-                    fontsize=8,
+                    fontsize=10,
                     color=config.color,
                 )
     avg_unsigned_rel_error = np.mean(unsigned_rel_errors)

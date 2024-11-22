@@ -1,9 +1,9 @@
 import argparse
-from datetime import timedelta
 import logging
 import os
 import re
 from copy import deepcopy
+from datetime import timedelta
 from typing import Set, Tuple, Union
 
 import torch

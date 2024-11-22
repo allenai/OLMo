@@ -1,5 +1,5 @@
-# python scripts/scaling/step2.py -k main -c scripts/scaling/step2.json -o figure/peteish-final/step2_main.png
-# python scripts/scaling/step2.py -k main_mc -c scripts/scaling/step2_mc.json -o figure/peteish-final/step2_mc_main.png -y mc_acc
+# python scripts/scaling/step2.py -k main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_main.png
+# python scripts/scaling/step2.py -k main_mc -c scripts/scaling/step2_mc.json -o figure/peteish-moreeval/step2_mc_main.png -y mc_acc
 
 import argparse
 
@@ -132,7 +132,7 @@ def plot_step2(
             data["ys"],
             color=config.color,
             marker="o" if config.mode == "train" else "x",
-            s=10,
+            s=20,
             label=f"{config.label} ({'fitted' if config.mode == 'train' else 'target'})",
         )
         for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data["ys"]):
@@ -146,7 +146,7 @@ def plot_step2(
                     y_pred,
                     color=config.color,
                     marker="o",
-                    s=10,
+                    s=20,
                     label=f"{config.label} ({'predicted'})",
                 )
                 ax.annotate(

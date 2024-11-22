@@ -13,6 +13,11 @@ from olmo.scaling.scaling_laws.utils import (
     downstream_bpb,
     downstream_newline,
     downstream_newline_bpb,
+    v2_downstream_bpb,
+    v2_downstream_mc_acc,
+    v2_downstream_rc_acc,
+    v2_downstream_soft,
+    v2_downstream_soft_log,
     v3_validation,
     validation,
 )
@@ -89,6 +94,25 @@ def main(args):
             + downstream
             + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_newline_bpb]
             + [f"eval/downstream/{d}" for d in downstream_newline]
+        )
+
+    elif args.y_axis == ["validation-and-downstream-v2"]:
+        args.y_axis = (
+            [f"eval/{d}/CrossEntropyLoss" for d in validation]
+            + v2_downstream_bpb
+            + v2_downstream_rc_acc
+            + v2_downstream_soft
+            + v2_downstream_soft_log
+        )
+
+    elif args.y_axis == ["validation-and-downstream-v2-mc"]:
+        args.y_axis = (
+            [f"eval/{d}/CrossEntropyLoss" for d in validation]
+            + v2_downstream_bpb
+            + v2_downstream_rc_acc
+            + v2_downstream_mc_acc
+            + v2_downstream_soft
+            + v2_downstream_soft_log
         )
 
     if not args.eval_only:
@@ -275,6 +299,48 @@ if __name__ == "__main__":
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-const-600M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-const/600M-10xC.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-const-760M-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-const/760M-10xC.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-const-1B-10xC' -y eval/validation-and-bpb-and-downstream -o wandb/peteish-const/1B-10xC.csv
+
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-190M-1xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/190M-1xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-370M-1xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/370M-1xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-600M-1xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/600M-1xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-760M-1xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/760M-1xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-1B-1xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/1B-1xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-190M-2xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/190M-2xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-370M-2xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/370M-2xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-600M-2xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/600M-2xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-760M-2xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/760M-2xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-1B-2xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/1B-2xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-190M-5xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/190M-5xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-370M-5xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/370M-5xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-600M-5xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/600M-5xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-760M-5xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/760M-5xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-1B-5xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/1B-5xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-190M-10xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/190M-10xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-370M-10xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/370M-10xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-600M-10xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/600M-10xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-760M-10xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/760M-10xC.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-1B-10xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/1B-10xC.csv --eval-only
+
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish7-eval' -y validation-and-downstream-v2-mc -o scripts/scaling/data/peteish-moreeval/peteish7_eval_full.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish13-eval' -y validation-and-downstream-v2-mc -o scripts/scaling/data/peteish-moreeval/peteish13_eval_final.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish7-eval' -y validation-and-downstream-v2-mc -o scripts/scaling/data/peteish-moreeval/peteish7_eval_anneal.csv --eval-only
+
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-190M-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/190M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-370M-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/370M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-760M-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/760M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-1B-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/1B-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-190M-2xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/190M-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-370M-2xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/370M-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-760M-2xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/760M-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-1B-2xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/1B-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-190M-5xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/190M-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-370M-5xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/370M-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-760M-5xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/760M-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-1B-5xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/1B-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-190M-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/190M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-370M-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/370M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-760M-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/760M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-1B-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/1B-10xC.csv
 
     args = parse_args()
     print(args)

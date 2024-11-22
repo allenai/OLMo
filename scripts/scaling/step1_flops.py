@@ -7,9 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from olmo.scaling.scaling_laws.fitting_functions import (
-    get_coefficients,
-)
+from olmo.scaling.scaling_laws.fitting_functions import get_coefficients
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
     get_step1_data_by_name,
