@@ -228,6 +228,126 @@ evaluators:
   - label: arc_easy_ppl
     type: downstream
 
+  - label: arc_challenge_val_rc_5shot
+    type: downstream
+
+  - label: arc_challenge_val_mc_5shot
+    type: downstream
+
+  - label: arc_challenge_test_rc_5shot
+    type: downstream
+
+  - label: arc_challenge_test_mc_5shot
+    type: downstream
+
+  - label: arc_easy_val_rc_5shot
+    type: downstream
+
+  - label: arc_easy_val_mc_5shot
+    type: downstream
+
+  - label: arc_easy_test_rc_5shot
+    type: downstream
+
+  - label: arc_easy_test_mc_5shot
+    type: downstream
+
+  - label: boolq_val_rc_5shot
+    type: downstream
+
+  - label: boolq_val_mc_5shot
+    type: downstream
+
+  - label: csqa_val_rc_5shot
+    type: downstream
+
+  - label: csqa_val_mc_5shot
+    type: downstream
+
+  - label: hellaswag_val_rc_5shot
+    type: downstream
+
+  - label: hellaswag_val_mc_5shot
+    type: downstream
+
+  - label: openbookqa_val_rc_5shot
+    type: downstream
+
+  - label: openbookqa_val_mc_5shot
+    type: downstream
+
+  - label: openbookqa_test_rc_5shot
+    type: downstream
+
+  - label: openbookqa_test_mc_5shot
+    type: downstream
+
+  - label: piqa_val_rc_5shot
+    type: downstream
+
+  - label: piqa_val_mc_5shot
+    type: downstream
+
+  - label: socialiqa_val_rc_5shot
+    type: downstream
+
+  - label: socialiqa_val_mc_5shot
+    type: downstream
+
+  - label: winogrande_val_rc_5shot
+    type: downstream
+
+  - label: winogrande_val_mc_5shot
+    type: downstream
+
+  - label: mmlu_stem_val_rc_5shot
+    type: downstream
+
+  - label: mmlu_stem_val_mc_5shot
+    type: downstream
+
+  - label: mmlu_stem_test_rc_5shot
+    type: downstream
+
+  - label: mmlu_stem_test_mc_5shot
+    type: downstream
+
+  - label: mmlu_humanities_val_rc_5shot
+    type: downstream
+
+  - label: mmlu_humanities_val_mc_5shot
+    type: downstream
+
+  - label: mmlu_humanities_test_rc_5shot
+    type: downstream
+
+  - label: mmlu_humanities_test_mc_5shot
+    type: downstream
+
+  - label: mmlu_social_sciences_val_rc_5shot
+    type: downstream
+
+  - label: mmlu_social_sciences_val_mc_5shot
+    type: downstream
+
+  - label: mmlu_social_sciences_test_rc_5shot
+    type: downstream
+
+  - label: mmlu_social_sciences_test_mc_5shot
+    type: downstream
+
+  - label: mmlu_other_val_rc_5shot
+    type: downstream
+
+  - label: mmlu_other_val_mc_5shot
+    type: downstream
+
+  - label: mmlu_other_test_rc_5shot
+    type: downstream
+
+  - label: mmlu_other_test_mc_5shot
+    type: downstream
+
 data:
   pad_direction: right
   # generate_doc_lengths: true
