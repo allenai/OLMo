@@ -20,7 +20,7 @@ gantry run \
   --beaker-image shanea/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
   $MORE_CLUSTER_NODES \
-  --gpus 8 \
+  --gpus 0 \
   --allow-dirty \
   $MULTI_NODE_ARGS \
   --budget ai2/oe-training \
