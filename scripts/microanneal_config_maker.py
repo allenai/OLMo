@@ -55,10 +55,7 @@ def get_batch_s3_size(s3_uris: List[str]):
 
     
     # Convert results to dictionary
-    sizes = {}
-    for s3_uri, size in results:
-        sizes[s3_uri] = sizes.get(s3_uri, 0) + size
-    # sizes = dict(results)
+    sizes = dict(results)
     return sizes
     
     
@@ -167,7 +164,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 0.000061499
+  learning_rate: REPLACE_LR_HERE
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
@@ -186,7 +183,7 @@ tokenizer:
   identifier: tokenizers/allenai_dolma2.json
   truncate_direction: right
 
-save_folder: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/${run_name}
+save_folder: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-microanneals/${run_name}
 save_overwrite: false
 
 save_interval: 1000
@@ -197,13 +194,13 @@ sharded_checkpointer: olmo_core
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
-load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646
+load_path: REPLACE_PATH_HERE
 
 restore_dataloader: false
 no_pre_train_checkpoint: true
 
-max_duration: 50e9T
-stop_at: 11931                  # round(50e9 / (1024 * 4096)) + 10
+max_duration: 1ep
+# stop_at: 11931                  # Relying on max_duration for anneals
 global_train_batch_size: 1024
 device_train_microbatch_size: 2
 
@@ -429,15 +426,27 @@ def get_token_strs(token_source, bytes_per_token=4):
     return lines_to_add
 
 
-def add_paths(token_sources, output_yaml_file):
+def add_paths(token_sources, output_yaml_file, start_point='preanneal'):
     # Adds things to the yaml file.
     # Token sources is a list of either... s3_uri: str | (s3_uri: str, fraction: float)
     # Also I'm not bothering with pyyaml, just appending to the base config (which will be included)
     # ^this is a very crude stone-age tool, don't @ me
-    assert output_yaml_file.startswith('peteish7-weka-anneal-from-928646-50B-')
+
+    assert os.path.basename(output_yaml_file).startswith('peteish7-weka-microanneal')
     assert output_yaml_file.endswith('.yaml')
 
+    assert start_point in ['preanneal', 'megamath5000']
     base_config_str = BASE_YAML_STR.replace("REPLACE_RUN_NAME_HERE", os.path.splitext(os.path.basename(output_yaml_file))[0])
+
+    # Change input model, LR
+    if start_point == 'preanneal':
+        base_config_str = base_config_str.replace('REPLACE_PATH_HERE', '/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646')
+        base_config_str = base_config_str.replace('REPLACE_LR_HERE', '0.000061499')
+    elif start_point == 'megamath5000':
+        base_config_str = base_config_str.replace('REPLACE_PATH_HERE', '/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-weka-anneal-from-928646-50B-megamath_v1.1.yaml/step5000/')
+        new_lr = '%.09f' % (0.000061499 * (1 - (5000 / 11931)))
+        base_config_str = base_config_str.replace('REPLACE_LR_HERE', new_lr)
+
     
     lines_to_add = []
     for source in token_sources:
@@ -483,6 +492,7 @@ def examine_config(yaml_file, bytes_per_token=4):
     for g in tqdm(groups):
         paths_and_sizes = list_s3_paths(g)
         total_tokens[g] = sum(_[1] for _ in paths_and_sizes) // bytes_per_token
+    print("TOTAL_TOKENS", total_tokens)
     # Step 4: get ratios of percentage taken
     ratios = {g: '%.04f' % (tokens_taken[g] / total_tokens[g]) 
               for g in groups} # .04f here (ranging from 0.00 to 1.00)
