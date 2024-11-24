@@ -322,8 +322,8 @@ if __name__ == "__main__":
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-1B-10xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/1B-10xC.csv --eval-only
 
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish7-eval' -y validation-and-downstream-v2-mc -o scripts/scaling/data/peteish-moreeval/peteish7_eval_full.csv --eval-only
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish7-anneal-from-928646-50B-no-warmup-eval' -y validation-and-downstream-v2-mc -o scripts/scaling/data/peteish-moreeval/peteish7_eval_anneal.csv --eval-only
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish13-eval' -y validation-and-downstream-v2-mc -o scripts/scaling/data/peteish-moreeval/peteish13_eval_final.csv --eval-only
-    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish7-eval' -y validation-and-downstream-v2-mc -o scripts/scaling/data/peteish-moreeval/peteish7_eval_anneal.csv --eval-only
 
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-190M-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/190M-1xC.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-370M-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/370M-1xC.csv
