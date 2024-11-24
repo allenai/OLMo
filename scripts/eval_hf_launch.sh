@@ -1,0 +1,16 @@
+bash scripts/eval_hf.sh allenai/OLMo-7B-0724-hf
+bash scripts/eval_hf.sh allenai/OLMo-7B-hf
+bash scripts/eval_hf.sh allenai/OLMo-1B-hf
+bash scripts/eval_hf.sh meta-llama/Llama-3.2-3B
+bash scripts/eval_hf.sh meta-llama/Llama-3.2-1B
+bash scripts/eval_hf.sh meta-llama/Llama-3.1-8B
+bash scripts/eval_hf.sh meta-llama/Meta-Llama-3-8B
+bash scripts/eval_hf.sh Qwen/Qwen2.5-14B
+bash scripts/eval_hf.sh Qwen/Qwen2.5-7B
+bash scripts/eval_hf.sh Qwen/Qwen2.5-3B
+bash scripts/eval_hf.sh Qwen/Qwen2.5-1.5B
+bash scripts/eval_hf.sh Qwen/Qwen2-7B
+bash scripts/eval_hf.sh Qwen/Qwen2-1.5B
+bash scripts/eval_hf.sh mistralai/Mistral-Nemo-Base-2407
+bash scripts/eval_hf.sh mistralai/Mistral-7B-v0.3
+bash scripts/eval_hf.sh mistralai/Mistral-7B-v0.1
