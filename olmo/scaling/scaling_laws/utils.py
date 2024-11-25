@@ -104,6 +104,7 @@ class DownstreamTaskPrediction:
     task_accuracy_key: Union[str, List[str]]
     task_mc_loss_key: Union[str, List[str]]
     task_mc_accuracy_key: Union[str, List[str]]
+    display_name: str
     task_soft_loss_key: Union[str, List[str]] = ""
     task_log_soft_loss_key: Union[str, List[str]] = ""
     task_minimum: float = 0.25
@@ -159,6 +160,18 @@ core_names = [
 core_small_names = ["hellaswag", "arc_challenge", "arc_easy", "piqa", "csqa", "socialiqa", "openbookqa"]
 mmlu_names = ["mmlu_stem", "mmlu_humanities", "mmlu_social_sciences", "mmlu_other"]
 
+display_names = {
+    "hellaswag": "HellaSwag",
+    "arc_easy": "ARC-Easy",
+    "arc_challenge": "ARC-Challenge",
+    "boolq": "BoolQ",
+    "csqa": "CommonsenseQA",
+    "openbookqa": "OpenBookQA",
+    "piqa": "PIQA",
+    "socialiqa": "Social IQa",
+    "winogrande": "Winogrande",
+}
+
 core_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
     f"{key}_5shot": DownstreamTaskPrediction(
         task_loss_key=f"eval/downstream_bpb/{key}_rc_5shot_bpb_bpb",
@@ -171,6 +184,7 @@ core_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_mc_accuracy_key=f"eval/downstream/{key}_mc_5shot_acc",
         task_minimum=minimums_rc.get(key, 0.25),
         task_maximum=maximums_rc.get(key, 1.0),
+        display_name=display_names.get(key, key),
     )
     for key in core_names
 }
@@ -186,6 +200,7 @@ core_small_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_mc_accuracy_key=f"eval/downstream/{key}_mc_5shot_acc",
         task_minimum=minimums_rc.get(key, 0.25),
         task_maximum=maximums_rc.get(key, 1.0),
+        display_name=display_names.get(key, key),
     )
     for key in core_small_names
 }
@@ -204,6 +219,7 @@ core_small_avg_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_mc_accuracy_key=[f"eval/downstream/{key}_mc_5shot_acc" for key in core_small_names],
         task_minimum=0.25,
         task_maximum=1.0,
+        display_name="core_small_avg",
     )
 }
 mmlu_var_tasks: Dict[str, DownstreamTaskPrediction] = {
@@ -214,6 +230,7 @@ mmlu_var_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_mc_accuracy_key=[f"eval/downstream/{key}_mc_5shot_len_norm" for key in mmlu_names],
         task_minimum=0.25,
         task_maximum=1.0,  # 0.9,
+        display_name="MMLU"
     )
 }
 mmlu_subset_var_tasks: Dict[str, DownstreamTaskPrediction] = {
@@ -224,6 +241,7 @@ mmlu_subset_var_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_mc_accuracy_key=f"eval/downstream/{key}_mc_5shot_len_norm",
         task_minimum=minimums_rc.get(key, 0.25),
         task_maximum=maximums_rc.get(key, 0.9),
+        display_name="MMLU"
     )
     for key in mmlu_names
 }
@@ -296,6 +314,7 @@ v2_core_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_mc_accuracy_key=f"eval/downstream/{key}_mc_5shot_acc",
         task_minimum=v2_minimums_rc.get(key, 0.25),
         task_maximum=v2_maximums_rc.get(key, 1.0),
+        display_name=display_names.get(key.removesuffix("_val").removesuffix("_test"), key),
     )
     for key in v2_core_names
 }
@@ -313,6 +332,7 @@ v2_core_small_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_mc_accuracy_key=f"eval/downstream/{key}_mc_5shot_acc",
         task_minimum=v2_minimums_rc.get(key, 0.25),
         task_maximum=v2_maximums_rc.get(key, 1.0),
+        display_name=display_names.get(key.removesuffix("_val").removesuffix("_test"), key),
     )
     for key in v2_core_small_names
 }
@@ -327,6 +347,7 @@ v2_mmlu_avg_val_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_mc_accuracy_key=[f"eval/downstream/{key}_mc_5shot_len_norm" for key in v2_mmlu_val_names],
         task_minimum=v2_minimums_rc.get("mmlu_avg_val", 0.25),
         task_maximum=v2_maximums_rc.get("mmlu_avg_val", 1.0),
+        display_name="MMLU"
     )
 }
 
@@ -340,6 +361,7 @@ v2_mmlu_avg_test_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_mc_accuracy_key=[f"eval/downstream/{key}_mc_5shot_len_norm" for key in v2_mmlu_test_names],
         task_minimum=v2_minimums_rc.get("mmlu_avg_test", 0.25),
         task_maximum=v2_maximums_rc.get("mmlu_avg_test", 1.0),
+        display_name="MMLU"
     )
 }
 
