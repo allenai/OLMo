@@ -236,7 +236,15 @@ v2_minimums_rc: Dict[str, float] = {
     "boolq_val": 0.5,
     "winogrande_val": 0.5,
 }
-v2_maximums_rc: Dict[str, float] = {}
+v2_maximums_rc: Dict[str, float] = {
+    # "mmlu_avg_test": 1.06,
+    # "arc_challenge_test": 1.65,
+    # "arc_easy_test": 1.40,
+    # "piqa_val": 1.53,
+    # "csqa_val": 1.10,
+    # "socialiqa_val": 0.73,
+    # "openbookqa_test": 1.94,
+}
 
 v2_core_names = [
     "hellaswag_val",
@@ -317,8 +325,8 @@ v2_mmlu_avg_val_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_accuracy_key=[f"eval/downstream/{key}_rc_5shot_len_norm" for key in v2_mmlu_val_names],
         task_mc_loss_key=[f"eval/downstream_bpb/{key}_mc_5shot_bpb" for key in v2_mmlu_val_names],
         task_mc_accuracy_key=[f"eval/downstream/{key}_mc_5shot_len_norm" for key in v2_mmlu_val_names],
-        task_minimum=0.25,
-        task_maximum=1.0,
+        task_minimum=v2_minimums_rc.get("mmlu_avg_val", 0.25),
+        task_maximum=v2_maximums_rc.get("mmlu_avg_val", 1.0),
     )
 }
 
@@ -330,8 +338,8 @@ v2_mmlu_avg_test_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_accuracy_key=[f"eval/downstream/{key}_rc_5shot_len_norm" for key in v2_mmlu_test_names],
         task_mc_loss_key=[f"eval/downstream_bpb/{key}_mc_5shot_bpb" for key in v2_mmlu_test_names],
         task_mc_accuracy_key=[f"eval/downstream/{key}_mc_5shot_len_norm" for key in v2_mmlu_test_names],
-        task_minimum=0.25,
-        task_maximum=1.0,  # 0.9,
+        task_minimum=v2_minimums_rc.get("mmlu_avg_test", 0.25),
+        task_maximum=v2_maximums_rc.get("mmlu_avg_test", 1.0),
     )
 }
 
@@ -673,6 +681,8 @@ def get_step1_data_by_name(configs, task_name, y_metric="rc_bpb", moving_avg=1):
         keys = task.get_loss_keys()
     elif y_metric == "rc_acc":
         keys = task.get_accuracy_keys()
+    elif y_metric == "c4":
+        keys = ["eval/c4_en-validation/CrossEntropyLoss"]
     else:
         raise ValueError(f"Invalid y_metric: {y_metric}")
 
@@ -688,7 +698,7 @@ def get_step1_data_by_name(configs, task_name, y_metric="rc_bpb", moving_avg=1):
                 ds, ys, fs = [], [], []
                 for row in rows:
                     d = int(float(row["throughput/total_tokens"]))
-                    f = d * MODEL_FLOPS[name.split("-")[0]]
+                    f = float(d * MODEL_FLOPS[name.split("-")[0]])
                     y = np.average(
                         [float(row[key]) for key in keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in keys]
                     )
@@ -744,9 +754,14 @@ def get_length(path):
         return ""
 
 
-def get_step2_data_by_name(configs, task_name, y_metric="rc_acc", moving_avg=1, skip_perc=0.0, last_n_points=-1):
+def get_step2_data_by_name(configs, task_name, x_metric="rc_bpb", y_metric="rc_acc", moving_avg=1, skip_perc=0.0, last_n_points=-1):
     task = tasks[task_name]
-    loss_keys = task.get_loss_keys()
+    if x_metric == "rc_bpb":
+        loss_keys = task.get_loss_keys()
+    elif x_metric == "c4":
+        loss_keys = ["eval/c4_en-validation/CrossEntropyLoss"]
+    else:
+        raise ValueError(f"Invalid x_metric: {x_metric}")
     if y_metric == "rc_acc":
         accuracy_keys = task.get_accuracy_keys()
     elif y_metric == "mc_acc":

@@ -1,5 +1,6 @@
-# python scripts/scaling/step1.py -k main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_main.png
-# python scripts/scaling/step1.py -k core_small_avg -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_core_small_avg.png
+# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_main.png --moving_avg 5
+# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_c4_main.png --y_metric c4 --moving_avg 5
+# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_acc_main.png --y_metric rc_acc
 
 import argparse
 from typing import Any, List, Tuple
@@ -29,7 +30,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-k", "--keys", nargs="+", default=[], help="Key(s) for tasks")
     parser.add_argument(
-        "-y", "--y_metric", default="rc_bpb", choices=["rc_bpb", "rc_acc"], help="Metric to predict"
+        "-y", "--y_metric", default="rc_bpb", choices=["rc_bpb", "rc_acc", "c4"], help="Metric to predict"
     )
     parser.add_argument("--moving_avg", type=int, default=1, help="Moving average for bpb loss")
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
@@ -52,9 +53,13 @@ def fit_step1(data_by_name, y_metric):
 
     bounds: List[Tuple[Any, Any]]
 
-    if y_metric == "rc_bpb":
+    if y_metric == "rc_bpb" or y_metric == "c4":
         p0 = [3.0, 6.0, 0.1, 0.2, 1.0]
         bounds = [(0, None), (0, None), (0, None), (0, None), (0, None)]
+        # p0 = [3.0, 6.0, 0.25, 0.3, 1.0]
+        # bounds = [(0, None), (0, None), (0.25, 0.4), (0.19, 0.31), (0, None)] # moving_avg=1
+        # # bounds = [(0, None), (0, None), (0, 0.3), (0.25, 0.45), (0, None)] # moving_avg=10
+        # # bounds = [(0, None), (0, None), (0.15, 0.4), (0.3, 0.33), (0, None)]
         coefficients, cov = get_coefficients_huber(
             train_nds,
             train_ys,
@@ -106,7 +111,7 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
     dmin = 0.8 * min([min(data["ds"]) for data in data_by_name.values()])
     dmax = 1.5 * max([max(data["ds"]) for data in data_by_name.values()])
 
-    if y_metric == "rc_bpb":
+    if y_metric == "rc_bpb" or y_metric == "c4":
         func = chinchilla_n_d_fit
     elif y_metric == "rc_acc":
         func = chinchilla_n_d_negated_fit
@@ -245,6 +250,8 @@ def plot_step1(
         ax.set_ylabel("Task loss")
     elif y_metric == "rc_acc":
         ax.set_ylabel("Task RC accuracy")
+    elif y_metric == "c4":
+        ax.set_ylabel("C4 loss")
     else:
         raise ValueError(f"Unknown y_metric: {y_metric}")
     ax.set_title(
@@ -259,7 +266,7 @@ def main():
 
     sns.set_style("whitegrid")
     num_tasks = len(args.keys)
-    num_cols = min(4, num_tasks)
+    num_cols = min(3, num_tasks)
     num_rows = (num_tasks + num_cols - 1) // num_cols
 
     fitting_error = 0

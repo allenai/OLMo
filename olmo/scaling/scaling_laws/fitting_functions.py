@@ -43,17 +43,17 @@ def get_std_errors(xs, ys, coefficients, cov, fitting_func, grad_fitting_func):
 
 
 # x = flops
-# p[0] = A, p[1] = B, p[2] = E
+# p[0] = a = log(A), p[1] = alpha, p[2] = E
 def chinchilla_flops_fit(x, p):
-    # return ax**b + E
-    return p[0] * np.pow(x, p[1]) + p[2]
+    # return e**a / x**alpha + E
+    return np.exp(p[0]) / x ** p[1] + p[2]
 
 
 def grad_chinchilla_flops_fit(x, p):
-    grad_A = np.pow(x, p[1])
-    grad_B = p[0] * np.pow(x, p[1]) * np.log(x)
+    grad_a = np.exp(p[0]) / x ** p[1]
+    grad_alpha = np.exp(p[0]) * (-np.log(x)) / x ** p[1]
     grad_E = 1
-    return [grad_A, grad_B, grad_E]
+    return [grad_a, grad_alpha, grad_E]
 
 
 # x[0] = d, x[1] = h

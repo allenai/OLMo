@@ -1,5 +1,4 @@
-# python scripts/scaling/step1.py -k main -c scripts/scaling/final.json -o figure/peteish-final/step1_main.png
-# python scripts/scaling/step1.py -k core_small_avg -c scripts/scaling/final.json -o figure/peteish-final/step1_core_small_avg.png
+# python scripts/scaling/step1_flops.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_flops_main.png --moving_avg 5
 
 import argparse
 
@@ -7,7 +6,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from olmo.scaling.scaling_laws.fitting_functions import get_coefficients
+from olmo.scaling.scaling_laws.fitting_functions import (
+    chinchilla_flops_fit,
+    get_coefficients_huber,
+    grad_chinchilla_flops_fit,
+)
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
     get_step1_data_by_name,
@@ -36,11 +39,6 @@ def parse_args():
     return args
 
 
-def chinchilla_flops(x, a, b, E):
-    # return ax**b + E
-    return a * np.pow(x, b) + E
-
-
 def fit_step1(data_by_name, y_metric):
     train_fs, train_ys = [], []
     for name, data in data_by_name.items():
@@ -49,17 +47,16 @@ def fit_step1(data_by_name, y_metric):
             train_ys += data["ys"]
 
     if y_metric == "rc_bpb":
-        p0 = [2.0, -0.3, 0.1]
-
-        # test_output = chinchilla_flops(train_fs, *p0)
-
-        bounds = ([0, -np.inf, -np.inf], [np.inf, 0, np.inf])
-        coefficients, cov = get_coefficients(
+        p0 = [3.0, 0.1, 1.0]
+        bounds = [(0, None), (0, 1.0), (0, None)]
+        coefficients, cov = get_coefficients_huber(
             train_fs,
             train_ys,
-            chinchilla_flops,
-            p0,
+            chinchilla_flops_fit,
+            grad_chinchilla_flops_fit,
+            p0=p0,
             bounds=bounds,
+            max_iter=1000000,
             disp=False,
             return_cov=True,
         )
@@ -87,24 +84,24 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
     unsigned_rel_errors = []
 
     fmin = 0.8 * min([min(data["fs"]) for data in data_by_name.values()])
-    fmax = 1.2 * max([max(data["fs"]) for data in data_by_name.values()])
+    fmax = 1.5 * max([max(data["fs"]) for data in data_by_name.values()])
 
     if y_metric == "rc_bpb":
-        func = chinchilla_flops
+        func = chinchilla_flops_fit
     elif y_metric == "rc_acc":
-        func = chinchilla_flops
+        func = chinchilla_flops_fit
     else:
         raise ValueError(f"Unknown y_metric: {y_metric}")
 
     for name, data in data_by_name.items():
         predicted_data_by_name[name] = {
             "fs": data["fs"],
-            "ys": [func(f, *coefficients) for f in data["fs"]],
+            "ys": [func(f, coefficients) for f in data["fs"]],
         }
         fs = np.exp(np.linspace(np.log(fmin), np.log(fmax), 100))
         plotted_predicted_data_by_name[name] = {
             "fs": fs,
-            "ys": [func(f, *coefficients) for f in fs],
+            "ys": [func(f, coefficients) for f in fs],
         }
 
         if configs[name].mode == "eval":
@@ -121,8 +118,9 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
 
 
 def str_chinchilla_flops_fit(coefficients):
-    a, b, E = coefficients
-    return f"L(F) = {a:.2f}F^{b:.2f} + {E:.2f}"
+    a, alpha, E = coefficients
+    A = np.exp(a)
+    return f"L(F) = {A:.2f} / F^{alpha:.2f} + {E:.2f}"
 
 
 def plot_step1(
@@ -166,11 +164,12 @@ def plot_step1(
         ax.plot(
             data["fs"],
             data["ys"],
-            color=config.color,
+            color="black",
             linestyle="--",
             linewidth=1.5,
-            label=f'{config.label} ({"fitted" if config.mode == "train" else "predicted"})',
+            # label=f'{config.label} ({"fitted" if config.mode == "train" else "predicted"})',
         )
+        break
 
     # plot the actual and predicted data
     unsigned_rel_errors = []
@@ -184,7 +183,7 @@ def plot_step1(
                 y,
                 color=config.color,
                 marker=MARKERS[i] if config.mode == "train" else "x",
-                s=50 if config.mode == "train" else 10,
+                s=50 if config.mode == "train" else 20,
                 label=f"{config.label} (target)" if config.mode == "eval" else None,
             )
 
@@ -198,11 +197,11 @@ def plot_step1(
                     y_pred,
                     color=config.color,
                     marker="o",
-                    s=10,
+                    s=20,
                     label=f"{config.label} ({'predicted'})",
                 )
                 ax.annotate(
-                    f"{prettify(rel_error)}",
+                    f"{abs(100 * rel_error):.1f}%",
                     (f, y),
                     textcoords="offset points",
                     xytext=(3, 3),
@@ -234,7 +233,7 @@ def main():
 
     sns.set_style("whitegrid")
     num_tasks = len(args.keys)
-    num_cols = min(4, num_tasks)
+    num_cols = min(3, num_tasks)
     num_rows = (num_tasks + num_cols - 1) // num_cols
 
     fitting_error = 0

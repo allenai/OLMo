@@ -1,5 +1,6 @@
-# python scripts/scaling/step2.py -k main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_main.png
-# python scripts/scaling/step2.py -k main_mc -c scripts/scaling/step2_mc.json -o figure/peteish-moreeval/step2_mc_main.png -y mc_acc
+# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_main.png --skip_perc 0.1 --moving_avg 5
+# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_c4_main.png --x_metric c4 --skip_perc 0.1 --moving_avg 5
+# python scripts/scaling/step2.py -k v2_main_mc -c scripts/scaling/step2_mc.json -o figure/peteish-moreeval/step2_mc_main.png -y mc_acc
 
 import argparse
 
@@ -26,6 +27,9 @@ from olmo.scaling.scaling_laws.utils import (
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-k", "--keys", nargs="+", default=[], help="Key(s) for tasks")
+    parser.add_argument(
+        "-x", "--x_metric", default="rc_bpb", choices=["rc_bpb", "c4"], help="Metric as input"
+    )
     parser.add_argument(
         "-y", "--y_metric", default="rc_acc", choices=["rc_acc", "mc_acc"], help="Metric to predict"
     )
@@ -56,16 +60,19 @@ def fit_step2(data_by_name, task_name, y_metric):
     # add ideal points (these are not plotted)
     train_xs.append(0.0)
     train_ys.append(tasks[task_name].task_maximum)
-    train_xs.append(max(train_xs))
-    train_ys.append(tasks[task_name].task_minimum)
+    # train_xs.append(max(train_xs))
+    # train_ys.append(tasks[task_name].task_minimum)
 
     # fit the parameters
     coefficients, cov = get_coefficients(
         train_xs,
         train_ys,
         sigmoid,
-        p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, 1.0],
+        p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, tasks[task_name].task_maximum],
         bounds=([-1.0, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
+        # bounds=([-np.inf, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, np.inf]),
+        # bounds=([tasks[task_name].task_minimum - 1.0, 0.0, 0.0, tasks[task_name].task_maximum - 0.0001], [tasks[task_name].task_minimum - 0.9999, np.inf, np.inf, tasks[task_name].task_maximum]),
+        # bounds=([-np.inf, 0.0, 0.0, tasks[task_name].task_maximum - 0.0001], [0.0, np.inf, np.inf, tasks[task_name].task_maximum]),
         disp=False,
         return_cov=True,
     )
@@ -105,6 +112,7 @@ def plot_step2(
     plotted_predicted_data,
     task_name,
     fit_str,
+    x_metric,
     y_metric,
     coefficients,
     cov,
@@ -173,14 +181,19 @@ def plot_step2(
     ax.fill_between(plotted_predicted_data["xs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
 
     ax.legend(loc="upper right", ncols=1, fontsize=8)
-    ax.set_xlabel("Task loss")
+    if x_metric == "rc_bpb":
+        ax.set_xlabel("Task loss")
+    elif x_metric == "c4":
+        ax.set_xlabel("C4 loss")
+    else:
+        raise ValueError(f"Invalid x_metric: {x_metric}")
     if y_metric == "rc_acc":
         ax.set_ylabel("Task RC accuracy")
     elif y_metric == "mc_acc":
         ax.set_ylabel("Task MC accuracy")
     else:
         raise ValueError(f"Invalid y_metric: {y_metric}")
-    ax.set_ylim([0, 1.0])
+    # ax.set_ylim([0, 1.0])
     ax.set_title(
         f"{task_name}\n{fit_str}\navg rel error on fitting = {avg_unsigned_rel_err * 100:.2f}%",
         fontsize=9,
@@ -201,7 +214,7 @@ def main():
 
     sns.set_style("whitegrid")
     num_tasks = len(args.keys)
-    num_cols = min(4, num_tasks)
+    num_cols = min(3, num_tasks)
     num_rows = (num_tasks + num_cols - 1) // num_cols
     fig, axes = plt.subplots(num_rows, num_cols, figsize=(3.75 * num_cols, 3.25 * num_rows), squeeze=False)
 
@@ -209,7 +222,7 @@ def main():
 
     for i, task_name in enumerate(args.keys):
         data_by_name = get_step2_data_by_name(
-            configs, task_name, y_metric=args.y_metric, moving_avg=args.moving_avg, skip_perc=args.skip_perc
+            configs, task_name, x_metric=args.x_metric, y_metric=args.y_metric, moving_avg=args.moving_avg, skip_perc=args.skip_perc
         )
 
         coefficients, cov = fit_step2(data_by_name, task_name, args.y_metric)
@@ -232,6 +245,7 @@ def main():
             plotted_predicted_data,
             task_name,
             str_sigmoid(coefficients),
+            args.x_metric,
             args.y_metric,
             coefficients,
             cov,

@@ -1,3 +1,5 @@
+# python scripts/scaling/single_step.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/single_step_main.png --moving_avg 5
+
 import argparse
 
 import matplotlib.pyplot as plt
@@ -61,7 +63,7 @@ def predict_step12(data_by_name, coefficients):
     plotted_predicted_data_by_name = {}
 
     dmin = 0.8 * min([min(data["ds"]) for data in data_by_name.values()])
-    dmax = 1.2 * max([max(data["ds"]) for data in data_by_name.values()])
+    dmax = 1.5 * max([max(data["ds"]) for data in data_by_name.values()])
 
     for name, data in data_by_name.items():
         predicted_data_by_name[name] = {
@@ -111,8 +113,9 @@ def plot_step12(
                 d,
                 y,
                 color=config.color,
-                marker=MARKERS[i] if config.mode == "train" else "o",
-                s=50,
+                marker=MARKERS[i] if config.mode == "train" else "x",
+                s=50 if config.mode == "train" else 20,
+                label=f"{config.label} (target)" if config.mode == "eval" else None,
             )
 
         for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["ys"]):
@@ -120,14 +123,22 @@ def plot_step12(
             if config.mode == "train":
                 unsigned_rel_errors.append(np.abs(rel_error))
             else:
+                ax.scatter(
+                    d,
+                    y_pred,
+                    color=config.color,
+                    marker="o",
+                    s=20,
+                    # label=f"{config.label} ({'predicted'})",
+                )
                 ax.annotate(
-                    f"{prettify(rel_error)}",
+                    f"{abs(rel_error * 100):.1f}%",
                     (d, y),
                     textcoords="offset points",
                     xytext=(3, 3),
                     ha="left",
                     va="bottom",
-                    fontsize=8,
+                    fontsize=10,
                     color=config.color,
                 )
     avg_unsigned_rel_error = np.mean(unsigned_rel_errors)
@@ -160,7 +171,7 @@ def main():
 
     sns.set_style("whitegrid")
     num_tasks = len(args.keys)
-    num_cols = min(4, num_tasks)
+    num_cols = min(3, num_tasks)
     num_rows = (num_tasks + num_cols - 1) // num_cols
     fig, axes = plt.subplots(num_rows, num_cols, figsize=(3.75 * num_cols, 3.25 * num_rows), squeeze=False)
 
