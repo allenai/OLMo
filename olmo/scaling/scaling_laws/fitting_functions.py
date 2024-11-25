@@ -327,6 +327,33 @@ def sigmoid(x, a, x0, k, b):
     return o
 
 
+def log_sigmoid(x, a, x0, k, c=0.0):
+    y = np.log(1 - 1/(1 + np.exp(-k * (x - x0))) + c)
+    o = (-a) * y + 1
+    return o
+
+
+def log_sigmoid_fit(x, p):
+    y = np.log(1 - 1/(1 + np.exp(-p[2] * (x - p[1]))))
+    o = (-p[0]) * y + 1
+    return o
+
+
+def grad_log_sigmoid_fit(x, p):
+    # Pre-compute common terms
+    sigmoid = 1 / (1 + np.exp(-p[2] * (x - p[1])))
+    log_term = np.log(1 - sigmoid)  # Inside of the log function
+    d_log_term = -sigmoid  # Derivative of log(1 - sigmoid)
+
+    # Gradients
+    grad_a = -log_term  # Derivative w.r.t. p[0]
+    grad_x0 = (-p[0]) * d_log_term * (-p[2])  # Derivative w.r.t. p[1]
+    grad_k = (-p[0]) * d_log_term * ((x - p[1]))  # Derivative w.r.t. p[2]
+    grad_b = 1  # Derivative w.r.t. p[3]
+
+    return [grad_a, grad_x0, grad_k]
+
+
 def sigmoid_fit(x, p):
     o = p[0] / (1 + np.exp(-p[2] * (x - p[1]))) + p[3]
     return o
