@@ -284,13 +284,61 @@ SOFT_TASKS = {
     }
 }
 
+MORE_EVAL_TASKS = {
+    "MMLU-Var": {
+        "bpb": [f"eval/downstream_bpb/{n}_test_rc_5shot_bpb" for n in MMLU_NAMES],
+        "score": [f"eval/downstream/{n}_test_rc_5shot_len_norm" for n in MMLU_NAMES],
+        "x_label": "mmlu_avg_test_rc_5shot_bpb",
+        "y_label": "mmlu_avg_test_rc_5shot_len_norm",
+    },
+    "HellaSwag-5shot": {
+        "bpb": ["eval/downstream_bpb/hellaswag_val_rc_5shot_bpb"],
+        "score": ["eval/downstream/hellaswag_val_rc_5shot_len_norm"],
+    },
+    "ARC-Easy-5shot": {
+        "bpb": ["eval/downstream_bpb/arc_easy_test_rc_5shot_bpb"],
+        "score": ["eval/downstream/arc_easy_test_rc_5shot_len_norm"],
+    },
+    "ARC-Challenge-5shot": {
+        "bpb": ["eval/downstream_bpb/arc_challenge_test_rc_5shot_bpb"],
+        "score": ["eval/downstream/arc_challenge_test_rc_5shot_len_norm"],
+    },
+    "PiQA-5shot": {
+        "bpb": ["eval/downstream_bpb/piqa_val_rc_5shot_bpb"],
+        "score": ["eval/downstream/piqa_val_rc_5shot_len_norm"],
+    },
+    "Winogrande-5shot": {
+        "bpb": ["eval/downstream_bpb/winogrande_val_rc_5shot_bpb"],
+        "score": ["eval/downstream/winogrande_val_rc_5shot_len_norm"],
+    },
+    "OpenbookQA-5shot": {
+        "bpb": ["eval/downstream_bpb/openbookqa_test_rc_5shot_bpb"],
+        "score": ["eval/downstream/openbookqa_test_rc_5shot_len_norm"],
+    },
+    "CSQA-5shot": {
+        "bpb": ["eval/downstream_bpb/csqa_val_rc_5shot_bpb"],
+        "score": ["eval/downstream/csqa_val_rc_5shot_len_norm"],
+    },
+    "SocialIQA-5shot": {
+        "bpb": ["eval/downstream_bpb/socialiqa_val_rc_5shot_bpb"],
+        "score": ["eval/downstream/socialiqa_val_rc_5shot_len_norm"],
+    },
+    "BoolQ-5shot": {
+        "bpb": ["eval/downstream_bpb/boolq_val_rc_5shot_bpb"],
+        "score": ["eval/downstream/boolq_val_rc_5shot_acc"],
+    },
+}
+
+
 # TASKS = DEV_TASKS # Dev tasks are for quickly prototyping notebooks
-TASKS = ALL_TASKS 
+# TASKS = ALL_TASKS 
+TASKS = MORE_EVAL_TASKS
 # TASKS = SOFT_TASKS 
 
 BASELINE_BY_TASK_NAME = {
     'HellaSwag-0shot': 0.25,
     'MMLU-Var': 0.25,
+    'MMLU-Avg': 0.25,
     'MMLU-Stem': 0.25,
     'MMLU-Humanities': 0.25,
     'MMLU-Social-Science': 0.25,
@@ -329,7 +377,7 @@ ce_columns = [
     'eval/dolma_wiki-validation/CrossEntropyLoss',
 ]
 
-N_LAST_CKPTS = 20
+N_LAST_CKPTS = 10
 PLOT_AVG_PRED = False
 
 pd.options.mode.chained_assignment = None

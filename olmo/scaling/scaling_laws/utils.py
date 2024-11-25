@@ -225,6 +225,40 @@ downstream_newline_bpb = [
 ]
 
 
+moreeval_downstream = [
+    "mmlu_stem_test_rc_5shot_len_norm",
+    "mmlu_humanities_test_rc_5shot_len_norm",
+    "mmlu_social_sciences_test_rc_5shot_len_norm",
+    "mmlu_other_test_rc_5shot_len_norm",
+    "hellaswag_val_rc_5shot_len_norm",
+    "arc_easy_test_rc_5shot_len_norm",
+    "arc_challenge_test_rc_5shot_len_norm",
+    "piqa_val_rc_5shot_len_norm",
+    "winogrande_val_rc_5shot_len_norm",
+    "openbookqa_test_rc_5shot_len_norm",
+    "csqa_val_rc_5shot_len_norm",
+    "socialiqa_val_rc_5shot_len_norm",
+    "boolq_val_rc_5shot_acc",
+]
+
+
+moreeval_downstream_bpb = [
+    "mmlu_stem_test_rc_5shot_bpb",
+    "mmlu_humanities_test_rc_5shot_bpb",
+    "mmlu_social_sciences_test_rc_5shot_bpb",
+    "mmlu_other_test_rc_5shot_bpb",
+    "hellaswag_val_rc_5shot_bpb",
+    "arc_easy_test_rc_5shot_bpb",
+    "arc_challenge_test_rc_5shot_bpb",
+    "piqa_val_rc_5shot_bpb",
+    "winogrande_val_rc_5shot_bpb",
+    "openbookqa_test_rc_5shot_bpb",
+    "csqa_val_rc_5shot_bpb",
+    "socialiqa_val_rc_5shot_bpb",
+    "boolq_val_rc_5shot_bpb",
+]
+
+
 @dataclass
 class ExtrapolateNConfig:
     path: str

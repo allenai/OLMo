@@ -15,6 +15,9 @@ from olmo.scaling.scaling_laws.utils import (
     downstream_newline_bpb,
     v3_validation,
     validation,
+
+    moreeval_downstream,
+    moreeval_downstream_bpb
 )
 
 run_path_re = re.compile(r"^[^/]+/[^/]+/[^/]+$")
@@ -86,6 +89,12 @@ def main(args):
             [f"eval/{d}/CrossEntropyLoss" for d in validation]
             + [f"eval/downstream_bpb/{d}_bpb" for d in downstream_bpb]
             + [f"eval/downstream/{d}" for d in downstream]
+        )
+    elif args.y_axis == ["eval/validation-and-bpb-and-downstream-more-eval"]:
+        args.y_axis = (
+            [f"eval/{d}/CrossEntropyLoss" for d in validation]
+            + [f"eval/downstream_bpb/{d}" for d in moreeval_downstream_bpb]
+            + [f"eval/downstream/{d}" for d in moreeval_downstream]
         )
     elif args.y_axis == ["eval/validation-and-soft-and-downstream"]:
         args.y_axis = (
