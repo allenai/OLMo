@@ -71,16 +71,31 @@ class Optimizer(OptimizerBase):
         # - min, max, avg, norm of any additional per-parameter optimizer state metrics returned from
         #   `self.get_state_for_param()`.
         # Afterwards we'll reduce these all over all ranks.
-        per_param_min_metrics: List[torch.Tensor] = []
-        per_param_max_metrics: List[torch.Tensor] = []
-        per_param_sum_metrics: List[torch.Tensor] = []
-        per_param_norm_metrics: List[torch.Tensor] = []
-        per_param_numel_metrics: List[torch.Tensor] = []
 
-        per_param_min_metric_names: List[str] = []
-        per_param_max_metric_names: List[str] = []
-        per_param_avg_metric_names: List[str] = []
+        # TODO: mark and remove all references to these two
         per_param_norm_metric_names: List[str] = []
+        per_param_norm_metrics: List[torch.Tensor] = []
+
+        #####################################################
+        per_param_param_names: List[str] = []
+        per_param_param_tensors: List[torch.Tensor] = []
+        per_param_param_norm: List[torch.Tensor] = []
+
+        per_param_grad_names: List[str] = []
+        per_param_grad_tensors: List[torch.Tensor] = []
+        per_param_grad_norm: List[torch.Tensor] = []
+
+        per_param_update_names: List[str] = []
+        per_param_update_tensors: List[torch.Tensor] = []
+        per_param_update_norm: List[torch.Tensor] = []
+
+        per_param_grad_state_1_names: List[str] = []
+        per_param_grad_state_1_tensors: List[torch.Tensor] = []
+        per_param_grad_state_1_norm: List[torch.Tensor] = []
+
+        per_param_grad_state_2_names: List[str] = []
+        per_param_grad_state_2_tensors: List[torch.Tensor] = []
+        per_param_grad_state_2_norm: List[torch.Tensor] = []
 
         dst_rank = 0
         if process_group is not None:
@@ -101,6 +116,7 @@ class Optimizer(OptimizerBase):
                     sorted_state_keys = sorted([k for k in state.keys()])
                     tensors.extend([p] + [state[key] for key in sorted_state_keys])
                     prefixes.extend([f"param/{name}"] + [f"{key}/{name}" for key in sorted_state_keys])
+
                 assert len(tensors) == len(prefixes)
 
                 # Get min, max, avg, and norm for all `tensors` associated with the parameter.
@@ -108,84 +124,38 @@ class Optimizer(OptimizerBase):
                     # grad or state tensors could be none for params that have their shards completely on
                     # other ranks.
                     if x is not None and x.numel() > 0:
-                        if collect_param_metrics:
-                            x_abs = x.abs()
-                            per_param_min_metrics.append(x_abs.min().unsqueeze(0).to(dtype=torch.float32))
-                            per_param_max_metrics.append(x_abs.max().unsqueeze(0).to(dtype=torch.float32))
-                            per_param_sum_metrics.append(x.sum().unsqueeze(0).to(dtype=torch.float32))
-                            per_param_numel_metrics.append(
-                                torch.tensor([x.numel()], device=device, dtype=torch.float32)
-                            )
                         per_param_norm_metrics.append(
                             torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0)
                         )
                     else:
-                        if collect_param_metrics:
-                            per_param_min_metrics.append(
-                                torch.tensor([float("inf")], device=device, dtype=torch.float32)
-                            )
-                            per_param_max_metrics.append(torch.tensor([0.0], device=device, dtype=torch.float32))
-                            per_param_sum_metrics.append(torch.tensor([0.0], device=device, dtype=torch.float32))
-                            per_param_numel_metrics.append(torch.tensor([0.0], device=device, dtype=torch.float32))
                         per_param_norm_metrics.append(torch.tensor([0.0], device=device, dtype=torch.float32))
-                    if collect_param_metrics:
-                        per_param_min_metric_names.append(f"{prefix}.min")
-                        per_param_max_metric_names.append(f"{prefix}.max")
-                        per_param_avg_metric_names.append(f"{prefix}.avg")
                     per_param_norm_metric_names.append(f"{prefix}.norm")
 
-        assert (
-            len(per_param_min_metrics)
-            == len(per_param_min_metric_names)
-            == len(per_param_max_metrics)
-            == len(per_param_max_metric_names)
-            == len(per_param_sum_metrics)
-            == len(per_param_numel_metrics)
-            == len(per_param_avg_metric_names)
-        )
         assert len(per_param_norm_metrics) == len(per_param_norm_metric_names)
+
+        import ipdb
+        ipdb.set_trace()
 
         def is_grad_norm_metric(metric_name: str) -> bool:
             return metric_name.startswith("grad/") and metric_name.endswith(".norm")
 
         #######################################################################
         # part 2: reduce metrics over ranks
+        # NOTE (ananya) for DDP, this step should be unnecessary for logging params, grads and optimizer states
+        # as gradients should have synchornized across ranks by the time ``clip_grads_and_collect_metrics`` is called.
         #######################################################################
         param_group_sharded = False
         for group in self.param_groups:
             param_group_sharded = param_group_sharded or group.get("sharded", False)
 
         total_grad_norm: torch.Tensor
-        per_param_avg_metrics: List[torch.Tensor] = []
         if is_distributed() and param_group_sharded:
             # Reduce metrics across all ranks. Note that we can use a `reduce` for most cases
             # instead of an `all_reduce`, but we need `all_reduce` for norms so that all ranks
             # get the right value for gradient norms so they can clip correctly.
-            # Reduce mins.
-            if per_param_min_metrics:
-                all_mins = torch.cat(per_param_min_metrics).to(device)
-                dist.reduce(all_mins, dst_rank, op=dist.ReduceOp.MIN, group=process_group)
-                per_param_min_metrics = all_mins.split(1)
-            # Reduce maxs.
-            if per_param_max_metrics:
-                all_maxs = torch.cat(per_param_max_metrics).to(device)
-                dist.reduce(all_maxs, dst_rank, op=dist.ReduceOp.MAX, group=process_group)
-                per_param_max_metrics = all_maxs.split(1)
             # Reduce sums or just norms.
             all_norms = torch.cat(per_param_norm_metrics).to(device) ** 2.0
-            if per_param_sum_metrics and per_param_numel_metrics:
-                all_sums = torch.cat(per_param_sum_metrics).to(device)
-                all_numels = torch.cat(per_param_numel_metrics).to(device)
-                all_sums_norms_numels = torch.cat(
-                    [all_sums.unsqueeze(0), all_norms.unsqueeze(0), all_numels.unsqueeze(0)], dim=0
-                )
-                dist.all_reduce(all_sums_norms_numels, op=dist.ReduceOp.SUM, group=process_group)
-                all_sums, all_norms, all_numels = all_sums_norms_numels.split(1)
-                # Get averages.
-                # NOTE: could get infs for non-rank0 processes but that's okay.
-                per_param_avg_metrics = (all_sums / all_numels).squeeze(0).split(1)
-            else:
-                dist.all_reduce(all_norms, op=dist.ReduceOp.SUM, group=process_group)
+            dist.all_reduce(all_norms, op=dist.ReduceOp.SUM, group=process_group)
             grad_norm_metric_mask = torch.tensor(
                 [float(is_grad_norm_metric(n)) for n in per_param_norm_metric_names], device=all_norms.device
             )
@@ -202,20 +172,9 @@ class Optimizer(OptimizerBase):
                 )
                 ** 2.0
             ).sum() ** 0.5
-            per_param_avg_metrics = [x / n for x, n in zip(per_param_sum_metrics, per_param_numel_metrics)]
-
-        assert len(per_param_avg_metrics) == len(per_param_avg_metric_names)
 
         # Collect all metrics into a single dict.
         all_metrics: Dict[str, torch.Tensor] = {}
-        if collect_param_metrics:
-            for metric_name, metric in zip(per_param_min_metric_names, per_param_min_metrics):
-                all_metrics[metric_name] = metric.squeeze(0)
-            for metric_name, metric in zip(per_param_max_metric_names, per_param_max_metrics):
-                all_metrics[metric_name] = metric.squeeze(0)
-            for metric_name, metric in zip(per_param_avg_metric_names, per_param_avg_metrics):
-                all_metrics[metric_name] = metric.squeeze(0)
-
         for metric_name, metric in zip(per_param_norm_metric_names, per_param_norm_metrics):
             all_metrics[metric_name] = metric.squeeze(0)
         all_metrics["total_grad_norm"] = total_grad_norm
@@ -390,7 +349,6 @@ class LionW(Optimizer):
         self._signed_update_total_norm: Optional[torch.Tensor] = None
         self._device: Optional[torch.device] = device
 
-    # TODO: this is where optim metrics are computed
     def get_post_step_metrics(
         self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
     ) -> Dict[str, torch.Tensor]:

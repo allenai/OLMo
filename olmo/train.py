@@ -880,8 +880,12 @@ class Trainer:
             raise ValueError("nan loss encountered")
         if z_batch_loss is not None and torch.isnan(z_batch_loss):
             raise ValueError("nan loss encountered")
+
+        #######################################################################
         for key, value in optim_metrics.items():
             metrics[f"optim/{key}"] = value.item()
+        #######################################################################
+
         self.cur_train_loss = ce_batch_loss.item()
         self.min_train_loss = min(self.min_train_loss, self.cur_train_loss)
         metrics["train/CrossEntropyLoss"] = self.cur_train_loss
@@ -889,14 +893,15 @@ class Trainer:
         if z_batch_loss is not None:
             metrics["train/ZLoss"] = z_batch_loss.item()
 
+        #######################################################################
         # Maybe collect post-step optimizer-specific metrics.
-        # TODO: this is where optim metrics are sorted and logged
         if should_log_optim_metrics_this_step:
             optim_metrics = self.optim.get_post_step_metrics(
                 self.dist_model, process_group=self.dist_model.process_group
             )
             for key, value in optim_metrics.items():
                 metrics[f"optim/{key}"] = value.item()
+        #######################################################################
 
         return metrics
 
