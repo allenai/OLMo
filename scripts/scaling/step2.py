@@ -1,6 +1,6 @@
-# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_main.png --skip_perc 0.1 --moving_avg 5
-# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_c4_main.png --x_metric c4 --skip_perc 0.1 --moving_avg 5
-# python scripts/scaling/step2.py -k v2_main_mc -c scripts/scaling/step2_mc.json -o figure/peteish-moreeval/step2_mc_main.png -y mc_acc
+# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_main.pdf --skip_perc 0.1 --moving_avg 5
+# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_c4_main.pdf --x_metric c4 --skip_perc 0.1 --moving_avg 5
+# python scripts/scaling/step2.py -k v2_main_mc -c scripts/scaling/step2_mc.json -o figure/peteish-moreeval/step2_mc_main.pdf -y mc_acc
 
 import argparse
 

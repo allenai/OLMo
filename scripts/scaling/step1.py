@@ -1,6 +1,6 @@
-# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_main.png --moving_avg 5
-# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_c4_main.png --y_metric c4 --moving_avg 5
-# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_acc_main.png --y_metric rc_acc
+# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_main.pdf --moving_avg 5
+# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_c4_main.pdf --y_metric c4 --moving_avg 5
+# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_acc_main.pdf --y_metric rc_acc
 
 import argparse
 from typing import Any, List, Tuple
@@ -330,7 +330,7 @@ def main():
 
             axes[j][i].legend().remove()
 
-    fig.tight_layout()
+    fig.tight_layout(w_pad=0.01)
     legend = fig.legend(handles, labels, loc='upper center',
                         ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.07),
                         handletextpad=0.3, columnspacing=0.7)
