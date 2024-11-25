@@ -27,9 +27,7 @@ from olmo.scaling.scaling_laws.utils import (
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-k", "--keys", nargs="+", default=[], help="Key(s) for tasks")
-    parser.add_argument(
-        "-x", "--x_metric", default="rc_bpb", choices=["rc_bpb", "c4"], help="Metric as input"
-    )
+    parser.add_argument("-x", "--x_metric", default="rc_bpb", choices=["rc_bpb", "c4"], help="Metric as input")
     parser.add_argument(
         "-y", "--y_metric", default="rc_acc", choices=["rc_acc", "mc_acc"], help="Metric to predict"
     )
@@ -222,7 +220,12 @@ def main():
 
     for i, task_name in enumerate(args.keys):
         data_by_name = get_step2_data_by_name(
-            configs, task_name, x_metric=args.x_metric, y_metric=args.y_metric, moving_avg=args.moving_avg, skip_perc=args.skip_perc
+            configs,
+            task_name,
+            x_metric=args.x_metric,
+            y_metric=args.y_metric,
+            moving_avg=args.moving_avg,
+            skip_perc=args.skip_perc,
         )
 
         coefficients, cov = fit_step2(data_by_name, task_name, args.y_metric)

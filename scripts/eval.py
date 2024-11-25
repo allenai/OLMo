@@ -125,8 +125,12 @@ def main(cfg: TrainConfig) -> None:
     else:
         # This globbing only works with local paths
         load_paths = list(glob.glob(f"{cfg.load_path}/step*"))
-        load_paths = [x for x in load_paths if x.split("/")[-1].replace("-unsharded", "").split("step")[-1].isdigit()]
-        load_paths = [x for x in load_paths if int(x.split("/")[-1].replace("-unsharded", "").split("step")[-1]) % 5000 == 0]
+        load_paths = [
+            x for x in load_paths if x.split("/")[-1].replace("-unsharded", "").split("step")[-1].isdigit()
+        ]
+        load_paths = [
+            x for x in load_paths if int(x.split("/")[-1].replace("-unsharded", "").split("step")[-1]) % 5000 == 0
+        ]
         load_paths = list(
             sorted(load_paths, key=lambda x: int(x.split("/")[-1].replace("-unsharded", "").split("step")[-1]))
         )

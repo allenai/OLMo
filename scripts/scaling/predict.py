@@ -25,9 +25,7 @@ def parse_args():
     parser.add_argument(
         "-k", "--keys", nargs="+", default=[], help="For avg metrics. Use one of [all-val-lm, all-bpb]"
     )
-    parser.add_argument(
-        "-x", "--x_metric", default="rc_bpb", choices=["rc_bpb", "c4"], help="Metric as input"
-    )
+    parser.add_argument("-x", "--x_metric", default="rc_bpb", choices=["rc_bpb", "c4"], help="Metric as input")
     parser.add_argument(
         "-y", "--y_metric", default="rc_acc", choices=["rc_acc", "mc_acc"], help="Metric to predict"
     )
@@ -71,7 +69,12 @@ def main():
 
         # Step 2
         step2_data_by_name = get_step2_data_by_name(
-            step2_configs, task_name, x_metric=args.x_metric, y_metric=args.y_metric, moving_avg=args.moving_avg, skip_perc=args.skip_perc
+            step2_configs,
+            task_name,
+            x_metric=args.x_metric,
+            y_metric=args.y_metric,
+            moving_avg=args.moving_avg,
+            skip_perc=args.skip_perc,
         )
         step2_coefficients, _ = fit_step2(step2_data_by_name, task_name, args.y_metric)
 

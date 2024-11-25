@@ -106,12 +106,8 @@ class ICLMetric(Metric):
             self.loglikelihoods.append(
                 torch.Tensor((doc_id, cont_id, log_likelihood)).to(batch["continuation"][idx].device)
             )
-            self.celosses.append(
-                torch.Tensor((doc_id, cont_id, celoss)).to(batch["continuation"][idx].device)
-            )
-            self.bpbs.append(
-                torch.Tensor((doc_id, cont_id, bpb)).to(batch["continuation"][idx].device)
-            )
+            self.celosses.append(torch.Tensor((doc_id, cont_id, celoss)).to(batch["continuation"][idx].device))
+            self.bpbs.append(torch.Tensor((doc_id, cont_id, bpb)).to(batch["continuation"][idx].device))
             self.labels.append(
                 torch.LongTensor((doc_id, cont_id, batch["label_id"][idx])).to(batch["label_id"][idx].device)
             )

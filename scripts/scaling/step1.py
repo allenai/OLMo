@@ -118,7 +118,7 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
     else:
         raise ValueError(f"Unknown y_metric: {y_metric}")
 
-    y, y_pred, rel_error = 0, 0, 0
+    y, y_pred, rel_error = 0.0, 0.0, 0.0
 
     for name, data in data_by_name.items():
         predicted_data_by_name[name] = {

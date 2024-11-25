@@ -1,17 +1,19 @@
-from itertools import islice
 import json
 import os
 import sys
-from tqdm import tqdm
+from itertools import islice
 from typing import Any, Dict
+
 import torch
 import torch.nn.functional as F
 import transformers
-from olmo.config import TrainConfig, EvaluatorConfig, EvaluatorType
+from tqdm import tqdm
+
+from olmo.config import EvaluatorConfig, EvaluatorType, TrainConfig
 from olmo.eval import build_evaluator
-from olmo.torch_util import move_to_device
 from olmo.eval.downstream import label_to_task_map_new
 from olmo.exceptions import OLMoCliError
+from olmo.torch_util import move_to_device
 
 
 def get_labels(batch: Dict[str, Any]) -> torch.Tensor:
@@ -30,14 +32,19 @@ def get_labels(batch: Dict[str, Any]) -> torch.Tensor:
         labels.masked_fill_(~instance_mask.unsqueeze(-1), value=-100)
     return labels[..., 1:].contiguous()
 
+
 def main(cfg: TrainConfig, model_name: str):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, token=os.environ.get("HF_TOKEN_DOWNLOAD", None))
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        model_name, token=os.environ.get("HF_TOKEN_DOWNLOAD", None)
+    )
     if tokenizer.pad_token_id is None:  # This is to prevent the NoneType error in collate_fn()
         tokenizer.pad_token_id = 0
-    model = transformers.AutoModelForCausalLM.from_pretrained(model_name, token=os.environ.get("HF_TOKEN_DOWNLOAD", None))
+    model = transformers.AutoModelForCausalLM.from_pretrained(
+        model_name, token=os.environ.get("HF_TOKEN_DOWNLOAD", None)
+    )
     model.to(device)
     model.eval()
 
@@ -100,10 +107,10 @@ def main(cfg: TrainConfig, model_name: str):
 
     print(eval_metrics)
 
-    save_folder = f'/weka/oe-training-default/jiachengl/hc-law/eval_bpb_mc_v2'
+    save_folder = "/weka/oe-training-default/jiachengl/hc-law/eval_bpb_mc_v2"
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
-    with open(f'{save_folder}/{model_name.replace("/", "_")}.json', 'w') as f:
+    with open(f'{save_folder}/{model_name.replace("/", "_")}.json', "w") as f:
         json.dump(eval_metrics, f)
 
 

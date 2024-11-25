@@ -754,7 +754,9 @@ def get_length(path):
         return ""
 
 
-def get_step2_data_by_name(configs, task_name, x_metric="rc_bpb", y_metric="rc_acc", moving_avg=1, skip_perc=0.0, last_n_points=-1):
+def get_step2_data_by_name(
+    configs, task_name, x_metric="rc_bpb", y_metric="rc_acc", moving_avg=1, skip_perc=0.0, last_n_points=-1
+):
     task = tasks[task_name]
     if x_metric == "rc_bpb":
         loss_keys = task.get_loss_keys()
