@@ -14,6 +14,9 @@ from olmo.scaling.scaling_laws.fitting_functions import (
     grad_sigmoid_fit,
     sigmoid,
     sigmoid_fit,
+    log_sigmoid,
+    log_sigmoid_fit,
+    grad_log_sigmoid_fit,
 )
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
@@ -28,7 +31,7 @@ FONTSIZE=10
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-k", "--keys", nargs="+", default=[], help="Key(s) for tasks")
-    parser.add_argument("-x", "--x_metric", default="rc_bpb", choices=["rc_bpb", "c4"], help="Metric as input")
+    parser.add_argument("-x", "--x_metric", default="rc_bpb", choices=["rc_bpb", "c4", "rc_soft_log"], help="Metric as input")
     parser.add_argument(
         "-y", "--y_metric", default="rc_acc", choices=["rc_acc", "mc_acc"], help="Metric to predict"
     )
@@ -41,12 +44,13 @@ def parse_args():
     )
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
+    parser.add_argument("--use_log_sigmoid", action="store_true", help="Use log sigmoid instead")
     args = parser.parse_args()
 
     return args
 
 
-def fit_step2(data_by_name, task_name, y_metric):
+def fit_step2(data_by_name, task_name, y_metric, use_log_sigmoid=False):
     train_xs, train_ys = [], []
     for name, data in data_by_name.items():
         if data["mode"] == "train":
@@ -59,38 +63,51 @@ def fit_step2(data_by_name, task_name, y_metric):
     # add ideal points (these are not plotted)
     train_xs.append(0.0)
     train_ys.append(tasks[task_name].task_maximum)
-    # train_xs.append(max(train_xs))
-    # train_ys.append(tasks[task_name].task_minimum)
+    if not use_log_sigmoid:
+        train_xs.append(max(train_xs))
+        train_ys.append(tasks[task_name].task_minimum)
 
     # fit the parameters
-    coefficients, cov = get_coefficients(
-        train_xs,
-        train_ys,
-        sigmoid,
-        p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, tasks[task_name].task_maximum],
-        bounds=([-1.0, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
-        # bounds=([-np.inf, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, np.inf]),
-        # bounds=([tasks[task_name].task_minimum - 1.0, 0.0, 0.0, tasks[task_name].task_maximum - 0.0001], [tasks[task_name].task_minimum - 0.9999, np.inf, np.inf, tasks[task_name].task_maximum]),
-        # bounds=([-np.inf, 0.0, 0.0, tasks[task_name].task_maximum - 0.0001], [0.0, np.inf, np.inf, tasks[task_name].task_maximum]),
-        disp=False,
-        return_cov=True,
-    )
+    if use_log_sigmoid:
+        coefficients, cov = get_coefficients(
+            train_xs,
+            train_ys,
+            log_sigmoid,
+            p0=[-0.1, 0.9, 3.0],
+            bounds=([-np.inf, 0.0, 0.0], [0.0, np.inf, np.inf]),
+            disp=False,
+            return_cov=True,
+        )
+    else:
+        coefficients, cov = get_coefficients(
+            train_xs,
+            train_ys,
+            sigmoid,
+            p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, tasks[task_name].task_maximum],
+            bounds=([-1.0, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
+            disp=False,
+            return_cov=True,
+        )
 
     return coefficients, cov
 
 
-def predict_step2(configs, data_by_name, coefficients, cov, y_metric):
+def predict_step2(configs, data_by_name, coefficients, cov, y_metric, use_log_sigmoid=False):
+    predict_fn = log_sigmoid if use_log_sigmoid else sigmoid
+    fit_fn = log_sigmoid_fit if use_log_sigmoid else sigmoid_fit
+    grad_fit_fn = grad_log_sigmoid_fit if use_log_sigmoid else grad_sigmoid_fit
+
     predicted_data_by_name = {}
     for name, data in data_by_name.items():
         config = configs[name]
         predicted_data_by_name[name] = {
             "xs": data["xs"],
-            "ys": [sigmoid(x, *coefficients) for x in data["xs"]],
+            "ys": [predict_fn(x, *coefficients) for x in data["xs"]],
         }
         if config.mode == "eval":
             for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data_by_name[name]["ys"]):
                 rel_error = (y_pred - y) / y
-                std_error = get_std_errors([x], [y_pred], coefficients, cov, sigmoid_fit, grad_sigmoid_fit)[0]
+                std_error = get_std_errors([x], [y_pred], coefficients, cov, fit_fn, grad_fit_fn)[0]
                 delta_error = 1.96 * std_error
 
     xmin = min(min(data["xs"]) for data in data_by_name.values())
@@ -100,7 +117,7 @@ def predict_step2(configs, data_by_name, coefficients, cov, y_metric):
     xs = np.linspace(xmin, xmax, 100)
     plotted_predicted_data = {
         "xs": xs,
-        "ys": [sigmoid(x, *coefficients) for x in xs],
+        "ys": [predict_fn(x, *coefficients) for x in xs],
     }
 
     return predicted_data_by_name, plotted_predicted_data, (y, y_pred, rel_error, delta_error)
@@ -117,8 +134,12 @@ def plot_step2(
     y_metric,
     coefficients,
     cov,
+    use_log_sigmoid=False,
     ax=plt.gca(),
 ):
+    fit_fn = log_sigmoid_fit if use_log_sigmoid else sigmoid_fit
+    grad_fit_fn = grad_log_sigmoid_fit if use_log_sigmoid else grad_sigmoid_fit
+
     std_errors = get_std_errors(
         plotted_predicted_data["xs"],
         plotted_predicted_data["ys"],
@@ -209,9 +230,19 @@ def plot_step2(
     )
 
 
-def str_sigmoid(coefficients):
-    a, x0, k, b = coefficients
-    return f"Acc(L) = {a:.2f} / (1 + e^(-{k:.2f}(L - {x0:.2f}))) + {b:.2f}"
+def str_sigmoid(coefficients, use_log_sigmoid=False):
+    if use_log_sigmoid:
+        a, x0, k = coefficients
+
+    # def log_sigmoid(x, a, x0, k):
+    #     y = np.log(1 - 1/(1 + np.exp(-k * (x - x0))))
+    #     o = (-a) * y + 1
+    #     return o
+
+        return f"Acc(L) = 1 - {-a:.2f} * log(1 - 1/(1 + e^(-{k:.2f}(L - {x0:.2f})))"
+    else:
+        a, x0, k, b = coefficients
+        return f"Acc(L) = {a:.2f} / (1 + e^(-{k:.2f}(L - {x0:.2f}))) + {b:.2f}"
 
 
 def main():
@@ -225,7 +256,7 @@ def main():
     num_tasks = len(args.keys)
     num_cols = min(4, num_tasks)
     num_rows = (num_tasks + num_cols - 1) // num_cols
-    fig, axes = plt.subplots(num_rows, num_cols, figsize=(2.25 * num_cols, 2.25 * num_rows), squeeze=False)
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(2.75 * num_cols, 2.5 * num_rows), squeeze=False)
 
     results = "Task Name | Actual Value | Predicted Value | Relative Error"
 
@@ -239,15 +270,16 @@ def main():
             skip_perc=args.skip_perc,
         )
 
-        coefficients, cov = fit_step2(data_by_name, task_name, args.y_metric)
-        a, x0, k, b = coefficients
+        coefficients, cov = fit_step2(data_by_name, task_name, args.y_metric, use_log_sigmoid=args.use_log_sigmoid)
+        # a, x0, k, b = coefficients
 
         # make predictions
         predicted_data_by_name, plotted_predicted_data, (y, y_pred, rel_error, delta_error) = predict_step2(
-            configs, data_by_name, coefficients, cov, y_metric=args.y_metric
+            configs, data_by_name, coefficients, cov, y_metric=args.y_metric, use_log_sigmoid=args.use_log_sigmoid
         )
 
-        results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)}"
+        str_formula = str_sigmoid(coefficients, use_log_sigmoid=args.use_log_sigmoid)
+        results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)} | {str_formula}"
 
         # plot the actual and predicted data
         ax = axes[i // num_cols][i % num_cols]
@@ -258,11 +290,12 @@ def main():
             predicted_data_by_name,
             plotted_predicted_data,
             task_name,
-            str_sigmoid(coefficients),
+            str_formula,
             args.x_metric,
             args.y_metric,
             coefficients,
             cov,
+            use_log_sigmoid=args.use_log_sigmoid,
             ax=ax,
         )
 
@@ -279,7 +312,7 @@ def main():
 
     fig.tight_layout()
     legend = fig.legend(handles, labels, loc='upper center',
-                        ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.05),
+                        ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.07),
                         handletextpad=0.1,columnspacing=0.7)
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
