@@ -78,14 +78,20 @@ def chinchilla_n_d_fit_e(x, p0, p1, p2, p3, p4):
 # p[0] = a = log(A), p[1] = b = log(B), p[2] = alpha, p[3] = beta, p[4] = E
 def chinchilla_n_d_fit(x, p):
     # return e**a / x[0]**alpha + e**b / x[1]**beta + E
-    return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4]
+
+    return np.exp(p[0] - np.log(x[0]) * p[2]) + np.exp(p[1] - np.log(x[1]) * p[3]) + p[4]
+    # return np.exp(p[0]) / x[0] ** p[2] + np.exp(p[1]) / x[1] ** p[3] + p[4]
 
 
 def grad_chinchilla_n_d_fit(x, p):
-    grad_a = np.exp(p[0]) / x[0] ** p[2]
-    grad_b = np.exp(p[1]) / x[1] ** p[3]
-    grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
-    grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
+    grad_a = np.exp(p[0] - np.log(x[0]) * p[2])
+    grad_b = np.exp(p[1] - np.log(x[1]) * p[3])
+    grad_alpha = np.exp(p[0] - np.log(x[0]) * p[2]) * (-np.log(x[0]))
+    grad_beta = np.exp(p[1] - np.log(x[1]) * p[3]) * (-np.log(x[1]))
+    # grad_a = np.exp(p[0]) / x[0] ** p[2]
+    # grad_b = np.exp(p[1]) / x[1] ** p[3]
+    # grad_alpha = np.exp(p[0]) * (-np.log(x[0])) / x[0] ** p[2]
+    # grad_beta = np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
     grad_E = 1
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E]
 
@@ -325,6 +331,33 @@ def grad_tissue_fit(x, p):
 def sigmoid(x, a, x0, k, b):
     o = a / (1 + np.exp(-k * (x - x0))) + b
     return o
+
+
+def log_sigmoid(x, a, x0, k, c=0.0):
+    y = np.log(1 - 1/(1 + np.exp(-k * (x - x0))) + c)
+    o = (-a) * y + 1
+    return o
+
+
+def log_sigmoid_fit(x, p):
+    y = np.log(1 - 1/(1 + np.exp(-p[2] * (x - p[1]))))
+    o = (-p[0]) * y + 1
+    return o
+
+
+def grad_log_sigmoid_fit(x, p):
+    # Pre-compute common terms
+    sigmoid = 1 / (1 + np.exp(-p[2] * (x - p[1])))
+    log_term = np.log(1 - sigmoid)  # Inside of the log function
+    d_log_term = -sigmoid  # Derivative of log(1 - sigmoid)
+
+    # Gradients
+    grad_a = -log_term  # Derivative w.r.t. p[0]
+    grad_x0 = (-p[0]) * d_log_term * (-p[2])  # Derivative w.r.t. p[1]
+    grad_k = (-p[0]) * d_log_term * ((x - p[1]))  # Derivative w.r.t. p[2]
+    grad_b = 1  # Derivative w.r.t. p[3]
+
+    return [grad_a, grad_x0, grad_k]
 
 
 def sigmoid_fit(x, p):
