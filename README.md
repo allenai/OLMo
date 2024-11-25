@@ -112,12 +112,12 @@ To continue training from a specific checkpoint:
 
 1. Download the checkpoint using the provided script. Checkpoints are listed in CSV files under `checkpoints/official/`:
 ```bash
-python scripts/download_checkpoints.py [PATH_TO_CSV] --save-dir [SAVE_PATH] --step [STEP]
+python scripts/download_checkpoints.py download [PATH_TO_CSV] --step [STEP] --save-dir [SAVE_PATH]
 ```
 
 Example: To download checkpoint at step 2000:
 ```bash
-python scripts/download_checkpoints.py checkpoints/official/OLMo-1B.csv --save-dir ./checkpoints/ --step 2000
+python scripts/download_checkpoints.py download checkpoints/official/OLMo-1B.csv --step 2000 --save-dir ./new_checkpoints
 ```
 **Note**: All checkpoints in `checkpoints/official/` are unsharded.
 

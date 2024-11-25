@@ -88,13 +88,20 @@ def download_checkpoint(url, save_dir):
        print(f"\nWARNING: Failed to download these files: {failed_files}")
 
 def main():
-    parser = argparse.ArgumentParser(description='Download OLMo checkpoints from CSV')
-    parser.add_argument('csv_file', type=str, help='Path to the CSV file containing checkpoint URLs')
-    parser.add_argument('--save-dir', type=str, default='./checkpoints',
-                        help='Base directory to save downloaded checkpoints')
-    parser.add_argument('--step', type=str, default='1000', help='Specific step number to download.')
-    parser.add_argument('--list-steps', action='store_true', help='List available step numbers and exit')
-    
+    parser = argparse.ArgumentParser(description='Download OLMo checkpoints')
+    subparsers = parser.add_subparsers(dest='command', help='Commands')
+    download_parser = subparsers.add_parser('download', 
+                                          help='Download checkpoints from CSV file')
+    download_parser.add_argument('csv_file', type=str, 
+                               help='Path to the CSV file containing checkpoint URLs')
+    download_parser.add_argument('--step', type=str, required=True,
+                               help='Specific step number to download')
+    download_parser.add_argument('--save-dir', type=str, default='./checkpoints',
+                               help='Base directory to save downloaded checkpoints')
+    list_parser = subparsers.add_parser('list',
+                                       help='List available checkpoint steps')
+    list_parser.add_argument('csv_file', type=str,
+                            help='Path to the CSV file containing checkpoint URLs')
     args = parser.parse_args()
     
     print(f"Reading CSV file: {args.csv_file}")
@@ -103,7 +110,7 @@ def main():
         reader = csv.DictReader(f)
         urls = [(row['Step'], row['Checkpoint Directory']) for row in reader]
     
-    if args.list_steps:
+    if args.command == 'list':
         print("Available steps:")
         for step, _ in urls:
             print(f"Step {step}")
@@ -113,7 +120,7 @@ def main():
         urls = [(step, url) for step, url in urls if step == args.step]
         if not urls:
             print(f"Error: Step {args.step} not found in the CSV file.")
-            print("Use --list-steps to see available step numbers.")
+            print("Use list argument to see available step numbers.")
             return
     
     print(f"Saving checkpoints to: {args.save_dir}")
