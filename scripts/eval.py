@@ -128,9 +128,9 @@ def main(cfg: TrainConfig) -> None:
         load_paths = [
             x for x in load_paths if x.split("/")[-1].replace("-unsharded", "").split("step")[-1].isdigit()
         ]
-        load_paths = [
-            x for x in load_paths if int(x.split("/")[-1].replace("-unsharded", "").split("step")[-1]) % 5000 == 0
-        ]
+        # load_paths = [
+        #     x for x in load_paths if int(x.split("/")[-1].replace("-unsharded", "").split("step")[-1]) % 5000 == 0
+        # ]
         load_paths = list(
             sorted(load_paths, key=lambda x: int(x.split("/")[-1].replace("-unsharded", "").split("step")[-1]))
         )
