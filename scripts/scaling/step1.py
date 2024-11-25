@@ -25,7 +25,7 @@ from olmo.scaling.scaling_laws.utils import (
 )
 
 MARKERS = ["s", "P", "p", "*", "o"]
-FONTSIZE=10
+FONTSIZE=11
 
 def parse_args():
     parser = argparse.ArgumentParser()

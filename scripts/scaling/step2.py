@@ -26,7 +26,7 @@ from olmo.scaling.scaling_laws.utils import (
     tasks,
 )
 
-FONTSIZE=10
+FONTSIZE=11
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -310,7 +310,7 @@ def main():
 
             axes[j][i].legend().remove()
 
-    fig.tight_layout()
+    fig.tight_layout(w_pad=0.01)
     legend = fig.legend(handles, labels, loc='upper center',
                         ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.07),
                         handletextpad=0.1,columnspacing=0.7)
