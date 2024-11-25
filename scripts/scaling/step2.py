@@ -1,6 +1,6 @@
 # python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_main.pdf --skip_perc 0.1 --moving_avg 5
 # python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_c4_main.pdf --x_metric c4 --skip_perc 0.1 --moving_avg 5
-# python scripts/scaling/step2.py -k v2_main_mc -c scripts/scaling/step2_mc.json -o figure/peteish-moreeval/step2_mc_main.pdf -y mc_acc
+# python scripts/scaling/step2.py -k mmlu_avg_test_5shot -c scripts/scaling/step2_mc.json -o figure/peteish-moreeval/step2_mc_mmlu.pdf -y mc_acc
 
 import argparse
 
@@ -63,9 +63,8 @@ def fit_step2(data_by_name, task_name, y_metric, use_log_sigmoid=False):
     # add ideal points (these are not plotted)
     train_xs.append(0.0)
     train_ys.append(tasks[task_name].task_maximum)
-    if not use_log_sigmoid:
-        train_xs.append(max(train_xs))
-        train_ys.append(tasks[task_name].task_minimum)
+    # train_xs.append(max(train_xs))
+    # train_ys.append(tasks[task_name].task_minimum)
 
     # fit the parameters
     if use_log_sigmoid:
