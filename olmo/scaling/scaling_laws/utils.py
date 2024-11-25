@@ -744,7 +744,7 @@ def get_flops_data_by_name(configs, keys, num_to_avg=1):
 def moving_average(arr, n):
     ret = np.cumsum(arr, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
-    return np.concat([ret[: n - 1] / np.arange(1, n), ret[n - 1 :] / n])
+    return np.concatenate([ret[: n - 1] / np.arange(1, n), ret[n - 1 :] / n])
 
 
 def get_length(path):
@@ -760,6 +760,9 @@ def get_step2_data_by_name(
     task = tasks[task_name]
     if x_metric == "rc_bpb":
         loss_keys = task.get_loss_keys()
+    elif x_metric == "rc_soft_log":
+        loss_keys = task.get_accuracy_keys()
+        loss_keys = [key.replace("/downstream/", "/downstream_soft_log/").replace("_len_norm", "_soft_log") for key in loss_keys]
     elif x_metric == "c4":
         loss_keys = ["eval/c4_en-validation/CrossEntropyLoss"]
     else:
@@ -805,10 +808,16 @@ def get_step2_data_by_name(
                             [float(row[key]) for key in loss_keys],
                             weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in loss_keys],
                         )
+                        if x_metric == "rc_soft_log":
+                            x *= -1
+
                         y = np.average(
                             [float(row[key]) for key in accuracy_keys],
                             weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in accuracy_keys],
                         )
+                        if y_metric == "rc_soft_log":
+                            y *= -1
+
                         xs.append(x)
                         ys.append(y)
                         ds.append(d)
