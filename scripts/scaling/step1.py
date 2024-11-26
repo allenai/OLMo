@@ -4,6 +4,7 @@
 # python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_taskce_main.pdf -y rc_soft_log
 
 import argparse
+import pandas as pd
 from typing import Any, List, Tuple
 
 import matplotlib.pyplot as plt
@@ -261,14 +262,13 @@ def main():
     if args.output_path:
         fig, axes = plt.subplots(num_rows, num_cols, figsize=(2.75 * num_cols, 2.25 * num_rows), squeeze=False)
 
-    results = "Task Name | Actual Value | Predicted Value | Relative Error"
+    results = {}
+    results_str = "Task Name | Actual Value | Predicted Value | Relative Error | Fitting Error"
 
     for i, task_name in enumerate(args.keys):
         data_by_name = get_step1_data_by_name(
             configs, task_name, y_metric=args.y_metric, moving_avg=args.moving_avg
         )
-
-        # data_by_name = scale_data_by_name(data_by_name)
 
         # fit the parameters
         coefficients, cov = fit_step1(data_by_name, args.y_metric)
@@ -284,7 +284,8 @@ def main():
         avg_unsigned_rel_error = np.mean(unsigned_rel_errors)
         fitting_error += avg_unsigned_rel_error
 
-        results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)} | {prettify(avg_unsigned_rel_error)}"
+        results[task_name] = {"Actual": y, "Pred": y_pred, "Rel Error": rel_error, "Fit Error": avg_unsigned_rel_error}
+        results_str += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)} | {prettify(avg_unsigned_rel_error)}"
 
         if args.output_path:
             plot_step1(
@@ -326,8 +327,10 @@ def main():
 
     if args.output_path:
         fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
+        df = pd.DataFrame.from_dict(results, orient="index").reset_index().rename({"index": "Task"}, axis=1)
+        df.to_csv(args.output_path.replace(".pdf", ".csv"), index=False)
 
-    print(results)
+    print(results_str)
     print("Total fitting error: ", prettify(fitting_error / num_tasks))
 
 

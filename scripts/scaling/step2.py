@@ -4,7 +4,7 @@
 # python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_taskce_main.pdf --skip_perc 0.5 --use_log_sigmoid --x_metric rc_soft_log
 
 import argparse
-
+import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -279,7 +279,8 @@ def main():
     num_rows = (num_tasks + num_cols - 1) // num_cols
     fig, axes = plt.subplots(num_rows, num_cols, figsize=(2.75 * num_cols, 2.5 * num_rows), squeeze=False)
 
-    results = "Task Name | Actual Value | Predicted Value | Relative Error"
+    results = {}
+    results_str = "Task Name | Actual Value | Predicted Value | Relative Error"
 
     rel_errors = []
     for i, task_name in enumerate(args.keys):
@@ -307,7 +308,8 @@ def main():
         rel_errors += all_rel_errors
 
         str_formula = str_sigmoid(coefficients, use_log_sigmoid=args.use_log_sigmoid)
-        results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)} | {str_formula}"
+        results[task_name] = {"Actual": y, "Pred": y_pred, "Rel Error": rel_error}
+        results_str += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)} | {str_formula}"
 
         # plot the actual and predicted data
         ax = axes[i // num_cols][i % num_cols]
@@ -352,9 +354,12 @@ def main():
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 
-    fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
+    if args.output_path:
+        fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
+        df = pd.DataFrame.from_dict(results, orient="index").reset_index().rename({"index": "Task"}, axis=1)
+        df.to_csv(args.output_path.replace(".pdf", ".csv"), index=False)
 
-    print(results)
+    print(results_str)
 
 
 if __name__ == "__main__":
