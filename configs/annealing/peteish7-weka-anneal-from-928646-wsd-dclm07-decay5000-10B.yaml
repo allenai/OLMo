@@ -231,6 +231,205 @@ evaluators:
   - label: arc_easy_ppl
     type: downstream
 
+  # new tasks
+  - label: mmlu_stem_bpb
+    type: downstream
+
+  - label: mmlu_humanities_bpb
+    type: downstream
+
+  - label: mmlu_social_sciences_bpb
+    type: downstream
+
+  - label: mmlu_other_bpb
+    type: downstream
+
+  - label: mmlu_stem_var_bpb
+    type: downstream
+
+  - label: mmlu_humanities_var_bpb
+    type: downstream
+
+  - label: mmlu_social_sciences_var_bpb
+    type: downstream
+
+  - label: mmlu_other_var_bpb
+    type: downstream
+
+  - label: arc_challenge_mc_5shot
+    type: downstream
+
+  - label: arc_challenge_mc_5shot_bpb
+    type: downstream
+
+  #- label: arc_challenge_rc_0shot
+  #  type: downstream
+
+  #- label: arc_challenge_rc_0shot_bpb
+  #  type: downstream
+
+  - label: arc_challenge_rc_5shot
+    type: downstream
+
+  - label: arc_challenge_rc_5shot_bpb
+    type: downstream
+
+  - label: arc_easy_mc_5shot
+    type: downstream
+
+  - label: arc_easy_mc_5shot_bpb
+    type: downstream
+
+  #- label: arc_easy_rc_0shot
+  #  type: downstream
+
+  #- label: arc_easy_rc_0shot_bpb
+  #  type: downstream
+
+  - label: arc_easy_rc_5shot
+    type: downstream
+
+  - label: arc_easy_rc_5shot_bpb
+    type: downstream
+
+  - label: boolq_mc_5shot
+    type: downstream
+
+  - label: boolq_mc_5shot_bpb
+    type: downstream
+
+  #- label: boolq_rc_0shot
+  #  type: downstream
+
+  #- label: boolq_rc_0shot_bpb
+  #  type: downstream
+
+  - label: boolq_rc_5shot
+    type: downstream
+
+  - label: boolq_rc_5shot_bpb
+    type: downstream
+
+  #- label: copa_rc_0shot
+  #  type: downstream
+
+  #- label: copa_rc_0shot_bpb
+  #  type: downstream
+
+  #- label: copycolors_10way
+  #  type: downstream
+
+  #- label: copycolors_10way_bpb
+  #  type: downstream
+
+  #- label: copycolors_xl_10way
+  #  type: downstream
+
+  #- label: copycolors_xl_10way_bpb
+  #  type: downstream
+
+  - label: csqa_mc_5shot
+    type: downstream
+
+  - label: csqa_mc_5shot_bpb
+    type: downstream
+
+  - label: csqa_rc_5shot
+    type: downstream
+
+  - label: csqa_rc_5shot_bpb
+    type: downstream
+
+  - label: hellaswag_mc_5shot
+    type: downstream
+
+  - label: hellaswag_mc_5shot_bpb
+    type: downstream
+
+  #- label: hellaswag_rc_0shot
+  #  type: downstream
+
+  #- label: hellaswag_rc_0shot_bpb
+  #  type: downstream
+
+  - label: hellaswag_rc_5shot
+    type: downstream
+
+  - label: hellaswag_rc_5shot_bpb
+    type: downstream
+
+  - label: openbookqa_mc_5shot
+    type: downstream
+
+  - label: openbookqa_mc_5shot_bpb
+    type: downstream
+
+  #- label: openbookqa_rc_0shot
+  #  type: downstream
+
+  #- label: openbookqa_rc_0shot_bpb
+  #  type: downstream
+
+  - label: openbookqa_rc_5shot
+    type: downstream
+
+  - label: openbookqa_rc_5shot_bpb
+    type: downstream
+
+  - label: piqa_mc_5shot
+    type: downstream
+
+  - label: piqa_mc_5shot_bpb
+    type: downstream
+
+  #- label: piqa_rc_0shot
+  #  type: downstream
+
+  #- label: piqa_rc_0shot_bpb
+  #  type: downstream
+
+  - label: piqa_rc_5shot
+    type: downstream
+
+  - label: piqa_rc_5shot_bpb
+    type: downstream
+
+  #- label: sciq_rc_0shot
+  #  type: downstream
+
+  #- label: sciq_rc_0shot_bpb
+  #  type: downstream
+
+  - label: socialiqa_mc_5shot
+    type: downstream
+
+  - label: socialiqa_mc_5shot_bpb
+    type: downstream
+
+  - label: socialiqa_rc_5shot
+    type: downstream
+
+  - label: socialiqa_rc_5shot_bpb
+    type: downstream
+
+  - label: winogrande_mc_5shot
+    type: downstream
+
+  - label: winogrande_mc_5shot_bpb
+    type: downstream
+
+  #- label: winogrande_rc_0shot
+  #  type: downstream
+
+  #- label: winogrande_rc_0shot_bpb
+  #  type: downstream
+
+  - label: winogrande_rc_5shot
+    type: downstream
+
+  - label: winogrande_rc_5shot_bpb
+    type: downstream
+
 data:
   pad_direction: right
   # generate_doc_lengths: true

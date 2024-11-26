@@ -556,6 +556,7 @@ class SchedulerType(StrEnum):
     inverse_sqrt_with_warmup = "inverse_sqrt_with_warmup"
     max_scheduler = "max_scheduler"
     constant = "constant"
+    cosine_linear_envelope = "cosine_linear_envelope"
     constant_with_warmup = "constant_with_warmup"
 
 
@@ -693,6 +694,17 @@ class CompilerConfig(BaseConfig):
     backend: str = "inductor"
     """
     The backend to use.
+    """
+
+    dynamic: Optional[bool] = None
+    """
+    From the torch docs:
+    
+    Use dynamic shape tracing. When this is True, we will up-front attempt to generate a kernel that is as dynamic
+    as possible to avoid recompilations when sizes change. This may not always work as some
+    operations/optimizations will force specialization; use TORCH_LOGS=dynamic to debug overspecialization. When
+    this is False, we will NEVER generate dynamic kernels, we will always specialize. By default (None), we
+    automatically detect if dynamism has occurred and compile a more dynamic kernel upon recompile.
     """
 
 
@@ -1016,7 +1028,7 @@ class TrainConfig(BaseConfig):
 
     load_path: Optional[str] = None
     """
-    The path to a training checkpoint to restore/resume from.
+    The path to a training checkpoint to restore/resume from. If not set, then training begins from scratch.
 
     Note that you can make use of the "path.last_checkpoint" Omegaconfig YAML resolver here, which takes
     a local or remote directory and resolves to the latest checkpoint (sharded or unsharded) in that directory.
@@ -1025,11 +1037,21 @@ class TrainConfig(BaseConfig):
     ```bash
     --load_path='${path.last_checkpoint:s3://ai2-llm/checkpoints/7b/v1_5-mix-run-001}'
     ```
+
+    If `try_load_latest_save` is set and saved checkpoints exist, then `load_path` will be overriden
+    by the latest saved checkpoint.
     """
 
     load_path_sharded_checkpointer: Optional[ShardedCheckpointerType] = None
     """
     The sharded checkpointer type to use to load the initial checkpoint from ``load_path``.
+    """
+
+    try_load_latest_save: bool = False
+    """
+    If set, then training will be resumed from the latest checkpoint in the local save folder, falling
+    back to the latest checkpoint in the remote save folder if none exists. If there are no checkpoints
+    in the local and remote save folders, then checkpoint loading will fall back to `load_path`.
     """
 
     reset_optimizer_state: bool = False
@@ -1221,6 +1243,12 @@ class TrainConfig(BaseConfig):
     Deprecated, HF datasets are now stored in `olmo_data.hf_datasets`.
 
     Path to cache directory of HF datasets saved with `datasets.save_to_disk`.
+    """
+
+    module_outputs_save_steps: Optional[List[int]] = None
+    """
+    Outputs of model submodules are saved during the provided steps. Submodule outputs
+    can be compared using `scripts/compare_module_outputs.py`.
     """
 
     @property
