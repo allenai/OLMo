@@ -1,6 +1,7 @@
 # python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_main.pdf --moving_avg 5
 # python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_c4_main.pdf --y_metric c4 --moving_avg 5
 # python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_acc_main.pdf --y_metric rc_acc
+# python scripts/scaling/step1.py -o figure/peteish-moreeval/step1_taskce.pdf -c scripts/scaling/step2.json -k v2_main -y rc_soft_log
 
 import argparse
 from typing import Any, List, Tuple
@@ -31,7 +32,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-k", "--keys", nargs="+", default=[], help="Key(s) for tasks")
     parser.add_argument(
-        "-y", "--y_metric", default="rc_bpb", choices=["rc_bpb", "rc_acc", "c4"], help="Metric to predict"
+        "-y", "--y_metric", default="rc_bpb", choices=["rc_bpb", "rc_acc", "c4", "rc_soft_log"], help="Metric to predict"
     )
     parser.add_argument("--moving_avg", type=int, default=1, help="Moving average for bpb loss")
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
@@ -54,7 +55,7 @@ def fit_step1(data_by_name, y_metric):
 
     bounds: List[Tuple[Any, Any]]
 
-    if y_metric == "rc_bpb" or y_metric == "c4":
+    if y_metric == "rc_bpb" or y_metric == "c4" or y_metric == "rc_soft_log":
         p0 = [3.0, 6.0, 0.1, 0.2, 1.0]
         bounds = [(0, None), (0, None), (0, None), (0, None), (0, None)]
         # p0 = [3.0, 6.0, 0.25, 0.3, 1.0]
@@ -112,7 +113,7 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
     dmin = 0.8 * min([min(data["ds"]) for data in data_by_name.values()])
     dmax = 1.5 * max([max(data["ds"]) for data in data_by_name.values()])
 
-    if y_metric == "rc_bpb" or y_metric == "c4":
+    if y_metric == "rc_bpb" or y_metric == "c4" or y_metric == "rc_soft_log":
         func = chinchilla_n_d_fit
     elif y_metric == "rc_acc":
         func = chinchilla_n_d_negated_fit
@@ -251,14 +252,13 @@ def plot_step1(
     ax.legend(loc="upper right", ncols=1, fontsize=FONTSIZE)
     ax.set_xlabel("Tokens (D)", fontsize=FONTSIZE)
 
-    if y_metric == "rc_bpb":
-        ax.set_ylabel("Task loss", fontsize=FONTSIZE)
-    elif y_metric == "rc_acc":
-        ax.set_ylabel("Task RC accuracy", fontsize=FONTSIZE)
-    elif y_metric == "c4":
-        ax.set_ylabel("C4 loss", fontsize=FONTSIZE)
-    else:
-        raise ValueError(f"Unknown y_metric: {y_metric}")
+    y_label_name = {
+        "rc_bpb": "Task loss",
+        "rc_acc": "Task RC accuracy",
+        "c4": "C4 loss",
+        "rc_soft_log": "TaskCE",
+    }[y_metric]
+    ax.set_ylabel(y_label_name, fontsize=FONTSIZE)
     ax.set_title(
         f"{tasks[task_name].display_name} ({avg_unsigned_rel_error * 100:.2f}%)",
         fontsize=FONTSIZE,

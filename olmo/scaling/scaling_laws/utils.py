@@ -705,6 +705,9 @@ def get_step1_data_by_name(configs, task_name, y_metric="rc_bpb", moving_avg=1):
         keys = task.get_accuracy_keys()
     elif y_metric == "c4":
         keys = ["eval/c4_en-validation/CrossEntropyLoss"]
+    elif y_metric == "rc_soft_log":
+        keys = task.get_accuracy_keys()
+        keys = [key.replace("/downstream/", "/downstream_soft_log/").replace("_len_norm", "_soft_log") for key in keys]
     else:
         raise ValueError(f"Invalid y_metric: {y_metric}")
 
@@ -724,6 +727,8 @@ def get_step1_data_by_name(configs, task_name, y_metric="rc_bpb", moving_avg=1):
                     y = np.average(
                         [float(row[key]) for key in keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in keys]
                     )
+                    if y_metric == "rc_soft_log":
+                        y *= -1
                     ds.append(d)
                     ys.append(y)
                     fs.append(f)

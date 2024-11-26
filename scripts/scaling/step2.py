@@ -1,6 +1,7 @@
 # python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_main.pdf --skip_perc 0.1 --moving_avg 5
 # python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_c4_main.pdf --x_metric c4 --skip_perc 0.1 --moving_avg 5
 # python scripts/scaling/step2.py -k mmlu_avg_test_5shot -c scripts/scaling/step2_mc.json -o figure/peteish-moreeval/step2_mc_mmlu.pdf -y mc_acc
+# python scripts/scaling/step2.py -o figure/peteish-moreeval/step2_taskce.pdf -c scripts/scaling/step2.json -k v2_main --skip_perc 0.5  --use_log_sigmoid --x_metric rc_soft_log
 
 import argparse
 
@@ -61,10 +62,11 @@ def fit_step2(data_by_name, task_name, y_metric, use_log_sigmoid=False):
             data["ys"] = data["ys"][-1:]
 
     # add ideal points (these are not plotted)
-    train_xs.append(0.0)
-    train_ys.append(tasks[task_name].task_maximum)
-    # train_xs.append(max(train_xs))
-    # train_ys.append(tasks[task_name].task_minimum)
+    if not use_log_sigmoid:
+        train_xs.append(0.0)
+        train_ys.append(tasks[task_name].task_maximum)
+        # train_xs.append(max(train_xs))
+        # train_ys.append(tasks[task_name].task_minimum)
 
     # fit the parameters
     if use_log_sigmoid:
@@ -96,6 +98,8 @@ def predict_step2(configs, data_by_name, coefficients, cov, y_metric, use_log_si
     fit_fn = log_sigmoid_fit if use_log_sigmoid else sigmoid_fit
     grad_fit_fn = grad_log_sigmoid_fit if use_log_sigmoid else grad_sigmoid_fit
 
+    all_rel_errors = []
+
     predicted_data_by_name = {}
     for name, data in data_by_name.items():
         config = configs[name]
@@ -109,6 +113,8 @@ def predict_step2(configs, data_by_name, coefficients, cov, y_metric, use_log_si
                 std_error = get_std_errors([x], [y_pred], coefficients, cov, fit_fn, grad_fit_fn)[0]
                 delta_error = 1.96 * std_error
 
+                all_rel_errors.append(rel_error)
+
     xmin = min(min(data["xs"]) for data in data_by_name.values())
     xmax = max(max(data["xs"]) for data in data_by_name.values())
     xmin = xmin - 0.2 * (xmax - xmin)
@@ -119,7 +125,7 @@ def predict_step2(configs, data_by_name, coefficients, cov, y_metric, use_log_si
         "ys": [predict_fn(x, *coefficients) for x in xs],
     }
 
-    return predicted_data_by_name, plotted_predicted_data, (y, y_pred, rel_error, delta_error)
+    return predicted_data_by_name, plotted_predicted_data, (y, y_pred, rel_error, delta_error), all_rel_errors
 
 
 def plot_step2(
@@ -259,6 +265,7 @@ def main():
 
     results = "Task Name | Actual Value | Predicted Value | Relative Error"
 
+    rel_errors = []
     for i, task_name in enumerate(args.keys):
         data_by_name = get_step2_data_by_name(
             configs,
@@ -273,9 +280,10 @@ def main():
         # a, x0, k, b = coefficients
 
         # make predictions
-        predicted_data_by_name, plotted_predicted_data, (y, y_pred, rel_error, delta_error) = predict_step2(
+        predicted_data_by_name, plotted_predicted_data, (y, y_pred, rel_error, delta_error), all_rel_errors = predict_step2(
             configs, data_by_name, coefficients, cov, y_metric=args.y_metric, use_log_sigmoid=args.use_log_sigmoid
         )
+        rel_errors += all_rel_errors
 
         str_formula = str_sigmoid(coefficients, use_log_sigmoid=args.use_log_sigmoid)
         results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)} | {str_formula}"
@@ -297,6 +305,8 @@ def main():
             use_log_sigmoid=args.use_log_sigmoid,
             ax=ax,
         )
+
+    print(f"Mean relative error: {np.mean(np.abs(rel_errors)) * 100:.2f}%")
 
     handles, labels = axes[-1][-1].get_legend_handles_labels()
     # delete x-axis labels for all but the bottom row

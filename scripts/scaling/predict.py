@@ -11,7 +11,7 @@ import numpy as np
 from step1 import fit_step1
 from step2 import fit_step2
 
-from olmo.scaling.scaling_laws.fitting_functions import chinchilla_n_d_fit, sigmoid
+from olmo.scaling.scaling_laws.fitting_functions import chinchilla_n_d_fit, sigmoid, log_sigmoid
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
     get_step1_data_by_name,
@@ -25,7 +25,7 @@ def parse_args():
     parser.add_argument(
         "-k", "--keys", nargs="+", default=[], help="For avg metrics. Use one of [all-val-lm, all-bpb]"
     )
-    parser.add_argument("-x", "--x_metric", default="rc_bpb", choices=["rc_bpb", "c4"], help="Metric as input")
+    parser.add_argument("-x", "--x_metric", default="rc_bpb", choices=["rc_bpb", "c4", "rc_soft_log"], help="Metric as input")
     parser.add_argument(
         "-y", "--y_metric", default="rc_acc", choices=["rc_acc", "mc_acc"], help="Metric to predict"
     )
@@ -43,6 +43,7 @@ def parse_args():
     parser.add_argument(
         "-t", "--target-name", type=str, default=None, help="Path to the csv file of the target model"
     )
+    parser.add_argument("--use_log_sigmoid", action="store_true", help="Use log sigmoid for fitting")
     args = parser.parse_args()
 
     args.keys = get_task_sets(args.keys)
@@ -76,11 +77,12 @@ def main():
             moving_avg=args.moving_avg,
             skip_perc=args.skip_perc,
         )
-        step2_coefficients, _ = fit_step2(step2_data_by_name, task_name, args.y_metric)
+        step2_coefficients, _ = fit_step2(step2_data_by_name, task_name, args.y_metric, args.use_log_sigmoid)
 
         # make predictions
         pred_loss = chinchilla_n_d_fit([args.n, args.d], step1_coefficients)
-        pred_acc = sigmoid(pred_loss, *step2_coefficients)
+        fit_fn = log_sigmoid if args.use_log_sigmoid else sigmoid
+        pred_acc = fit_fn(pred_loss, *step2_coefficients)
         if args.target_name:
             data = step2_data_by_name[args.target_name]
             actual_acc = data["ys"][-1]
