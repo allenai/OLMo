@@ -34,7 +34,6 @@ def get_labels(batch: Dict[str, Any]) -> torch.Tensor:
 
 
 def main(cfg: TrainConfig, model_name: str):
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(
@@ -115,7 +114,6 @@ def main(cfg: TrainConfig, model_name: str):
 
 
 if __name__ == "__main__":
-
     try:
         yaml_path, model_name = sys.argv[1], sys.argv[2]
     except IndexError:

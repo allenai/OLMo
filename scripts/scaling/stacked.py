@@ -115,12 +115,12 @@ def main():
     num_tasks = len(args.keys)
     fig, axes = plt.subplots(num_tasks, 3, figsize=(6 * 3, 4.5 * num_tasks), squeeze=False)
 
-    results = "Task Name | Loss Error | Accuracy Error | Stacked Accuracy Error"
+    # results = "Task Name | Loss Error | Accuracy Error | Stacked Accuracy Error"
+
+    results = {}
 
     for r, task_name in enumerate(args.keys):
-        loss_error = None
-        acc_error = None
-        cum_acc_error = None
+        task_results = {}
 
         # Step 1
 
@@ -171,7 +171,8 @@ def main():
                 predicted_data = predicted_data_by_name[name]
                 for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["xs"]):
                     rel_error = (y_pred - y) / y
-                    loss_error = rel_error
+                    task_results["Loss Rel Error"] = rel_error
+                    task_results["Loss Abs Error"] = np.abs(y_pred - y)
 
         ## Step 1: plot
 
@@ -304,11 +305,15 @@ def main():
                     if i == 0:
                         label = "using actual loss"
                         marker = "o"
-                        acc_error = rel_error
+                        # acc_error = rel_error
+                        task_results["Accuracy Rel Error"] = rel_error
+                        task_results["Accuracy Abs Error"] = np.abs(y_pred - y)
                     else:
                         label = "using step1 loss"
                         marker = "x"
-                        cum_acc_error = rel_error
+                        # cum_acc_error = rel_error
+                        task_results["Stacked Rel Error"] = rel_error
+                        task_results["Stacked Abs Error"] = np.abs(y_pred - y)
                     label = f"{config.label} ({label}): {prettify(rel_error)}"
                     ax.scatter(x, y, color=config.color, marker=marker, s=10, label=label)
 
@@ -360,13 +365,24 @@ def main():
         ax.set_title(task_name)
 
         # Append results
-        results += f"\n{task_name} | {prettify(loss_error)} | {prettify(acc_error)} | {prettify(cum_acc_error)}"
+        # results += f"\n{task_name} | {prettify(loss_error)} | {prettify(acc_error)} | {prettify(cum_acc_error)}"
+        # results[task_name] = {"Loss Error": prettify(loss_error), "Accuracy Error": prettify(acc_error), "Stacked Error": prettify(cum_acc_error)}
+        results[task_name] = task_results
+
+    results_str = "Task Name | Loss Error | Accuracy Error | Stacked Accuracy Error"
+
+    for task_name, task_results in results.items():
+        results_str += f"\n{task_name} | {prettify(task_results['Loss Rel Error'])} | {prettify(task_results['Accuracy Rel Error'])} | {prettify(task_results['Stacked Rel Error'])}"
+
+    # df = pd.DataFrame.from_dict(results, orient="index")
+    # df = df.reset_index().rename({"index": "Task"}, axis=1)
+    # df.to_csv("stacked_7b_results_all.csv", index=False)
 
     fig.tight_layout()
     fig.subplots_adjust(top=0.95)
     fig.savefig(args.output_path, dpi=300)
 
-    print(results)
+    print(results_str)
 
 
 if __name__ == "__main__":
