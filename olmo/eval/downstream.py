@@ -1863,3 +1863,503 @@ label_to_task_map = {
         {"dataset_path": "winogrande", "dataset_name": "rc_5shot", "metric_type": "bpb"},
     ),
 }
+
+# This standardizes the metrics we should eval for the ladder.
+# Train and test sets are added when applicable.
+# No subsampling happens in these sets.
+label_to_task_map_new = {
+    "arc_challenge_train_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "train_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "arc_challenge_train_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "train_rc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_challenge_train_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "train_mc_5shot", "metric_type": "acc"},
+    ),
+    "arc_challenge_train_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "train_mc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_challenge_val_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "val_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "arc_challenge_val_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "val_rc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_challenge_val_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "val_mc_5shot", "metric_type": "acc"},
+    ),
+    "arc_challenge_val_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "val_mc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_challenge_test_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "test_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "arc_challenge_test_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "test_rc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_challenge_test_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "test_mc_5shot", "metric_type": "acc"},
+    ),
+    "arc_challenge_test_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_challenge", "dataset_name": "test_mc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_easy_train_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "train_rc_5shot", "metric_type": "len_norm"},
+    ),  # this used to be acc
+    "arc_easy_train_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "train_rc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_easy_train_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "train_mc_5shot", "metric_type": "acc"},
+    ),
+    "arc_easy_train_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "train_mc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_easy_val_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "val_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "arc_easy_val_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "val_rc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_easy_val_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "val_mc_5shot", "metric_type": "acc"},
+    ),
+    "arc_easy_val_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "val_mc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_easy_test_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "test_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "arc_easy_test_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "test_rc_5shot", "metric_type": "bpb"},
+    ),
+    "arc_easy_test_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "test_mc_5shot", "metric_type": "acc"},
+    ),
+    "arc_easy_test_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "arc_easy", "dataset_name": "test_mc_5shot", "metric_type": "bpb"},
+    ),
+    "boolq_train_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "boolq", "dataset_name": "train_rc_5shot", "metric_type": "acc"},
+    ),  # kept acc here, since len_norm can bias towards "yes"
+    "boolq_train_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "boolq", "dataset_name": "train_rc_5shot", "metric_type": "bpb"},
+    ),
+    "boolq_train_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "boolq", "dataset_name": "train_mc_5shot", "metric_type": "acc"},
+    ),
+    "boolq_train_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "boolq", "dataset_name": "train_mc_5shot", "metric_type": "bpb"},
+    ),
+    "boolq_val_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "boolq", "dataset_name": "val_rc_5shot", "metric_type": "acc"},
+    ),
+    "boolq_val_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "boolq", "dataset_name": "val_rc_5shot", "metric_type": "bpb"},
+    ),
+    "boolq_val_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "boolq", "dataset_name": "val_mc_5shot", "metric_type": "acc"},
+    ),
+    "boolq_val_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "boolq", "dataset_name": "val_mc_5shot", "metric_type": "bpb"},
+    ),
+    "csqa_train_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "csqa", "dataset_name": "train_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "csqa_train_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "csqa", "dataset_name": "train_rc_5shot", "metric_type": "bpb"},
+    ),
+    "csqa_train_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "csqa", "dataset_name": "train_mc_5shot", "metric_type": "acc"},
+    ),
+    "csqa_train_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "csqa", "dataset_name": "train_mc_5shot", "metric_type": "bpb"},
+    ),
+    "csqa_val_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "csqa", "dataset_name": "val_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "csqa_val_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "csqa", "dataset_name": "val_rc_5shot", "metric_type": "bpb"},
+    ),
+    "csqa_val_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "csqa", "dataset_name": "val_mc_5shot", "metric_type": "acc"},
+    ),
+    "csqa_val_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "csqa", "dataset_name": "val_mc_5shot", "metric_type": "bpb"},
+    ),
+    "hellaswag_train_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "train_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "hellaswag_train_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "train_rc_5shot", "metric_type": "bpb"},
+    ),
+    "hellaswag_train_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "train_mc_5shot", "metric_type": "acc"},
+    ),
+    "hellaswag_train_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "train_mc_5shot", "metric_type": "bpb"},
+    ),
+    "hellaswag_val_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "val_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "hellaswag_val_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "val_rc_5shot", "metric_type": "bpb"},
+    ),
+    "hellaswag_val_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "val_mc_5shot", "metric_type": "acc"},
+    ),
+    "hellaswag_val_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "hellaswag", "dataset_name": "val_mc_5shot", "metric_type": "bpb"},
+    ),
+    "openbookqa_train_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "train_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "openbookqa_train_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "train_rc_5shot", "metric_type": "bpb"},
+    ),
+    "openbookqa_train_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "train_mc_5shot", "metric_type": "acc"},
+    ),
+    "openbookqa_train_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "train_mc_5shot", "metric_type": "bpb"},
+    ),
+    "openbookqa_val_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "val_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "openbookqa_val_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "val_rc_5shot", "metric_type": "bpb"},
+    ),
+    "openbookqa_val_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "val_mc_5shot", "metric_type": "acc"},
+    ),
+    "openbookqa_val_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "val_mc_5shot", "metric_type": "bpb"},
+    ),
+    "openbookqa_test_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "test_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "openbookqa_test_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "test_rc_5shot", "metric_type": "bpb"},
+    ),
+    "openbookqa_test_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "test_mc_5shot", "metric_type": "acc"},
+    ),
+    "openbookqa_test_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "openbookqa", "dataset_name": "test_mc_5shot", "metric_type": "bpb"},
+    ),
+    "piqa_train_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "piqa", "dataset_name": "train_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "piqa_train_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "piqa", "dataset_name": "train_rc_5shot", "metric_type": "bpb"},
+    ),
+    "piqa_train_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "piqa", "dataset_name": "train_mc_5shot", "metric_type": "acc"},
+    ),
+    "piqa_train_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "piqa", "dataset_name": "train_mc_5shot", "metric_type": "bpb"},
+    ),
+    "piqa_val_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "piqa", "dataset_name": "val_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "piqa_val_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "piqa", "dataset_name": "val_rc_5shot", "metric_type": "bpb"},
+    ),
+    "piqa_val_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "piqa", "dataset_name": "val_mc_5shot", "metric_type": "acc"},
+    ),
+    "piqa_val_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "piqa", "dataset_name": "val_mc_5shot", "metric_type": "bpb"},
+    ),
+    "socialiqa_train_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "train_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "socialiqa_train_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "train_rc_5shot", "metric_type": "bpb"},
+    ),
+    "socialiqa_train_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "train_mc_5shot", "metric_type": "acc"},
+    ),
+    "socialiqa_train_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "train_mc_5shot", "metric_type": "bpb"},
+    ),
+    "socialiqa_val_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "val_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "socialiqa_val_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "val_rc_5shot", "metric_type": "bpb"},
+    ),
+    "socialiqa_val_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "val_mc_5shot", "metric_type": "acc"},
+    ),
+    "socialiqa_val_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "socialiqa", "dataset_name": "val_mc_5shot", "metric_type": "bpb"},
+    ),
+    "winogrande_train_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "train_rc_5shot", "metric_type": "len_norm"},
+    ),  # this used to be acc
+    "winogrande_train_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "train_rc_5shot", "metric_type": "bpb"},
+    ),
+    "winogrande_train_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "train_mc_5shot", "metric_type": "acc"},
+    ),
+    "winogrande_train_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "train_mc_5shot", "metric_type": "bpb"},
+    ),
+    "winogrande_val_rc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "val_rc_5shot", "metric_type": "len_norm"},
+    ),
+    "winogrande_val_rc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "val_rc_5shot", "metric_type": "bpb"},
+    ),
+    "winogrande_val_mc_5shot": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "val_mc_5shot", "metric_type": "acc"},
+    ),
+    "winogrande_val_mc_5shot_bpb": (
+        OEEvalTask,
+        {"dataset_path": "winogrande", "dataset_name": "val_mc_5shot", "metric_type": "bpb"},
+    ),
+    "mmlu_stem_val_rc_var": (MMLU, {"dataset_name": "stem", "prompt_variations": 1}),
+    "mmlu_stem_val_rc_var_bpb": (MMLU, {"dataset_name": "stem", "prompt_variations": 1, "metric_type": "bpb"}),
+    "mmlu_stem_val_rc_5shot": (MMLU, {"dataset_name": "stem", "prompt_variations": 2}),
+    "mmlu_stem_val_rc_5shot_bpb": (MMLU, {"dataset_name": "stem", "prompt_variations": 2, "metric_type": "bpb"}),
+    "mmlu_stem_val_mc_5shot": (MMLU, {"dataset_name": "stem", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_stem_val_mc_5shot_bpb": (
+        MMLU,
+        {"dataset_name": "stem", "prompt_variations": 2, "mc_labels": True, "metric_type": "bpb"},
+    ),
+    "mmlu_stem_test_rc_var": (MMLU, {"dataset_name": "stem", "split": "test", "prompt_variations": 1}),
+    "mmlu_stem_test_rc_var_bpb": (
+        MMLU,
+        {"dataset_name": "stem", "split": "test", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_stem_test_rc_5shot": (MMLU, {"dataset_name": "stem", "split": "test", "prompt_variations": 2}),
+    "mmlu_stem_test_rc_5shot_bpb": (
+        MMLU,
+        {"dataset_name": "stem", "split": "test", "prompt_variations": 2, "metric_type": "bpb"},
+    ),
+    "mmlu_stem_test_mc_5shot": (
+        MMLU,
+        {"dataset_name": "stem", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_stem_test_mc_5shot_bpb": (
+        MMLU,
+        {"dataset_name": "stem", "split": "test", "prompt_variations": 2, "mc_labels": True, "metric_type": "bpb"},
+    ),
+    "mmlu_humanities_val_rc_var": (MMLU, {"dataset_name": "humanities", "prompt_variations": 1}),
+    "mmlu_humanities_val_rc_var_bpb": (
+        MMLU,
+        {"dataset_name": "humanities", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_humanities_val_rc_5shot": (MMLU, {"dataset_name": "humanities", "prompt_variations": 2}),
+    "mmlu_humanities_val_rc_5shot_bpb": (
+        MMLU,
+        {"dataset_name": "humanities", "prompt_variations": 2, "metric_type": "bpb"},
+    ),
+    "mmlu_humanities_val_mc_5shot": (
+        MMLU,
+        {"dataset_name": "humanities", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_humanities_val_mc_5shot_bpb": (
+        MMLU,
+        {"dataset_name": "humanities", "prompt_variations": 2, "mc_labels": True, "metric_type": "bpb"},
+    ),
+    "mmlu_humanities_test_rc_var": (MMLU, {"dataset_name": "humanities", "split": "test", "prompt_variations": 1}),
+    "mmlu_humanities_test_rc_var_bpb": (
+        MMLU,
+        {"dataset_name": "humanities", "split": "test", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_humanities_test_rc_5shot": (
+        MMLU,
+        {"dataset_name": "humanities", "split": "test", "prompt_variations": 2},
+    ),
+    "mmlu_humanities_test_rc_5shot_bpb": (
+        MMLU,
+        {"dataset_name": "humanities", "split": "test", "prompt_variations": 2, "metric_type": "bpb"},
+    ),
+    "mmlu_humanities_test_mc_5shot": (
+        MMLU,
+        {"dataset_name": "humanities", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_humanities_test_mc_5shot_bpb": (
+        MMLU,
+        {
+            "dataset_name": "humanities",
+            "split": "test",
+            "prompt_variations": 2,
+            "mc_labels": True,
+            "metric_type": "bpb",
+        },
+    ),
+    "mmlu_social_sciences_val_rc_var": (MMLU, {"dataset_name": "social_sciences", "prompt_variations": 1}),
+    "mmlu_social_sciences_val_rc_var_bpb": (
+        MMLU,
+        {"dataset_name": "social_sciences", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_social_sciences_val_rc_5shot": (MMLU, {"dataset_name": "social_sciences", "prompt_variations": 2}),
+    "mmlu_social_sciences_val_rc_5shot_bpb": (
+        MMLU,
+        {"dataset_name": "social_sciences", "prompt_variations": 2, "metric_type": "bpb"},
+    ),
+    "mmlu_social_sciences_val_mc_5shot": (
+        MMLU,
+        {"dataset_name": "social_sciences", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_social_sciences_val_mc_5shot_bpb": (
+        MMLU,
+        {"dataset_name": "social_sciences", "prompt_variations": 2, "mc_labels": True, "metric_type": "bpb"},
+    ),
+    "mmlu_social_sciences_test_rc_var": (
+        MMLU,
+        {"dataset_name": "social_sciences", "split": "test", "prompt_variations": 1},
+    ),
+    "mmlu_social_sciences_test_rc_var_bpb": (
+        MMLU,
+        {"dataset_name": "social_sciences", "split": "test", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_social_sciences_test_rc_5shot": (
+        MMLU,
+        {"dataset_name": "social_sciences", "split": "test", "prompt_variations": 2},
+    ),
+    "mmlu_social_sciences_test_rc_5shot_bpb": (
+        MMLU,
+        {"dataset_name": "social_sciences", "split": "test", "prompt_variations": 2, "metric_type": "bpb"},
+    ),
+    "mmlu_social_sciences_test_mc_5shot": (
+        MMLU,
+        {"dataset_name": "social_sciences", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_social_sciences_test_mc_5shot_bpb": (
+        MMLU,
+        {
+            "dataset_name": "social_sciences",
+            "split": "test",
+            "prompt_variations": 2,
+            "mc_labels": True,
+            "metric_type": "bpb",
+        },
+    ),
+    "mmlu_other_val_rc_var": (MMLU, {"dataset_name": "other", "prompt_variations": 1}),
+    "mmlu_other_val_rc_var_bpb": (MMLU, {"dataset_name": "other", "prompt_variations": 1, "metric_type": "bpb"}),
+    "mmlu_other_val_rc_5shot": (MMLU, {"dataset_name": "other", "prompt_variations": 2}),
+    "mmlu_other_val_rc_5shot_bpb": (MMLU, {"dataset_name": "other", "prompt_variations": 2, "metric_type": "bpb"}),
+    "mmlu_other_val_mc_5shot": (MMLU, {"dataset_name": "other", "prompt_variations": 2, "mc_labels": True}),
+    "mmlu_other_val_mc_5shot_bpb": (
+        MMLU,
+        {"dataset_name": "other", "prompt_variations": 2, "mc_labels": True, "metric_type": "bpb"},
+    ),
+    "mmlu_other_test_rc_var": (MMLU, {"dataset_name": "other", "split": "test", "prompt_variations": 1}),
+    "mmlu_other_test_rc_var_bpb": (
+        MMLU,
+        {"dataset_name": "other", "split": "test", "prompt_variations": 1, "metric_type": "bpb"},
+    ),
+    "mmlu_other_test_rc_5shot": (MMLU, {"dataset_name": "other", "split": "test", "prompt_variations": 2}),
+    "mmlu_other_test_rc_5shot_bpb": (
+        MMLU,
+        {"dataset_name": "other", "split": "test", "prompt_variations": 2, "metric_type": "bpb"},
+    ),
+    "mmlu_other_test_mc_5shot": (
+        MMLU,
+        {"dataset_name": "other", "split": "test", "prompt_variations": 2, "mc_labels": True},
+    ),
+    "mmlu_other_test_mc_5shot_bpb": (
+        MMLU,
+        {
+            "dataset_name": "other",
+            "split": "test",
+            "prompt_variations": 2,
+            "mc_labels": True,
+            "metric_type": "bpb",
+        },
+    ),
+}
+
+label_to_task_map = {
+    **label_to_task_map,
+    **label_to_task_map_new,
+}

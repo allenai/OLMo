@@ -1036,6 +1036,10 @@ class Trainer:
 
             del eval_batches
 
+        # Eval compiles a bunch more versions, and the result is terrible. This way we get back to zero.
+        if self.cfg.compile is not None:
+            torch.compiler.reset()
+
         return eval_metrics
 
     def check_if_cancelled(self) -> Tuple[bool, int]:
