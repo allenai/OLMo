@@ -36,7 +36,7 @@ def parse_args():
     return args
 
 
-def fit_step12(data_by_name, task_name):
+def fit_single_step(data_by_name, task_name):
     train_nds, train_ys = [], []
     for name, data in data_by_name.items():
         if data["mode"] == "train":
@@ -59,7 +59,7 @@ def fit_step12(data_by_name, task_name):
     return coefficients
 
 
-def predict_step12(data_by_name, coefficients):
+def predict_single_step(data_by_name, coefficients):
     predicted_data_by_name = {}
     plotted_predicted_data_by_name = {}
 
@@ -94,7 +94,7 @@ def str_combined_fit(coefficients):
     )
 
 
-def plot_step12(
+def plot_single_step(
     configs,
     data_by_name,
     predicted_data_by_name,
@@ -162,7 +162,7 @@ def plot_step12(
     ax.set_xscale("log")
     ax.legend(loc="upper right", ncols=1, fontsize=FONTSIZE)
     ax.set_xlabel("Tokens (D)", fontsize=FONTSIZE)
-    ax.set_ylabel("Task accuracy", fontsize=FONTSIZE)
+    ax.set_ylabel("Task RC accuracy", fontsize=FONTSIZE)
     ax.set_title(
         f"{tasks[task_name].display_name} ({avg_unsigned_rel_error * 100:.2f}%)",
         fontsize=FONTSIZE,
@@ -186,15 +186,15 @@ def main():
         data_by_name = get_step1_data_by_name(configs, task_name, y_metric="rc_acc", moving_avg=args.moving_avg)
 
         # fit the parameters
-        coefficients = fit_step12(data_by_name, task_name)
+        coefficients = fit_single_step(data_by_name, task_name)
 
         # make predictions
-        predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error) = predict_step12(
+        predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error) = predict_single_step(
             data_by_name, coefficients
         )
         results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)}"
 
-        plot_step12(
+        plot_single_step(
             configs,
             data_by_name,
             predicted_data_by_name,
