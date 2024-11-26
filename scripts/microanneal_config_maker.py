@@ -1,4 +1,3 @@
-import glob
 import os
 import random
 from collections import defaultdict
@@ -8,7 +7,6 @@ from urllib.parse import urlparse
 
 import boto3
 import yaml
-from botocore.exceptions import ClientError
 from tabulate import tabulate
 from tqdm.auto import tqdm
 
@@ -44,7 +42,7 @@ def get_batch_s3_size(s3_uris: List[str]):
 
     def partial_size(s3_uri: str):
         output, size = get_single_s3_size(s3_uri, s3_client=s3_client)
-        if output != None:
+        if output is not None:
             errors.append(output)
         return s3_uri, size
 
