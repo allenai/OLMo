@@ -2,7 +2,7 @@ import os
 import random
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Tuple
+from typing import List, Tuple, Dict, MutableMapping
 from urllib.parse import urlparse
 
 import boto3
@@ -17,33 +17,26 @@ from tqdm.auto import tqdm
 
 def get_single_s3_size(s3_uri: str, s3_client=None) -> int:
     # Gets the size in bytes of an individual s3 path
-    if s3_client is None:
-        s3_client = boto3.client("s3")
-
     parsed = urlparse(s3_uri)
     bucket_name = parsed.netloc
     # Remove leading slash and handle edge cases
     object_key = parsed.path.lstrip("/")
     try:
-        s3_client = boto3.client("s3")
         response = s3_client.head_object(Bucket=bucket_name, Key=object_key)
-        return (None, response["ContentLength"])
+        return response["ContentLength"]
     except Exception as e:
-        if e.response["Error"]["Code"] == "404":
-            raise FileNotFoundError(f"The object {object_key} does not exist in bucket {bucket_name}")
+        if hasattr(e, "response") and e.response["Error"]["Code"] == "404":
+            raise FileNotFoundError(f"The object {object_key} does not exist in bucket {bucket_name}.")
         else:
-            raise (e, 0)
+            raise
 
 
 def get_batch_s3_size(s3_uris: List[str]):
     # Faster way to get size in bytes for a lot of s3 paths: maps s3_uri -> size
     s3_client = boto3.client("s3")
-    errors = []
 
     def partial_size(s3_uri: str):
-        output, size = get_single_s3_size(s3_uri, s3_client=s3_client)
-        if output is not None:
-            errors.append(output)
+        size = get_single_s3_size(s3_uri, s3_client=s3_client)
         return s3_uri, size
 
     with ThreadPoolExecutor(max_workers=10) as executor:
@@ -53,7 +46,7 @@ def get_batch_s3_size(s3_uris: List[str]):
             results.append(future.result())
 
     # Convert results to dictionary
-    sizes = {}
+    sizes: Dict[str, int] = {}
     for s3_uri, size in results:
         sizes[s3_uri] = sizes.get(s3_uri, 0) + size
     # sizes = dict(results)
@@ -470,7 +463,7 @@ def examine_config(yaml_file, bytes_per_token=4):
                 return g
         raise Exception("UNKNOWN GROUP FOR %s" % s3_uri)
 
-    tokens_taken = defaultdict(int)
+    tokens_taken: MutableMapping[str, int] = defaultdict(int)
     for p, tok in paths_to_tokens.items():
         tokens_taken[get_group(p)] += tok
 
