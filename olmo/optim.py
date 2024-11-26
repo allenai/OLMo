@@ -19,6 +19,7 @@ __all__ = [
     "Optimizer",
     "LionW",
     "AdamW",
+    "Adafactor",
     "Scheduler",
     "CosWithWarmup",
     "LinearWithWarmup",
@@ -645,6 +646,60 @@ class AdamW(torch.optim.AdamW, Optimizer):
             self._step_size_maxs = None
             return metrics
 
+class Adafactor(torch.optim.Adafactor, Optimizer):
+    def __init__(self, *args, record_update_metrics: bool = False, selective_updates: bool = False, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Need to set these here just like in our base `Optimizer` class since our `Optimizer.__init__`
+        # won't be called.
+        self._record_update_metrics = record_update_metrics
+        self._collecting_metrics = False
+        self._selective_updates = selective_updates
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        if not (self._record_update_metrics and self._collecting_metrics) and not self._selective_updates:
+            return super().step(closure=closure)
+
+        device = get_default_device()
+        for group in self.param_groups:
+            for param in group["params"]:
+                grad = param.grad
+                if grad is None:
+                    continue
+
+                state = self.state[param]
+                # Perform step weight decay
+                mask: Union[torch.Tensor, int] = grad != 0 if self._selective_updates else 1
+                param.mul_(1 - mask * (group["lr"] * group["weight_decay"]))
+
+                # State initialization
+                if len(state) == 0:
+                    state["step"] = torch.tensor(0.0, dtype=torch.float32, device=param.device)
+                    state["exp_avg_sq"] = torch.zeros_like(param, memory_format=torch.preserve_format)
+
+                exp_avg_sq = state["exp_avg_sq"]
+                step_t = state["step"]
+
+                # Update step.
+                step_t += 1
+
+                # Decay the second moment running average coefficient.
+                exp_avg_sq.mul_(group["beta2"]).addcmul_(grad, grad, value=1 - group["beta2"])
+
+                # Update parameter
+                update = grad / (exp_avg_sq.sqrt() + group["eps"])
+                if isinstance(mask, torch.Tensor):
+                    update.mul_(mask)
+                param.add_(update, alpha=-group["lr"])
+
+    def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
+        return {key: self.state[param].get(key) for key in ("exp_avg_sq",)}  # type: ignore
+
+    def get_post_step_metrics(
+        self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
+    ) -> Dict[str, torch.Tensor]:
+        return {}
 
 @dataclass
 class Scheduler(metaclass=ABCMeta):
@@ -925,6 +980,19 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
             record_update_metrics=cfg.optimizer.record_update_metrics,
             selective_updates=cfg.optimizer.selective_updates,
             eps=cfg.optimizer.eps,
+        )
+    elif cfg.optimizer.name == OptimizerType.adafactor:
+        return Adafactor(
+            param_groups,
+            lr=cfg.optimizer.learning_rate,
+            betas=cfg.optimizer.betas,
+            weight_decay=cfg.optimizer.weight_decay,
+            record_update_metrics=cfg.optimizer.record_update_metrics,
+            selective_updates=cfg.optimizer.selective_updates,
+            eps=cfg.optimizer.eps,
+            scale_parameter=cfg.optimizer.scale_parameter,
+            relative_step=cfg.optimizer.relative_step,
+            warmup_init=True,
         )
     else:
         raise NotImplementedError
