@@ -20,6 +20,10 @@
 OLMo is a repository for training and using AI2's state-of-the-art open language models. 
 It is built by scientists, for scientists.
 
+## 🚧🚧🚧 Under Construction 🚧🚧🚧
+This repository is not yet up-to-date for OLMo2. Watch this space for updates. 
+
+
 ## Installation
 
 First install [PyTorch](https://pytorch.org) according to the instructions specific to your operating system.
