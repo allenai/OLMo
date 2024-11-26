@@ -47,15 +47,6 @@ The core models in the OLMo family released are:
 
 > ☨ *See [Inspecting training data](#inspecting-training-data) below for usage.*
 
-### Checkpoints
-
-URLs to checkpoints at intermediate steps of the models' trainings can be found in the csv files under [`checkpoints/official/`](https://github.com/allenai/OLMo/blob/main/checkpoints/official). These 'directory' URLs cannot currently be directly accessed, but files within the directory are publicly accessible. These URLs can also be provided to the training script to resume training from the checkpoint (see [Training](#training)). Each checkpoint directory consists of:
-
-- `config.yaml`: the config at that training step.
-- `model.safetensors`, `optim.safetensors`, `train.pt`: model, optimizer and training state at that training step.
-
-Details about the other types of OLMo checkpoints (including OLMo HF Transformers checkpoints) can be found in [Checkpoints.md](https://github.com/allenai/OLMo/blob/main/docs/Checkpoints.md).
-
 ## Inference
 
 You can utilize our Hugging Face integration to run inference on the OLMo Transformers checkpoints:
