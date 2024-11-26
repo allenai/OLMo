@@ -1,7 +1,7 @@
 # python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_main.pdf --skip_perc 0.1 --moving_avg 5
 # python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_c4_main.pdf --x_metric c4 --skip_perc 0.1 --moving_avg 5
-# python scripts/scaling/step2.py -k mmlu_avg_test_5shot -c scripts/scaling/step2_mc.json -o figure/peteish-moreeval/step2_mc_mmlu.pdf -y mc_acc
-# python scripts/scaling/step2.py -o figure/peteish-moreeval/step2_taskce.pdf -c scripts/scaling/step2.json -k v2_main --skip_perc 0.5  --use_log_sigmoid --x_metric rc_soft_log
+# python scripts/scaling/step2.py -k mmlu_avg_test_5shot -c scripts/scaling/step2_mc.json -o figure/peteish-moreeval/step2_mc_mmlu.pdf -y mc_acc --moving_avg 5
+# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_taskce.pdf --skip_perc 0.5 --use_log_sigmoid --x_metric rc_soft_log
 
 import argparse
 
@@ -27,7 +27,7 @@ from olmo.scaling.scaling_laws.utils import (
     tasks,
 )
 
-FONTSIZE=11
+FONTSIZE = 11
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -193,7 +193,7 @@ def plot_step2(
                     f"{np.abs(rel_error) * 100:.1f}%",
                     (x, y),
                     textcoords="offset points",
-                    xytext=(8 - 35*num_eval_annotation, -7),
+                    xytext=(8 - 40*num_eval_annotation, -7),
                     ha="left",
                     va="bottom",
                     fontsize=FONTSIZE,

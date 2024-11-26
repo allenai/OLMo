@@ -1,7 +1,7 @@
 # python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_main.pdf --moving_avg 5
 # python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_c4_main.pdf --y_metric c4 --moving_avg 5
 # python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_acc_main.pdf --y_metric rc_acc
-# python scripts/scaling/step1.py -o figure/peteish-moreeval/step1_taskce.pdf -c scripts/scaling/step2.json -k v2_main -y rc_soft_log
+# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step1_taskce.pdf -y rc_soft_log
 
 import argparse
 from typing import Any, List, Tuple
@@ -26,7 +26,8 @@ from olmo.scaling.scaling_laws.utils import (
 )
 
 MARKERS = ["s", "P", "p", "*", "o"]
-FONTSIZE=11
+FONTSIZE = 11
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -251,7 +252,6 @@ def plot_step1(
     ax.set_xscale("log")
     ax.legend(loc="upper right", ncols=1, fontsize=FONTSIZE)
     ax.set_xlabel("Tokens (D)", fontsize=FONTSIZE)
-
     y_label_name = {
         "rc_bpb": "Task loss",
         "rc_acc": "Task RC accuracy",

@@ -1,4 +1,4 @@
-# python scripts/scaling/step1_flops.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_flops_main.png --moving_avg 5
+# python scripts/scaling/step1_flops.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_flops_main.pdf --moving_avg 5
 
 import argparse
 
@@ -16,9 +16,11 @@ from olmo.scaling.scaling_laws.utils import (
     get_step1_data_by_name,
     get_task_sets,
     prettify,
+    tasks,
 )
 
 MARKERS = ["s", "P", "p", "*", "o"]
+FONTSIZE = 11
 
 
 def parse_args():
@@ -166,6 +168,7 @@ def plot_step1(
             data["ys"],
             color="black",
             linestyle="--",
+            alpha=0.7,
             linewidth=1.5,
             # label=f'{config.label} ({"fitted" if config.mode == "train" else "predicted"})',
         )
@@ -173,6 +176,7 @@ def plot_step1(
 
     # plot the actual and predicted data
     unsigned_rel_errors = []
+    num_eval_annotation = 0
     for name, data in data_by_name.items():
         config = configs[name]
         predicted_data = predicted_data_by_name[name]
@@ -202,28 +206,30 @@ def plot_step1(
                 )
                 ax.annotate(
                     f"{abs(100 * rel_error):.1f}%",
-                    (f, y),
+                    (f, y_pred),
                     textcoords="offset points",
-                    xytext=(3, 3),
+                    xytext=(10, 1 - 10*num_eval_annotation),
                     ha="left",
                     va="bottom",
-                    fontsize=8,
+                    fontsize=FONTSIZE,
                     color=config.color,
                 )
+                num_eval_annotation += 1
     avg_unsigned_rel_error = np.mean(unsigned_rel_errors)
 
     ax.set_xscale("log")
-    ax.legend(loc="upper right", ncols=1, fontsize=8)
-    ax.set_xlabel("Flops (F)")
+    ax.legend(loc="upper right", ncols=1, fontsize=FONTSIZE)
+    ax.set_xlabel("Flops (F)", fontsize=FONTSIZE)
     if y_metric == "rc_bpb":
-        ax.set_ylabel("Task loss")
+        ax.set_ylabel("Task loss", fontsize=FONTSIZE)
     elif y_metric == "rc_acc":
-        ax.set_ylabel("Task RC accuracy")
+        ax.set_ylabel("Task RC accuracy", fontsize=FONTSIZE)
     else:
         raise ValueError(f"Unknown y_metric: {y_metric}")
     ax.set_title(
-        f"{task_name}\n{fit_str}\navg rel error on fitting = {avg_unsigned_rel_error * 100:.2f}%",
-        fontsize=9,
+        f"{tasks[task_name].display_name} ({avg_unsigned_rel_error * 100:.2f}%)",
+        fontsize=FONTSIZE,
+        fontweight="bold",
     )
 
 
@@ -233,13 +239,13 @@ def main():
 
     sns.set_style("whitegrid")
     num_tasks = len(args.keys)
-    num_cols = min(3, num_tasks)
+    num_cols = min(4, num_tasks)
     num_rows = (num_tasks + num_cols - 1) // num_cols
 
     fitting_error = 0
 
     if args.output_path:
-        fig, axes = plt.subplots(num_rows, num_cols, figsize=(3.75 * num_cols, 3.25 * num_rows), squeeze=False)
+        fig, axes = plt.subplots(num_rows, num_cols, figsize=(2.75 * num_cols, 2.25 * num_rows), squeeze=False)
 
     results = "Task Name | Actual Value | Predicted Value | Relative Error"
 
@@ -280,9 +286,26 @@ def main():
                 axes[i // num_cols][i % num_cols],
             )
 
+    handles, labels = axes[-1][-1].get_legend_handles_labels()
+    # delete x-axis labels for all but the bottom row
+    for i in range(num_cols):
+        for j in range(num_rows):
+            if j != num_rows - 1:
+                axes[j][i].set_xlabel("")
+            if i != 0:
+                axes[j][i].set_ylabel("")
+
+            axes[j][i].legend().remove()
+
+    fig.tight_layout(w_pad=0.01)
+    legend = fig.legend(handles, labels, loc='upper center',
+                        ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.07),
+                        handletextpad=0.3, columnspacing=0.7)
+    for handle in legend.legend_handles:
+        handle.set_alpha(1.0)
+
     if args.output_path:
-        fig.tight_layout()
-        fig.savefig(args.output_path, dpi=300)
+        fig.savefig(args.output_path, dpi=300, bbox_inches='tight')
 
     print(results)
     print("Total fitting error: ", prettify(fitting_error / num_tasks))

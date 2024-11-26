@@ -1,29 +1,29 @@
 {
-    "7b-4T-70k-end": {
+    "7b-4T-150k-end": {
         "paths": [
-            "scripts/scaling/data/peteish-moreeval/peteish7_eval_70k-end.csv"
+            "scripts/scaling/data/peteish-moreeval/peteish7_eval_150k-end.csv"
         ],
         "mode": "train",
         "n": 6887575552,
-        "label": "7b-4T-70k-end",
+        "label": "7b-4T-150k-end",
         "color": "violet"
     },
-    "7b-4T-final": {
+    "7b-4T": {
         "paths": [
             "scripts/scaling/data/peteish-moreeval/peteish7_eval_anneal.csv"
         ],
         "mode": "eval",
         "n": 6887575552,
-        "label": "7b-4T-final",
+        "label": "7b-4T",
         "color": "darkviolet"
     },
-    "13b-5T-final": {
+    "13b-5T": {
         "paths": [
             "scripts/scaling/data/peteish-moreeval/peteish13_eval_final.csv"
         ],
         "mode": "eval",
         "n": 13202396160,
-        "label": "13b-5T-final",
+        "label": "13b-5T",
         "color": "mediumvioletred"
     }
 }

@@ -722,7 +722,10 @@ def get_step1_data_by_name(configs, task_name, y_metric="rc_bpb", moving_avg=1):
                 rows = rows[-moving_avg:]
                 ds, ys, fs = [], [], []
                 for row in rows:
-                    d = int(float(row["throughput/total_tokens"]))
+                    if "throughput/total_tokens" in row:
+                        d = int(float(row["throughput/total_tokens"]))
+                    else:
+                        d = int(float(row["_step"])) * int(float(row["batch_size_in_tokens"]))
                     f = float(d * MODEL_FLOPS[name.split("-")[0]])
                     y = np.average(
                         [float(row[key]) for key in keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in keys]
@@ -770,6 +773,8 @@ def get_flops_data_by_name(configs, keys, num_to_avg=1):
 
 def moving_average(arr, n):
     ret = np.cumsum(arr, dtype=float)
+    if len(ret) < n:
+        return ret / np.arange(1, len(ret) + 1)
     ret[n:] = ret[n:] - ret[:-n]
     return np.concatenate([ret[: n - 1] / np.arange(1, n), ret[n - 1 :] / n])
 
@@ -830,7 +835,10 @@ def get_step2_data_by_name(
                     rows = [row for row in reader]
                     xs, ys, ds, ns, ls = [], [], [], [], []
                     for row in rows:
-                        d = int(float(row["throughput/total_tokens"]))
+                        if "throughput/total_tokens" in row:
+                            d = int(float(row["throughput/total_tokens"]))
+                        else:
+                            d = int(float(row["_step"])) * int(float(row["batch_size_in_tokens"]))
                         x = np.average(
                             [float(row[key]) for key in loss_keys],
                             weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in loss_keys],
@@ -860,14 +868,15 @@ def get_step2_data_by_name(
                         ns = ns[int(np.ceil(skip_perc * len(ns))) :]
                         ls = ls[int(np.ceil(skip_perc * len(ls))) :]
 
-                        # apply moving_avg
-                        xs = moving_average(xs, n=moving_avg).tolist()
-                        ys = moving_average(ys, n=moving_avg).tolist()
-                        # ys = ys[moving_avg-1:]
-                        # ds = ds[moving_avg-1:]
-                        # ns = ns[moving_avg-1:]
-                        # ls = ls[moving_avg-1:]
+                    # apply moving_avg
+                    xs = moving_average(xs, n=moving_avg).tolist()
+                    ys = moving_average(ys, n=moving_avg).tolist()
+                    # ys = ys[moving_avg-1:]
+                    # ds = ds[moving_avg-1:]
+                    # ns = ns[moving_avg-1:]
+                    # ls = ls[moving_avg-1:]
 
+                    if config.mode == "train":
                         # last n points
                         if last_n_points > 0:
                             xs = xs[-last_n_points:]
