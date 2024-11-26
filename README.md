@@ -49,8 +49,6 @@ For instruction tuned variants of these models, go to
  * [OLMo2 7B Instruct](https://huggingface.co/allenai/OLMo-2-1124-7B-Instruct)
  * [OLMo2 13B Instruct](https://huggingface.co/allenai/OLMo-2-1124-13B-Instruct)
 
-> ☨ *See [Inspecting training data](#inspecting-training-data) below for usage.*
-
 ## Inference
 
 You can use our Hugging Face integration to run inference on the OLMo Transformers checkpoints:
