@@ -17,7 +17,6 @@ import botocore.exceptions as boto_exceptions
 import google.cloud.storage as gcs
 import omegaconf
 import torch
-import wandb
 from boto3.s3.transfer import TransferConfig
 from cached_path import add_scheme_client, cached_path, set_cache_dir
 from cached_path.schemes import S3Client
@@ -25,6 +24,7 @@ from google.api_core.exceptions import NotFound
 from omegaconf import OmegaConf as om
 from rich.progress import track
 
+import wandb
 from olmo import util
 from olmo.aliases import PathOrStr
 from olmo.checkpoint import build_sharded_checkpointer

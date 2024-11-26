@@ -23,11 +23,12 @@ import torch.distributed as dist
 import torch.nn.functional as F
 import torch.utils
 import torch.utils.hooks
-import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
+
+import wandb
 
 from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
@@ -209,11 +210,11 @@ class Trainer:
     cfg: TrainConfig
     model: OLMo
     dist_model: Union[DDP, FSDP]
-    optim: Optimizer
-    scheduler: Scheduler
-    train_loader: DataLoader
     device: torch.device
     evaluators: List[Evaluator]
+    optim: Optional[Optimizer] = None
+    scheduler: Optional[Scheduler] = None
+    train_loader: Optional[DataLoader] = None
     epoch: Optional[int] = None
     global_step: int = 0
     global_train_examples_seen_this_epoch: int = 0
@@ -1382,3 +1383,17 @@ class Trainer:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         del exc_val, exc_tb
         self.close(0 if exc_type is None else 1)
+
+
+@dataclass
+class TrainerForEval(Trainer):
+    def close(self, exit_code: int = 0) -> None:
+        gc_cuda()
+
+        if self.indices_file is not None:
+            self.indices_file.flush()
+            self.indices_file.close()
+        if self._gc_init_state:
+            gc.enable()
+        else:
+            gc.disable()

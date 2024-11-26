@@ -53,6 +53,7 @@ MODEL_CONFIG_150M = ModelConfig(
     weight_tying=False,
     alibi=False,
     rope=True,
+    rope_theta=10000,
     flash_attention=True,
     attention_dropout=0.0,
     attention_layer_norm=False,
@@ -65,7 +66,7 @@ MODEL_CONFIG_150M = ModelConfig(
     activation_type=ActivationType.swiglu,
     residual_dropout=0.0,
     embedding_dropout=0.0,
-    max_sequence_length=2048,
+    max_sequence_length=4096,  # amberish7 uses 4096
     vocab_size=50280,
     embedding_size=50304,
     eos_token_id=50279,
@@ -79,8 +80,10 @@ MODEL_CONFIG_150M = ModelConfig(
 MODEL_CONFIGS = {
     "150M": MODEL_CONFIG_150M,
     "300M": MODEL_CONFIG_150M.update_with(d_model=1024, n_heads=16, n_layers=16, mlp_ratio=8),
+    "530M": MODEL_CONFIG_150M.update_with(d_model=1344, n_heads=16, n_layers=16, mlp_ratio=8),
     "750M": MODEL_CONFIG_150M.update_with(d_model=1536, n_heads=16, n_layers=16, mlp_ratio=8),
     "1B": MODEL_CONFIG_150M.update_with(d_model=2048, n_heads=16, n_layers=16, mlp_ratio=8),
+    "3B": MODEL_CONFIG_150M.update_with(d_model=3328, n_heads=16, n_layers=16, mlp_ratio=8),
     "7B": MODEL_CONFIG_150M.update_with(
         d_model=4096, n_heads=32, n_layers=32, mlp_ratio=0, mlp_hidden_size=22016, init_device="meta"
     ),
@@ -88,6 +91,7 @@ MODEL_CONFIGS = {
 
 
 _number_unit_re = re.compile(r"^([0-9]+)([a-zA-Z]+)$")
+_run_name_re = re.compile(r"^([^-]+)-([^-]+)-([^-]+)$")
 
 
 def parse_size(size: str) -> int:
@@ -122,6 +126,31 @@ def parse_length(length: str, model_size: int) -> int:
     return length_in_tokens
 
 
+def parse_run_name(name: str):
+    name, size, length = _run_name_re.match(name).groups()  # type: ignore
+    size = parse_size(size)
+    length = parse_length(length, size)
+    return name, size, length
+
+
+def get_batch_size(model_config, model_size):
+    # calculate batch size according to
+    # https://www.semanticscholar.org/reader/5585191b1b479346ecf173be3b35c8313b77d457
+    # holds only for a sequence length of 2048 (but could probably be easily adapted)
+    # assert model_config.max_sequence_length == 2048
+    # if model_config.max_sequence_length == 2048:
+    global_batch_size = 160 * (model_size / 108000000) ** (2 / 3)
+    # elif model_config.max_sequence_length == 4096:
+    #     # TODO: confirm back-of-the-napkin calculation
+    #     global_batch_size = 160 * ((model_size + 2048 * model_config.n_layers * model_config.d_model) / 108000000) ** (2 / 3)
+    # else:
+    #     raise RuntimeError("`max_sequence_length needs` to be 2048 or 4096")
+    global_batch_size /= 8 * 4  # 8 GPUs per node, microbatch size 4
+    global_batch_size = round(global_batch_size)
+    global_batch_size *= 8 * 4
+    return global_batch_size
+
+
 def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # Construct a config
     args.model = args.model.strip().upper()
@@ -145,36 +174,42 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     model_size = parse_size(args.model)
     length_in_tokens = parse_length(args.length, model_size)
 
-    # calculate batch size according to
-    # https://www.semanticscholar.org/reader/5585191b1b479346ecf173be3b35c8313b77d457
-    # holds only for a sequence length of 2048 (but could probably be easily adapted)
-    assert model_config.max_sequence_length == 2048
-    global_batch_size = 160 * (model_size / 108000000) ** (2 / 3)
-    global_batch_size /= 8 * 4  # 8 GPUs per node, microbatch size 4
-    global_batch_size = round(global_batch_size)
-    global_batch_size *= 8 * 4
+    assert model_config.max_sequence_length in [2048, 4096]
+
+    if args.batch_size < 0:
+        global_batch_size = get_batch_size(model_config, model_size)
+    else:
+        global_batch_size = args.batch_size  # 128, 256, 512, 1024
 
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
-    device_batch_size = {
-        "150M": 32,
-        "300M": 10,
-        "750M": 8,
+    default_device_batch_size = {
+        "150M": 16,
+        "300M": 8,
+        "530M": 4,
+        "750M": 4,
         "1B": 2,
-        "7B": 2,
+        "3B": 2,
+        "7B": 1,
     }.get(args.model, 4)
+
+    device_batch_size = args.device_batch_size if args.device_batch_size > 0 else default_device_batch_size
 
     assert global_batch_size % device_batch_size == 0
 
     # calculate the learning rate according to the same paper
+    # if model_config.max_sequence_length == 2048:
     lr = 0.0047 * (model_size / 108000000) ** (-1 / 3)
+    # else:
+    #    lr = 0.0047 * ((model_size + 2048 * model_config.n_layers * model_config.d_model) / 108000000) ** (-1 / 3)
 
-    save_interval = {
-        "1B": 2500,
-        "7B": 1000,
-    }.get(args.model, 5000)
+    save_interval = args.save_interval
 
-    distributed_strategy = {"7B": DistributedStrategy.fsdp}.get(args.model, DistributedStrategy.ddp)
+    eval_interval = args.eval_interval
+
+    distributed_strategy = {"3B": DistributedStrategy.fsdp, "7B": DistributedStrategy.fsdp}.get(
+        args.model, DistributedStrategy.ddp
+    )
 
     return TrainConfig(
         run_name=run_name,
@@ -190,18 +225,19 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         optimizer=OptimizerConfig(
             name=OptimizerType.adamw,
             learning_rate=lr,
-            weight_decay=0.05,
+            weight_decay=0.1,
             eps=1e-8,
             decay_norm_and_bias=True,
-            decay_embeddings=True,
+            decay_embeddings=False,
             betas=(0.9, 0.95),
             metrics_log_interval=10,
         ),
         scheduler=SchedulerConfig(
-            name=SchedulerType.cosine_with_warmup,
-            alpha_f=0.01,
+            name=args.scheduler_type,
+            alpha_f=args.alpha_f,
             warmup_min_lr=0.0,
             t_warmup=round(model_size / (global_batch_size * model_config.max_sequence_length)),
+            t_decay=round(0.1 * length_in_tokens / (global_batch_size * model_config.max_sequence_length)),
         ),
         max_duration=f"{length_in_tokens}T",
         global_train_batch_size=global_batch_size,
@@ -218,11 +254,11 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         device_train_microbatch_size=device_batch_size,
         precision="amp_bf16",
         distributed_strategy=distributed_strategy,
-        fused_loss=True,
+        fused_loss=None,
         gen1_gc_interval=2,
         max_grad_norm=1.0,
         speed_monitor=SpeedMonitorConfig(window_size=1),
-        eval_interval=save_interval,
+        eval_interval=eval_interval,
         device_eval_batch_size=device_batch_size,
         evaluators=[
             EvaluatorConfig(
@@ -293,6 +329,80 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             EvaluatorConfig(label="trivia_qa_wiki_ppl", type=EvaluatorType.downstream),
             EvaluatorConfig(label="natural_qs_open_ppl", type=EvaluatorType.downstream),
             EvaluatorConfig(label="arc_easy_ppl", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="piqa_rc_0shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="piqa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="piqa_rc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="piqa_rc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="piqa_mc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="piqa_mc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="hellaswag_rc_0shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="hellaswag_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="hellaswag_rc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="hellaswag_rc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="hellaswag_mc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="hellaswag_mc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="winogrande_rc_0shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="winogrande_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="winogrande_rc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="winogrande_rc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="winogrande_mc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="winogrande_mc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="openbookqa_rc_0shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="openbookqa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="openbookqa_rc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="openbookqa_rc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="openbookqa_mc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="openbookqa_mc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="boolq_rc_0shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="boolq_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="boolq_rc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="boolq_rc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="boolq_mc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="boolq_mc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="sciq_rc_0shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="sciq_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="sciq_rc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="sciq_rc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="sciq_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="sciq_mc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_easy_rc_0shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_easy_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_easy_rc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_easy_rc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_easy_mc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_easy_mc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_challenge_rc_0shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_challenge_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_challenge_rc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_challenge_rc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_challenge_mc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="arc_challenge_mc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="copa_rc_0shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="copa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="copa_rc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="copa_rc_5shot_bpb", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="copa_mc_5shot", type=EvaluatorType.downstream),
+            # EvaluatorConfig(label="copa_mc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="csqa_rc_0shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="csqa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="csqa_rc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="csqa_rc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="csqa_mc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="csqa_mc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="socialiqa_rc_0shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="socialiqa_rc_0shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="socialiqa_rc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="socialiqa_rc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="socialiqa_mc_5shot", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="socialiqa_mc_5shot_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_stem_var_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_humanities_var_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_social_sciences_var_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_other_var_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_stem_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_humanities_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_social_sciences_bpb", type=EvaluatorType.downstream),
+            EvaluatorConfig(label="mmlu_other_bpb", type=EvaluatorType.downstream),
         ],
         data=DataConfig(
             num_workers=32,
@@ -354,6 +464,58 @@ def size_cmd(args: argparse.Namespace):
     print(without_embeddings)
 
 
+def flops_for_model(model_config: Union[ModelConfig, str]) -> int:
+    if isinstance(model_config, str):
+        model_config = MODEL_CONFIGS[model_config]
+    assert isinstance(model_config, ModelConfig)
+    model_config = deepcopy(model_config)
+    model_config.init_device = "cpu"
+
+    from olmo import OLMo
+
+    model = OLMo(model_config, init_params=False)
+    model_flops = model.num_fwd_flops + model.num_bck_flops
+    return model_flops
+
+
+# MODEL_GFLOPS = {
+#     key: flops_for_model(val) for key, val in MODEL_CONFIGS.items()
+# }
+
+MODEL_GFLOPS = {
+    "150M": 1518912000,
+    "300M": 2931234816,
+    "530M": 4507848576,
+    "750M": 5604811776,
+    "1B": 9083695104,
+    "3B": 21304118784,
+    "7B": 47360532480,
+}
+
+
+# MODEL_PARAMS = {
+#     key: size_for_model(val)[1] for key, val in MODEL_CONFIGS.items()
+# }
+
+MODEL_PARAMS = {
+    "150M": 151898880,
+    "300M": 319980544,
+    "530M": 530074944,
+    "750M": 681297408,
+    "1B": 1176832000,
+    "3B": 3002871040,
+    "7B": 6682316800,
+}
+
+
+def flops_cmd(args: argparse.Namespace):
+    cfg = config_from_args(args)
+
+    flops = flops_for_model(cfg.model)
+    length_in_tokens = parse_length(args.length, parse_size(args.model))
+    print("Expected model flops: ", round(flops * length_in_tokens / 1e18, 3), "x 10^9 GFlops")
+
+
 def dump_cmd(args: argparse.Namespace):
     cfg = config_from_args(args).asdict()
     if not args.dump_evaluators:
@@ -393,6 +555,12 @@ if __name__ == "__main__":
         save_overwrite=False,
         load_path=None,
         eval_on_load=False,
+        read_location=None,
+        batch_size=-1,
+        device_batch_size=-1,
+        save_interval=1,
+        eval_interval=1,
+        alpha_f=0.1,
     )
 
     nodecounts_parser = subparsers.add_parser("nodecounts")
@@ -403,6 +571,11 @@ if __name__ == "__main__":
     size_parser = subparsers.add_parser("size")
     size_parser.set_defaults(func=size_cmd, **no_train_defaults)
     size_parser.add_argument("--model", type=str, required=True)
+
+    flops_parser = subparsers.add_parser("flops")
+    flops_parser.set_defaults(func=flops_cmd, **no_train_defaults)
+    flops_parser.add_argument("--model", type=str, required=True)
+    flops_parser.add_argument("--length", type=str, required=True)
 
     dump_parser = subparsers.add_parser("dump")
     dump_parser.set_defaults(func=dump_cmd)
@@ -421,6 +594,8 @@ if __name__ == "__main__":
         subparser.add_argument("--data", type=str, required=True)
         subparser.add_argument("--length", type=str, default="2xC")
         subparser.add_argument("--name", type=str, required=True)
+        subparser.add_argument("--batch_size", type=int, required=False, default=-1)
+        subparser.add_argument("--device_batch_size", type=int, required=False, default=-1)
         subparser.add_argument(
             "--s3",
             action=argparse.BooleanOptionalAction,
@@ -435,6 +610,10 @@ if __name__ == "__main__":
         subparser.add_argument("--save_overwrite", action="store_true")
         subparser.add_argument("--load_path", type=str)
         subparser.add_argument("--eval_on_load", action="store_true")
+        subparser.add_argument("--save_interval", type=int, default=1000)
+        subparser.add_argument("--eval_interval", type=int, default=200)
+        subparser.add_argument("--alpha_f", type=float, default=0.1)
+        subparser.add_argument("--scheduler_type", type=str, default=SchedulerType.cosine_with_warmup)
 
     args = parser.parse_args()
     args.func(args)

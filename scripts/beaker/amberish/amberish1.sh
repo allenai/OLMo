@@ -33,9 +33,9 @@ popd
 export HF_DATASETS_OFFLINE=1
 
 # Move AWS credentials from env to relevant files
-mkdir -p ~/.aws
-printenv AWS_CONFIG > ~/.aws/config
-printenv AWS_CREDENTIALS > ~/.aws/credentials
+# mkdir -p ~/.aws
+# printenv AWS_CONFIG > ~/.aws/config
+# printenv AWS_CREDENTIALS > ~/.aws/credentials
 
 # mkdir /root/checkpoint-unsharded
 # aws s3 cp --no-progress --recursive --profile=S3 \
@@ -65,7 +65,5 @@ torchrun \
     configs/amberish1-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --device_train_microbatch_size=4 \
-      --data.generate_doc_lengths=true \
+     '--load_path=${path.last_checkpoint:${save_folder}}' \
       --save_overwrite
-
-     # '--load_path=${path.last_checkpoint:${save_folder}}' \
