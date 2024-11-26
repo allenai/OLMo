@@ -2,7 +2,7 @@ import os
 import random
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Tuple, MutableMapping
+from typing import List, MutableMapping, Tuple
 from urllib.parse import urlparse
 
 import boto3
