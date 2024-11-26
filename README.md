@@ -54,8 +54,8 @@ You can utilize our Hugging Face integration to run inference on the OLMo Transf
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-7B-0724-hf")
-tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-7B-0724-hf")
+olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-2-1124-7B")
+tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-2-1124-7B")
 
 message = ["Language modeling is "]
 inputs = tokenizer(message, return_tensors='pt', return_token_type_ids=False)
@@ -67,7 +67,7 @@ Alternatively, with the Hugging Face pipeline abstraction:
 
 ```python
 from transformers import pipeline
-olmo_pipe = pipeline("text-generation", model="allenai/OLMo-7B-0724-hf")
+olmo_pipe = pipeline("text-generation", model="allenai/OLMo-2-1124-7B")
 print(olmo_pipe("Language modeling is"))
 ```
 
@@ -75,13 +75,13 @@ print(olmo_pipe("Language modeling is"))
 After fine-tuning the model using the code in the [Fine-tuning](#fine-tuning) section, you can use the conversion script to convert a native OLMo checkpoint to a HuggingFace-compatible format.
 
 ```bash
-python scripts/convert_olmo_to_hf_new.py --input_dir /path/to/olmo/checkpoint --output_dir /path/to/hf/checkpoint/ --tokenizer_json_path tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
+python scripts/convert_olmo_to_hf_new.py --input_dir /path/to/olmo/checkpoint --output_dir /path/to/hf/checkpoint/ --tokenizer_json_path tokenizers/allenai_dolma2.json
 ```
 
 ### Quantization
 
 ```python
-olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-7B-0724-hf", torch_dtype=torch.float16, load_in_8bit=True)  # requires bitsandbytes
+olmo = AutoModelForCausalLM.from_pretrained("allenai/OLMo-2-1124-7B", torch_dtype=torch.float16, load_in_8bit=True)  # requires bitsandbytes
 ```
 
 The quantized model is sensitive to input types and CUDA handling. To avoid potential issues, we recommend explicitly converting input IDs to CUDA using: `inputs.input_ids.to('cuda')`
