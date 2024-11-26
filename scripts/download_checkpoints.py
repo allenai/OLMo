@@ -1,10 +1,12 @@
+import argparse
 import csv
 import os
-import requests
-from tqdm import tqdm
-import argparse
 from pathlib import Path
 from urllib.parse import urljoin
+
+import requests
+from tqdm import tqdm
+
 
 def convert_to_r2_url(http_url):
     """Convert HTTP URL to R2 URL format."""
