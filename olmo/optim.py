@@ -501,7 +501,23 @@ class LionW(Optimizer):
                 2.0,
                 dtype=torch.float32,
             ).to(device)
+class Adafactor(torch.optim.Adafactor, Optimizer):
+    def __init__(self, *args, record_update_metrics: bool = False, selective_updates: bool = False, **kwargs):
+        super().__init__(*args, **kwargs)
 
+        # Need to set these here just like in our base `Optimizer` class since our `Optimizer.__init__`
+        # won't be called.
+        self._record_update_metrics = record_update_metrics
+        self._collecting_metrics = False
+        self._selective_updates = selective_updates
+
+    def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
+        raise NotImplementedError
+
+    def get_post_step_metrics(
+        self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
+    ) -> Dict[str, torch.Tensor]:
+        raise NotImplementedError
 
 class AdamW(torch.optim.AdamW, Optimizer):
     def __init__(self, *args, record_update_metrics: bool = False, selective_updates: bool = False, **kwargs):
@@ -928,7 +944,7 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
         )
     elif cfg.optimizer.name == OptimizerType.adafactor:
         assert cfg.optimizer.metrics_log_interval is None, "Adafactor does not support metrics logging"
-        return torch.optim.Adafactor(
+        return Adafactor(
             param_groups,
             lr=cfg.optimizer.learning_rate,
             weight_decay=cfg.optimizer.weight_decay,
