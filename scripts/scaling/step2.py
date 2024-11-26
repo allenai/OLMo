@@ -1,7 +1,7 @@
 # python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_main.pdf --skip_perc 0.1 --moving_avg 5
 # python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_c4_main.pdf --x_metric c4 --skip_perc 0.1 --moving_avg 5
 # python scripts/scaling/step2.py -k mmlu_avg_test_5shot -c scripts/scaling/step2_mc.json -o figure/peteish-moreeval/step2_mc_mmlu.pdf -y mc_acc --moving_avg 5
-# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_taskce.pdf --skip_perc 0.5 --use_log_sigmoid --x_metric rc_soft_log
+# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_taskce_main.pdf --skip_perc 0.5 --use_log_sigmoid --x_metric rc_soft_log
 
 import argparse
 
@@ -27,7 +27,7 @@ from olmo.scaling.scaling_laws.utils import (
     tasks,
 )
 
-FONTSIZE = 11
+FONTSIZE = 10
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -168,8 +168,8 @@ def plot_step2(
             data["xs"],
             data["ys"],
             color=config.color,
-            marker="o" if config.mode == "train" else "x",
-            s=10,
+            marker="o" if config.mode == "train" else "o",
+            s=20,
             edgecolors="none" if config.mode == "train" else None,
             alpha=0.5 if config.mode == "train" else 1.0,
             label=f"{config.label} ({'fitted' if config.mode == 'train' else 'target'})",
@@ -185,7 +185,7 @@ def plot_step2(
                     x,
                     y_pred,
                     color=config.color,
-                    marker="o",
+                    marker="x",
                     s=20,
                     label=f"{config.label} ({'predicted'})",
                 )
@@ -320,9 +320,14 @@ def main():
             axes[j][i].legend().remove()
 
     fig.tight_layout(w_pad=0.01)
-    legend = fig.legend(handles, labels, loc='upper center',
-                        ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.07),
-                        handletextpad=0.1,columnspacing=0.7)
+    if num_tasks > 1:
+        legend = fig.legend(handles, labels, loc='upper center',
+                            ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.07),
+                            handletextpad=0.1,columnspacing=0.7)
+    else:
+        legend = fig.legend(handles, labels, loc='upper center',
+                            ncol=1, fontsize=FONTSIZE, bbox_to_anchor=(1.4, 0.8),
+                            handletextpad=0.1,columnspacing=0.7)
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 

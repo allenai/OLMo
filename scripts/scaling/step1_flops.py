@@ -20,7 +20,7 @@ from olmo.scaling.scaling_laws.utils import (
 )
 
 MARKERS = ["s", "P", "p", "*", "o"]
-FONTSIZE = 11
+FONTSIZE = 10
 
 
 def parse_args():
@@ -186,7 +186,7 @@ def plot_step1(
                 f,
                 y,
                 color=config.color,
-                marker=MARKERS[i] if config.mode == "train" else "x",
+                marker=MARKERS[i] if config.mode == "train" else "o",
                 s=50 if config.mode == "train" else 20,
                 label=f"{config.label} (target)" if config.mode == "eval" else None,
             )
@@ -200,7 +200,7 @@ def plot_step1(
                     f,
                     y_pred,
                     color=config.color,
-                    marker="o",
+                    marker="x",
                     s=20,
                     label=f"{config.label} ({'predicted'})",
                 )
@@ -219,7 +219,7 @@ def plot_step1(
 
     ax.set_xscale("log")
     ax.legend(loc="upper right", ncols=1, fontsize=FONTSIZE)
-    ax.set_xlabel("Flops (F)", fontsize=FONTSIZE)
+    ax.set_xlabel("Flops (C)", fontsize=FONTSIZE)
     if y_metric == "rc_bpb":
         ax.set_ylabel("Task loss", fontsize=FONTSIZE)
     elif y_metric == "rc_acc":

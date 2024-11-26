@@ -1,7 +1,7 @@
 # python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_main.pdf --moving_avg 5
-# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_c4_main.pdf --y_metric c4 --moving_avg 5
+# python scripts/scaling/step1.py -k mmlu_avg_test_5shot -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_c4_main.pdf --y_metric c4 --moving_avg 5
 # python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_acc_main.pdf --y_metric rc_acc
-# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step1_taskce.pdf -y rc_soft_log
+# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_taskce_main.pdf -y rc_soft_log
 
 import argparse
 from typing import Any, List, Tuple
@@ -26,7 +26,7 @@ from olmo.scaling.scaling_laws.utils import (
 )
 
 MARKERS = ["s", "P", "p", "*", "o"]
-FONTSIZE = 11
+FONTSIZE = 9
 
 
 def parse_args():
@@ -203,7 +203,7 @@ def plot_step1(
             linestyle="--",
             alpha=0.7,
             linewidth=1.5,
-            label=f'{config.label} ({"fitted" if config.mode == "train" else "predicted"})',
+            label=f'{config.label} (fitted)' if config.mode == "train" else None,
         )
 
     # plot the actual and predicted data
@@ -218,7 +218,7 @@ def plot_step1(
                 d,
                 y,
                 color=config.color,
-                marker=MARKERS[i] if config.mode == "train" else "x",
+                marker=MARKERS[i] if config.mode == "train" else "o",
                 s=50 if config.mode == "train" else 20,
                 label=f"{config.label} (target)" if config.mode == "eval" else None,
             )
@@ -232,9 +232,9 @@ def plot_step1(
                     d,
                     y_pred,
                     color=config.color,
-                    marker="o",
+                    marker="x",
                     s=20,
-                    # label=f"{config.label} ({'predicted'})",
+                    label=f"{config.label} ({'predicted'})",
                 )
                 ax.annotate(
                     f"{abs(rel_error) * 100:.1f}%",
@@ -331,9 +331,14 @@ def main():
             axes[j][i].legend().remove()
 
     fig.tight_layout(w_pad=0.01)
-    legend = fig.legend(handles, labels, loc='upper center',
-                        ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.07),
-                        handletextpad=0.3, columnspacing=0.7)
+    if num_tasks > 1:
+        legend = fig.legend(handles, labels, loc='upper center',
+                            ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.07),
+                            handletextpad=0.3, columnspacing=0.7)
+    else:
+        legend = fig.legend(handles, labels, loc='upper center',
+                            ncol=1, fontsize=FONTSIZE, bbox_to_anchor=(1.3, 0.9),
+                            handletextpad=0.1, columnspacing=0.7)
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 

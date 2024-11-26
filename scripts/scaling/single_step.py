@@ -20,7 +20,7 @@ from olmo.scaling.scaling_laws.utils import (
 )
 
 MARKERS = ["s", "P", "p", "*", "o"]
-FONTSIZE = 11
+FONTSIZE = 9
 
 
 def parse_args():
@@ -113,7 +113,7 @@ def plot_step12(
             linestyle="--",
             alpha=0.7,
             linewidth=1.5,
-            label=f'{config.label} ({"fitted" if config.mode == "train" else "predicted"})',
+            label=f'{config.label} (fitted)' if config.mode == "train" else None,
         )
 
     # plot the actual and predicted data
@@ -128,7 +128,7 @@ def plot_step12(
                 d,
                 y,
                 color=config.color,
-                marker=MARKERS[i] if config.mode == "train" else "x",
+                marker=MARKERS[i] if config.mode == "train" else "o",
                 s=50 if config.mode == "train" else 20,
                 label=f"{config.label} (target)" if config.mode == "eval" else None,
             )
@@ -142,9 +142,9 @@ def plot_step12(
                     d,
                     y_pred,
                     color=config.color,
-                    marker="o",
+                    marker="x",
                     s=20,
-                    # label=f"{config.label} ({'predicted'})",
+                    label=f"{config.label} (predicted)",
                 )
                 ax.annotate(
                     f"{abs(rel_error * 100):.1f}%",
