@@ -472,6 +472,7 @@ class ModelConfig(BaseConfig):
 class OptimizerType(StrEnum):
     lionw = "lionw"
     adamw = "adamw"
+    adafactor = "adafactor"
 
 
 @dataclass

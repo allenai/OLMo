@@ -896,7 +896,7 @@ class Trainer:
             return False
         optim_log_interval = self.cfg.optimizer.metrics_log_interval
         if optim_log_interval is None:
-            optim_log_interval = self.cfg.wandb.log_interval
+            return False
         else:
             optim_log_interval = max(optim_log_interval, self.cfg.wandb.log_interval)
         return self.global_step % optim_log_interval == 0
