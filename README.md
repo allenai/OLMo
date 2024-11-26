@@ -49,7 +49,7 @@ The core models in the OLMo family released are:
 
 ## Inference
 
-You can utilize our Hugging Face integration to run inference on the OLMo Transformers checkpoints:
+You can use our Hugging Face integration to run inference on the OLMo Transformers checkpoints:
 
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
