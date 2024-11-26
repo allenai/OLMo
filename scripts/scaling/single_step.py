@@ -150,7 +150,7 @@ def plot_single_step(
                     f"{abs(rel_error * 100):.1f}%",
                     (d, y_pred),
                     textcoords="offset points",
-                    xytext=(10, -5 + 10*num_eval_annotation),
+                    xytext=(10, -5 + 10 * num_eval_annotation),
                     ha="left",
                     va="bottom",
                     fontsize=FONTSIZE,
@@ -216,13 +216,20 @@ def main():
             axes[j][i].legend().remove()
 
     fig.tight_layout(w_pad=0.01)
-    legend = fig.legend(handles, labels, loc='upper center',
-                        ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.07),
-                        handletextpad=0.3, columnspacing=0.7)
+    legend = fig.legend(
+        handles,
+        labels,
+        loc="upper center",
+        ncol=10,
+        fontsize=FONTSIZE,
+        bbox_to_anchor=(0.5, 1.07),
+        handletextpad=0.3,
+        columnspacing=0.7,
+    )
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 
-    fig.savefig(args.output_path, dpi=300, bbox_inches='tight')
+    fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
     print(results)
 

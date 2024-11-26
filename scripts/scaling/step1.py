@@ -22,7 +22,7 @@ from olmo.scaling.scaling_laws.utils import (
     get_step1_data_by_name,
     get_task_sets,
     prettify,
-    tasks
+    tasks,
 )
 
 MARKERS = ["s", "P", "p", "*", "o"]
@@ -33,7 +33,11 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-k", "--keys", nargs="+", default=[], help="Key(s) for tasks")
     parser.add_argument(
-        "-y", "--y_metric", default="rc_bpb", choices=["rc_bpb", "rc_acc", "c4", "rc_soft_log"], help="Metric to predict"
+        "-y",
+        "--y_metric",
+        default="rc_bpb",
+        choices=["rc_bpb", "rc_acc", "c4", "rc_soft_log"],
+        help="Metric to predict",
     )
     parser.add_argument("--moving_avg", type=int, default=1, help="Moving average for bpb loss")
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
@@ -52,7 +56,7 @@ def fit_step1(data_by_name, y_metric):
     for name, data in data_by_name.items():
         if data["mode"] == "train":
             train_nds += [[n, d] for n, d in zip(data["ns"], data["ds"])]
-            train_ys += data["ys"]
+            train_ys += data["xs"]
 
     bounds: List[Tuple[Any, Any]]
 
@@ -126,22 +130,22 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
     for name, data in data_by_name.items():
         predicted_data_by_name[name] = {
             "ds": data["ds"],
-            "ys": [func([n, d], coefficients) for n, d in zip(data["ns"], data["ds"])],
+            "xs": [func([n, d], coefficients) for n, d in zip(data["ns"], data["ds"])],
         }
         ds = np.exp(np.linspace(np.log(dmin), np.log(dmax), 100))
         ns = [data["ns"][0]] * len(ds)
         plotted_predicted_data_by_name[name] = {
             "ds": ds,
-            "ys": [func([n, d], coefficients) for n, d in zip(ns, ds)],
+            "xs": [func([n, d], coefficients) for n, d in zip(ns, ds)],
         }
 
         if configs[name].mode == "eval":
             predicted_data = predicted_data_by_name[name]
-            for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["ys"]):
+            for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["xs"]):
                 rel_error = (y_pred - y) / y
         else:
             predicted_data = predicted_data_by_name[name]
-            for f, y, y_pred in zip(data["fs"], data["ys"], predicted_data["ys"]):
+            for f, y, y_pred in zip(data["fs"], data["xs"], predicted_data["xs"]):
                 rel_error_t = (y_pred - y) / y
                 unsigned_rel_errors.append(np.abs(rel_error_t))
 
@@ -166,39 +170,13 @@ def plot_step1(
     cov,
     ax=plt.gca(),
 ):
-    # plotted_predicted_data = {"xs": [], "ys": [], "name": []}
-    # for name, data in plotted_predicted_data_by_name.items():
-    #     config = configs[name]
-    #     plotted_predicted_data["xs"] += [[config.n, d] for d in data["ds"]]
-    #     plotted_predicted_data["ys"] += data["ys"]
-
-    # std_errors = get_std_errors(
-    #     plotted_predicted_data["xs"],
-    #     plotted_predicted_data["ys"],
-    #     coefficients,
-    #     cov,
-    #     chinchilla_n_d_fit,
-    #     grad_chinchilla_n_d_fit,
-    # )
-
-    # error_i = 0
-
     # plot the fitted curve
     for name, data in plotted_predicted_data_by_name.items():
         config = configs[name]
 
-        # if config.mode == "eval":
-        # std_errors_ = std_errors[error_i:error_i+100] * 0.0001
-        # error_i += 100
-
-        # # Compute prediction intervals
-        # plotted_y_lower = data["ys"] - 1.96 * np.mean(std_errors)  # * 0.0001
-        # plotted_y_upper = data["ys"] + 1.96 * np.mean(std_errors)  # * 0.0001
-        # ax.fill_between(data["ds"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
-
         ax.plot(
             data["ds"],
-            data["ys"],
+            data["xs"],
             color=config.color,
             linestyle="--",
             alpha=0.7,
@@ -213,17 +191,17 @@ def plot_step1(
         config = configs[name]
         predicted_data = predicted_data_by_name[name]
 
-        for i, (d, y) in enumerate(zip(data["ds"], data["ys"])):
+        for i, (d, x) in enumerate(zip(data["ds"], data["xs"])):
             ax.scatter(
                 d,
-                y,
+                x,
                 color=config.color,
                 marker=MARKERS[i] if config.mode == "train" else "o",
                 s=50 if config.mode == "train" else 20,
                 label=f"{config.label} (target)" if config.mode == "eval" else None,
             )
 
-        for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["ys"]):
+        for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["xs"]):
             rel_error = (y_pred - y) / y
             if config.mode == "train":
                 unsigned_rel_errors.append(np.abs(rel_error))
@@ -236,11 +214,14 @@ def plot_step1(
                     s=20,
                     label=f"{config.label} ({'predicted'})",
                 )
+
                 ax.annotate(
                     f"{abs(rel_error) * 100:.1f}%",
-                    (d, y),
+                    (d, y_pred),
                     textcoords="offset points",
-                    xytext=(10, 1 - 10*num_eval_annotation),
+                    xytext=(10, 1 - 10 * num_eval_annotation)
+                    if y_metric == "rc_bpb"
+                    else (-3, 5 * (-3 if num_eval_annotation % 2 == 0 else 1)),
                     ha="left",
                     va="bottom",
                     fontsize=FONTSIZE,
@@ -260,7 +241,7 @@ def plot_step1(
     }[y_metric]
     ax.set_ylabel(y_label_name, fontsize=FONTSIZE)
     ax.set_title(
-        f"{tasks[task_name].display_name} ({avg_unsigned_rel_error * 100:.2f}%)",
+        f"{tasks[task_name].display_name} (Fitting error: {avg_unsigned_rel_error * 100:.2f}%)",
         fontsize=FONTSIZE,
         fontweight="bold",
     )
@@ -339,11 +320,12 @@ def main():
         legend = fig.legend(handles, labels, loc='upper center',
                             ncol=1, fontsize=FONTSIZE, bbox_to_anchor=(1.3, 0.9),
                             handletextpad=0.1, columnspacing=0.7)
+
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 
     if args.output_path:
-        fig.savefig(args.output_path, dpi=300, bbox_inches='tight')
+        fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
     print(results)
     print("Total fitting error: ", prettify(fitting_error / num_tasks))

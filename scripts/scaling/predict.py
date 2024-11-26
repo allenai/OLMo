@@ -13,7 +13,11 @@ import seaborn as sns
 from step1 import fit_step1
 from step2 import fit_step2
 
-from olmo.scaling.scaling_laws.fitting_functions import chinchilla_n_d_fit, sigmoid, log_sigmoid
+from olmo.scaling.scaling_laws.fitting_functions import (
+    chinchilla_n_d_fit,
+    log_sigmoid,
+    sigmoid,
+)
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
     get_step1_data_by_name,
@@ -31,7 +35,9 @@ def parse_args():
     parser.add_argument(
         "-k", "--keys", nargs="+", default=[], help="For avg metrics. Use one of [all-val-lm, all-bpb]"
     )
-    parser.add_argument("-x", "--x_metric", default="rc_bpb", choices=["rc_bpb", "c4", "rc_soft_log"], help="Metric as input")
+    parser.add_argument(
+        "-x", "--x_metric", default="rc_bpb", choices=["rc_bpb", "c4", "rc_soft_log"], help="Metric as input"
+    )
     parser.add_argument(
         "-y", "--y_metric", default="rc_acc", choices=["rc_acc", "mc_acc"], help="Metric to predict"
     )

@@ -208,7 +208,7 @@ def plot_step1(
                     f"{abs(100 * rel_error):.1f}%",
                     (f, y_pred),
                     textcoords="offset points",
-                    xytext=(10, 1 - 10*num_eval_annotation),
+                    xytext=(10, 1 - 10 * num_eval_annotation),
                     ha="left",
                     va="bottom",
                     fontsize=FONTSIZE,
@@ -298,14 +298,21 @@ def main():
             axes[j][i].legend().remove()
 
     fig.tight_layout(w_pad=0.01)
-    legend = fig.legend(handles, labels, loc='upper center',
-                        ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.07),
-                        handletextpad=0.3, columnspacing=0.7)
+    legend = fig.legend(
+        handles,
+        labels,
+        loc="upper center",
+        ncol=10,
+        fontsize=FONTSIZE,
+        bbox_to_anchor=(0.5, 1.07),
+        handletextpad=0.3,
+        columnspacing=0.7,
+    )
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 
     if args.output_path:
-        fig.savefig(args.output_path, dpi=300, bbox_inches='tight')
+        fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
     print(results)
     print("Total fitting error: ", prettify(fitting_error / num_tasks))

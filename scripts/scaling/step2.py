@@ -12,12 +12,12 @@ import seaborn as sns
 from olmo.scaling.scaling_laws.fitting_functions import (
     get_coefficients,
     get_std_errors,
+    grad_log_sigmoid_fit,
     grad_sigmoid_fit,
-    sigmoid,
-    sigmoid_fit,
     log_sigmoid,
     log_sigmoid_fit,
-    grad_log_sigmoid_fit,
+    sigmoid,
+    sigmoid_fit,
 )
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
@@ -29,10 +29,13 @@ from olmo.scaling.scaling_laws.utils import (
 
 FONTSIZE = 10
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-k", "--keys", nargs="+", default=[], help="Key(s) for tasks")
-    parser.add_argument("-x", "--x_metric", default="rc_bpb", choices=["rc_bpb", "c4", "rc_soft_log"], help="Metric as input")
+    parser.add_argument(
+        "-x", "--x_metric", default="rc_bpb", choices=["rc_bpb", "c4", "rc_soft_log"], help="Metric as input"
+    )
     parser.add_argument(
         "-y", "--y_metric", default="rc_acc", choices=["rc_acc", "mc_acc"], help="Metric to predict"
     )
@@ -110,7 +113,7 @@ def predict_step2(configs, data_by_name, coefficients, cov, y_metric, use_log_si
         if config.mode == "eval":
             for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data_by_name[name]["ys"]):
                 rel_error = (y_pred - y) / y
-                std_error = get_std_errors([x], [y_pred], coefficients, cov, fit_fn, grad_fit_fn)[0]
+                std_error = get_std_errors([x], [y_pred], coefficients, cov, fit_fn, grad_fit_fn)  # [0]
                 delta_error = 1.96 * std_error
 
                 all_rel_errors.append(rel_error)
@@ -160,46 +163,59 @@ def plot_step2(
     unsigned_rel_errs = []
 
     num_eval_annotation = 0
+    eval_num = 0
     for name, data in data_by_name.items():
         config = configs[name]
         predicted_data = predicted_data_by_name[name]
 
-        ax.scatter(
-            data["xs"],
-            data["ys"],
-            color=config.color,
-            marker="o" if config.mode == "train" else "o",
-            s=20,
-            edgecolors="none" if config.mode == "train" else None,
-            alpha=0.5 if config.mode == "train" else 1.0,
-            label=f"{config.label} ({'fitted' if config.mode == 'train' else 'target'})",
-        )
+        if config.mode == "train":
+            ax.scatter(
+                data["xs"],
+                data["ys"],
+                color=config.color,
+                marker="o" if config.mode == "train" else "x",
+                s=10,
+                edgecolors="none" if config.mode == "train" else None,
+                alpha=0.5 if config.mode == "train" else 1.0,
+                label=f"{config.label} ({'fitted' if config.mode == 'train' else 'target'})",
+            )
+        for i, (x, y, y_pred) in enumerate(zip(data["xs"], data["ys"], predicted_data["ys"])):
 
-        for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data["ys"]):
             rel_error = (y_pred - y) / y
 
             if config.mode == "train":
                 unsigned_rel_errs.append(abs(rel_error))
             else:
-                ax.scatter(
-                    x,
-                    y_pred,
-                    color=config.color,
-                    marker="x",
-                    s=20,
-                    label=f"{config.label} ({'predicted'})",
-                )
-                ax.annotate(
-                    f"{np.abs(rel_error) * 100:.1f}%",
-                    (x, y),
-                    textcoords="offset points",
-                    xytext=(8 - 40*num_eval_annotation, -7),
-                    ha="left",
-                    va="bottom",
-                    fontsize=FONTSIZE,
-                    color=config.color,
-                )
-                num_eval_annotation += 1
+                if i == 0:
+                    ax.scatter(
+                        x,
+                        y,
+                        color=config.color,
+                        marker="x",
+                        s=20,
+                        label=f"{config.label} ({'target'})",
+                    )
+                    ax.scatter(
+                        x,
+                        y_pred,
+                        color=config.color,
+                        marker="o",
+                        s=20,
+                        label=f"{config.label} ({'predicted'})",
+                    )
+                    ax.annotate(
+                        f"{np.abs(rel_error) * 100:.1f}%",
+                        (x, y),
+                        textcoords="offset points",
+                        xytext=(8 - 40 * num_eval_annotation, -7 + eval_num * 2),
+                        ha="left",
+                        va="bottom",
+                        fontsize=FONTSIZE,
+                        color=config.color,
+                    )
+                    num_eval_annotation += 1
+                else:
+                    pass
     avg_unsigned_rel_err = np.mean(unsigned_rel_errs)
 
     # plot the fitted curve
@@ -229,7 +245,7 @@ def plot_step2(
 
     # ax.set_ylim([0, 1.0])
     ax.set_title(
-        f"{tasks[task_name].display_name} ({avg_unsigned_rel_err * 100:.2f}%)",
+        f"{tasks[task_name].display_name} (Fitting error: {avg_unsigned_rel_err * 100:.2f}%)",
         fontsize=FONTSIZE,
         fontweight="bold",
     )
@@ -239,10 +255,10 @@ def str_sigmoid(coefficients, use_log_sigmoid=False):
     if use_log_sigmoid:
         a, x0, k = coefficients
 
-    # def log_sigmoid(x, a, x0, k):
-    #     y = np.log(1 - 1/(1 + np.exp(-k * (x - x0))))
-    #     o = (-a) * y + 1
-    #     return o
+        # def log_sigmoid(x, a, x0, k):
+        #     y = np.log(1 - 1/(1 + np.exp(-k * (x - x0))))
+        #     o = (-a) * y + 1
+        #     return o
 
         return f"Acc(L) = 1 - {-a:.2f} * log(1 - 1/(1 + e^(-{k:.2f}(L - {x0:.2f})))"
     else:
@@ -280,7 +296,12 @@ def main():
         # a, x0, k, b = coefficients
 
         # make predictions
-        predicted_data_by_name, plotted_predicted_data, (y, y_pred, rel_error, delta_error), all_rel_errors = predict_step2(
+        (
+            predicted_data_by_name,
+            plotted_predicted_data,
+            (y, y_pred, rel_error, delta_error),
+            all_rel_errors,
+        ) = predict_step2(
             configs, data_by_name, coefficients, cov, y_metric=args.y_metric, use_log_sigmoid=args.use_log_sigmoid
         )
         rel_errors += all_rel_errors
@@ -331,7 +352,7 @@ def main():
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 
-    fig.savefig(args.output_path, dpi=300, bbox_inches='tight')
+    fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
     print(results)
 

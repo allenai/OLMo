@@ -36,7 +36,8 @@ def get_std_errors(xs, ys, coefficients, cov, fitting_func, grad_fitting_func):
         jacobian[j] = grad_fitting_func(x, coefficients)
 
     # Compute standard errors for predictions
-    intermediate = np.sum(jacobian @ cov @ jacobian.T, axis=1)
+    # intermediate = np.sum(jacobian @ cov @ jacobian.T, axis=1)
+    intermediate = np.diag(jacobian @ cov @ jacobian.T)
     std_errors = np.sqrt(intermediate.clip(min=0.0))
 
     return std_errors
@@ -334,13 +335,13 @@ def sigmoid(x, a, x0, k, b):
 
 
 def log_sigmoid(x, a, x0, k, c=0.0):
-    y = np.log(1 - 1/(1 + np.exp(-k * (x - x0))) + c)
+    y = np.log(1 - 1 / (1 + np.exp(-k * (x - x0))) + c)
     o = (-a) * y + 1
     return o
 
 
 def log_sigmoid_fit(x, p):
-    y = np.log(1 - 1/(1 + np.exp(-p[2] * (x - p[1]))))
+    y = np.log(1 - 1 / (1 + np.exp(-p[2] * (x - p[1]))))
     o = (-p[0]) * y + 1
     return o
 

@@ -1,9 +1,14 @@
+# python scripts/scaling/stacked.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/stacked_main.pdf --skip_perc 0.1 --moving_avg 5
+# python scripts/scaling/stacked.py -k hellaswag_val_5shot -c scripts/scaling/step2.json -o figure/peteish-moreeval/figure1.pdf --skip_perc 0.1 --moving_avg 5
+
 import argparse
 import re
 
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+from step1 import fit_step1, plot_step1, predict_step1, str_chinchilla_n_d_fit
+from step2 import fit_step2, plot_step2, predict_step2, str_sigmoid
 
 from olmo.scaling.scaling_laws.fitting_functions import (
     chinchilla_n_d_fit,
@@ -14,6 +19,7 @@ from olmo.scaling.scaling_laws.fitting_functions import (
 )
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
+    get_step1_data_by_name,
     get_step2_data_by_name,
     get_task_sets,
     prettify,
@@ -23,6 +29,7 @@ from olmo.scaling.scaling_laws.utils import (
 # MARKERS = ["s", "P", "p", "*"]
 
 MARKERS = {"1xC": "s", "2xC": "P", "5xC": "p", "10xC": "*"}
+FONTSIZE = 11
 
 
 def parse_args():
@@ -113,7 +120,9 @@ def main():
         pred_d = parse_length(args.target_d, pred_n)
 
     num_tasks = len(args.keys)
-    fig, axes = plt.subplots(num_tasks, 3, figsize=(6 * 3, 4.5 * num_tasks), squeeze=False)
+    num_cols = 3
+    num_rows = num_tasks
+    fig, axes = plt.subplots(num_tasks, num_cols, figsize=(6 * num_cols, 4.5 * num_rows), squeeze=False)
 
     # results = "Task Name | Loss Error | Accuracy Error | Stacked Accuracy Error"
 
@@ -124,265 +133,163 @@ def main():
 
         # Step 1
 
-        # keys = task.get_loss_keys()
-        # data_by_name = get_final_data_by_name(configs, keys, num_to_avg=args.num_to_avg)
-        data_by_name = get_step2_data_by_name(configs, task_name, moving_avg=args.moving_avg, last_n_points=1)
+        data_by_name = get_step1_data_by_name(configs, task_name, y_metric="rc_bpb", moving_avg=args.moving_avg)
 
-        train_nds, train_xs = [], []
-        for name, data in data_by_name.items():
-            config = configs[name]
-            if config.mode == "train":
-                train_nds += [[n, d] for n, d in zip(data["ns"], data["ds"])]
-                train_xs += data["xs"]
+        # fit the parameters
+        coefficients, cov = fit_step1(data_by_name, "rc_bpb")
 
-        ## Step 1: fit the parameters
+        # make predictions
+        (
+            predicted_data_by_name,
+            plotted_predicted_data_by_name,
+            (y, y_pred, rel_error),
+            unsigned_rel_errors,
+        ) = predict_step1(configs, data_by_name, coefficients, y_metric="rc_bpb")
 
-        p0 = [3.0, 6.0, 0.1, 0.2, 1.0]
-        bounds = [(0, None), (0, None), (0, None), (None, None), (None, None)]
+        avg_unsigned_rel_error = np.mean(unsigned_rel_errors)
+        # fitting_error += avg_unsigned_rel_error
 
-        coefficients = get_coefficients_huber(
-            train_nds,
-            train_xs,
-            chinchilla_n_d_fit,
-            grad_chinchilla_n_d_fit,
-            p0=p0,
-            bounds=bounds,
-            max_iter=1000000,
-            disp=False,
-        )
-
-        ## Step 1: make predictions
-        predicted_data_by_name = {}
-        plotted_predicted_data_by_name = {}
-        for name, data in data_by_name.items():
-            predicted_data_by_name[name] = {
-                "ds": data["ds"],
-                "xs": [chinchilla_n_d_fit([n, d], coefficients) for n, d in zip(data["ns"], data["ds"])],
-            }
-            ds = np.linspace(min(data["ds"]), max(data["ds"]), 100)
-            ns = [data["ns"][0]] * len(ds)
-            plotted_predicted_data_by_name[name] = {
-                "ds": ds,
-                "xs": [chinchilla_n_d_fit([n, d], coefficients) for n, d in zip(ns, ds)],
-            }
-
-            config = configs[name]
-            if config.mode == "eval":
-                predicted_data = predicted_data_by_name[name]
-                for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["xs"]):
-                    rel_error = (y_pred - y) / y
-                    task_results["Loss Rel Error"] = rel_error
-                    task_results["Loss Abs Error"] = np.abs(y_pred - y)
-
-        ## Step 1: plot
+        # results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)} | {prettify(avg_unsigned_rel_error)}"
 
         ax = axes[r][0]
-
-        # plot the actual data
-        for name, data in data_by_name.items():
-            config = configs[name]
-            for i, (d, y, length) in enumerate(zip(data["ds"], data["xs"], data["ls"])):
-                ax.scatter(d, y, color=config.color, marker=MARKERS.get(length, "*"), s=50)
-
-            predicted_data = predicted_data_by_name[name]
-            for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["xs"]):
-                rel_error = (y_pred - y) / y
-                ax.annotate(
-                    f"{prettify(rel_error)}",
-                    (d, y),
-                    textcoords="offset points",
-                    xytext=(6, 6),
-                    ha="center",
-                    fontsize=8,
-                    color=config.color,
-                )
-
-        # plot the fitted curve
-        for name, data in plotted_predicted_data_by_name.items():
-            config = configs[name]
-            ax.plot(
-                data["ds"],
-                data["xs"],
-                color=config.color,
-                linestyle="--",
-                linewidth=2.0,
-                label=f'{config.label} ({"fitted" if config.mode == "train" else "predicted"})',
-            )
-        ax.text(
-            x=0.20,
-            y=0.25,
-            s=str_chinchilla_n_d_fit(coefficients),
-            fontsize=10,
-            transform=ax.transAxes,
+        plot_step1(
+            configs,
+            data_by_name,
+            predicted_data_by_name,
+            plotted_predicted_data_by_name,
+            task_name,
+            str_chinchilla_n_d_fit(coefficients),
+            "rc_bpb",
+            coefficients,
+            cov,
+            ax=ax,
         )
 
-        ax.set_xscale("log")
-        ax.legend(loc="upper right", ncols=1, fontsize=10)
-        ax.set_xlabel("Tokens (D)")
-        ax.set_ylabel("Loss")
-        ax.set_title(task_name)
+        ax.set_title(f"Step 1: {ax.get_title()}", fontweight="bold", fontsize=FONTSIZE)
 
         step1_coefficients = coefficients
 
         # Step 2
 
         data_by_name = get_step2_data_by_name(
-            configs, task_name, moving_avg=args.moving_avg, skip_perc=args.skip_perc
+            configs,
+            task_name,
+            x_metric="rc_bpb",
+            y_metric="rc_acc",
+            moving_avg=args.moving_avg,
+            skip_perc=args.skip_perc,
         )
 
-        # Add row for predicted loss from step 1
-        for name, data in data_by_name.items():
-            config = configs[name]
-            if config.mode == "eval":
-                predicted_data = predicted_data_by_name[name]  # step1 predictions
-                data["xs"] += predicted_data["xs"]
-                data["ys"] += data["ys"]
-                data["ds"] += data["ds"]
+        # # Add row for predicted loss from step 1
+        # for name, data in data_by_name.items():
+        #     config = configs[name]
+        #     if config.mode == "eval":
+        #         predicted_data = predicted_data_by_name[name]  # step1 predictions
+        #         data["xs"] += predicted_data["xs"]
+        #         data["ys"] += data["ys"]
+        #         data["ds"] += data["ds"]
+        #         data["row_type"] = ["actual", "step1"]
 
-        train_xs, train_ys = [], []
-        for name, data in data_by_name.items():
-            config = configs[name]
-            if config.mode == "train":
-                train_xs += data["xs"]
-                train_ys += data["ys"]
-
-        # add ideal points
-        min_ideal_point = (max(train_xs), tasks[task_name].task_minimum)
-        max_ideal_point = (0.0, tasks[task_name].task_maximum)
-
-        train_xs.append(min_ideal_point[0])
-        train_ys.append(min_ideal_point[1])
-        train_xs.append(max_ideal_point[0])
-        train_ys.append(max_ideal_point[1])
-
-        ## Step 2: fit the parameters
-
-        coefficients, cov = get_coefficients(
-            train_xs,
-            train_ys,
-            sigmoid,
-            p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, 1.0],
-            bounds=([-np.inf, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
-            disp=False,
-            return_cov=True,
-        )
-
-        L, x0, k, b = coefficients
-
-        ## Step 2: make predictions
+        coefficients, cov = fit_step2(data_by_name, task_name, "rc_acc", use_log_sigmoid=False)
+        step2_coefficients = coefficients
 
         # make predictions
-        predicted_data_by_name = {}
-        for name, data in data_by_name.items():
-            config = configs[name]
-            predicted_data_by_name[name] = {
-                "xs": data["xs"],
-                "ys": [sigmoid(x, *coefficients) for x in data["xs"]],
-            }
-        xmin = 0.9 * min(min(data["xs"]) for data in data_by_name.values())
-        xmax = max(max(data["xs"]) for data in data_by_name.values())
-        xs = np.linspace(xmin, xmax, 100)
-        plotted_predicted_data = {
-            "xs": xs,
-            "ys": [sigmoid(x, *coefficients) for x in xs],
-        }
+        (
+            predicted_data_by_name,
+            plotted_predicted_data,
+            (y, y_pred, rel_error, delta_error),
+            all_rel_errors,
+        ) = predict_step2(configs, data_by_name, coefficients, cov, y_metric="rc_acc", use_log_sigmoid=False)
+        # rel_errors += all_rel_errors
 
-        ## Step 2: plot
+        str_formula = str_sigmoid(coefficients, use_log_sigmoid=False)
+        # results += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)} | {str_formula}"
 
+        # plot the actual and predicted data
         ax = axes[r][1]
 
-        # plot the actual data
-        for name, data in data_by_name.items():
-            config = configs[name]
-            predicted_data = predicted_data_by_name[name]
-
-            if config.mode == "train":
-                ax.scatter(data["xs"], data["ys"], color=config.color, marker="o", s=10)
-            else:
-                predicted_data = predicted_data_by_name[name]
-                for i, (x, y, y_pred) in enumerate(zip(data["xs"], data["ys"], predicted_data["ys"])):
-                    rel_error = (y_pred - y) / y
-                    if i == 0:
-                        label = "using actual loss"
-                        marker = "o"
-                        # acc_error = rel_error
-                        task_results["Accuracy Rel Error"] = rel_error
-                        task_results["Accuracy Abs Error"] = np.abs(y_pred - y)
-                    else:
-                        label = "using step1 loss"
-                        marker = "x"
-                        # cum_acc_error = rel_error
-                        task_results["Stacked Rel Error"] = rel_error
-                        task_results["Stacked Abs Error"] = np.abs(y_pred - y)
-                    label = f"{config.label} ({label}): {prettify(rel_error)}"
-                    ax.scatter(x, y, color=config.color, marker=marker, s=10, label=label)
-
-        # # plot ideal points
-        # ax.scatter(min_ideal_point[0], min_ideal_point[1], color="grey", marker="^", s=20)
-        # ax.scatter(max_ideal_point[0], max_ideal_point[1], color="grey", marker="^", s=20)
-
-        # plot the fitted curve
-        ax.plot(
-            plotted_predicted_data["xs"],
-            plotted_predicted_data["ys"],
-            color="black",
-            linestyle="--",
-            linewidth=1.5,
-        )
-        ax.text(
-            x=0.20,
-            y=0.55,
-            s=f"σ(L, x0, k, b) = {L:.2f} / (1 + e^(-({k:.2f}(x - {x0:.2f})))) + {b:.2f}",
-            fontsize=10,
-            transform=ax.transAxes,
+        plot_step2(
+            configs,
+            data_by_name,
+            predicted_data_by_name,
+            plotted_predicted_data,
+            task_name,
+            str_formula,
+            "rc_bpb",
+            "rc_acc",
+            coefficients,
+            cov,
+            use_log_sigmoid=False,
+            ax=ax,
         )
 
-        ax.legend(loc="upper right", ncols=1, fontsize=10)
-        ax.set_ylim([0, 1.0])
-        ax.set_xlabel("Task Loss (x)")
-        ax.set_ylabel("Task accuracy")
-        ax.set_title(task_name)
-
-        if args.target_n:
-            predicted_loss = chinchilla_n_d_fit([pred_n, pred_d], step1_coefficients)
-            predicted_acc = sigmoid(predicted_loss, *coefficients)
-            print(f"Predicted {task_name} acc for {args.target_n}-{args.target_d}: {predicted_acc:.3f}")
+        ax.set_title(f"Step 2: {ax.get_title()}", fontweight="bold", fontsize=FONTSIZE)
 
         # Stacked plot
 
         ax = axes[r][2]
 
-        # plot the actual data
+        data_by_name = get_step1_data_by_name(configs, task_name, y_metric="rc_acc", moving_avg=args.moving_avg)
+
+        dmin = 0.8 * min([min(data["ds"]) for data in data_by_name.values()])
+        dmax = 1.5 * max([max(data["ds"]) for data in data_by_name.values()])
+
         for name, data in data_by_name.items():
-            config = configs[name]
-            ax.scatter(data["ds"], data["ys"], color=config.color, marker="o", s=10, label=config.label)
+            predicted_data_by_name[name] = {
+                "ds": data["ds"],
+                "xs": [
+                    sigmoid(chinchilla_n_d_fit([n, d], step1_coefficients), *step2_coefficients)
+                    for n, d in zip(data["ns"], data["ds"])
+                ],
+            }
+            ds = np.exp(np.linspace(np.log(dmin), np.log(dmax), 100))
+            ns = [data["ns"][0]] * len(ds)
+            plotted_predicted_data_by_name[name] = {
+                "ds": ds,
+                "xs": [
+                    sigmoid(chinchilla_n_d_fit([n, d], step1_coefficients), *step2_coefficients)
+                    for n, d in zip(ns, ds)
+                ],
+            }
 
-        ax.set_xscale("log")
-        ax.legend(loc="upper left", ncols=1, fontsize=10)
-        ax.set_ylim([0, 1.0])
-        ax.set_xlabel("Tokens (D)")
-        ax.set_ylabel("Task accuracy")
-        ax.set_title(task_name)
+        plot_step1(
+            configs,
+            data_by_name,
+            predicted_data_by_name,
+            plotted_predicted_data_by_name,
+            task_name,
+            "",
+            "rc_acc",
+            coefficients,
+            cov,
+            ax,
+        )
 
-        # Append results
-        # results += f"\n{task_name} | {prettify(loss_error)} | {prettify(acc_error)} | {prettify(cum_acc_error)}"
-        # results[task_name] = {"Loss Error": prettify(loss_error), "Accuracy Error": prettify(acc_error), "Stacked Error": prettify(cum_acc_error)}
-        results[task_name] = task_results
+        ax.set_title(f"Combined: {tasks[task_name].display_name}", fontweight="bold", fontsize=FONTSIZE)
 
-    results_str = "Task Name | Loss Error | Accuracy Error | Stacked Accuracy Error"
-
-    for task_name, task_results in results.items():
-        results_str += f"\n{task_name} | {prettify(task_results['Loss Rel Error'])} | {prettify(task_results['Accuracy Rel Error'])} | {prettify(task_results['Stacked Rel Error'])}"
-
-    # df = pd.DataFrame.from_dict(results, orient="index")
-    # df = df.reset_index().rename({"index": "Task"}, axis=1)
-    # df.to_csv("stacked_7b_results_all.csv", index=False)
+    handles, labels = axes[-1][-1].get_legend_handles_labels()
+    # delete x-axis labels for all but the bottom row
+    for i in range(num_cols):
+        for j in range(num_rows):
+            axes[j][i].legend().remove()
 
     fig.tight_layout()
-    fig.subplots_adjust(top=0.95)
+    legend = fig.legend(
+        handles,
+        labels,
+        loc="upper center",
+        ncol=50,
+        fontsize=FONTSIZE,
+        bbox_to_anchor=(0.5, 1.01),
+        handletextpad=0.3,
+        columnspacing=0.7,
+    )
+    for handle in legend.legend_handles:
+        handle.set_alpha(1.0)
+    fig.subplots_adjust(top=0.88)
     fig.savefig(args.output_path, dpi=300)
 
-    print(results_str)
+    # print(results_str)
 
 
 if __name__ == "__main__":

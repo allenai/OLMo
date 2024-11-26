@@ -230,7 +230,7 @@ mmlu_var_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_mc_accuracy_key=[f"eval/downstream/{key}_mc_5shot_len_norm" for key in mmlu_names],
         task_minimum=0.25,
         task_maximum=1.0,  # 0.9,
-        display_name="MMLU"
+        display_name="MMLU",
     )
 }
 mmlu_subset_var_tasks: Dict[str, DownstreamTaskPrediction] = {
@@ -241,7 +241,7 @@ mmlu_subset_var_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_mc_accuracy_key=f"eval/downstream/{key}_mc_5shot_len_norm",
         task_minimum=minimums_rc.get(key, 0.25),
         task_maximum=maximums_rc.get(key, 0.9),
-        display_name="MMLU"
+        display_name="MMLU",
     )
     for key in mmlu_names
 }
@@ -347,7 +347,7 @@ v2_mmlu_avg_val_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_mc_accuracy_key=[f"eval/downstream/{key}_mc_5shot_len_norm" for key in v2_mmlu_val_names],
         task_minimum=v2_minimums_rc.get("mmlu_avg_val", 0.25),
         task_maximum=v2_maximums_rc.get("mmlu_avg_val", 1.0),
-        display_name="MMLU"
+        display_name="MMLU",
     )
 }
 
@@ -361,7 +361,7 @@ v2_mmlu_avg_test_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
         task_mc_accuracy_key=[f"eval/downstream/{key}_mc_5shot_len_norm" for key in v2_mmlu_test_names],
         task_minimum=v2_minimums_rc.get("mmlu_avg_test", 0.25),
         task_maximum=v2_maximums_rc.get("mmlu_avg_test", 1.0),
-        display_name="MMLU"
+        display_name="MMLU",
     )
 }
 
@@ -707,11 +707,13 @@ def get_step1_data_by_name(configs, task_name, y_metric="rc_bpb", moving_avg=1):
         keys = ["eval/c4_en-validation/CrossEntropyLoss"]
     elif y_metric == "rc_soft_log":
         keys = task.get_accuracy_keys()
-        keys = [key.replace("/downstream/", "/downstream_soft_log/").replace("_len_norm", "_soft_log") for key in keys]
+        keys = [
+            key.replace("/downstream/", "/downstream_soft_log/").replace("_len_norm", "_soft_log") for key in keys
+        ]
     else:
         raise ValueError(f"Invalid y_metric: {y_metric}")
 
-    data_by_name: Dict = defaultdict(lambda: {"ns": [], "ds": [], "ys": [], "ls": [], "fs": []})
+    data_by_name: Dict = defaultdict(lambda: {"ns": [], "ds": [], "xs": [], "ls": [], "fs": []})
     for name, config in configs.items():
         n = config.n
         for path in config.paths:
@@ -720,27 +722,27 @@ def get_step1_data_by_name(configs, task_name, y_metric="rc_bpb", moving_avg=1):
                 reader = csv.DictReader(file_ref)
                 rows = [row for row in reader]
                 rows = rows[-moving_avg:]
-                ds, ys, fs = [], [], []
+                ds, xs, fs = [], [], []
                 for row in rows:
                     if "throughput/total_tokens" in row:
                         d = int(float(row["throughput/total_tokens"]))
                     else:
                         d = int(float(row["_step"])) * int(float(row["batch_size_in_tokens"]))
                     f = float(d * MODEL_FLOPS[name.split("-")[0]])
-                    y = np.average(
+                    x = np.average(
                         [float(row[key]) for key in keys], weights=[WEIGHT_BY_KEY.get(key, 1.0) for key in keys]
                     )
                     if y_metric == "rc_soft_log":
-                        y *= -1
+                        x *= -1
                     ds.append(d)
-                    ys.append(y)
+                    xs.append(x)
                     fs.append(f)
                 d = ds[-1]
-                y = np.mean(ys)
+                x = np.mean(xs)
                 f = fs[-1]
                 data_by_name[name]["ns"].append(n)
                 data_by_name[name]["ds"].append(d)
-                data_by_name[name]["ys"].append(y)
+                data_by_name[name]["xs"].append(x)
                 data_by_name[name]["ls"].append(length)
                 data_by_name[name]["fs"].append(f)
         data_by_name[name]["mode"] = config.mode
@@ -794,7 +796,10 @@ def get_step2_data_by_name(
         loss_keys = task.get_loss_keys()
     elif x_metric == "rc_soft_log":
         loss_keys = task.get_accuracy_keys()
-        loss_keys = [key.replace("/downstream/", "/downstream_soft_log/").replace("_len_norm", "_soft_log") for key in loss_keys]
+        loss_keys = [
+            key.replace("/downstream/", "/downstream_soft_log/").replace("_len_norm", "_soft_log")
+            for key in loss_keys
+        ]
     elif x_metric == "c4":
         loss_keys = ["eval/c4_en-validation/CrossEntropyLoss"]
     else:
