@@ -88,10 +88,6 @@ The quantized model is sensitive to input types and CUDA handling. To avoid pote
 
 Additional tools for evaluating OLMo models are available at the [OLMo Eval](https://github.com/allenai/OLMo-eval) repo.
 
-## Debugging
-
-See [Debugging](https://github.com/allenai/OLMo/blob/main/docs/NOTES.md#debugging).
-
 ## Citing
 
 ```bibtex
