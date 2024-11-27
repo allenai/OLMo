@@ -60,12 +60,12 @@ local file system, for performance reasons.
 
 For the 7B model, we train three times with different data order on 50B high quality tokens, and then average ("soup") the models.
 
-|                      | Checkpoint                                                                                                                          | Training config                                                                      | WandB        |
-|----------------------|-------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|--------------|
-| random seed 42       | [stage2-ingredient1-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient1-step11931-tokens50B) |  | link to come |
-| random seed 42069    | [stage2-ingredient2-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient2-step11931-tokens50B) |                                                                                      | link to come |
-| random seed 666      | [stage2-ingredient3-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient3-step11931-tokens50B) |                                                                                      | link to come |
-| *final souped model* | [main](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/main) | | link to come |
+|                        | Checkpoint                                                                                                                          | Training config                                                                      | WandB        |
+|------------------------|-------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|--------------|
+| random seed 42         | [stage2-ingredient1-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient1-step11931-tokens50B) |  | link to come |
+| random seed 42069      | [stage2-ingredient2-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient2-step11931-tokens50B) |                                                                                      | link to come |
+| random seed 666        | [stage2-ingredient3-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient3-step11931-tokens50B) |                                                                                      | link to come |
+| **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/main) | | link to come |
 
 #### Stage 2 for the 13B
 
@@ -78,7 +78,7 @@ on 300B high quality tokens. Then we average ("soup") the models.
 | random seed 2662, 100B | [stage2-ingredient2-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient2-step11931-tokens100B) |                                                                                      | link to come |
 | random seed 6209, 100B | [stage2-ingredient3-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient3-step11931-tokens100B) |                                                                                      | link to come |
 | random seed 2662, 300B | [stage2-ingredient4-step11931-tokens300B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient4-step11931-tokens300B) | | link to come |
-| *final souped model*   | [main](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/main)                                                                       | | link to come |
+| **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/main)                                                                       | | link to come |
 
 #### Instruction tuned variants
 
