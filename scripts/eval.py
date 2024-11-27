@@ -122,6 +122,8 @@ def main(cfg: TrainConfig) -> None:
     #     )
     if "step" in cfg.load_path.split("/")[-1]:
         load_paths = [cfg.load_path]
+    elif "s3://" in cfg.load_path:  # HACK: This is a temporary solution to eval peteish13-highlr
+        load_paths = [f"{cfg.load_path}/step{step}" for step in range(90000, 105000, 5000)]
     elif "gs://" in cfg.load_path:  # HACK: This is a temporary solution to eval peteish13-highlr
         load_paths = [f"{cfg.load_path}/step{step}" for step in range(275000, 520000, 5000)]
     else:

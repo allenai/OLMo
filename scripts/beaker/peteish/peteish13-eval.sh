@@ -55,7 +55,8 @@ torchrun \
       --save_overwrite \
       --device_eval_batch_size=16 \
       --wandb.group="peteish13-highlr" \
-      --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish13-highlr"
+      --load_path="s3://ai2-llm/checkpoints/OLMo-medium/peteish13-highlr"
+      # --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish13-highlr"
       # --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish13-highlr-zlossfix"
       # --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish13-highlr-zlossfix/step596057"
 
