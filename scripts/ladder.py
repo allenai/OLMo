@@ -211,6 +211,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             t_warmup=round(model_size / (global_batch_size * model_config.max_sequence_length)),
         ),
         max_duration=f"{length_in_tokens}T",
+        stop_at=args.stop_at,
         global_train_batch_size=global_batch_size,
         tokenizer=TokenizerConfig(identifier="tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json"),
         save_folder=f"runs/{run_name}",
@@ -431,6 +432,7 @@ if __name__ == "__main__":
         subparser.add_argument(
             "--wandb", action=argparse.BooleanOptionalAction, default=True, help="create a run in wandb"
         )
+        subparser.add_argument("--stop_at", type=int, default=None)
         subparser.add_argument("--write_location", type=str, default=None)
         subparser.add_argument("--save_overwrite", action="store_true")
         subparser.add_argument("--load_path", type=str)
