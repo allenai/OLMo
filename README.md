@@ -49,12 +49,12 @@ To get the tokenized training data, look at the paths in the training configs.
 To reproduce at large scale, we recommend downloading the files locally and changing the paths to point to your
 local file system, for performance reasons.
 
-|                 | OLMo2 7B                                                                                                          | OLMo2 13B                                                                                                                            |
-|-----------------|-------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
-| Number of tokens| 4 Trillion                                                                                                        | 5 Trillion                                                                                                                           |
-| Checkpoint      | [stage1-step928646-tokens3896B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage1-step928646-tokens3896B) | [stage1-step596057-tokens5000B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage1-step596057-tokens5000B)            | 
-| Training config | [OLMo2-7B-stage1.yaml](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo2-7B-stage1.yaml)      | [OLMo2-13B-stage1.yaml](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo2-13B-stage1.yaml) |
-| WandB           | wandb.ai/…/OLMo2-7B (link to come)                                                                                | wandb.ai/…/OLMo2-13B (link to come)                                                                                                  |
+|                 | OLMo2 7B                                                                                                          | OLMo2 13B                                                                                                          |
+|-----------------|-------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| Number of tokens| 4 Trillion                                                                                                        | 5 Trillion                                                                                                         |
+| Checkpoint      | [stage1-step928646-tokens3896B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage1-step928646-tokens3896B) | [stage1-step596057-tokens5001B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage1-step596057-tokens5001B) | 
+| Training config | [OLMo2-7B-stage1.yaml](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo2-7B-stage1.yaml)      | [OLMo2-13B-stage1.yaml](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo2-13B-stage1.yaml)     |
+| WandB           | wandb.ai/…/OLMo2-7B (link to come)                                                                                | wandb.ai/…/OLMo2-13B (link to come)                                                                                |
 
 #### Stage 2 for the 7B
 
