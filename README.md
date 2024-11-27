@@ -77,7 +77,7 @@ on 300B high quality tokens. Then we average ("soup") the models.
 | random seed 1110, 100B | [stage2-ingredient1-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient1-step11931-tokens100B) |  | link to come |
 | random seed 2662, 100B | [stage2-ingredient2-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient2-step11931-tokens100B) |                                                                                      | link to come |
 | random seed 6209, 100B | [stage2-ingredient3-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient3-step11931-tokens100B) |                                                                                      | link to come |
-| random seed 2662, 300B | [stage2-ingredient4-step11931-tokens300B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient4-step11931-tokens300B) | | link to come |
+| random seed 2662, 300B | [stage2-ingredient4-step11931-tokens300B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient4-step35773-tokens300B) | | link to come |
 | **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/main)                                                                       | | link to come |
 
 #### Instruction tuned variants
