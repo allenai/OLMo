@@ -126,6 +126,8 @@ def main(cfg: TrainConfig) -> None:
     #     load_paths = [f"{cfg.load_path}/step{step}" for step in range(90000, 105000, 5000)]
     # elif "gs://" in cfg.load_path:  # HACK: This is a temporary solution to eval peteish13-highlr
     #     load_paths = [f"{cfg.load_path}/step{step}" for step in range(275000, 520000, 5000)]
+    elif "gs://" in cfg.load_path:  # HACK: This is a temporary solution to eval peteish7-medlr
+        load_paths = [f"{cfg.load_path}/step{step}" for step in range(5000, 495000, 5000)]
     else:
         # This globbing only works with local paths
         load_paths = list(glob.glob(f"{cfg.load_path}/step*"))
