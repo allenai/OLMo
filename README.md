@@ -43,7 +43,8 @@ The core models in the OLMo family released are:
 | Model | Training Tokens | Context Length | Training Config | W&B Logs |
 |-------|-----------------|:--------------:|-----------------|----------|
 | [OLMo2 7B](https://huggingface.co/allenai/OLMo-2-1124-7B) | 4 Trillion | 4096 | [configs/official-1124/OLMo2-7B-stage1.yaml](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo2-7B-stage1.yaml) | wandb.ai/…/OLMo2-7B (link to come)
-| [OLMo2 13B](https://huggingface.co/allenai/OLMo-2-1124-13B) | 5 Trillion | 4096 | [configs/official-1124/OLMo2-12B-stage1.yaml](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo2-13B-stage1.yaml) | wandb.ai/…/OLMo2-13B (link to come)
+| [OLMo2 13B](https://huggingface.co/allenai/OLMo-2-1124-13B) | 5 Trillion | 4096 | [configs/official-1124/OLMo2-13B-stage1.yaml](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo2-13B-stage1.yaml) | wandb.ai/…/OLMo2-13B (link to come)
+
 
 For instruction tuned variants of these models, go to
  * [OLMo2 7B Instruct](https://huggingface.co/allenai/OLMo-2-1124-7B-Instruct)
