@@ -56,9 +56,9 @@ if __name__ == "__main__":
     ]
 
     seeds = [
-        None,
-        2,
-        3
+        # None,
+        4,
+        5
     ]
 
     stop_at_configs = [
@@ -66,21 +66,22 @@ if __name__ == "__main__":
         0.25
     ]
 
-    for mixture in mixtures:
-        for size in sizes:
-            for seed in seeds:
+    for seed in seeds:
+        for mixture in mixtures:
+            for size in sizes:
                 for stop_at_config in stop_at_configs:
+                    seed_used = seed
                     if stop_at_config is not None:
                         stop_at = compute_stop_at(stop_at_config, size, "1B", "5xC")
                         # change seed so that we don't use same seeds as target
                         if seed is None:
-                            seed = 0
-                        seed += 10
+                            seed_used = 0
+                        seed_used += 10
                     else:
                         stop_at = None
                     bash_command = f"bash scripts/beaker/ladder-launch.sh 1 normal --model {size} --data {mixture} --length 5xC --name {mixture} --s3 --save_overwrite"
                     if seed is not None:
-                        bash_command += f" --seed {seed}"
+                        bash_command += f" --seed {seed_used}"
                     if stop_at_config is not None:
                         bash_command += f" --stop_at {stop_at}"
                     print(bash_command)

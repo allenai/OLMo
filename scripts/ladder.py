@@ -423,7 +423,7 @@ if __name__ == "__main__":
     train_parser.set_defaults(func=train_cmd)
 
     for subparser in [dump_parser, train_parser]:
-        subparser.add_argument("--seed", type=int, default=6198)
+        subparser.add_argument("--seed", type=int, default=DEFAULT_SEED)
         subparser.add_argument("--model", type=str, required=True)
         subparser.add_argument("--data", type=str, required=True)
         subparser.add_argument("--length", type=str, default="2xC")
