@@ -1,6 +1,5 @@
-# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_main.pdf --skip_perc 0.1 --moving_avg 5
-# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_c4_main.pdf --x_metric c4 --skip_perc 0.1 --moving_avg 5
-# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_taskce_main.pdf --skip_perc 0.5 --use_log_sigmoid --x_metric rc_soft_log
+# python scripts/scaling/step2_mc.py -k mmlu_avg_test_5shot -c scripts/scaling/step2_mc_7B.json scripts/scaling/step2_mc_13B.json -o figure/peteish-moreeval/step2_mc_mmlu.pdf -y mc_acc --moving_avg 5
+# python scripts/scaling/step2_mc.py -k mmlu_avg_test_5shot -c scripts/scaling/step2_mc_7B_full.json scripts/scaling/step2_mc_13B_full.json -o figure/peteish-moreeval/step2_mc_mmlu_full.pdf -y mc_acc --moving_avg 5
 
 import argparse
 import pandas as pd
@@ -27,6 +26,7 @@ from olmo.scaling.scaling_laws.utils import (
 )
 
 FONTSIZE = 10
+num_eval_annotation = 0
 
 
 def parse_args():
@@ -45,7 +45,7 @@ def parse_args():
         default=0.0,
         help="Percentage of intermediate ckpts to skip from the beginning (for loss to accuracy fitting)",
     )
-    parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
+    parser.add_argument("-c", "--config-path", nargs="+", default=[], help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
     parser.add_argument("--use_log_sigmoid", action="store_true", help="Use log sigmoid instead")
     args = parser.parse_args()
@@ -87,7 +87,8 @@ def fit_step2(data_by_name, task_name, y_metric, use_log_sigmoid=False):
             train_ys,
             sigmoid,
             p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, tasks[task_name].task_maximum],
-            bounds=([-1.0, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
+            # bounds=([-1.0, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
+            bounds=([tasks[task_name].task_minimum - 1.0, 0.0, 0.0, 0.999], [tasks[task_name].task_minimum - 0.999, np.inf, np.inf, 1.0]),
             disp=False,
             return_cov=True,
         )
@@ -100,6 +101,7 @@ def predict_step2(configs, data_by_name, coefficients, cov, y_metric, use_log_si
     fit_fn = log_sigmoid_fit if use_log_sigmoid else sigmoid_fit
     grad_fit_fn = grad_log_sigmoid_fit if use_log_sigmoid else grad_sigmoid_fit
 
+    y, y_pred, rel_error, delta_error = 0, 0, 0, 0
     all_rel_errors = []
 
     predicted_data_by_name = {}
@@ -161,8 +163,7 @@ def plot_step2(
     plotted_y_upper = plotted_predicted_data["ys"] + 1.96 * std_errors
     unsigned_rel_errs = []
 
-    num_eval_annotation = 0
-    eval_num = 0
+    global num_eval_annotation
     for name, data in data_by_name.items():
         config = configs[name]
         predicted_data = predicted_data_by_name[name]
@@ -204,9 +205,9 @@ def plot_step2(
                     )
                     ax.annotate(
                         f"{np.abs(rel_error) * 100:.1f}%",
-                        (x, y),
+                        (x, y_pred),
                         textcoords="offset points",
-                        xytext=(8 - 40 * num_eval_annotation, -7 + eval_num * 2),
+                        xytext=(8 - 40 * num_eval_annotation, -6),
                         ha="left",
                         va="bottom",
                         fontsize=FONTSIZE,
@@ -226,7 +227,7 @@ def plot_step2(
         linewidth=1.5,
     )
 
-    ax.fill_between(plotted_predicted_data["xs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
+    # ax.fill_between(plotted_predicted_data["xs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
 
     ax.legend(loc="upper right", ncols=1, fontsize=FONTSIZE)
     x_label_name = {
@@ -268,8 +269,6 @@ def str_sigmoid(coefficients, use_log_sigmoid=False):
 def main():
     args = parse_args()
 
-    configs = get_final_configs(args.config_path)
-
     args.keys = get_task_sets(args.keys)
 
     sns.set_style("whitegrid")
@@ -281,54 +280,57 @@ def main():
     results = {}
     results_str = "Task Name | Actual Value | Predicted Value | Relative Error"
 
-    rel_errors = []
-    for i, task_name in enumerate(args.keys):
-        data_by_name = get_step2_data_by_name(
-            configs,
-            task_name,
-            x_metric=args.x_metric,
-            y_metric=args.y_metric,
-            moving_avg=args.moving_avg,
-            skip_perc=args.skip_perc,
-        )
+    for config_path in args.config_path:
+        configs = get_final_configs(config_path)
 
-        coefficients, cov = fit_step2(data_by_name, task_name, args.y_metric, use_log_sigmoid=args.use_log_sigmoid)
-        # a, x0, k, b = coefficients
+        rel_errors = []
+        for i, task_name in enumerate(args.keys):
+            data_by_name = get_step2_data_by_name(
+                configs,
+                task_name,
+                x_metric=args.x_metric,
+                y_metric=args.y_metric,
+                moving_avg=args.moving_avg,
+                skip_perc=args.skip_perc,
+            )
 
-        # make predictions
-        (
-            predicted_data_by_name,
-            plotted_predicted_data,
-            (y, y_pred, rel_error, delta_error),
-            all_rel_errors,
-        ) = predict_step2(
-            configs, data_by_name, coefficients, cov, y_metric=args.y_metric, use_log_sigmoid=args.use_log_sigmoid
-        )
-        rel_errors += all_rel_errors
+            coefficients, cov = fit_step2(data_by_name, task_name, args.y_metric, use_log_sigmoid=args.use_log_sigmoid)
+            # a, x0, k, b = coefficients
 
-        str_formula = str_sigmoid(coefficients, use_log_sigmoid=args.use_log_sigmoid)
-        results[task_name] = {"Actual": y, "Pred": y_pred, "Rel Error": rel_error}
-        results_str += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)} | {str_formula}"
+            # make predictions
+            (
+                predicted_data_by_name,
+                plotted_predicted_data,
+                (y, y_pred, rel_error, delta_error),
+                all_rel_errors,
+            ) = predict_step2(
+                configs, data_by_name, coefficients, cov, y_metric=args.y_metric, use_log_sigmoid=args.use_log_sigmoid
+            )
+            rel_errors += all_rel_errors
 
-        # plot the actual and predicted data
-        ax = axes[i // num_cols][i % num_cols]
+            str_formula = str_sigmoid(coefficients, use_log_sigmoid=args.use_log_sigmoid)
+            results[task_name] = {"Actual": y, "Pred": y_pred, "Rel Error": rel_error}
+            results_str += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)} | {str_formula}"
 
-        plot_step2(
-            configs,
-            data_by_name,
-            predicted_data_by_name,
-            plotted_predicted_data,
-            task_name,
-            str_formula,
-            args.x_metric,
-            args.y_metric,
-            coefficients,
-            cov,
-            use_log_sigmoid=args.use_log_sigmoid,
-            ax=ax,
-        )
+            # plot the actual and predicted data
+            ax = axes[i // num_cols][i % num_cols]
 
-    print(f"Mean relative error: {np.mean(np.abs(rel_errors)) * 100:.2f}%")
+            plot_step2(
+                configs,
+                data_by_name,
+                predicted_data_by_name,
+                plotted_predicted_data,
+                task_name,
+                str_formula,
+                args.x_metric,
+                args.y_metric,
+                coefficients,
+                cov,
+                use_log_sigmoid=args.use_log_sigmoid,
+                ax=ax,
+            )
+
+        print(f"Mean relative error: {np.mean(np.abs(rel_errors)) * 100:.2f}%")
 
     handles, labels = axes[-1][-1].get_legend_handles_labels()
     # delete x-axis labels for all but the bottom row

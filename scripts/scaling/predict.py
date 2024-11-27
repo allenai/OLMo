@@ -2,8 +2,8 @@
 # python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_main.pdf -n 13202396160 -d 5000088518656 -t 13B-5T --skip_perc 0.1 --moving_avg 5
 # python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_c4_main.pdf -n 6887575552 -d 3945065873408 -t 7B-4T --skip_perc 0.1 --moving_avg 5 --x_metric c4
 # python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_c4_main.pdf -n 13202396160 -d 5000088518656 -t 13B-5T --skip_perc 0.1 --moving_avg 5 --x_metric c4
-# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2_mc.json -o figure/peteish-moreeval/chained_mc_main.pdf -y mc_acc -n 6887575552 -d 3945065873408 -t 7B-4T --moving_avg 5
-# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2_mc.json -o figure/peteish-moreeval/chained_mc_main.pdf -y mc_acc -n 13202396160 -d 5000088518656 -t 13B-5T --moving_avg 5
+# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2_mc_7B.json -o figure/peteish-moreeval/chained_mc_7B_main.pdf -y mc_acc -n 6887575552 -d 3945065873408 -t 7B-4T --moving_avg 5
+# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2_mc_13B.json -o figure/peteish-moreeval/chained_mc_13B_main.pdf -y mc_acc -n 13202396160 -d 5000088518656 -t 13B-5T --moving_avg 5
 
 import argparse
 
@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from step1 import fit_step1
 from step2 import fit_step2
+from step2_mc import fit_step2 as fit_step2_mc
 
 from olmo.scaling.scaling_laws.fitting_functions import (
     chinchilla_n_d_fit,
@@ -85,7 +86,7 @@ def predict_chained(data_by_name, step1_coefficients, step2_coefficients):
 
         if data["mode"] == "eval":
             predicted_data = predicted_data_by_name[name]
-            for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["ys"]):
+            for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["ys"]):
                 rel_error = (y_pred - y) / y
 
     return predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error)
@@ -128,7 +129,7 @@ def plot_chained(
         config = configs[name]
         predicted_data = predicted_data_by_name[name]
 
-        for i, (d, y) in enumerate(zip(data["ds"], data["ys"])):
+        for i, (d, y) in enumerate(zip(data["ds"], data["xs"])):
             ax.scatter(
                 d,
                 y,
@@ -138,7 +139,7 @@ def plot_chained(
                 label=f"{config.label} (target)" if config.mode == "eval" else None,
             )
 
-        for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["ys"]):
+        for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["ys"]):
             rel_error = (y_pred - y) / y
             if config.mode == "train":
                 pass
@@ -208,7 +209,12 @@ def main():
 
         # fit the parameters
         step1_coefficients, _ = fit_step1(step1_data_by_name, y_metric=args.x_metric)
-        step2_coefficients, _ = fit_step2(step2_data_by_name, task_name, args.y_metric, args.use_log_sigmoid)
+        if args.y_metric == "rc_acc":
+            step2_coefficients, _ = fit_step2(step2_data_by_name, task_name, args.y_metric, args.use_log_sigmoid)
+        elif args.y_metric == "mc_acc":
+            step2_coefficients, _ = fit_step2_mc(step2_data_by_name, task_name, args.y_metric, args.use_log_sigmoid)
+        else:
+            raise ValueError(f"Invalid y_metric: {args.y_metric})")
 
         # make predictions
         predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error) = predict_chained(

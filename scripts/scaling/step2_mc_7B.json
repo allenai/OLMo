@@ -1,0 +1,20 @@
+{
+    "7B-4T-170k-450k": {
+        "paths": [
+            "scripts/scaling/data/peteish-moreeval/peteish7_eval_170k-450k.csv"
+        ],
+        "mode": "train",
+        "n": 6887575552,
+        "label": "7B-4T-170k-450k",
+        "color": "darkviolet"
+    },
+    "7B-4T": {
+        "paths": [
+            "scripts/scaling/data/peteish-moreeval/peteish7_eval_anneal.csv"
+        ],
+        "mode": "eval",
+        "n": 6887575552,
+        "label": "7B-4T",
+        "color": "darkviolet"
+    }
+}

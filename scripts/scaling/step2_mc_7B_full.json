@@ -1,0 +1,11 @@
+{
+    "7B-4T-full": {
+        "paths": [
+            "scripts/scaling/data/peteish-moreeval/peteish7_eval_full.csv"
+        ],
+        "mode": "train",
+        "n": 6887575552,
+        "label": "7B-4T-full",
+        "color": "darkviolet"
+    }
+}
