@@ -263,7 +263,7 @@ def main():
     # Run step 1 only
     step1_args = [
         "-k", keys_key,
-        "-c", "scripts/scaling/final_7b.json", 
+        "-c", "scripts/scaling/final_variance_7b.json", 
         "-o", "/tmp/step1_main.pdf",
         "--moving_avg", "5"
     ]
