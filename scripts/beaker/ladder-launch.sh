@@ -24,7 +24,7 @@ gantry run \
   --priority $PRIORITY \
   --preemptible \
   --beaker-image shanea/olmo-torch23-gantry \
-  --cluster ai2/jupiter-cirrascale-2 \
+  --cluster ai2/saturn-cirrascale \
   $MORE_CLUSTER_NODES \
   --gpus 8 \
   --allow-dirty \

@@ -29,7 +29,7 @@ def main(args):
         for data_mix_info in data_mixes:
             data_mix = data_mix_info['name'].strip()
             s3 = data_mix_info['s3_only']
-            print(f"scripts/beaker/ladder-launch.sh 1 normal --model {scale} --data {data_mix} --length {args.length} --name {data_mix}-{args.name_suffix}" + (" --s3" if s3 else ""))
+            print(f"scripts/beaker/ladder-launch.sh 1 normal --model {scale} --data {data_mix} --length {args.length} --name {data_mix}-{args.name_suffix} --save_overwrite" + (" --s3" if s3 else ""))
 
 
 
