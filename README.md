@@ -39,12 +39,48 @@ pip install ai2-olmo
 
 ### Overview
 
-The core models in the OLMo family released are: 
-| Model | Training Tokens | Context Length | Training Config | W&B Logs |
-|-------|-----------------|:--------------:|-----------------|----------|
-| [OLMo2 7B](https://huggingface.co/allenai/OLMo-2-1124-7B) | 4 Trillion | 4096 | [configs/official-1124/OLMo2-7B-stage1.yaml](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo2-7B-stage1.yaml) | wandb.ai/…/OLMo2-7B (link to come)
-| [OLMo2 13B](https://huggingface.co/allenai/OLMo-2-1124-13B) | 5 Trillion | 4096 | [configs/official-1124/OLMo2-13B-stage1.yaml](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo2-13B-stage1.yaml) | wandb.ai/…/OLMo2-13B (link to come)
+OLMo pretraining follows a two-stage training procedure.
+In the first stage, we train on large amounts of mostly web-based data: [OLMo-mix-1124](https://huggingface.co/datasets/allenai/olmo-mix-1124)
+In the second stage, we train on a smaller amount of high-quality, targeted data: [Dolmino-mix-1124](https://huggingface.co/datasets/allenai/dolmino-mix-1124)
 
+#### Stage 1
+
+To get the tokenized training data, look at the paths in the training configs. 
+To reproduce at large scale, we recommend downloading the files locally and changing the paths to point to your
+local file system, for performance reasons.
+
+|                 | OLMo2 7B                                                                                                          | OLMo2 13B                                                                                                          |
+|-----------------|-------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| Number of tokens| 4 Trillion                                                                                                        | 5 Trillion                                                                                                         |
+| Checkpoint      | [stage1-step928646-tokens3896B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage1-step928646-tokens3896B) | [stage1-step596057-tokens5001B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage1-step596057-tokens5001B) | 
+| Training config | [OLMo2-7B-stage1.yaml](configs/official-1124/OLMo2-7B-stage1.yaml)      | [OLMo2-13B-stage1.yaml](configs/official-1124/OLMo2-13B-stage1.yaml)     |
+| WandB           | wandb.ai/…/OLMo2-7B (link to come)                                                                                | wandb.ai/…/OLMo2-13B (link to come)                                                                                |
+
+#### Stage 2 for the 7B
+
+For the 7B model, we train three times with different data order on 50B high quality tokens, and then average ("soup") the models.
+
+|                        | Checkpoint                                                                                                                          | Training config                                                                      | WandB        |
+|------------------------|-------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|--------------|
+| random seed 42         | [stage2-ingredient1-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient1-step11931-tokens50B) |  | link to come |
+| random seed 42069      | [stage2-ingredient2-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient2-step11931-tokens50B) |                                                                                      | link to come |
+| random seed 666        | [stage2-ingredient3-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient3-step11931-tokens50B) |                                                                                      | link to come |
+| **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/main) | | link to come |
+
+#### Stage 2 for the 13B
+
+For the 13B model, we train three times with different data order on 100B high quality tokens, and one more time
+on 300B high quality tokens. Then we average ("soup") the models.
+
+|                        | Checkpoint                                                                                                                             | Training config                                                                      | WandB        |
+|------------------------|----------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|--------------|
+| random seed 1110, 100B | [stage2-ingredient1-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient1-step11931-tokens100B) |  | link to come |
+| random seed 2662, 100B | [stage2-ingredient2-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient2-step11931-tokens100B) |                                                                                      | link to come |
+| random seed 6209, 100B | [stage2-ingredient3-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient3-step11931-tokens100B) |                                                                                      | link to come |
+| random seed 2662, 300B | [stage2-ingredient4-step11931-tokens300B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient4-step35773-tokens300B) | | link to come |
+| **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/main)                                                                       | | link to come |
+
+#### Instruction tuned variants
 
 For instruction tuned variants of these models, go to
  * [OLMo2 7B Instruct](https://huggingface.co/allenai/OLMo-2-1124-7B-Instruct)
