@@ -1,0 +1,235 @@
+"""
+
+Plotting the FLOPS by performance figure
+
+Don't forget to run `pip install -e '.[figures]'` to install the necessary dependencies.
+
+@kylel
+
+"""
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+RESULTS_DATA_PATH = "/Users/kylel/ai2/olmo/olmo2.csv"
+OUTPUT_PATHS = ["/Users/kylel/ai2/olmo/olmo2.pdf", "/Users/kylel/ai2/olmo/olmo2.png"]
+df = pd.read_csv(RESULTS_DATA_PATH)
+
+# don't count Model, Flops, and Average columns
+num_datasets = len(df.columns) - 3
+
+MODEL_COLUMN_NAME = "Model"
+CATEGORY_COLUMN_NAME = "category"
+FLOPS_COLUMN_NAME = "FLOPs"
+METRIC_COLUMN_NAME = "Average"
+COLOR_COLUMN_NAME = "color"
+OFFSET_COLUMN_NAME = "label_offset"
+MARKER_COLUMN_NAME = "marker"
+
+# remove Zamba model (SSM, not a language model)
+df = df[df[MODEL_COLUMN_NAME] != "Zamba-2-7B"]
+
+model_name_to_open_status = {
+    "Amber-7B": "Other fully open",
+    "DCLM-7B": "Other fully open",
+    "Mistral-7B-v0.3": "Open weights",
+    "Mistral-Nemo-Bs-12B": "Open weights",
+    "Gemma-2-9B": "Open weights",
+    "Llama-2-13B": "Open weights",
+    "Llama-3.1-8B": "Open weights",
+    "MAP-Neo-7B": "Other fully open",
+    "Zamba-2-7B": "Partially open",
+    "OLMo-0424-7B": "Previous OLMo",
+    "OLMo-2-1124-13B": "Latest OLMo",
+    "OLMo-2-1124-7B": "Latest OLMo",
+    "OLMo-7B": "Previous OLMo",
+    "Qwen-2.5-14B": "Open weights",
+    "Qwen-2.5-7B": "Open weights",
+    "StableLM-2-12B": "Partially open",
+}
+
+# Add a column for model category based on the groupings
+df[CATEGORY_COLUMN_NAME] = df[MODEL_COLUMN_NAME].map(model_name_to_open_status)
+
+# Add a column for color based on the category
+categories = df["category"].unique()
+category_to_color = {
+    "Open weights": "#093235",  # dark blue
+    "Partially open": "#255457",  # dark green
+    "Other fully open": "#6FE0BA",  # light green
+    "Previous OLMo": "#F697C4",  # light pink
+    "Latest OLMo": "#F0529C",  # dark pink
+}
+
+df[COLOR_COLUMN_NAME] = df[CATEGORY_COLUMN_NAME].map(category_to_color)
+
+model_name_to_label_offset = {
+    "Amber-7B": [10, -2],  # Move left and down to use empty space
+    "DCLM-7B": [-20, 10],  # Move right and up into empty area
+    "Mistral-7B-v0.3": [-20, 8],  # Move left and up
+    "Mistral-Nemo-Bs-12B": [20, -8],  # Move right and down
+    "Gemma-2-9B": [-35, -15],  # Move left and down
+    "Llama-2-13B": [0, 10],  # Move right and slightly up
+    "Llama-3.1-8B": [0, -15],  # Move right and down
+    "MAP-Neo-7B": [-20, -15],  # Move left and down into empty space
+    "Zamba-2-7B": [-25, 10],  # Move left and up
+    "OLMo-0424-7B": [-35, -15],  # Move right and slightly down
+    "OLMo-2-1124-13B": [-20, 10],  # Move left and up
+    "OLMo-2-1124-7B": [-35, 10],  # Move right
+    "OLMo-7B": [-35, 10],  # Move left and up into empty space
+    "Qwen-2.5-14B": [-40, -15],  # Move right and up
+    "Qwen-2.5-7B": [-20, -15],  # Move left and down
+    "StableLM-2-12B": [0, -15],  # Move right and up
+}
+
+df[OFFSET_COLUMN_NAME] = df[MODEL_COLUMN_NAME].map(model_name_to_label_offset)
+
+# markers
+category_to_marker = {
+    "Open weights": "o",
+    "Partially open": "D",
+    "Other fully open": "s",
+    "Previous OLMo": "P",
+    "Latest OLMo": "*",
+}
+
+# Clean up labels
+# rename models
+model_name_to_new_name = {
+    "OLMo-2-1124-13B": "OLMo-2-13B",
+    "OLMo-2-1124-7B": "OLMo-2-7B",
+}
+df[MODEL_COLUMN_NAME] = df[MODEL_COLUMN_NAME].replace(model_name_to_new_name)
+
+
+# marker size
+category_to_marker_size = {
+    "Open weights": 40,
+    "Partially open": 40,
+    "Other fully open": 70,
+    "Previous OLMo": 100,
+    "Latest OLMo": 150,
+}
+
+# alpha
+category_to_alpha = {
+    "Open weights": 1.0,
+    "Partially open": 0.7,
+    "Other fully open": 1.0,
+    "Previous OLMo": 1.0,
+    "Latest OLMo": 1.0,
+}
+
+
+# Scale
+# plt.xscale("log")
+plt.xscale("function", functions=(np.sqrt, np.square))
+
+
+# Plotting order
+desired_order = ["Latest OLMo", "Previous OLMo", "Other fully open", "Partially open", "Open weights"]
+for category in categories:
+    mask = (df[CATEGORY_COLUMN_NAME] == category) & (df[FLOPS_COLUMN_NAME].notna())
+    data = df[mask]
+    plt.scatter(
+        data[FLOPS_COLUMN_NAME],
+        data[METRIC_COLUMN_NAME],
+        label=category,
+        c=data[COLOR_COLUMN_NAME],  # Use the colors column
+        marker=category_to_marker[category],  # Add the marker parameter
+        alpha=category_to_alpha[category],
+        s=category_to_marker_size[category],
+    )
+# Add labels for each point
+FONTSIZE = 9
+for idx, row in df[df[FLOPS_COLUMN_NAME].notna()].iterrows():
+    plt.annotate(
+        row[MODEL_COLUMN_NAME],
+        (row[FLOPS_COLUMN_NAME], row[METRIC_COLUMN_NAME]),
+        xytext=(row[OFFSET_COLUMN_NAME]),
+        textcoords="offset points",
+        fontsize=FONTSIZE,
+        alpha=1.0,
+    )
+
+# x axis tick marks
+tick_locations = [4e22, 6e22, 8e22, 1e23, 2e23, 4e23, 6e23, 8e23, 1e24, 2e24]
+
+
+# Function to format numbers in scientific notation (10^x) more intuitively
+def format_scientific(x):
+    exponent = int(np.log10(x))  # Get the exponent
+    mantissa = x / (10**exponent)  # Get the mantissa
+
+    # Format as "1×10²²", "2×10²²", etc.
+    return f"{int(mantissa)}×10{str(exponent).translate(str.maketrans('0123456789', '⁰¹²³⁴⁵⁶⁷⁸⁹'))}"
+
+
+tick_labels = [format_scientific(x) for x in tick_locations]
+plt.xticks(tick_locations, tick_labels, rotation=45, ha="right")
+
+
+# Customize the plot
+plt.xlabel("Approximate FLOPs", fontsize=12)
+plt.ylabel(f"Avg Performance ({num_datasets} Benchmarks)", fontsize=12)
+# plt.title("FLOPs vs Performance", fontsize=14, pad=20)
+
+# Add grid
+plt.grid(True, which="both", ls="-", alpha=0.2)
+
+# Customize legend
+# plt.legend(title="", title_fontsize=10, fontsize=10, bbox_to_anchor=(1.05, 1), loc="upper left")
+
+# Add the legend below the plot
+handles, labels = plt.gca().get_legend_handles_labels()
+label_to_handle = dict(zip(labels, handles))
+ordered_handles = [label_to_handle[label] for label in desired_order]
+plt.legend(
+    ordered_handles,
+    desired_order,
+    bbox_to_anchor=(0, 1.02, 1.0, 0.2),
+    loc="center",
+    ncol=len(categories),
+    mode="expand",
+    borderaxespad=0.0,
+    fontsize=8,
+    handletextpad=0.05,  # Reduce space between marker and label
+    columnspacing=0.5,  # Adjust space between columns
+)
+
+# Adjust the layout to prevent legend cutoff
+plt.tight_layout()
+plt.subplots_adjust(top=0.8)  # Make room for the legend
+
+
+# Remove spines
+plt.gca().spines["top"].set_visible(False)
+plt.gca().spines["right"].set_visible(False)
+
+# Make Yellow portion
+xmin, xmax = plt.gca().get_xlim()
+ymin, ymax = plt.gca().get_ylim()
+
+# Assuming df has columns 'x' and 'y' and is sorted by x
+# Convert frontier points to polygon vertices
+frontier_models = ["Amber-7B", "OLMo-0424-7B", "DCLM-7B", "OLMo-2-7B", "OLMo-2-13B", "Qwen-2.5-14B"]
+frontier_df = df[df[MODEL_COLUMN_NAME].isin(frontier_models)]
+frontier_df = frontier_df.set_index(MODEL_COLUMN_NAME)
+frontier_df = frontier_df.reindex(frontier_models)
+frontier_df = frontier_df.reset_index()
+
+# Create simple vertices array:
+X = np.array([[xmin, ymin]])  # Start bottom-left
+for _, row in frontier_df.iterrows():
+    X = np.append(X, [[row[FLOPS_COLUMN_NAME], row[METRIC_COLUMN_NAME]]], axis=0)
+X = np.append(X, [[xmax, ymax]], axis=0)  # Top-right corner
+X = np.append(X, [[xmin, ymax]], axis=0)  # Back to left
+
+# Create and add polygon
+polygon = plt.Polygon(X, facecolor="yellow", alpha=0.2, zorder=-1, edgecolor="orange", linestyle="--", linewidth=2)
+plt.gca().add_patch(polygon)
+
+# Save the figure
+for output_path in OUTPUT_PATHS:
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
