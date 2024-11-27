@@ -147,14 +147,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     model_size = parse_size(args.model)
     length_in_tokens = parse_length(args.length, model_size)
 
-    # calculate batch size according to
-    # https://www.semanticscholar.org/reader/5585191b1b479346ecf173be3b35c8313b77d457
-    # holds only for a sequence length of 2048 (but could probably be easily adapted)
-    assert model_config.max_sequence_length == 2048
-    global_batch_size = 160 * (model_size / 108000000) ** (2 / 3)
-    global_batch_size /= 8 * 4  # 8 GPUs per node, microbatch size 4
-    global_batch_size = round(global_batch_size)
-    global_batch_size *= 8 * 4
+    global_batch_size = calculate_batch_size(model_config.max_sequence_length, model_size)
 
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
@@ -181,7 +174,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
 
     return TrainConfig(
         run_name=run_name,
-        seed=6198,
+        seed=args.seed,
         wandb=None if not args.wandb else WandbConfig(
             name=run_name,
             group=run_name,
@@ -312,6 +305,18 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             paths=[f"{permanent_data_prefix}/{path}" for path in named_data_mixes.DATA_PATHS[args.data]],
         ),
     )
+
+
+def calculate_batch_size(max_sequence_length, model_size):
+    # calculate batch size according to
+    # https://www.semanticscholar.org/reader/5585191b1b479346ecf173be3b35c8313b77d457
+    # holds only for a sequence length of 2048 (but could probably be easily adapted)
+    assert max_sequence_length == 2048
+    global_batch_size = 160 * (model_size / 108000000) ** (2 / 3)
+    global_batch_size /= 8 * 4  # 8 GPUs per node, microbatch size 4
+    global_batch_size = round(global_batch_size)
+    global_batch_size *= 8 * 4
+    return global_batch_size
 
 
 def _factors(n: int) -> Set[int]:
