@@ -138,7 +138,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         permanent_data_prefix = "s3://ai2-llm"
     permanent_data_prefix.rstrip("/")
 
-    remote_save_folder = f"s3://ai2-llm/checkpoints/ianm/optimizing-ladder/{run_name}"
+    remote_save_folder = f"s3://ai2-llm/checkpoints/ianm/optimizing-ladder-experiments/{run_name}"
     load_path = args.load_path
     if load_path is None:
         load_path = find_latest_checkpoint(remote_save_folder)
@@ -163,7 +163,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # device batch size based on the hardware we're running on.
     device_batch_size = {
         "150M": 32,
-        "300M": 40,
+        "300M": 20,
         "530M": 8,
         "750M": 8,
         "1B": 2,
@@ -188,7 +188,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         wandb=None if not args.wandb else WandbConfig(
             name=run_name,
             group=run_name,
-            project="ianm-optimizing-ladder"
+            project="ianm-optimizing-ladder-experiments",
         ),
         model=model_config,
         ddp=DDPConfig(),  # defaults are fine
