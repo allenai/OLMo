@@ -43,6 +43,10 @@ OLMo pretraining follows a two-stage training procedure.
 In the first stage, we train on large amounts of mostly web-based data: [OLMo-mix-1124](https://huggingface.co/datasets/allenai/olmo-mix-1124)
 In the second stage, we train on a smaller amount of high-quality, targeted data: [Dolmino-mix-1124](https://huggingface.co/datasets/allenai/dolmino-mix-1124)
 
+You can find *all* the checkpoints, at minimum every 1000 training steps, on Huggingface:
+ * [Huggingface for the 7B variant](https://huggingface.co/allenai/OLMo-2-1124-7B)
+ * [Huggingface for the 13B variant](https://huggingface.co/allenai/OLMo-2-1124-13B)
+
 #### Stage 1
 
 To get the tokenized training data, look at the paths in the training configs. 
