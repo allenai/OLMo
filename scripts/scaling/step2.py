@@ -353,13 +353,15 @@ def main():
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 
+    df = pd.DataFrame.from_dict(results, orient="index").reset_index().rename({"index": "Task"}, axis=1)
+    
     if args.output_path:
         fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
-        df = pd.DataFrame.from_dict(results, orient="index").reset_index().rename({"index": "Task"}, axis=1)
         df.to_csv(args.output_path.replace(".pdf", ".csv"), index=False)
 
     print(results_str)
-
+    
+    return df
 
 if __name__ == "__main__":
     main()

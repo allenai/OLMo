@@ -7,6 +7,7 @@
 
 import argparse
 
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -189,7 +190,8 @@ def main():
     num_rows = (num_tasks + num_cols - 1) // num_cols
     fig, axes = plt.subplots(num_rows, num_cols, figsize=(2.75 * num_cols, 2.25 * num_rows), squeeze=False)
 
-    results = "Task Name | Prediction | Actual | Rel Error"
+    results = {}
+    results_str = "Task Name | Prediction | Actual | Rel Error"
 
     for r, task_name in enumerate(args.keys):
         step1_data_by_name = get_step1_data_by_name(
@@ -239,9 +241,10 @@ def main():
             data = step2_data_by_name[args.target_name]
             actual_acc = data["ys"][-1]
             rel_error = np.abs(pred_acc - actual_acc) / actual_acc
-            results += f"\n{task_name} | {pred_acc * 100:.1f} | {actual_acc * 100:.1f} | {rel_error * 100:.1f}%"
+            results[task_name] = {"Actual": y, "Pred": y_pred, "Rel Error": rel_error}
+            results_str += f"\n{task_name} | {pred_acc * 100:.1f} | {actual_acc * 100:.1f} | {rel_error * 100:.1f}%"
         else:
-            results += f"\n{task_name} | {pred_acc * 100:.1f} | - | -"
+            results_str += f"\n{task_name} | {pred_acc * 100:.1f} | - | -"
 
     handles, labels = axes[-1][-1].get_legend_handles_labels()
     # delete x-axis labels for all but the bottom row
@@ -263,7 +266,14 @@ def main():
 
     fig.savefig(args.output_path, dpi=300, bbox_inches='tight')
 
-    print(results)
+    if args.output_path:
+        fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
+        df = pd.DataFrame.from_dict(results, orient="index").reset_index().rename({"index": "Task"}, axis=1)
+        df.to_csv(args.output_path.replace(".pdf", ".csv"), index=False)
+
+    print(results_str)
+
+    return df
 
 
 if __name__ == "__main__":

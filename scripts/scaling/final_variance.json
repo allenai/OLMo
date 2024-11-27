@@ -1,0 +1,56 @@
+{
+    "190M": {
+        "paths": [
+            "scripts/scaling/data/peteish-moreeval/190M-1xC.csv",
+            "scripts/scaling/data/peteish-moreeval/190M-2xC.csv",
+            "scripts/scaling/data/peteish-moreeval/190M-5xC.csv",
+            "scripts/scaling/data/peteish-moreeval/190M-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 190354176,
+        "label": "190M",
+        "color": "darkred"
+    },
+    "370M": {
+        "paths": [
+            "scripts/scaling/data/peteish-moreeval/370M-1xC.csv",
+            "scripts/scaling/data/peteish-moreeval/370M-2xC.csv",
+            "scripts/scaling/data/peteish-moreeval/370M-5xC.csv",
+            "scripts/scaling/data/peteish-moreeval/370M-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 371262464,
+        "label": "370M",
+        "color": "darkorange"
+    },
+    "760M": {
+        "paths": [
+            "scripts/scaling/data/peteish-moreeval/760M-1xC.csv",
+            "scripts/scaling/data/peteish-moreeval/760M-2xC.csv",
+            "scripts/scaling/data/peteish-moreeval/760M-5xC.csv",
+            "scripts/scaling/data/peteish-moreeval/760M-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 758220288,
+        "label": "760M",
+        "color": "darkgreen"
+    },
+    "1.3B-train": {
+        "paths": [
+            "scripts/scaling/data/peteish-moreeval/1B-1xC.csv"
+        ],
+        "mode": "train",
+        "n": 1279395840,
+        "label": "1.3B",
+        "color": "teal"
+    },
+    "1.3B-eval": {
+        "paths": [
+            "scripts/scaling/data/peteish-moreeval/1B-10xC.csv"
+        ],
+        "mode": "eval",
+        "n": 1279395840,
+        "label": "1.3B",
+        "color": "teal"
+    }
+}

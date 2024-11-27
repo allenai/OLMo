@@ -402,6 +402,9 @@ def get_task_sets(keys):
             keys = list(mmlu_var_tasks.keys()) + list(core_5shot_tasks.keys())
         elif keys[0] == "v2_main":
             keys = list(v2_mmlu_avg_test_5shot_tasks.keys()) + list(v2_core_small_5shot_tasks.keys())
+        elif keys[0] == "v2_main_variance":
+            keys = list(v2_mmlu_avg_test_5shot_tasks.keys()) + list(v2_core_5shot_tasks.keys())
+            keys = [k for k in keys if k not in ["openbookqa_val_5shot", "arc_challenge_val_5shot", "arc_easy_val_5shot"]]
         elif keys[0] == "v2_main_avg":
             keys = ["main_avg_5shot"]
     return keys
