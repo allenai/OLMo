@@ -123,7 +123,7 @@ def main(cfg: TrainConfig) -> None:
     if "step" in cfg.load_path.split("/")[-1]:
         load_paths = [cfg.load_path]
     elif "gs://" in cfg.load_path:  # HACK: This is a temporary solution to eval peteish13-highlr
-        load_paths = [f"{cfg.load_path}/step{step}" for step in range(105000, 520000, 5000)]
+        load_paths = [f"{cfg.load_path}/step{step}" for step in range(275000, 520000, 5000)]
     else:
         # This globbing only works with local paths
         load_paths = list(glob.glob(f"{cfg.load_path}/step*"))
