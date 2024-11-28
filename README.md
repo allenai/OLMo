@@ -53,6 +53,9 @@ To get the tokenized training data, look at the paths in the training configs.
 To reproduce at large scale, we recommend downloading the files locally and changing the paths to point to your
 local file system, for performance reasons.
 
+*Note*: Some of the files that the training configs refer to are still being uploaded (as of 2024-11-27).
+They should all appear in the next few days as the uploads complete.
+
 |                 | OLMo2 7B                                                                                                          | OLMo2 13B                                                                                                          |
 |-----------------|-------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
 | Number of tokens| 4 Trillion                                                                                                        | 5 Trillion                                                                                                         |
@@ -64,25 +67,25 @@ local file system, for performance reasons.
 
 For the 7B model, we train three times with different data order on 50B high quality tokens, and then average ("soup") the models.
 
-|                        | Checkpoint                                                                                                                          | Training config                                                                      | WandB        |
-|------------------------|-------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|--------------|
-| random seed 42         | [stage2-ingredient1-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient1-step11931-tokens50B) |  | link to come |
-| random seed 42069      | [stage2-ingredient2-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient2-step11931-tokens50B) |                                                                                      | link to come |
-| random seed 666        | [stage2-ingredient3-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient3-step11931-tokens50B) |                                                                                      | link to come |
-| **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/main) | | link to come |
+|                        | Checkpoint                                                                                                                          | Training config                                                                        | WandB       |
+|------------------------|-------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|-------------|
+| random seed 42         | [stage2-ingredient1-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient1-step11931-tokens50B) | [OLMo2-7B-stage2-seed42.yaml](configs/official-1124/OLMo2-7B-stage2-seed42.yaml)       | link to come |
+| random seed 42069      | [stage2-ingredient2-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient2-step11931-tokens50B) | [OLMo2-7B-stage2-seed42069.yaml](configs/official-1124/OLMo2-7B-stage2-seed42069.yaml) | link to come |
+| random seed 666        | [stage2-ingredient3-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient3-step11931-tokens50B) | [OLMo2-7B-stage2-seed666.yaml](configs/official-1124/OLMo2-7B-stage2-seed666.yaml)     | link to come |
+| **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/main) | no config, we just averaged the weights in Python                                      | |
 
 #### Stage 2 for the 13B
 
 For the 13B model, we train three times with different data order on 100B high quality tokens, and one more time
 on 300B high quality tokens. Then we average ("soup") the models.
 
-|                        | Checkpoint                                                                                                                             | Training config                                                                      | WandB        |
-|------------------------|----------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|--------------|
-| random seed 1110, 100B | [stage2-ingredient1-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient1-step11931-tokens100B) |  | link to come |
-| random seed 2662, 100B | [stage2-ingredient2-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient2-step11931-tokens100B) |                                                                                      | link to come |
-| random seed 6209, 100B | [stage2-ingredient3-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient3-step11931-tokens100B) |                                                                                      | link to come |
-| random seed 2662, 300B | [stage2-ingredient4-step11931-tokens300B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient4-step35773-tokens300B) | | link to come |
-| **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/main)                                                                       | | link to come |
+|                        | Checkpoint                                                                                                                             | Training config                                                                                  | WandB       |
+|------------------------|----------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|-------------|
+| random seed 1110, 100B | [stage2-ingredient1-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient1-step11931-tokens100B) | [OLMo2-13B-stage2-seed1110-100B.yaml](configs/official-1124/OLMo2-13B-stage2-seed1110-100B.yaml) | link to come |
+| random seed 2662, 100B | [stage2-ingredient2-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient2-step11931-tokens100B) | [OLMo2-13B-stage2-seed2662-100B.yaml](configs/official-1124/OLMo2-13B-stage2-seed2662-100B.yaml) | link to come |
+| random seed 6209, 100B | [stage2-ingredient3-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient3-step11931-tokens100B) | [OLMo2-13B-stage2-seed6209-100B.yaml](configs/official-1124/OLMo2-13B-stage2-seed6209-100B.yaml) | link to come |
+| random seed 2662, 300B | [stage2-ingredient4-step11931-tokens300B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient4-step35773-tokens300B) | [OLMo2-13B-stage2-seed2662-300B.yaml](configs/official-1124/OLMo2-13B-stage2-seed2662-300B.yaml) | link to come |
+| **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/main)                                                                       | no config, we just averaged the weights in Python                                                | |
 
 #### Instruction tuned variants
 
