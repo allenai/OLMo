@@ -1,4 +1,4 @@
-run_name: OLMo-7B
+run_name: OLMo2-7B-stage1
 seed: 6198
 dry_run: false
 
@@ -146,7 +146,7 @@ evaluators:
 
   - label: boolq
     type: downstream
- 
+
   - label: sciq
     type: downstream
 
