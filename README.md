@@ -35,9 +35,7 @@ You can also install from PyPI with:
 pip install ai2-olmo
 ```
 
-## Models
-
-### Overview
+## Pretraining
 
 OLMo pretraining follows a two-stage training procedure.
 In the first stage, we train on large amounts of mostly web-based data: [OLMo-mix-1124](https://huggingface.co/datasets/allenai/olmo-mix-1124)
@@ -47,14 +45,36 @@ You can find *all* the checkpoints, at minimum every 1000 training steps, on Hug
  * [Huggingface for the 7B variant](https://huggingface.co/allenai/OLMo-2-1124-7B)
  * [Huggingface for the 13B variant](https://huggingface.co/allenai/OLMo-2-1124-13B)
 
-#### Stage 1
+### Steps to reproduce
 
-To get the tokenized training data, look at the paths in the training configs. 
+To reproduce any of the training processes described below, run this:
+
+```bash
+torchrun --nproc_per_node=8 scripts/train.py {path_to_train_config}
+```
+
+For the training config, use any of the configs listed below.
+
+If you want to override any of the settings in the training config without having to write a new config every time,
+you can do this:
+
+```bash
+torchrun --nproc_per_node=8 scripts/train.py {path_to_train_config} \
+  --setting1=value \
+  --setting2=value \
+  --setting3.subsetting1=value
+```
+
+The training configs below refer to training data that gets streamed in live over HTTP.
 To reproduce at large scale, we recommend downloading the files locally and changing the paths to point to your
-local file system, for performance reasons.
+local file system.
 
 *Note*: Some of the files that the training configs refer to are still being uploaded (as of 2024-11-27).
 They should all appear in the next few days as the uploads complete.
+
+### Stage 1
+
+Stage 1 is the biggest stage, where we train on 4T or 5T tokens on largely web-based data. 
 
 |                 | OLMo2 7B                                                                                                          | OLMo2 13B                                                                                                          |
 |-----------------|-------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
@@ -63,7 +83,7 @@ They should all appear in the next few days as the uploads complete.
 | Training config | [OLMo2-7B-stage1.yaml](configs/official-1124/OLMo2-7B-stage1.yaml)      | [OLMo2-13B-stage1.yaml](configs/official-1124/OLMo2-13B-stage1.yaml)     |
 | WandB           | wandb.ai/…/OLMo2-7B (link to come)                                                                                | wandb.ai/…/OLMo2-13B (link to come)                                                                                |
 
-#### Stage 2 for the 7B
+### Stage 2 for the 7B
 
 For the 7B model, we train three times with different data order on 50B high quality tokens, and then average ("soup") the models.
 
@@ -74,7 +94,7 @@ For the 7B model, we train three times with different data order on 50B high qua
 | random seed 666        | [stage2-ingredient3-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient3-step11931-tokens50B) | [OLMo2-7B-stage2-seed666.yaml](configs/official-1124/OLMo2-7B-stage2-seed666.yaml)     | link to come |
 | **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/main) | no config, we just averaged the weights in Python                                      | |
 
-#### Stage 2 for the 13B
+### Stage 2 for the 13B
 
 For the 13B model, we train three times with different data order on 100B high quality tokens, and one more time
 on 300B high quality tokens. Then we average ("soup") the models.
@@ -87,7 +107,7 @@ on 300B high quality tokens. Then we average ("soup") the models.
 | random seed 2662, 300B | [stage2-ingredient4-step11931-tokens300B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient4-step35773-tokens300B) | [OLMo2-13B-stage2-seed2662-300B.yaml](configs/official-1124/OLMo2-13B-stage2-seed2662-300B.yaml) | link to come |
 | **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/main)                                                                       | no config, we just averaged the weights in Python                                                | |
 
-#### Instruction tuned variants
+## Instruction tuned variants
 
 For instruction tuned variants of these models, go to
  * [OLMo2 7B Instruct](https://huggingface.co/allenai/OLMo-2-1124-7B-Instruct)
