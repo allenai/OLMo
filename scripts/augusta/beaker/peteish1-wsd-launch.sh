@@ -10,7 +10,7 @@ shift
 
 gantry run \
   --workspace ai2/OLMo-mup \
-  --task-name peteish1-wsd-LR${LR} \
+  --task-name peteish1-wsd-lr${LR} \
   --description "Peteish1 WSD schedule" \
   --priority high \
   --preemptible \
