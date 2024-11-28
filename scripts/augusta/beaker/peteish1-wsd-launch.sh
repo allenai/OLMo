@@ -36,4 +36,4 @@ gantry run \
   --timeout=-1 \
   --allow-dirty \
   --retries 10 \
-  -- /bin/bash -c "scripts/augusta/beaker/peteish1-muplr-2.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK $LR"
+  -- /bin/bash -c "scripts/augusta/beaker/peteish1-wsd.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK $LR"
