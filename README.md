@@ -94,6 +94,8 @@ For the 7B model, we train three times with different data order on 50B high qua
 | random seed 666        | [stage2-ingredient3-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient3-step11931-tokens50B) | [OLMo2-7B-stage2-seed666.yaml](configs/official-1124/OLMo2-7B-stage2-seed666.yaml)     | link to come |
 | **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/main) | no config, we just averaged the weights in Python                                      | |
 
+The training configs linked here are set up to download the latest checkpoint after stage 1, and start training from there.
+
 ### Stage 2 for the 13B
 
 For the 13B model, we train three times with different data order on 100B high quality tokens, and one more time
@@ -106,6 +108,8 @@ on 300B high quality tokens. Then we average ("soup") the models.
 | random seed 6209, 100B | [stage2-ingredient3-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient3-step11931-tokens100B) | [OLMo2-13B-stage2-seed6209-100B.yaml](configs/official-1124/OLMo2-13B-stage2-seed6209-100B.yaml) | link to come |
 | random seed 2662, 300B | [stage2-ingredient4-step11931-tokens300B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient4-step35773-tokens300B) | [OLMo2-13B-stage2-seed2662-300B.yaml](configs/official-1124/OLMo2-13B-stage2-seed2662-300B.yaml) | link to come |
 | **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/main)                                                                       | no config, we just averaged the weights in Python                                                | |
+
+The training configs linked here are set up to download the latest checkpoint after stage 1, and start training from there.
 
 ## Instruction tuned variants
 
