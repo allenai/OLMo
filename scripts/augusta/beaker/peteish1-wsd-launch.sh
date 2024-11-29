@@ -12,7 +12,7 @@ gantry run \
   --workspace ai2/OLMo-mup \
   --task-name peteish1-wsd-lr${LR} \
   --description "Peteish1 WSD schedule" \
-  --priority high \
+  --priority normal \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
   --cluster ai2/augusta-google-1 \
