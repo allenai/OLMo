@@ -556,7 +556,7 @@ if __name__ == "__main__":
             help="read data from S3, write checkpoints to S3",
         )
         subparser.add_argument(
-            "--wandb", action=argparse.BooleanOptionalAction, default=True, help="create a run in wandb"
+            "--wandb", action=argparse.BooleanOptionalAction, default=False, help="create a run in wandb"
         )
         subparser.add_argument("--read_location", type=str, default=None)
         subparser.add_argument("--write_location", type=str, default=None)
