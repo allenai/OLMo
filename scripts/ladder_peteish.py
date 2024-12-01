@@ -510,7 +510,7 @@ if __name__ == "__main__":
 
     nodecounts_parser = subparsers.add_parser("nodecounts")
     nodecounts_parser.set_defaults(func=nodecounts_cmd, **no_train_defaults)
-    nodecounts_parser.add_argument("--gpus-per-node", type=int, default=8)
+    nodecounts_parser.add_argument("--gpus-per-node", type=int, default=4)
     nodecounts_parser.add_argument("--model", type=str, required=True)
 
     size_parser = subparsers.add_parser("size")
