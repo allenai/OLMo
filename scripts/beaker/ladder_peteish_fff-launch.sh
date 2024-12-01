@@ -22,7 +22,7 @@ gantry run \
   --preemptible \
   --beaker-image shanea/olmo-torch23-gantry \
   --cluster ai2/saturn-cirrascale \
-  --gpus 8 \
+  --gpus 4 \
   $MULTI_NODE_ARGS \
   --budget ai2/oe-eval \
   --no-nfs \
