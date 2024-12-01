@@ -82,7 +82,7 @@ MODEL_CONFIG_190M = ModelConfig(
     norm_after=True,
     precision="amp_bf16",
     fast_ff=True,
-    fast_ff_depth=10,
+    fast_ff_depth=11,
 )
 
 MODEL_CONFIGS = {
