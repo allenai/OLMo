@@ -792,9 +792,11 @@ class FullCheckpointer(Checkpointer):
             torch.cuda.empty_cache()
             barrier()
         else:
-            raise NotImplementedError(
-                "`FullCheckpointer.restore_checkpoint` only supported for FSDP and DDP distributed strategies!"
-            )
+            with torch.no_grad():
+                state_dict_to_load = load_state_dict(
+                    load_path, "model.pt", local_cache=local_cache, map_location="cpu"
+                )
+                dist_model.load_state_dict(state_dict_to_load, strict=True)
 
         # Load other state.
         try:

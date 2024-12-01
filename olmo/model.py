@@ -450,13 +450,14 @@ class OLMoBlock(nn.Module):
         )
 
         # Feed-forward output projection.
-        # self.ff_out = nn.Linear(
-        #     int(self.act.output_multiplier * self.hidden_size),
-        #     config.d_model,
-        #     bias=config.include_bias,
-        #     device=config.init_device,
-        # )
-        # self.ff_out._is_residual = True  # type: ignore
+        if not config.fast_ff:
+            self.ff_out = nn.Linear(
+                int(self.act.output_multiplier * self.hidden_size),
+                config.d_model,
+                bias=config.include_bias,
+                device=config.init_device,
+            )
+            self.ff_out._is_residual = True  # type: ignore
 
         # Rotary embeddings.
         if self.config.rope:
@@ -499,7 +500,9 @@ class OLMoBlock(nn.Module):
             raise NotImplementedError(self.config.init_fn)
 
         init_normal(self.attn_out, std=attn_out_std, init_cutoff_factor=cutoff_factor)
-        # init_normal(self.ff_out, std=ff_out_std, init_cutoff_factor=cutoff_factor)
+        
+        if not self.config.fast_ff:
+            init_normal(self.ff_out, std=ff_out_std, init_cutoff_factor=cutoff_factor)
 
     def set_activation_checkpointing(
         self, strategy: Optional[ActivationCheckpointingStrategy], checkpoint_func: Optional[Callable] = None
@@ -689,13 +692,6 @@ class OLMoSequentialBlock(OLMoBlock):
         self.att_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
-        
-        # # Feed-forward input projection.
-        # self.ff_proj = nn.Linear(
-        #     config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
-        # )
-
-        from .fff import FFF
 
         if self._activation_checkpoint_fn is not None:
             # act = self._activation_checkpoint_fn(self.act, x)  # type: ignore
@@ -703,19 +699,28 @@ class OLMoSequentialBlock(OLMoBlock):
         else:
             act = self.act
 
-        # 20M: 3, 128
-        # BERT: 4, 128
-        # 190M: 4, 128
+        if config.fast_ff:
+            from .fff import FFF
 
-        # Fast feed forward!
-        self.ffn = FFF(
-            config.d_model,
-            config.d_model,
-            4, # config.intermed_depth, # 4
-            128, # config.intermed_size, # 128
-            act,
-            device=config.init_device,
-        )
+            # 20M: 3, 128
+            # BERT: 4, 128
+            # 190M: 4, 128
+
+            # Fast feed forward!
+            self.ffn = FFF(
+                config.d_model,
+                config.d_model,
+                config.fast_ff_depth,
+                # 4, # config.intermed_depth, # 4
+                # 128, # config.intermed_size, # 128
+                act,
+                device=config.init_device,
+            )
+        else:
+            # Feed-forward input projection.
+            self.ff_proj = nn.Linear(
+                config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
+            )
 
         # Layer norms.
         self.attn_norm = LayerNorm.build(config, size=config.d_model)
@@ -740,9 +745,11 @@ class OLMoSequentialBlock(OLMoBlock):
             raise NotImplementedError(self.config.init_fn)
 
         init_normal(self.att_proj, std, cutoff_factor)
-        # init_normal(self.ff_proj, std, cutoff_factor)
-        init_normal(self.ffn.linear_in, std, cutoff_factor)
-        init_normal(self.ffn.linear_out, std, cutoff_factor)
+        if self.config.fast_ff:
+            init_normal(self.ffn.linear_in, std, cutoff_factor)
+            init_normal(self.ffn.linear_out, std, cutoff_factor)
+        else:
+            init_normal(self.ff_proj, std, cutoff_factor)
 
     def forward(
         self,
@@ -822,23 +829,18 @@ class OLMoSequentialBlock(OLMoBlock):
             else:
                 x = self.ff_norm(x)
 
-        # ##################################################
-        # ###### FFNN
-        # ##################################################
+        if self.config.fast_ff:
+            # Use fast feed-forward
+            x = self.ffn(x)
+        else:
+            # Standard MLP
+            x = self.ff_proj(x)
 
-        # x = self.ff_proj(x)
-
-        # if self._activation_checkpoint_fn is not None:
-        #     x = self._activation_checkpoint_fn(self.act, x)  # type: ignore
-        # else:
-        #     x = self.act(x)
-        # x = self.ff_out(x)
-
-        x = self.ffn(x)
-
-        # ##################################################
-        # ###### FFNN
-        # ##################################################
+            if self._activation_checkpoint_fn is not None:
+                x = self._activation_checkpoint_fn(self.act, x)  # type: ignore
+            else:
+                x = self.act(x)
+            x = self.ff_out(x)
 
         if self.config.norm_after:
             if self._activation_checkpoint_fn is not None:

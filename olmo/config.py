@@ -473,6 +473,16 @@ class ModelConfig(BaseConfig):
     Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
     """
 
+    fast_ff: Optional[bool] = False
+    """
+    Use fast feed-forward for MLP layers
+    """
+
+    fast_ff_depth: Optional[int] = 4
+    """
+    Depth of the fast feed-forward layer
+    """
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:

@@ -38,8 +38,8 @@ model:
   init_fn: normal
   init_std: 0.02
   init_cutoff_factor: 3
-  # intermed_depth: 4
-  # intermed_size: 128
+  fast_ff: true
+  fast_ff_depth: 9
 
 ddp:
   grad_sync_mode: batch
