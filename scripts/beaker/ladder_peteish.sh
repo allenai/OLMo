@@ -45,11 +45,3 @@ torchrun \
   --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
   scripts/ladder_peteish.py train "$@"
-
-
-export HI="
- hi 
-"
-export HI="'$HI'" | tr -d '
-' | tr -d ''
-echo $HI
