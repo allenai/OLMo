@@ -494,7 +494,7 @@ if __name__ == "__main__":
         length="1xC",
         name="nodecounts",
         s3=False,
-        wandb=False,
+        wandb=True,
         save_overwrite=False,
         load_path=None,
         eval_on_load=False,

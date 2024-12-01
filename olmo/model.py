@@ -703,11 +703,15 @@ class OLMoSequentialBlock(OLMoBlock):
         else:
             act = self.act
 
+        # 20M: 3, 128
+        # BERT: 4, 128
+        # 190M: 4, 128
+
         # Fast feed forward!
         self.ffn = FFF(
             config.d_model,
             config.d_model,
-            3, # config.intermed_depth, # 4
+            4, # config.intermed_depth, # 4
             128, # config.intermed_size, # 128
             act,
             device=config.init_device,
