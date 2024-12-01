@@ -22,13 +22,13 @@ gantry run \
   --preemptible \
   --beaker-image shanea/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
-  --gpus 8 \
+  --gpus 4 \
   $MULTI_NODE_ARGS \
   --budget ai2/oe-eval \
   --no-nfs \
   --weka oe-training-default:/weka/oe-training-default \
   --env LOG_FILTER_TYPE=local_rank0_only \
-  --env OMP_NUM_THREADS=8 \
+  --env OMP_NUM_THREADS=4 \
   --env OLMO_TASK=model \
   --env-secret WANDB_API_KEY=WANDB_API_KEY \
   --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
