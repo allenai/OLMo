@@ -450,13 +450,13 @@ class OLMoBlock(nn.Module):
         )
 
         # Feed-forward output projection.
-        self.ff_out = nn.Linear(
-            int(self.act.output_multiplier * self.hidden_size),
-            config.d_model,
-            bias=config.include_bias,
-            device=config.init_device,
-        )
-        self.ff_out._is_residual = True  # type: ignore
+        # self.ff_out = nn.Linear(
+        #     int(self.act.output_multiplier * self.hidden_size),
+        #     config.d_model,
+        #     bias=config.include_bias,
+        #     device=config.init_device,
+        # )
+        # self.ff_out._is_residual = True  # type: ignore
 
         # Rotary embeddings.
         if self.config.rope:
@@ -499,7 +499,7 @@ class OLMoBlock(nn.Module):
             raise NotImplementedError(self.config.init_fn)
 
         init_normal(self.attn_out, std=attn_out_std, init_cutoff_factor=cutoff_factor)
-        init_normal(self.ff_out, std=ff_out_std, init_cutoff_factor=cutoff_factor)
+        # init_normal(self.ff_out, std=ff_out_std, init_cutoff_factor=cutoff_factor)
 
     def set_activation_checkpointing(
         self, strategy: Optional[ActivationCheckpointingStrategy], checkpoint_func: Optional[Callable] = None
@@ -689,9 +689,28 @@ class OLMoSequentialBlock(OLMoBlock):
         self.att_proj = nn.Linear(
             config.d_model, sum(self.fused_dims), bias=config.include_bias, device=config.init_device
         )
-        # Feed-forward input projection.
-        self.ff_proj = nn.Linear(
-            config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
+        
+        # # Feed-forward input projection.
+        # self.ff_proj = nn.Linear(
+        #     config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
+        # )
+
+        from .fff import FFF
+
+        if self._activation_checkpoint_fn is not None:
+            # act = self._activation_checkpoint_fn(self.act, x)  # type: ignore
+            raise NotImplementedError()
+        else:
+            act = self.act
+
+        # Fast feed forward!
+        self.ffn = FFF(
+            config.d_model,
+            config.d_model,
+            3, # config.intermed_depth, # 4
+            128, # config.intermed_size, # 128
+            act,
+            device=config.init_device,
         )
 
         # Layer norms.
@@ -717,7 +736,9 @@ class OLMoSequentialBlock(OLMoBlock):
             raise NotImplementedError(self.config.init_fn)
 
         init_normal(self.att_proj, std, cutoff_factor)
-        init_normal(self.ff_proj, std, cutoff_factor)
+        # init_normal(self.ff_proj, std, cutoff_factor)
+        init_normal(self.ffn.linear_in, std, cutoff_factor)
+        init_normal(self.ffn.linear_out, std, cutoff_factor)
 
     def forward(
         self,
@@ -797,13 +818,23 @@ class OLMoSequentialBlock(OLMoBlock):
             else:
                 x = self.ff_norm(x)
 
-        x = self.ff_proj(x)
+        # ##################################################
+        # ###### FFNN
+        # ##################################################
 
-        if self._activation_checkpoint_fn is not None:
-            x = self._activation_checkpoint_fn(self.act, x)  # type: ignore
-        else:
-            x = self.act(x)
-        x = self.ff_out(x)
+        # x = self.ff_proj(x)
+
+        # if self._activation_checkpoint_fn is not None:
+        #     x = self._activation_checkpoint_fn(self.act, x)  # type: ignore
+        # else:
+        #     x = self.act(x)
+        # x = self.ff_out(x)
+
+        x = self.ffn(x)
+
+        # ##################################################
+        # ###### FFNN
+        # ##################################################
 
         if self.config.norm_after:
             if self._activation_checkpoint_fn is not None:
@@ -1101,6 +1132,12 @@ class OLMo(nn.Module):
                 wte=nn.Embedding(
                     config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
                 ),
+                # wte=nn.Embedding(
+                #     config.embedding_size or config.vocab_size, 16, device=config.init_device
+                # ),
+                # emb_forward=nn.Linear(
+                #     16, config.d_model, device=config.init_device
+                # ),
                 emb_drop=Dropout(config.embedding_dropout),
                 ln_f=LayerNorm.build(config),
             )
@@ -1123,6 +1160,18 @@ class OLMo(nn.Module):
         if not config.weight_tying:
             self.transformer.update(
                 {
+                    # "ff_out_down": nn.Linear(
+                    #     config.d_model,
+                    #     16,
+                    #     bias=config.include_bias,
+                    #     device=config.init_device,
+                    # ),
+                    # "ff_out": nn.Linear(
+                    #     16,
+                    #     config.embedding_size or config.vocab_size,
+                    #     bias=config.include_bias,
+                    #     device=config.init_device,
+                    # ),
                     "ff_out": nn.Linear(
                         config.d_model,
                         config.embedding_size or config.vocab_size,
@@ -1189,6 +1238,28 @@ class OLMo(nn.Module):
 
         init_normal(self.transformer.wte, std=wte_std, init_cutoff_factor=wte_cutoff_factor)
 
+        if hasattr(self.transformer, "emb_forward"):
+            if self.config.init_fn == InitFnType.normal:
+                # Note: We may potentially want to multiply the std by a factor of sqrt(d) in case of `scale_logits`
+                # and `weight_tying`. However, we are currently not using either, and may need to rethink the init logic
+                # if/when we do want it.
+                emb_forward_std = self.config.emb_init_std or self.config.init_std
+                emb_forward_cutoff_factor = self.config.init_cutoff_factor
+            elif self.config.init_fn == InitFnType.mitchell:
+                emb_forward_std = self.config.emb_init_std or 1.0 / math.sqrt(self.config.d_model)
+                emb_forward_cutoff_factor = self.config.init_cutoff_factor or 3.0
+            elif self.config.init_fn == InitFnType.full_megatron:
+                emb_forward_std = self.config.init_std
+                if self.config.emb_init_std is not None:
+                    emb_forward_std = self.config.emb_init_std
+                elif self.config.scale_emb_init:
+                    emb_forward_std *= math.sqrt(self.config.d_model)
+                emb_forward_cutoff_factor = self.config.init_cutoff_factor or 3.0
+            else:
+                raise NotImplementedError(self.config.init_fn)
+
+            init_normal(self.transformer.emb_forward, std=emb_forward_std, init_cutoff_factor=emb_forward_cutoff_factor)
+
         if hasattr(self.transformer, "wpe"):
             if self.config.init_fn == InitFnType.normal:
                 wpe_std = self.config.init_std
@@ -1222,6 +1293,21 @@ class OLMo(nn.Module):
                 raise NotImplementedError(self.config.init_fn)
 
             init_normal(self.transformer.ff_out, ff_out_std, ff_out_cutoff_factor)
+
+        if hasattr(self.transformer, "ff_out_down"):
+            if self.config.init_fn == InitFnType.normal:
+                ff_out_down_std = self.config.init_std
+                ff_out_down_cutoff_factor = self.config.init_cutoff_factor
+            elif self.config.init_fn == InitFnType.mitchell:
+                ff_out_down_std = 1 / math.sqrt(self.config.d_model)
+                ff_out_down_cutoff_factor = self.config.init_cutoff_factor or 3.0
+            elif self.config.init_fn == InitFnType.full_megatron:
+                ff_out_down_std = 1 / math.sqrt(self.config.d_model)
+                ff_out_down_cutoff_factor = self.config.init_cutoff_factor or 3.0
+            else:
+                raise NotImplementedError(self.config.init_fn)
+
+            init_normal(self.transformer.ff_out_down, ff_out_down_std, ff_out_down_cutoff_factor)
 
         # Let the blocks handle themselves.
         if self.config.block_group_size == 1:
@@ -1310,6 +1396,9 @@ class OLMo(nn.Module):
         # Get embeddings of input.
         # shape: (batch_size, seq_len, d_model)
         x = self.transformer.wte(input_ids) if input_embeddings is None else input_embeddings  # type: ignore
+
+        if hasattr(self.transformer, "emb_forward"):
+            x = self.transformer.emb_forward(x)
 
         # Apply embedding layer norm.
         if self.config.embedding_layer_norm:
@@ -1448,6 +1537,8 @@ class OLMo(nn.Module):
         if self.config.weight_tying:
             logits = F.linear(x, self.transformer.wte.weight, None)  # type: ignore
         else:
+            if hasattr(self.transformer, "ff_out_down"):
+                x = self.transformer.ff_out_down(x)
             logits = self.transformer.ff_out(x)  # type: ignore
         if self.config.scale_logits:
             logits.mul_(1 / math.sqrt(self.config.d_model))

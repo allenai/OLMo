@@ -193,7 +193,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             read_location = "/weka/oe-training-default/ai2-llm"
     read_location.rstrip("/")
 
-    save_folder = f"{read_location}/checkpoints/OLMo-ladder/{run_name}"
+    save_folder = f"{read_location}/checkpoints/davidh/{run_name}"
     if args.s3:
         remote_save_folder = save_folder
     else:
