@@ -35,6 +35,10 @@ export NCCL_INFO=DEBUG
 # Fix wandb spacing
 export WANDB_API_KEY=$(echo "$WANDB_API_KEY" | tr -d '
 ' | tr -d '')
+export AWS_ACCESS_KEY_ID=$(echo "$AWS_ACCESS_KEY_ID" | tr -d '
+' | tr -d '')
+export AWS_SECRET_ACCESS_KEY=$(echo "$AWS_SECRET_ACCESS_KEY" | tr -d '
+' | tr -d '')
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
