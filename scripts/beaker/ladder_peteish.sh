@@ -33,7 +33,8 @@ export TORCH_SHOW_CPP_STACKTRACES=1
 export NCCL_INFO=DEBUG
 
 # Fix wandb spacing
-export WANDB_API_KEY=$(echo "$WANDB_API_KEY" | tr -d ' ')
+export WANDB_API_KEY=$(echo "$WANDB_API_KEY" | tr -d '
+' | tr -d '')
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
@@ -44,3 +45,11 @@ torchrun \
   --node_rank=$BEAKER_REPLICA_RANK \
   --rdzv_conf="read_timeout=420" \
   scripts/ladder_peteish.py train "$@"
+
+
+export HI="
+ hi 
+"
+export HI="'$HI'" | tr -d '
+' | tr -d ''
+echo $HI
