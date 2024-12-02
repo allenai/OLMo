@@ -166,7 +166,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         "300M": 20,
         "530M": 8,
         "750M": 8,
-        "1B": 8,
+        "1B": 4,
         "7B": 2,
     }.get(args.model, 4)
 
