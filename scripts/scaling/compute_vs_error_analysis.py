@@ -1,3 +1,11 @@
+
+# python scripts/scaling/compute_vs_error_analysis.py --moving_avg 5 --skip_perc 0.1 -o step1_compute_error.pdf --vary flops --which_step step1 --do_average
+# python scripts/scaling/compute_vs_error_analysis.py --moving_avg 5 --skip_perc 0.1 -o step2_compute_error.pdf --vary flops --which_step step2 --do_average
+# python scripts/scaling/compute_vs_error_analysis.py --moving_avg 5 --skip_perc 0.1 -o stacked_compute_error.pdf --vary flops --which_step stacked --do_average
+
+# python scripts/scaling/compute_vs_error_analysis.py --moving_avg 5 --skip_perc 0.1 -o stacked_N_error_all.pdf --vary N --which_step stacked
+# python scripts/scaling/compute_vs_error_analysis.py --moving_avg 5 --skip_perc 0.1 -o stacked_xC_error_all.pdf --vary xC --which_step stacked
+
 import argparse
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -44,6 +52,17 @@ MODEL_PARAMS = {
     "7B": 6887575552,
     "13B": 13202396160,
 }
+
+TARGET_CONFIG = {
+    "paths": [
+        "scripts/scaling/data/peteish-moreeval/peteish7_eval_anneal.csv"
+    ],
+    "mode": "eval",
+    "n": 6887575552,
+    "label": "7B-4T",
+    "color": "darkviolet"
+}
+
 
 
 TASKS = ['mmlu_avg_test_5shot', 'hellaswag_val_5shot',
@@ -147,7 +166,7 @@ def run_all_steps(configs, moving_avg=1, skip_perc=0.0, which_error="pred_error"
     return output
 
 
-def plot_vary_n(N_df, output_path):
+def plot_vary_n(N_df, output_path, which_step):
     FONTSIZE = 11
     sns.set_style("whitegrid")
     num_tasks = len(TASKS)
@@ -161,7 +180,7 @@ def plot_vary_n(N_df, output_path):
         task_df = N_df[task_name]
         
         ax.plot(
-            [MODEL_FLOPS[model] for model in task_df.index],
+            [MODEL_PARAMS[model] for model in task_df.index],
             task_df.values,
             color="grey",
             linestyle="--",
@@ -169,9 +188,9 @@ def plot_vary_n(N_df, output_path):
         )
 
         ax.set_ylim([0, 1.0])
-        ax.set_xscale("log")
-        ax.set_xlabel("Model Size (N)")
-        ax.set_ylabel("Prediction Error")
+        # ax.set_xscale("log")
+        ax.set_xlabel("(Upto) Model Size (N)")
+        ax.set_ylabel(f"{which_step} prediction Error".title())
         ax.set_title(f"{tasks[task_name].display_name}",
             fontsize=FONTSIZE,
             fontweight="bold"
@@ -187,15 +206,7 @@ def run_predictions_vary_n(args, which_step="stacked"):
     output_per_N = {}
 
     configs = {
-        "7B-4T": {
-            "paths": [
-                "scripts/scaling/data/peteish-moreeval/peteish7_eval_anneal.csv"
-            ],
-            "mode": "eval",
-            "n": 6887575552,
-            "label": "7B-4T",
-            "color": "darkviolet"
-        }
+        TARGET_CONFIG["label"]: TARGET_CONFIG
     }
 
     for N in MODELS:
@@ -215,10 +226,10 @@ def run_predictions_vary_n(args, which_step="stacked"):
         output_per_N[N] = {key: val[which_step] for key, val in output.items()}
 
     N_df = pd.DataFrame.from_dict(output_per_N).transpose()
-    plot_vary_n(N_df, args.output_path)
+    plot_vary_n(N_df, args.output_path, which_step)
 
 
-def plot_vary_xC(xC_df, output_path):
+def plot_vary_xC(xC_df, output_path, which_step):
     FONTSIZE = 11
     sns.set_style("whitegrid")
     num_tasks = len(TASKS)
@@ -242,7 +253,7 @@ def plot_vary_xC(xC_df, output_path):
         # ax.set_ylim([0, 0.5])
         ax.set_xticks([0, 1, 2, 5, 10])
         ax.set_xlabel("Chinchilla Multiplier (xC)")
-        ax.set_ylabel("Prediction Error")
+        ax.set_ylabel(f"{which_step} prediction Error".title())
         ax.set_title(f"{tasks[task_name].display_name}",
             fontsize=FONTSIZE,
             fontweight="bold"
@@ -258,15 +269,7 @@ def run_predictions_vary_xC(args, which_step="stacked"):
     output_per_xC = {}
 
     configs = {
-        "7B-4T": {
-            "paths": [
-                "scripts/scaling/data/peteish-moreeval/peteish7_eval_anneal.csv"
-            ],
-            "mode": "eval",
-            "n": 6887575552,
-            "label": "7B-4T",
-            "color": "darkviolet"
-        }
+        TARGET_CONFIG["label"]: TARGET_CONFIG
     }
 
 
@@ -292,7 +295,7 @@ def run_predictions_vary_xC(args, which_step="stacked"):
         output_per_xC[mult] = {key: val[which_step] for key, val in output.items()}
 
     xC_df = pd.DataFrame.from_dict(output_per_xC).transpose()
-    plot_vary_xC(xC_df, args.output_path)
+    plot_vary_xC(xC_df, args.output_path, which_step)
 
 
 def plot_vary_flops(flops_df, output_path, which_step, do_average=False):
@@ -358,15 +361,7 @@ def run_predictions_vary_flops(args, which_step="stacked", do_average=False):
     output_per_flops = {}
 
     configs = {
-        "7B-4T": {
-            "paths": [
-                "scripts/scaling/data/peteish-moreeval/peteish7_eval_anneal.csv"
-            ],
-            "mode": "eval",
-            "n": 6887575552,
-            "label": "7B-4T",
-            "color": "darkviolet"
-        }
+        TARGET_CONFIG["label"]: TARGET_CONFIG
     }
 
     all_flops = {}
