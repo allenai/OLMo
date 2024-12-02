@@ -171,5 +171,10 @@ if __name__ == "__main__":
 
     cfg = TrainConfig.load(yaml_path, [clean_opt(s) for s in args_list])
 
+    # (David's hacky solutions) Limit data and evaluators for speed
+    cfg.evaluators = [cfg.evaluators[0]] # <- only keep first evaluator
+    cfg.data.paths = [cfg.data.paths[0]] # <- only keep first data path
+    if cfg.load_path == None: cfg.load_path = cfg.save_folder + '/step0-unsharded'
+
     main(cfg)
 
