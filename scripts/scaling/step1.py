@@ -143,15 +143,15 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
 
         if configs[name].mode == "eval":
             predicted_data = predicted_data_by_name[name]
-            for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["xs"]):
-                rel_error = (y_pred - y) / y
+            for d, e_y, e_y_pred in zip(data["ds"], data["xs"], predicted_data["xs"]):
+                rel_error = (e_y_pred - e_y) / e_y
         else:
             predicted_data = predicted_data_by_name[name]
             for f, y, y_pred in zip(data["fs"], data["xs"], predicted_data["xs"]):
                 rel_error_t = (y_pred - y) / y
                 unsigned_rel_errors.append(np.abs(rel_error_t))
 
-    return predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error), unsigned_rel_errors
+    return predicted_data_by_name, plotted_predicted_data_by_name, (e_y, e_y_pred, rel_error), unsigned_rel_errors
 
 
 def str_chinchilla_n_d_fit(coefficients):

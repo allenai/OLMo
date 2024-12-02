@@ -100,7 +100,7 @@ def predict_step2(configs, data_by_name, coefficients, cov, y_metric, use_log_si
     fit_fn = log_sigmoid_fit if use_log_sigmoid else sigmoid_fit
     grad_fit_fn = grad_log_sigmoid_fit if use_log_sigmoid else grad_sigmoid_fit
 
-    all_rel_errors = []
+    unsigned_rel_errors = []
 
     predicted_data_by_name = {}
     for name, data in data_by_name.items():
@@ -110,12 +110,15 @@ def predict_step2(configs, data_by_name, coefficients, cov, y_metric, use_log_si
             "ys": [predict_fn(x, *coefficients) for x in data["xs"]],
         }
         if config.mode == "eval":
-            for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data_by_name[name]["ys"]):
-                rel_error = (y_pred - y) / y
-                std_error = get_std_errors([x], [y_pred], coefficients, cov, fit_fn, grad_fit_fn)  # [0]
+            for x, e_y, e_y_pred in zip(data["xs"], data["ys"], predicted_data_by_name[name]["ys"]):
+                rel_error = (e_y_pred - e_y) / e_y
+                std_error = get_std_errors([x], [e_y_pred], coefficients, cov, fit_fn, grad_fit_fn)  # [0]
                 delta_error = 1.96 * std_error
-
-                all_rel_errors.append(rel_error)
+        else:
+            predicted_data = predicted_data_by_name[name]
+            for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data["ys"]):
+                rel_error_t = (y_pred - y) / y
+                unsigned_rel_errors.append(np.abs(rel_error_t))
 
     xmin = min(min(data["xs"]) for data in data_by_name.values())
     xmax = max(max(data["xs"]) for data in data_by_name.values())
@@ -127,7 +130,7 @@ def predict_step2(configs, data_by_name, coefficients, cov, y_metric, use_log_si
         "ys": [predict_fn(x, *coefficients) for x in xs],
     }
 
-    return predicted_data_by_name, plotted_predicted_data, (y, y_pred, rel_error, delta_error), all_rel_errors
+    return predicted_data_by_name, plotted_predicted_data, (e_y, e_y_pred, rel_error, delta_error), unsigned_rel_errors
 
 
 def plot_step2(
