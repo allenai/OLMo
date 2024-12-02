@@ -1782,6 +1782,9 @@ DATA_SOURCES = {
     "pos_eli5_oh_neg_dclm_refinedweb_steps_2000_lr3e4_top20p": [f"preprocessed/dclm/pos_eli5_oh_neg_dclm_refinedweb_steps_2000_lr3e4_top20p/1t/part-{i:02d}-0000{j}.npy" for i in range(64) for j in range(3)],
     "regression_synthetic_20epochs_bs640_lf1_lre35_top10p": [f"preprocessed/dclm/regression_synthetic_20epochs_bs640_lf1_lre35_top10p/1t/part-{i:02d}-0000{j}.npy" for i in range(64) for j in range(2)],
     "regression_synthetic_20epochs_bs640_lf1_lre35_top20p": [f"preprocessed/dclm/regression_synthetic_20epochs_bs640_lf1_lre35_top20p/1t/part-{i:02d}-0000{j}.npy" for i in range(64) for j in range(4)],
+    "dclm_fw_top10": [f"preprocessed/dclm/v0_fw_top10p/gpt-neox-olmo-dolma-v1_5/part-{i:02d}-0000{j}.npy" for i in range(64) for j in range(2)],
+    "dclm_ft7percentile_fw2": [f"preprocessed/preprocessed/dclm/v0_rep32_ft7percentile_fw2/gpt-neox-olmo-dolma-v1_5/part-{i:02d}-0000{j}.npy" for i in range(64) for j in range(12)],
+    "dclm_ft7percentile_fw3": [f"preprocessed/preprocessed/dclm/v0_rep32_ft7percentile_fw3/gpt-neox-olmo-dolma-v1_5/part-{i:02d}-0000{j}.npy" for i in range(64) for j in range(4)],
     "dclm_mmlu_top10": [
         "preprocessed/dclm/regression_synthetic_mmlu_10p/1t/gpt-neox-olmo-dolma-v1_5/part-00-00000.npy",
         "preprocessed/dclm/regression_synthetic_mmlu_10p/1t/gpt-neox-olmo-dolma-v1_5/part-00-00001.npy",
@@ -4511,6 +4514,9 @@ DATA_PATHS["regression_synthetic_20epochs_bs640_lf1_lre35_top10p"] = build_colle
 DATA_PATHS["regression_synthetic_20epochs_bs640_lf1_lre35_top20p"] = build_collection_include(["regression_synthetic_20epochs_bs640_lf1_lre35_top20p"])
 
 DATA_PATHS["dclm_mmlu_top10"] = build_collection_include(["dclm_mmlu_top10"])
+DATA_PATHS["dclm_fw_top10"] = build_collection_include(["dclm_fw_top10"])
+DATA_PATHS["dclm_ft7percentile_fw2"] = build_collection_include(["dclm_ft7percentile_fw2"])
+DATA_PATHS["dclm_ft7percentile_fw3"] = build_collection_include(["dclm_ft7percentile_fw3"])
 
 # DATA_PATHS["dolma17_uniform"] = build_collection_with_weights(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
 
