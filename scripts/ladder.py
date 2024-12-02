@@ -198,13 +198,13 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             precision=FSDPPrecision.mixed,
         ),
         optimizer=OptimizerConfig(
-            name=OptimizerType.adafactor,
+            name=OptimizerType.adamw, #adafactor
             learning_rate=lr,
             weight_decay=0.05,
-            # eps=1e-8,
+            eps=1e-8,
             decay_norm_and_bias=True,
             decay_embeddings=True,
-            # betas=(0.9, 0.95),
+            betas=(0.9, 0.95),
             metrics_log_interval=None,
         ),
         scheduler=SchedulerConfig(
