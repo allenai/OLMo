@@ -45,6 +45,11 @@ if __name__ == "__main__":
         "dolma17-50p-DCLM-baseline-50p",
         "dolma17-25p-DCLM-baseline-75p",
         "dolma-v1-6-and-sources-baseline",
+        "pos_eli5_oh_neg_dclm_refinedweb_steps_2000_lr3e4_top10p",
+        "pos_eli5_oh_neg_dclm_refinedweb_steps_2000_lr3e4_top20p",
+        "dclm_fw_top10",
+        "dclm_ft7percentile_fw2",
+        "dclm_ft7percentile_fw3",
     ]
 
     sizes = [
