@@ -122,7 +122,7 @@ def main():
     num_tasks = len(args.keys)
     num_cols = 3
     num_rows = num_tasks
-    fig, axes = plt.subplots(num_tasks, num_cols, figsize=(6 * num_cols, 4.5 * num_rows), squeeze=False)
+    fig, axes = plt.subplots(num_tasks, num_cols, figsize=(2.75 * num_cols, 2.25 * num_rows), squeeze=False)
 
     # results = "Task Name | Loss Error | Accuracy Error | Stacked Accuracy Error"
 
@@ -165,7 +165,7 @@ def main():
             ax=ax,
         )
 
-        ax.set_title(f"Step 1: {ax.get_title()}", fontweight="bold", fontsize=FONTSIZE)
+        ax.set_title("Step 1", fontweight="bold", fontsize=FONTSIZE)
 
         step1_coefficients = coefficients
 
@@ -223,7 +223,7 @@ def main():
             ax=ax,
         )
 
-        ax.set_title(f"Step 2: {ax.get_title()}", fontweight="bold", fontsize=FONTSIZE)
+        ax.set_title("Step 2", fontweight="bold", fontsize=FONTSIZE)
 
         # Stacked plot
 
@@ -265,7 +265,7 @@ def main():
             ax,
         )
 
-        ax.set_title(f"Combined: {tasks[task_name].display_name}", fontweight="bold", fontsize=FONTSIZE)
+        ax.set_title("Chained", fontweight="bold", fontsize=FONTSIZE)
 
     handles, labels = axes[-1][-1].get_legend_handles_labels()
     # delete x-axis labels for all but the bottom row
@@ -278,16 +278,16 @@ def main():
         handles,
         labels,
         loc="upper center",
-        ncol=50,
+        ncol=4,
         fontsize=FONTSIZE,
-        bbox_to_anchor=(0.5, 1.01),
+        bbox_to_anchor=(0.5, 1.25),
         handletextpad=0.3,
         columnspacing=0.7,
     )
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
-    fig.subplots_adjust(top=0.88)
-    fig.savefig(args.output_path, dpi=300)
+    # fig.subplots_adjust(top=0.88)
+    fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
     # print(results_str)
 

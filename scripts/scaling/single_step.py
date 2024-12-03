@@ -41,10 +41,11 @@ def fit_single_step(data_by_name, task_name):
     for name, data in data_by_name.items():
         if data["mode"] == "train":
             train_nds += [[n, d] for n, d in zip(data["ns"], data["ds"])]
-            train_ys += data["ys"]
+            train_ys += data["xs"]
 
     p0 = [3.0, 5.0, 0.2, 0.3, 0.0, tasks[task_name].task_minimum - 1.0, 1.0]
-    bounds = [(0, 10), (0, 10), (0, 1), (0, 1), (-10, 10), (-0.9999, 0), (0, 1)]
+    # bounds = [(0, 10), (0, 10), (0, 1), (0, 1), (-10, 10), (-0.9999, 0), (0, 1)]
+    bounds = [(0, None), (0, None), (0, None), (0, None), (None, None), (-1.0, 0), (0, 1)]
     coefficients = get_coefficients_huber(
         train_nds,
         train_ys,
@@ -80,7 +81,7 @@ def predict_single_step(data_by_name, coefficients):
 
         if data["mode"] == "eval":
             predicted_data = predicted_data_by_name[name]
-            for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["ys"]):
+            for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["ys"]):
                 rel_error = (y_pred - y) / y
 
     return predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error)
@@ -123,7 +124,7 @@ def plot_single_step(
         config = configs[name]
         predicted_data = predicted_data_by_name[name]
 
-        for i, (d, y) in enumerate(zip(data["ds"], data["ys"])):
+        for i, (d, y) in enumerate(zip(data["ds"], data["xs"])):
             ax.scatter(
                 d,
                 y,
@@ -133,7 +134,7 @@ def plot_single_step(
                 label=f"{config.label} (target)" if config.mode == "eval" else None,
             )
 
-        for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["ys"]):
+        for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["ys"]):
             rel_error = (y_pred - y) / y
             if config.mode == "train":
                 unsigned_rel_errors.append(np.abs(rel_error))

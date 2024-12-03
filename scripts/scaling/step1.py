@@ -27,7 +27,7 @@ from olmo.scaling.scaling_laws.utils import (
     tasks,
 )
 
-MARKERS = ["s", "P", "p", "*", "o"]
+MARKERS = {"0.5xC": "D", "1xC": "s", "2xC": "P", "5xC": "p", "10xC": "*"}
 FONTSIZE = 9
 
 
@@ -157,7 +157,7 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
 def str_chinchilla_n_d_fit(coefficients):
     a, b, alpha, beta, E = coefficients
     A, B = np.exp(a), np.exp(b)
-    return f"L(N, D) = {A:.2f} / N^{alpha:.2f} + {B:.2f} / D^{beta:.2f} + {E:.2f}"
+    return f"L(N, D) = {A:.2f} / N^{{{alpha:.2f}}} + {B:.2f} / D^{{{beta:.2f}}} + {E:.2f}"
 
 
 def plot_step1(
@@ -193,12 +193,12 @@ def plot_step1(
         config = configs[name]
         predicted_data = predicted_data_by_name[name]
 
-        for i, (d, x) in enumerate(zip(data["ds"], data["xs"])):
+        for i, (d, x, l) in enumerate(zip(data["ds"], data["xs"], data["ls"])):
             ax.scatter(
                 d,
                 x,
                 color=config.color,
-                marker=MARKERS[i] if config.mode == "train" else "o",
+                marker=MARKERS[l] if config.mode == "train" else "o",
                 s=50 if config.mode == "train" else 20,
                 label=f"{config.label} (target)" if config.mode == "eval" else None,
             )
@@ -265,6 +265,7 @@ def main():
 
     results = {}
     results_str = "Task Name | Actual Value | Predicted Value | Relative Error | Fitting Error"
+    params_str = ""
 
     for i, task_name in enumerate(args.keys):
         data_by_name = get_step1_data_by_name(
@@ -292,6 +293,7 @@ def main():
             "Fit Error": avg_unsigned_rel_error,
         }
         results_str += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)} | {prettify(avg_unsigned_rel_error)}"
+        params_str += f"{tasks[task_name].display_name} & ${str_chinchilla_n_d_fit(coefficients)}$ \\\\\n"
 
         if args.output_path:
             plot_step1(
@@ -352,6 +354,7 @@ def main():
         fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
         df.to_csv(args.output_path.replace(".pdf", ".csv"), index=False)
 
+    print(params_str)
     print(results_str)
     print("Total fitting error: ", prettify(fitting_error / num_tasks))
 

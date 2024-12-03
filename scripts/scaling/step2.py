@@ -270,7 +270,7 @@ def str_sigmoid(coefficients, use_log_sigmoid=False):
         return f"Acc(L) = 1 - {-a:.2f} * log(1 - 1/(1 + e^(-{k:.2f}(L - {x0:.2f})))"
     else:
         a, x0, k, b = coefficients
-        return f"Acc(L) = {a:.2f} / (1 + e^(-{k:.2f}(L - {x0:.2f}))) + {b:.2f}"
+        return f"Acc(L) = {a:.2f} / (1 + \\exp (-{k:.2f}(L - {x0:.2f}))) + {b:.2f}"
 
 
 def main():
@@ -288,6 +288,7 @@ def main():
 
     results = {}
     results_str = "Task Name | Actual Value | Predicted Value | Relative Error"
+    params_str = ""
 
     rel_errors = []
     for i, task_name in enumerate(args.keys):
@@ -317,6 +318,7 @@ def main():
         str_formula = str_sigmoid(coefficients, use_log_sigmoid=args.use_log_sigmoid)
         results[task_name] = {"Actual": y, "Pred": y_pred, "Rel Error": rel_error}
         results_str += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)} | {str_formula}"
+        params_str += f"{tasks[task_name].display_name} & ${str_sigmoid(coefficients, use_log_sigmoid=args.use_log_sigmoid)}$ \\\\\n"
 
         # plot the actual and predicted data
         ax = axes[i // num_cols][i % num_cols]
@@ -335,6 +337,8 @@ def main():
             use_log_sigmoid=args.use_log_sigmoid,
             ax=ax,
         )
+
+    print(params_str)
 
     print(f"Mean relative error: {np.mean(np.abs(rel_errors)) * 100:.2f}%")
 
