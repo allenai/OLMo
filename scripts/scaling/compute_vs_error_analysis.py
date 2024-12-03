@@ -1,4 +1,3 @@
-
 # python scripts/scaling/compute_vs_error_analysis.py --moving_avg 5 --skip_perc 0.1 -o step1_compute_error.pdf --vary flops --which_step step1 --do_average
 # python scripts/scaling/compute_vs_error_analysis.py --moving_avg 5 --skip_perc 0.1 -o step2_compute_error.pdf --vary flops --which_step step2 --do_average
 # python scripts/scaling/compute_vs_error_analysis.py --moving_avg 5 --skip_perc 0.1 -o stacked_compute_error.pdf --vary flops --which_step stacked --do_average
@@ -7,27 +6,26 @@
 # python scripts/scaling/compute_vs_error_analysis.py --moving_avg 5 --skip_perc 0.1 -o stacked_xC_error_all.pdf --vary xC --which_step stacked
 
 import argparse
-import pandas as pd
+
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
-
-from olmo.scaling.scaling_laws.utils import tasks
-from olmo.scaling.scaling_laws.utils import FinalConfig, get_step1_data_by_name, get_step2_data_by_name
-
+import pandas as pd
+import seaborn as sns
 from step1 import fit_step1, predict_step1
 from step2 import fit_step2, predict_step2
+
 from olmo.scaling.scaling_laws.fitting_functions import chinchilla_n_d_fit, sigmoid
+from olmo.scaling.scaling_laws.utils import (
+    FinalConfig,
+    get_step1_data_by_name,
+    get_step2_data_by_name,
+    tasks,
+)
 
 MODELS = ["190M", "370M", "760M", "1B"]
 CHINCHILLA_MULTIPLIERS = [1, 2, 5, 10]
 
-COLOR_MAP = {
-    "190M": "darkred",
-    "370M": "darkorange",
-    "760M": "darkgreen",
-    "1B": "teal"
-}
+COLOR_MAP = {"190M": "darkred", "370M": "darkorange", "760M": "darkgreen", "1B": "teal"}
 
 TARGET_COLOR = "darkviolet"
 
@@ -54,25 +52,27 @@ MODEL_PARAMS = {
 }
 
 TARGET_CONFIG = {
-    "paths": [
-        "scripts/scaling/data/peteish-moreeval/peteish7_eval_anneal.csv"
-    ],
+    "paths": ["scripts/scaling/data/peteish-moreeval/peteish7_eval_anneal.csv"],
     "mode": "eval",
     "n": 6887575552,
     "label": "7B-4T",
-    "color": "darkviolet"
+    "color": "darkviolet",
 }
 
 
-
-TASKS = ['mmlu_avg_test_5shot', 'hellaswag_val_5shot',
-       'arc_challenge_test_5shot', 'arc_easy_test_5shot',
-       'piqa_val_5shot', 'csqa_val_5shot', 'socialiqa_val_5shot',
-       'openbookqa_test_5shot']
+TASKS = [
+    "mmlu_avg_test_5shot",
+    "hellaswag_val_5shot",
+    "arc_challenge_test_5shot",
+    "arc_easy_test_5shot",
+    "piqa_val_5shot",
+    "csqa_val_5shot",
+    "socialiqa_val_5shot",
+    "openbookqa_test_5shot",
+]
 
 
 def predict_stacked(configs, data_by_name, step1_coefficients, step2_coefficients):
-
     dmin = 0.8 * min([min(data["ds"]) for data in data_by_name.values()])
     dmax = 1.5 * max([max(data["ds"]) for data in data_by_name.values()])
 
@@ -112,9 +112,7 @@ def predict_stacked(configs, data_by_name, step1_coefficients, step2_coefficient
     return predicted_data_by_name, plotted_predicted_data_by_name, (e_y, e_y_pred, rel_error), unsigned_rel_errors
 
 
-
 def run_all_steps(configs, moving_avg=1, skip_perc=0.0, which_error="pred_error"):
-
     step1_fitting_error = 0.0
     step2_fitting_error = 0.0
     stacked_fitting_error = 0.0
@@ -126,13 +124,13 @@ def run_all_steps(configs, moving_avg=1, skip_perc=0.0, which_error="pred_error"
     output = {}
 
     for task_name in TASKS:
-        step1_data_by_name = get_step1_data_by_name(
-            configs, task_name, y_metric="rc_bpb", moving_avg=moving_avg
-        )
+        step1_data_by_name = get_step1_data_by_name(configs, task_name, y_metric="rc_bpb", moving_avg=moving_avg)
 
         step1_coefficients, cov = fit_step1(step1_data_by_name, y_metric="rc_bpb")
-        
-        a, b, (y, y_pred, step1_rel_error), step1_unsigned_rel_errors = predict_step1(configs, step1_data_by_name, step1_coefficients, y_metric="rc_bpb")
+
+        a, b, (y, y_pred, step1_rel_error), step1_unsigned_rel_errors = predict_step1(
+            configs, step1_data_by_name, step1_coefficients, y_metric="rc_bpb"
+        )
 
         step1_avg_unsigned_rel_error = np.mean(step1_unsigned_rel_errors)
         step1_fitting_error += step1_avg_unsigned_rel_error
@@ -148,20 +146,38 @@ def run_all_steps(configs, moving_avg=1, skip_perc=0.0, which_error="pred_error"
 
         step2_coefficients, cov = fit_step2(step2_data_by_name, task_name, "rc_acc")
 
-        a, b, (y, y_pred, step2_rel_error, _), step2_unsigned_rel_errors = predict_step2(configs, step2_data_by_name, step2_coefficients, cov, y_metric="rc_acc")
+        a, b, (y, y_pred, step2_rel_error, _), step2_unsigned_rel_errors = predict_step2(
+            configs, step2_data_by_name, step2_coefficients, cov, y_metric="rc_acc"
+        )
 
         step2_avg_unsigned_rel_error = np.mean(step2_unsigned_rel_errors)
         step2_fitting_error += step2_avg_unsigned_rel_error
 
-        a, b, (y, y_pred, stacked_rel_error), stacked_unsigned_rel_errors = predict_stacked(configs, step1_data_by_name, step1_coefficients, step2_coefficients)
+
+        step1_data_by_name = get_step1_data_by_name(configs, task_name, y_metric="rc_acc", moving_avg=args.moving_avg)
+
+        a, b, (y, y_pred, stacked_rel_error), stacked_unsigned_rel_errors = predict_stacked(
+            configs, step1_data_by_name, step1_coefficients, step2_coefficients
+        )
+
+        # if "hellaswag" in task_name:
+        #     print(task_name, step1_rel_error, step2_rel_error, stacked_rel_error)
 
         stacked_avg_unsigned_rel_error = np.mean(stacked_unsigned_rel_errors)
         stacked_fitting_error += stacked_avg_unsigned_rel_error
 
         if which_error == "pred_error":
-            output[task_name] = {"step1": np.abs(step1_rel_error), "step2": np.abs(step2_rel_error), "stacked": np.abs(stacked_rel_error)}
+            output[task_name] = {
+                "step1": np.abs(step1_rel_error),
+                "step2": np.abs(step2_rel_error),
+                "stacked": np.abs(stacked_rel_error),
+            }
         else:
-            output[task_name] = {"step1": np.abs(step1_avg_unsigned_rel_error), "step2": np.abs(step2_avg_unsigned_rel_error), "stacked": np.abs(stacked_avg_unsigned_rel_error)}
+            output[task_name] = {
+                "step1": np.abs(step1_avg_unsigned_rel_error),
+                "step2": np.abs(step2_avg_unsigned_rel_error),
+                "stacked": np.abs(stacked_avg_unsigned_rel_error),
+            }
 
     return output
 
@@ -178,23 +194,36 @@ def plot_vary_n(N_df, output_path, which_step):
     for i, task_name in enumerate(N_df.columns):
         ax = axes[i // num_cols][i % num_cols]
         task_df = N_df[task_name]
-        
-        ax.plot(
-            [MODEL_PARAMS[model] for model in task_df.index],
-            task_df.values,
-            color="grey",
-            linestyle="--",
-            linewidth=1.5,
-        )
+
+        if which_step == "all":
+            colors = {"step1": "lightgrey", "step2": "grey", "stacked": "darkgreen"}
+            for step_ in ["step1", "step2", "stacked"]:
+                ax.plot(
+                    [MODEL_PARAMS[model] for model in task_df.index],
+                    [x[step_] for x in task_df.values],
+                    color=colors[step_],
+                    linestyle="--",
+                    linewidth=1.5,
+                    label=step_,
+                )
+            ax.set_ylabel(f"Prediction Error".title())
+            ax.legend(loc="upper right", ncols=1, fontsize=8)
+
+        else:
+            ax.plot(
+                [MODEL_PARAMS[model] for model in task_df.index],
+                [x[which_step] for x in task_df.values],
+                color="grey",
+                linestyle="--",
+                linewidth=1.5,
+            )
+            ax.set_ylabel(f"{which_step} prediction Error".title())
 
         ax.set_ylim([0, 1.0])
         # ax.set_xscale("log")
         ax.set_xlabel("(Upto) Model Size (N)")
-        ax.set_ylabel(f"{which_step} prediction Error".title())
-        ax.set_title(f"{tasks[task_name].display_name}",
-            fontsize=FONTSIZE,
-            fontweight="bold"
-        )
+        
+        ax.set_title(f"{tasks[task_name].display_name}", fontsize=FONTSIZE, fontweight="bold")
         # ax.set_xticks([MODEL_FLOPS[model] for model in task_df.index], task_df.index)
 
     fig.tight_layout()
@@ -202,28 +231,23 @@ def plot_vary_n(N_df, output_path, which_step):
 
 
 def run_predictions_vary_n(args, which_step="stacked"):
-
     output_per_N = {}
 
-    configs = {
-        TARGET_CONFIG["label"]: TARGET_CONFIG
-    }
+    configs = {TARGET_CONFIG["label"]: TARGET_CONFIG}
 
     for N in MODELS:
-
         paths = [f"scripts/scaling/data/peteish-moreeval/{N}-{mult}xC.csv" for mult in CHINCHILLA_MULTIPLIERS]
-        configs[N] = {
-            "paths": paths,
-            "mode": "train",
-            "n": MODEL_PARAMS[N],
-            "label": N,
-            "color": COLOR_MAP[N]
-        }
+        configs[N] = {"paths": paths, "mode": "train", "n": MODEL_PARAMS[N], "label": N, "color": COLOR_MAP[N]}
 
         final_configs = {name: FinalConfig(**config) for name, config in configs.items()}
+
+        if N == "1B":
+            print(final_configs)
+
         output = run_all_steps(final_configs, moving_avg=args.moving_avg, skip_perc=args.skip_perc)
 
-        output_per_N[N] = {key: val[which_step] for key, val in output.items()}
+        # output_per_N[N] = {key: val[which_step] for key, val in output.items()}
+        output_per_N[N] = output
 
     N_df = pd.DataFrame.from_dict(output_per_N).transpose()
     plot_vary_n(N_df, args.output_path, which_step)
@@ -241,23 +265,34 @@ def plot_vary_xC(xC_df, output_path, which_step):
     for i, task_name in enumerate(xC_df.columns):
         ax = axes[i // num_cols][i % num_cols]
         task_df = xC_df[task_name]
-        
-        ax.plot(
-            CHINCHILLA_MULTIPLIERS,
-            task_df.values,
-            color="grey",
-            linestyle="--",
-            linewidth=1.5,
-        )
 
-        # ax.set_ylim([0, 0.5])
+        if which_step == "all":
+            colors = {"step1": "lightgrey", "step2": "grey", "stacked": "darkgreen"}
+            for step_ in ["step1", "step2", "stacked"]:
+                ax.plot(
+                    CHINCHILLA_MULTIPLIERS,
+                    [x[step_] for x in task_df.values],
+                    color=colors[step_],
+                    linestyle="--",
+                    linewidth=1.5,
+                    label=step_,
+                )
+            ax.set_ylabel(f"Prediction Error".title())
+            ax.legend(loc="upper right", ncols=1, fontsize=8)
+        else:
+            ax.plot(
+                CHINCHILLA_MULTIPLIERS,
+                [x[which_step] for x in task_df.values],
+                color="grey",
+                linestyle="--",
+                linewidth=1.5,
+            )
+            ax.set_ylabel(f"{which_step} prediction Error".title())
+
+        ax.set_ylim([0, 1.0])
         ax.set_xticks([0, 1, 2, 5, 10])
         ax.set_xlabel("Chinchilla Multiplier (xC)")
-        ax.set_ylabel(f"{which_step} prediction Error".title())
-        ax.set_title(f"{tasks[task_name].display_name}",
-            fontsize=FONTSIZE,
-            fontweight="bold"
-        )
+        ax.set_title(f"{tasks[task_name].display_name}", fontsize=FONTSIZE, fontweight="bold")
         # ax.set_xticks([MODEL_FLOPS[model] for model in task_df.index], task_df.index)
 
     fig.tight_layout()
@@ -265,16 +300,11 @@ def plot_vary_xC(xC_df, output_path, which_step):
 
 
 def run_predictions_vary_xC(args, which_step="stacked"):
-
     output_per_xC = {}
 
-    configs = {
-        TARGET_CONFIG["label"]: TARGET_CONFIG
-    }
-
+    configs = {TARGET_CONFIG["label"]: TARGET_CONFIG}
 
     for mult in CHINCHILLA_MULTIPLIERS:
-
         for N in MODELS:
             if N in configs:
                 configs[N]["paths"] += [f"scripts/scaling/data/peteish-moreeval/{N}-{mult}xC.csv"]
@@ -285,14 +315,15 @@ def run_predictions_vary_xC(args, which_step="stacked"):
                     "mode": "train",
                     "n": MODEL_PARAMS[N],
                     "label": N,
-                    "color": COLOR_MAP[N]
+                    "color": COLOR_MAP[N],
                 }
 
         final_configs = {name: FinalConfig(**config) for name, config in configs.items()}
 
         output = run_all_steps(final_configs, moving_avg=args.moving_avg, skip_perc=args.skip_perc)
 
-        output_per_xC[mult] = {key: val[which_step] for key, val in output.items()}
+        # output_per_xC[mult] = {key: val[which_step] for key, val in output.items()}
+        output_per_xC[mult] = output
 
     xC_df = pd.DataFrame.from_dict(output_per_xC).transpose()
     plot_vary_xC(xC_df, args.output_path, which_step)
@@ -312,23 +343,35 @@ def plot_vary_flops(flops_df, output_path, which_step, do_average=False):
         for i, task_name in enumerate(flops_df.columns):
             ax = axes[i // num_cols][i % num_cols]
             task_df = flops_df[task_name]
-            ax.plot(
-                task_df.index,
-                task_df.values,
-                color="grey",
-                linestyle="--",
-                linewidth=1.5,
-            )
+
+            if which_step == "all":
+                colors = {"step1": "lightgrey", "step2": "grey", "stacked": "darkgreen"}
+                for step_ in ["step1", "step2", "stacked"]:
+                    ax.plot(
+                        task_df.index,
+                        [x[step_] for x in task_df.values],
+                        color=colors[step_],
+                        linestyle="--",
+                        linewidth=1.5,
+                        label=step_,
+                    )
+                ax.set_ylabel(f"Prediction Error".title())
+                ax.legend(loc="upper right", ncols=1, fontsize=8)
+            else:
+                ax.plot(
+                    task_df.index,
+                    [x[which_step] for x in task_df.values],
+                    color="grey",
+                    linestyle="--",
+                    linewidth=1.5,
+                )
+                ax.set_ylabel(f"{which_step} prediction Error".title())
 
             ax.set_ylim([0, 1.0])
             # ax.set_xticks([0, 1, 2, 5, 10])
             ax.set_xscale("log")
             ax.set_xlabel("Total flops used for prediction")
-            ax.set_ylabel(f"{which_step} prediction Error".title())
-            ax.set_title(f"{tasks[task_name].display_name}",
-                fontsize=FONTSIZE,
-                fontweight="bold"
-            )
+            ax.set_title(f"{tasks[task_name].display_name}", fontsize=FONTSIZE, fontweight="bold")
             # ax.set_xticks([MODEL_FLOPS[model] for model in task_df.index], task_df.index)
 
     else:
@@ -347,22 +390,16 @@ def plot_vary_flops(flops_df, output_path, which_step, do_average=False):
         ax.set_xscale("log")
         ax.set_xlabel("Total flops used for prediction")
         ax.set_ylabel("Prediction Error")
-        ax.set_title(f"Average {which_step} prediction error".title(),
-            fontsize=FONTSIZE,
-            fontweight="bold"
-        )
+        ax.set_title(f"Average {which_step} prediction error".title(), fontsize=FONTSIZE, fontweight="bold")
 
     fig.tight_layout()
     fig.savefig(output_path, dpi=300, bbox_inches="tight")
 
 
 def run_predictions_vary_flops(args, which_step="stacked", do_average=False):
-
     output_per_flops = {}
 
-    configs = {
-        TARGET_CONFIG["label"]: TARGET_CONFIG
-    }
+    configs = {TARGET_CONFIG["label"]: TARGET_CONFIG}
 
     all_flops = {}
     for N in MODELS:
@@ -381,19 +418,14 @@ def run_predictions_vary_flops(args, which_step="stacked", do_average=False):
             configs[N]["paths"] += [f"scripts/scaling/data/peteish-moreeval/{N}-{mult}xC.csv"]
         else:
             paths = [f"scripts/scaling/data/peteish-moreeval/{N}-{mult}xC.csv"]
-            configs[N] = {
-                "paths": paths,
-                "mode": "train",
-                "n": MODEL_PARAMS[N],
-                "label": N,
-                "color": COLOR_MAP[N]
-            }
+            configs[N] = {"paths": paths, "mode": "train", "n": MODEL_PARAMS[N], "label": N, "color": COLOR_MAP[N]}
 
         final_configs = {name: FinalConfig(**config) for name, config in configs.items()}
 
         output = run_all_steps(final_configs, moving_avg=args.moving_avg, skip_perc=args.skip_perc)
 
-        output_per_flops[cum_flops] = {key: val[which_step] for key, val in output.items()}
+        # output_per_flops[cum_flops] = {key: val[which_step] for key, val in output.items()}
+        output_per_flops[cum_flops] = output
 
     flops_df = pd.DataFrame.from_dict(output_per_flops).transpose()
 
@@ -422,7 +454,6 @@ def parse_args():
 
 
 if __name__ == "__main__":
-
     args = parse_args()
 
     if args.vary == "N":
@@ -433,5 +464,3 @@ if __name__ == "__main__":
         run_predictions_vary_flops(args, args.which_step, args.do_average)
     else:
         raise ValueError(f"vary = {args.vary} not recognized. Use one of [N, xC]")
-
-
