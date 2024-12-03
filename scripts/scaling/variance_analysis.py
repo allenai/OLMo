@@ -1,6 +1,9 @@
 # python scripts/scaling/variance_analysis.py -k v2_main_variance -c scripts/scaling/final_variance.json -o figure/peteish-moreeval/variance.pdf --last_n_points 10
 
 import argparse
+import pandas as pd
+import os
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,27 +13,17 @@ from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
     get_step2_data_by_name,
     get_task_sets,
+    tasks
 )
+from step1 import main as step1_main
+from step2 import main as step2_main
+from predict import main as predict_main
 
-# MARKERS = ["s", "P", "p", "*"]
+# Suppress matplot warnings from other curve-fitting functions
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, message="No artists with labels found to put in legend")
 
-MARKERS = {"1xC": "s", "2xC": "P", "5xC": "p", "10xC": "*"}
-
-PRETTY_METRIC_NAMES = {
-    "winogrande_val_5shot": "WinoGrande",
-    "boolq_val_5shot": "BoolQ",
-    "arc_easy_val_5shot": "ARC-Easy Val",
-    "csqa_val_5shot": "CommonsenseQA",
-    "openbookqa_test_5shot": "OpenBoolQA",
-    "arc_easy_test_5shot": "ARC-Easy",
-    "arc_challenge_test_5shot": "ARC-Challenge",
-    "openbookqa_val_5shot": "OpenBoolQA Val",
-    "arc_challenge_val_5shot": "ARC-Challenge Val",
-    "socialiqa_val_5shot": "Social IQa",
-    "piqa_val_5shot": "PIQA",
-    "hellaswag_val_5shot": "HellaSwag",
-    "mmlu_avg_test_5shot": "MMLU",
-}
+FONTSIZE = 9
 
 
 def parse_args():
@@ -91,31 +84,42 @@ def inset_zoom_step2(ax, axins, x, y):
     ax.indicate_inset_zoom(axins, edgecolor="black")
 
 
-def main():
-    args = parse_args()
-    keys_key = str(args.keys[0])
-
-    configs = get_final_configs(args.config_path)
-
-    args.keys = get_task_sets(args.keys)
-
-    sns.set_style("whitegrid")
-
-    num_tasks = len(args.keys)
-    fig, axes = plt.subplots(num_tasks, 2, figsize=(6 * 2, 4.5 * num_tasks), squeeze=False)
-
-    results = "Task Name | Absolute Std Dev (Loss) | Relative Std Dev (Loss)| Absolute Std Dev (Accuracy) | Relative Std Dev (Accuracy"
-
-    num_tasks = len(args.keys)
+def plot_variance_analysis(configs, keys, last_n_points, moving_avg):
+    num_tasks = len(keys)
+    
+    if num_tasks < 4:
+        n_groups = 1
+        fig, axes = plt.subplots(num_tasks // n_groups, 2 * n_groups, figsize=(2.75 * 2 * n_groups, 2.25 * (num_tasks // n_groups)))
+    else:
+        # Create a figure with spacing between the two groups of tasks
+        n_groups = 2
+        fig = plt.figure(figsize=(2.25 * (num_tasks // n_groups), 2.75 * 2 * n_groups))
+        gs = fig.add_gridspec(
+            (num_tasks // n_groups),
+            (2 * n_groups)+1,
+            width_ratios=[1, 1, 0, 1, 1],
+            wspace=0.4,
+            hspace=0.32,
+            left=0.05,
+            right=0.97,
+            bottom=0.05,
+            top=0.94
+        )
+        axes = []
+        for row in range(num_tasks // n_groups):
+            row_axes = []
+            for col in [0, 1, 3, 4]:
+                row_axes.append(fig.add_subplot(gs[row, col]))
+            axes.append(row_axes)
+        axes = np.array(axes)
 
     loss_std_devs = {}
     acc_std_devs = {}
     loss_coeffs = {}
     acc_coeffs = {}
 
-    for r, task_name in enumerate(args.keys):
-        data_by_name = get_step2_data_by_name(configs, task_name, moving_avg=args.moving_avg)
-        last_n_points = args.last_n_points
+    for r, task_name in enumerate(keys):
+        data_by_name = get_step2_data_by_name(configs, task_name, moving_avg=moving_avg)
 
         for name, data in data_by_name.items():
             config = configs[name]
@@ -131,226 +135,230 @@ def main():
                 acc_std_dev = np.std(ys)
                 acc_coeff_of_var = acc_std_dev / np.mean(ys)
 
-                # results += f"\n{task_name} | {loss_std_dev:.5f} | {loss_coeff_of_var:.5f} | {acc_std_dev:.5f} | {acc_coeff_of_var:.5f}"
-                # results += f"\n{task_name.replace('_', ' ').replace('5shot', '5-shot')} & {round(loss_coeff_of_var, 3)} & {round(acc_coeff_of_var, 3)} \\\\"
-
-                results += f"\n{task_name.replace('_', ' ').replace('5shot', '5-shot')} & "
-                results += f"{round(loss_std_dev, 3):.4f} & {round(loss_coeff_of_var, 3) * 100:.1f}\\% & "
-                results += f"{round(acc_std_dev, 3):.4f} & {round(acc_coeff_of_var, 3) * 100:.1f}\\% \\\\"
-
                 loss_std_devs[task_name] = loss_std_dev
                 acc_std_devs[task_name] = acc_std_dev
                 loss_coeffs[task_name] = loss_coeff_of_var
                 acc_coeffs[task_name] = acc_coeff_of_var
 
                 # Step 1
+                ax: plt.Axes = axes[r // (num_tasks // (2 * n_groups))][(r % n_groups) * 2]
 
-                ax = axes[r][0]
+                inset_axis, no_legend = False, True
 
-                # axins = ax.inset_axes([0.63, 0.33, 0.35, 0.35])  # bottom right
+                if inset_axis:
+                    if no_legend:
+                        axins = ax.inset_axes([0.48, 0.48, 0.5, 0.5])
+                    else:
+                        axins = ax.inset_axes([0.63, 0.33, 0.35, 0.35]) # bottom right
+                    _axes = [ax, axins]
+                else:
+                    _axes = [ax]
 
-                for ax_ in [ax]:  # , axins]:
+                if inset_axis:
+                    x, y = np.array(data["ds"]), np.array(data["xs"])
+                    # Set the limits for the zoomed region
+                    x_width, y_width = (max(x) - min(x)), (max(y) - min(y))
+                    window_size = 0.2
+                    x_max = max(x) + x_width * (window_size/2)
+                    x_min = x_max - x_width * window_size
+                    # y_min = y_pred - y_width * (window_size/2) # <- center on target/actual
+                    y_min = y - y_width * (window_size/2) # <- center on prediction
+                    y_max = y_min + y_width * window_size
+                    axins.set_xlim(x_min, x_max)
+                    # axins.set_ylim(y_min, y_max)
+                    ax.indicate_inset_zoom(axins, edgecolor="black")
+
+                for ax_ in _axes:
                     ax_.scatter(
                         data["ds"][start_point:-last_n_points],
                         data["xs"][start_point:-last_n_points],
-                        color="teal",
-                        alpha=0.3,
-                        marker="o",
-                        s=10,
+                        color=config.color, marker="o", s=10, alpha=0.3,
+                        # label=config.label
+                        label=f'{config.label} (intermediate checkpoints)'
                     )
-                    ax_.scatter(ds, xs, color="orange", marker="o", s=10)
+                    ax_.scatter(
+                        ds, xs, 
+                        color="orange", marker="o", s=10, alpha=0.5,
+                        label=f'{config.label} (final {last_n_points} checkpoints)'
+                    )
 
-                # inset_zoom_step1(ax, axins, data["ds"], xs)
-
-                # ax.set_xscale("log")
-                # ax.legend(loc="upper right", ncols=1, fontsize=10)
-                ax.set_xlabel("Tokens (D)")
-                ax.set_ylabel("Loss")
-                ax.set_title(f"{task_name} coefficient of variance: {loss_coeff_of_var:.3f}")
+                ax.set_xscale("log")
+                ax.legend(loc="upper right", ncols=1, fontsize=FONTSIZE)
+                ax.set_xlabel("Tokens (D)", fontsize=FONTSIZE)
+                ax.set_ylabel("Task loss", fontsize=FONTSIZE)
+                ax.set_title(
+                    f"{tasks[task_name].display_name} " + r"(Loss SD$_{10}$: " + f'{loss_coeff_of_var:.4f})', 
+                    fontsize=FONTSIZE,
+                    fontweight="bold",
+                )
+                ax.yaxis.set_major_formatter(plt.FormatStrFormatter('%.2f'))
 
                 # Step 2
-
-                ax = axes[r][1]
-
-                # axins = ax.inset_axes([0.63, 0.33, 0.35, 0.35])  # bottom right
+                ax: plt.Axes = axes[r // (num_tasks // (2 * n_groups))][((r % n_groups) * 2)+1]
 
                 for ax_ in [ax]:  # , axins]:
                     ax_.scatter(
                         data["xs"][start_point:-last_n_points],
                         data["ys"][start_point:-last_n_points],
-                        color="teal",
-                        alpha=0.3,
-                        marker="o",
-                        s=10,
+                        color=config.color, marker="o", s=10, alpha=0.3,
+                        label=f'{config.label} (intermediate checkpoints)'
                     )
-                    ax_.scatter(xs, ys, color="orange", marker="o", s=10)
+                    ax_.scatter(
+                        xs, ys, 
+                        color="orange", marker="o", s=10, alpha=0.5,
+                        label=f'{config.label} (final {last_n_points} checkpoints)'
+                    )
 
-                # inset_zoom_step2(ax, axins, xs[-1], ys[-1])
-
-                # ax.legend(loc="upper right", ncols=1, fontsize=10)
-                ax.set_xlabel("Task Loss")
-                ax.set_ylabel("Accuracy")
-                ax.set_title(f"{task_name} coefficient of variance: {acc_coeff_of_var:.3f}")
+                ax.legend(loc="upper right", ncols=1, fontsize=10)
+                ax.set_xlabel("Task loss", fontsize=FONTSIZE)
+                ax.set_ylabel("Task RC accuracy", fontsize=FONTSIZE)
+                ax.set_title(
+                    f"{tasks[task_name].display_name} " + r"(Accuracy SD$_{10}$: " + f'{acc_coeff_of_var:.4f})', 
+                    fontsize=FONTSIZE,
+                    fontweight="bold",
+                )
+                ax.xaxis.set_major_formatter(plt.FormatStrFormatter('%.2f'))
+                ax.yaxis.set_major_formatter(plt.FormatStrFormatter('%.2f'))
                 break
 
-    fig.tight_layout()
-    fig.subplots_adjust(top=0.95)
-    fig.savefig(args.output_path, dpi=300)
+    # Collect all unique handles and labels
+    all_handles = []
+    all_labels = []
+    for row in axes:
+        for ax in row:
+            h, l = ax.get_legend_handles_labels()
+            for handle, label in zip(h, l):
+                if label not in all_labels:
+                    all_handles.append(handle)
+                    all_labels.append(label)
 
-    mean_loss_sd = np.mean(list(loss_std_devs.values()))
-    mean_acc_sd = np.mean(list(acc_std_devs.values()))
-    mean_loss_coeff = np.mean(list(loss_coeffs.values()))
-    mean_acc_coeff = np.mean(list(acc_coeffs.values()))
-    epsilon = 0.0  # 0.001
+    # Remove redundant labels / legends
+    for i, row in enumerate(axes):
+        for j, ax in enumerate(row):
+            if i != len(axes) - 1:
+                ax.set_xlabel("")
+            if ax.get_legend():
+                ax.get_legend().remove()
 
-    import pandas as pd
-
-    loss_sd_df = (
-        pd.DataFrame.from_dict(loss_std_devs, orient="index")
-        .reset_index()
-        .rename({0: "Loss SD", "index": "Task"}, axis=1)
+    # Add shared legend
+    legend = fig.legend(
+        all_handles, all_labels, 
+        loc='upper center', ncol=2, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1), # 1
+        handletextpad=0.3, columnspacing=0.7
     )
-    loss_rsd_df = (
-        pd.DataFrame.from_dict(loss_coeffs, orient="index")
-        .reset_index()
-        .rename({0: "Loss Rel SD (CV)", "index": "Task"}, axis=1)
-    )
+    for handle in legend.legend_handles:
+        handle.set_alpha(1.0)
 
-    acc_sd_df = (
-        pd.DataFrame.from_dict(acc_std_devs, orient="index")
-        .reset_index()
-        .rename({0: "Accuracy SD", "index": "Task"}, axis=1)
-    )
-    acc_rsd_df = (
-        pd.DataFrame.from_dict(acc_coeffs, orient="index")
-        .reset_index()
-        .rename({0: "Accuracy Rel SD (CV)", "index": "Task"}, axis=1)
-    )
+    if num_tasks < 4: fig.tight_layout(rect=[0, 0, 1, 0.95])
 
-    loss_df = pd.merge(loss_sd_df, loss_rsd_df)
-    acc_df = pd.merge(acc_sd_df, acc_rsd_df)
-    df = pd.merge(loss_df, acc_df)
-    df.to_csv("variance_analysis_1b.csv", index=False)
-
-    df = df.sort_values(by="Loss SD", ascending=False, ignore_index=True)
-
-    print(
-        f"avg loss std dev: {mean_loss_sd:.4f}. tasks above threshold: ",
-        [key for key, val in loss_std_devs.items() if val > mean_loss_sd + epsilon],
-    )
-    print(
-        f"avg acc std dev: {mean_acc_sd:.4f}. tasks above threshold: ",
-        [key for key, val in acc_std_devs.items() if val > mean_acc_sd + epsilon],
+    df = pd.merge(
+        pd.merge(
+            pd.DataFrame.from_dict(loss_std_devs, orient="index").reset_index().rename({0: "Loss SD", "index": "Task"}, axis=1),
+            pd.DataFrame.from_dict(loss_coeffs, orient="index").reset_index().rename({0: "Loss Rel SD (CV)", "index": "Task"}, axis=1)
+        ),
+        pd.merge(
+            pd.DataFrame.from_dict(acc_std_devs, orient="index").reset_index().rename({0: "Accuracy SD", "index": "Task"}, axis=1),
+            pd.DataFrame.from_dict(acc_coeffs, orient="index").reset_index().rename({0: "Accuracy Rel SD (CV)", "index": "Task"}, axis=1)
+        )
     )
 
-    print(
-        f"avg loss coeff: {mean_loss_coeff * 100:.3f}%. tasks above threshold: ",
-        [key for key, val in loss_coeffs.items() if val > mean_loss_coeff + epsilon],
-    )
-    print(
-        f"avg acc coeff: {mean_acc_coeff * 100:.3f}%. tasks above threshold: ",
-        [key for key, val in acc_coeffs.items() if val > mean_acc_coeff + epsilon],
-    )
+    return fig, df
 
-    # Run predictions on 7B scale
-    import sys
 
-    from predict import main as predict_main
-    from step1 import main as step1_main
-    from step2 import main as step2_main
+def main():
+    args = parse_args()
+    keys_key = str(args.keys[0])
 
+    configs = get_final_configs(args.config_path)
+
+    keys = get_task_sets(args.keys)
+
+    sns.set_style("whitegrid")
+
+    # Render only two tasks for paper
+    # args.keys = ['mmlu_avg_test_5shot', 'openbookqa_test_5shot']
+    fig, df = plot_variance_analysis(configs, keys, args.last_n_points, args.moving_avg)
+
+    # Run predictions on 7B scale    
     orig_argv = sys.argv
+    original_stdout = sys.stdout
+    sys.stdout = open(os.devnull, 'w') # surpress printing
 
     # Run step 1 only
     step1_args = [
-        "-k",
-        keys_key,
-        "-c",
-        "scripts/scaling/final_variance_7b.json",
-        "-o",
-        "/tmp/step1_main.pdf",
-        "--moving_avg",
-        "5",
+        "-k", keys_key,
+        "-c", "scripts/scaling/final_variance_7b.json", 
+        "-o", "/tmp/step1_main.pdf",
+        "--moving_avg", "5"
     ]
     sys.argv = [sys.argv[0]] + step1_args
     step1_df = step1_main()
 
     # Run step 2 only
     step2_args = [
-        "-k",
-        keys_key,
-        "-c",
-        "scripts/scaling/final_variance_7b.json",
-        "-o",
-        "/tmp/step2_main.pdf",
-        "--skip_perc",
-        "0.1",
-        "--moving_avg",
-        "5",
+        "-k", keys_key,
+        "-c", "scripts/scaling/final_variance_7b.json",
+        "-o", "/tmp/step2_main.pdf",
+        "--skip_perc", "0.1",
+        "--moving_avg", "5"
     ]
     sys.argv = [sys.argv[0]] + step2_args
     step2_df = step2_main()
 
     # Run stacked
     predict_args = [
-        "-k",
-        keys_key,
-        "-c",
-        "scripts/scaling/final.json",
-        "--step2-config-path",
-        "scripts/scaling/final_variance_7b.json",
-        "-o",
-        "/tmp/chained_main.pdf",
-        "-n",
-        "6887575552",
-        "-d",
-        "3945065873408",
-        "-t",
-        "7B-4T",
-        "--skip_perc",
-        "0.1",
-        "--moving_avg",
-        "5",
+        "-k", keys_key,
+        "-c", "scripts/scaling/final.json",
+        "--step2-config-path", "scripts/scaling/final_variance_7b.json",
+        "-o", "/tmp/chained_main.pdf",
+        "-n", "6887575552",
+        "-d", "3945065873408",
+        "-t", "7B-4T",
+        "--skip_perc", "0.1",
+        "--moving_avg", "5"
     ]
     sys.argv = [sys.argv[0]] + predict_args
     predict_df = predict_main()
 
-    # Restore original argv
+    # Restore original argv and printing
+    sys.stdout.close()
+    sys.stdout = original_stdout
     sys.argv = orig_argv
 
     # Merge with the existing df
-    step1_rel_errors = step1_df[["Task", "Rel Error"]].rename(columns={"Rel Error": "7B Loss Rel Error"})
-    step2_rel_errors = step2_df[["Task", "Rel Error"]].rename(columns={"Rel Error": "7B Accuracy Rel Error"})
-    predict_rel_errors = predict_df[["Task", "Rel Error"]].rename(columns={"Rel Error": "7B Stacked Rel Error"})
-    df = df.merge(step1_rel_errors, on="Task", how="left")
-    df = df.merge(step2_rel_errors, on="Task", how="left")
-    df = df.merge(predict_rel_errors, on="Task", how="left")
+    step1_rel_errors = step1_df[['Task', 'Rel Error']].rename(columns={'Rel Error': '7B Loss Rel Error'})
+    step2_rel_errors = step2_df[['Task', 'Rel Error']].rename(columns={'Rel Error': '7B Accuracy Rel Error'})
+    predict_rel_errors = predict_df[['Task', 'Rel Error']].rename(columns={'Rel Error': '7B Stacked Rel Error'})
+    df = df.merge(step1_rel_errors, on='Task', how='left')
+    df = df.merge(step2_rel_errors, on='Task', how='left')
+    df = df.merge(predict_rel_errors, on='Task', how='left')
 
-    # print("\nDataFrame with relative errors from Step 1, Step 2 and Predict:")
-    # print(df.to_string())
+    df = df.sort_values(by="Loss SD", ascending=False, ignore_index=True)
+    # df = df.sort_values(by="7B Stacked Rel Error", ascending=False, ignore_index=True)
 
-    df["Task"] = df["Task"].map(lambda x: PRETTY_METRIC_NAMES.get(x, x))
+    df['Task'] = df['Task'].map(lambda x: tasks[x].display_name)
 
-    print(f"\nStandard deviation over last {args.last_n_points} checkpoints:")
+    print(f'Standard deviation over last {args.last_n_points} checkpoints:')
     print_table_as_latex = False
     if print_table_as_latex:
         # Convert to %
         latex_df = df.copy()
-        latex_df.iloc[:, 1:] = latex_df.iloc[:, 1:] * 100
+        latex_df.iloc[:, 1:] = latex_df.iloc[:, 1:]
 
         # Add red cell color to values above the column-wise mean
-        means = latex_df.iloc[:, 1:].mean()
-
-        def format_with_color(x, col, col_mean):
-            if "SD" in col:
-                return "\\cellcolor{red!30}" + f"{x:.2f} \\%" if x > col_mean else f"{x:.2f} \\%"
-            elif "Error" in col:
-                return f"{abs(x):.2f} \\%"
-
+        means = latex_df.iloc[:, 1:].abs().mean()
+        def format_with_color(x, col, col_mean): 
+            if 'CV' in col:
+                return '\\cellcolor{red!30}' + f'{x * 100:.2f} \\%' if x > col_mean else f'{x * 100:.2f} \\%'
+            elif 'Error' in col:
+                # return f'{x:.2f} \\%'
+                return '\\cellcolor{red!30}' + f'{abs(x) * 100:.1f} \\%' if abs(x) > col_mean else f'{abs(x) * 100:.1f} \\%'
+            else:
+                return '\\cellcolor{red!30}' + f'{x:.4f}' if x > col_mean else f'{x:.4f}'
         formatters = {}
         for col, mean in means.items():
             formatters[col] = lambda x, c=col, m=mean: format_with_color(x, c, m)
-
+        
         # Print table as labex
         latex_table = latex_df.to_latex(index=False, formatters=formatters, escape=False)
         print(latex_table)
@@ -360,49 +368,78 @@ def main():
         means = colored_df.iloc[:, 1:].mean()
 
         # Print table header
-        table_str = colored_df.to_string(justify="left")
-        header = table_str.split("\n")[0]
+        table_str = colored_df.to_string(justify='left')
+        header = table_str.split('\n')[0]
         print(header)
-
+        
         # Add terminal colors
         for col in [col for col in df.columns[1:]]:
-            if "SD" in col:
+            if "CV" in col:
                 mean = means[col]
                 colored_df[col] = df[col].apply(
                     lambda x: f"\033[91m{x*100:>10.2f}%\033[0m" if x > mean else f"\033[92m{x*100:>10.2f}%\033[0m"
                 )
-            elif "Error" in col:
-                colored_df[col] = df[col].apply(lambda x: f"\033[0m{abs(x)*100:>10.2f}%\033[0m")
+            elif 'Error' in col:
+                colored_df[col] = df[col].apply(
+                    lambda x: f"\033[0m{abs(x)*100:>10.2f}%\033[0m"
+                )
+            else:
+                mean = means[col]
+                colored_df[col] = df[col].apply(
+                    lambda x: f"\033[91m{x:>10.4f}\033[0m" if x > mean else f"\033[92m{x:>10.4f}\033[0m"
+                )
+            
+        print(colored_df.to_string(justify='left', header=False))
 
-        print(colored_df.to_string(justify="left", header=False))
+    if args.output_path:
+        os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
+        fig.savefig(args.output_path, dpi=300)
+        df.to_csv(args.output_path.replace(".pdf", ".csv"), index=False)
 
     # Compute pairwise pearson correlations between numeric columns
     from scipy import stats
-
-    numeric_cols = df.select_dtypes(include=["float64"]).columns
-
+    numeric_cols = df.select_dtypes(include=['float64']).columns
+    
     correlations = np.zeros((len(numeric_cols), len(numeric_cols)))
     p_values = np.zeros((len(numeric_cols), len(numeric_cols)))
-
+    
     for i, col1 in enumerate(numeric_cols):
         for j, col2 in enumerate(numeric_cols):
             corr, p_val = stats.pearsonr(abs(df[col1]), abs(df[col2]))
-            correlations[i, j] = corr
-            p_values[i, j] = p_val
-
+            correlations[i,j] = corr
+            p_values[i,j] = p_val
+    
     correlations_df = pd.DataFrame(correlations, columns=numeric_cols, index=numeric_cols)
     p_values_df = pd.DataFrame(p_values, columns=numeric_cols, index=numeric_cols)
-
+    
     print("\nPearson correlation (p-values):")
-    corr_with_p = (
-        correlations_df.apply(lambda x: x.map("{:.3f}".format)).astype(str)
-        + " ("
-        + p_values_df.apply(lambda x: x.map("{:.3f}".format)).astype(str)
-        + ")"
-    )
-    corr_with_p = corr_with_p.where(np.tril(np.ones(corr_with_p.shape), k=-1).astype(bool), "")
-    print(corr_with_p.to_string(na_rep=""))
+    corr_with_p = correlations_df.apply(lambda x: x.map('{:.3f}'.format)).astype(str) + " (" + p_values_df.apply(lambda x: x.map('{:.3f}'.format)).astype(str) + ")"
+    corr_with_p = corr_with_p.where(np.tril(np.ones(corr_with_p.shape), k=-1).astype(bool), '')
+    print(corr_with_p.to_string(na_rep=''))
 
 
 if __name__ == "__main__":
     main()
+
+    # mean_loss_sd = np.mean(list(loss_std_devs.values()))
+    # mean_acc_sd = np.mean(list(acc_std_devs.values()))
+    # mean_loss_coeff = np.mean(list(loss_coeffs.values()))
+    # mean_acc_coeff = np.mean(list(acc_coeffs.values()))
+
+    # print(
+    #     f"avg loss std dev: {mean_loss_sd:.4f}. tasks above threshold: ",
+    #     [key for key, val in loss_std_devs.items() if val > mean_loss_sd],
+    # )
+    # print(
+    #     f"avg acc std dev: {mean_acc_sd:.4f}. tasks above threshold: ",
+    #     [key for key, val in acc_std_devs.items() if val > mean_acc_sd],
+    # )
+
+    # print(
+    #     f"avg loss coeff: {mean_loss_coeff * 100:.3f}%. tasks above threshold: ",
+    #     [key for key, val in loss_coeffs.items() if val > mean_loss_coeff],
+    # )
+    # print(
+    #     f"avg acc coeff: {mean_acc_coeff * 100:.3f}%. tasks above threshold: ",
+    #     [key for key, val in acc_coeffs.items() if val > mean_acc_coeff],
+    # )
