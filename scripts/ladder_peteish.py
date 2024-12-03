@@ -141,6 +141,8 @@ def parse_size(size: str) -> int:
 
 
 def parse_length(length: str, model_size: int) -> int:
+    if length == "0.5xC":
+        return 10 * model_size
     length_in_tokens, length_unit = _number_unit_re.match(length.strip().upper()).groups()  # type: ignore
     length_in_tokens = int(length_in_tokens)
     if length_unit == "C" or length_unit == "XC":
