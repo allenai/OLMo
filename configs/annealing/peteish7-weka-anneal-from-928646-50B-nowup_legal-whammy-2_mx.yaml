@@ -4,7 +4,7 @@ dry_run: false
 
 wandb:
   name: ${run_name}
-  project: olmo-medium
+  project: olmo-7b-anneals
   group: ${run_name}
 
 model:
@@ -775,7 +775,7 @@ data:
     - s3://ai2-llm/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-38-00000.npy
     #SOURCE: s3://ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/ (3.01BT)
     - s3://ai2-llm/preprocessed/pes2o/allenai/dolma2-tokenizer/part-10-00000.npy
-    #SOURCE: s3://ai2-llm/preprocessed/dclm/v0_rep32_ft7percentile_fw2 (24.31BT)
+    #SOURCE: s3://ai2-llm/preprocessed/dclm/v0_rep32_ft7percentile_fw2 (22.77BT)
     - s3://ai2-llm/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0013/part-15-00000.npy
     - s3://ai2-llm/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0027/part-24-00000.npy
     - s3://ai2-llm/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0028/part-14-00000.npy
@@ -837,36 +837,22 @@ data:
     - s3://ai2-llm/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0013/part-32-00000.npy
     - s3://ai2-llm/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0004/part-60-00000.npy
     - s3://ai2-llm/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0018/part-56-00000.npy
-    #SOURCE: s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup (1.78BT)
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-21-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-00-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-05-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-26-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-08-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-17-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-29-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-12-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-24-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-31-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-04-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-02-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-27-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-19-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-16-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-15-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-25-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-14-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-23-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-07-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-13-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-06-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-30-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-20-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-22-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-18-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-01-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-28-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-09-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-03-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-11-00000.npy
-    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup/allenai/dolma2-tokenizer/part-10-00000.npy
+    #SOURCE: s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup (1.56BT)
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-00-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-01-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-02-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-03-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-04-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-05-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-06-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-07-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-08-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-09-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-10-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-11-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-12-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-13-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-14-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-15-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-16-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/v0_mmlu_web_minhash_dedup_decontam/allenai/dolma2-tokenizer/part-17-00000.npy
