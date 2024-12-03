@@ -68,7 +68,8 @@ tokenizer:
   truncate_direction: right
 
 save_folder: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/${run_name}
-save_overwrite: false
+save_overwrite: true
+try_load_latest_save: true
 
 save_interval: 1000
 save_interval_ephemeral: 250
