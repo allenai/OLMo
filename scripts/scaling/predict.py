@@ -7,9 +7,9 @@
 
 import argparse
 
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
 from step1 import fit_step1
 from step2 import fit_step2
@@ -76,13 +76,19 @@ def predict_chained(data_by_name, step1_coefficients, step2_coefficients):
     for name, data in data_by_name.items():
         predicted_data_by_name[name] = {
             "ds": data["ds"],
-            "ys": [sigmoid(chinchilla_n_d_fit([n, d], step1_coefficients), *step2_coefficients) for n, d in zip(data["ns"], data["ds"])],
+            "ys": [
+                sigmoid(chinchilla_n_d_fit([n, d], step1_coefficients), *step2_coefficients)
+                for n, d in zip(data["ns"], data["ds"])
+            ],
         }
         ds = np.exp(np.linspace(np.log(dmin), np.log(dmax), 100))
         ns = [data["ns"][0]] * len(ds)
         plotted_predicted_data_by_name[name] = {
             "ds": ds,
-            "ys": [sigmoid(chinchilla_n_d_fit([n, d], step1_coefficients), *step2_coefficients) for n, d in zip(ns, ds)],
+            "ys": [
+                sigmoid(chinchilla_n_d_fit([n, d], step1_coefficients), *step2_coefficients)
+                for n, d in zip(ns, ds)
+            ],
         }
 
         if data["mode"] == "eval":
@@ -97,9 +103,7 @@ def str_chained_fit(step1_coefficients, step2_coefficients):
     a, b, alpha, beta, E = step1_coefficients
     A, B = np.exp(a), np.exp(b)
     a, x0, k, b = step2_coefficients
-    return (
-        f"L(N, D) = {A:.2f} / N^{alpha:.2f} + {B:.2f} / D^{beta:.2f} + {E:.2f}; Acc(L) = {a:.2f} / (1 + e^(-{k:.2f}(L - {x0:.2f}))) + {b:.2f}"
-    )
+    return f"L(N, D) = {A:.2f} / N^{alpha:.2f} + {B:.2f} / D^{beta:.2f} + {E:.2f}; Acc(L) = {a:.2f} / (1 + e^(-{k:.2f}(L - {x0:.2f}))) + {b:.2f}"
 
 
 def plot_chained(
@@ -121,7 +125,7 @@ def plot_chained(
             linestyle="--",
             alpha=0.7,
             linewidth=1.5,
-            label=f'{config.label} (fitted)' if config.mode == "train" else None,
+            label=f"{config.label} (fitted)" if config.mode == "train" else None,
         )
 
     # plot the actual and predicted data
@@ -157,7 +161,7 @@ def plot_chained(
                     f"{abs(rel_error * 100):.1f}%",
                     (d, y_pred),
                     textcoords="offset points",
-                    xytext=(10, -5 + 10*num_eval_annotation),
+                    xytext=(10, -5 + 10 * num_eval_annotation),
                     ha="left",
                     va="bottom",
                     fontsize=FONTSIZE,
@@ -214,7 +218,9 @@ def main():
         if args.y_metric == "rc_acc":
             step2_coefficients, _ = fit_step2(step2_data_by_name, task_name, args.y_metric, args.use_log_sigmoid)
         elif args.y_metric == "mc_acc":
-            step2_coefficients, _ = fit_step2_mc(step2_data_by_name, task_name, args.y_metric, args.use_log_sigmoid)
+            step2_coefficients, _ = fit_step2_mc(
+                step2_data_by_name, task_name, args.y_metric, args.use_log_sigmoid
+            )
         else:
             raise ValueError(f"Invalid y_metric: {args.y_metric})")
 
@@ -242,7 +248,9 @@ def main():
             actual_acc = data["ys"][-1]
             rel_error = np.abs(pred_acc - actual_acc) / actual_acc
             results[task_name] = {"Actual": y, "Pred": y_pred, "Rel Error": rel_error}
-            results_str += f"\n{task_name} | {pred_acc * 100:.1f} | {actual_acc * 100:.1f} | {rel_error * 100:.1f}%"
+            results_str += (
+                f"\n{task_name} | {pred_acc * 100:.1f} | {actual_acc * 100:.1f} | {rel_error * 100:.1f}%"
+            )
         else:
             results_str += f"\n{task_name} | {pred_acc * 100:.1f} | - | -"
 
@@ -258,13 +266,20 @@ def main():
             axes[j][i].legend().remove()
 
     fig.tight_layout(w_pad=0.01)
-    legend = fig.legend(handles, labels, loc='upper center',
-                        ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.07),
-                        handletextpad=0.3, columnspacing=0.7)
+    legend = fig.legend(
+        handles,
+        labels,
+        loc="upper center",
+        ncol=10,
+        fontsize=FONTSIZE,
+        bbox_to_anchor=(0.5, 1.07),
+        handletextpad=0.3,
+        columnspacing=0.7,
+    )
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 
-    fig.savefig(args.output_path, dpi=300, bbox_inches='tight')
+    fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
 
     if args.output_path:
         fig.savefig(args.output_path, dpi=300, bbox_inches="tight")

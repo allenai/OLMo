@@ -113,7 +113,7 @@ def plot_single_step(
             linestyle="--",
             alpha=0.7,
             linewidth=1.5,
-            label=f'{config.label} (fitted)' if config.mode == "train" else None,
+            label=f"{config.label} (fitted)" if config.mode == "train" else None,
         )
 
     # plot the actual and predicted data

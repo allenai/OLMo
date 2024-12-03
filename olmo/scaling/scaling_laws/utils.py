@@ -367,22 +367,29 @@ v2_mmlu_avg_test_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
 
 v2_main_avg_5shot_tasks: Dict[str, DownstreamTaskPrediction] = {
     f"main_avg_5shot": DownstreamTaskPrediction(
-        task_loss_key=[f"eval/downstream_bpb/{key}_rc_5shot_bpb" for key in v2_core_small_names] + [f"eval/downstream_bpb/{key}_rc_5shot_bpb" for key in v2_mmlu_test_names],
-        task_soft_loss_key=[f"eval/downstream_soft/{key}_rc_5shot_soft" for key in v2_core_small_names] + [f"eval/downstream_soft/{key}_rc_5shot_soft" for key in v2_mmlu_test_names],
-        task_log_soft_loss_key=[f"eval/downstream_soft_log/{key}_rc_5shot_soft_log" for key in v2_core_small_names] + [f"eval/downstream_soft_log/{key}_rc_5shot_soft_log" for key in v2_mmlu_test_names],
+        task_loss_key=[f"eval/downstream_bpb/{key}_rc_5shot_bpb" for key in v2_core_small_names]
+        + [f"eval/downstream_bpb/{key}_rc_5shot_bpb" for key in v2_mmlu_test_names],
+        task_soft_loss_key=[f"eval/downstream_soft/{key}_rc_5shot_soft" for key in v2_core_small_names]
+        + [f"eval/downstream_soft/{key}_rc_5shot_soft" for key in v2_mmlu_test_names],
+        task_log_soft_loss_key=[f"eval/downstream_soft_log/{key}_rc_5shot_soft_log" for key in v2_core_small_names]
+        + [f"eval/downstream_soft_log/{key}_rc_5shot_soft_log" for key in v2_mmlu_test_names],
         task_accuracy_key=[
             f"eval/downstream/{key}_rc_5shot_len_norm"
             if "boolq" not in key
             else f"eval/downstream/{key}_rc_5shot_acc"
             for key in v2_core_small_names
-        ] + [f"eval/downstream/{key}_rc_5shot_len_norm" for key in v2_mmlu_test_names],
-        task_mc_loss_key=[f"eval/downstream_bpb/{key}_mc_5shot_bpb" for key in v2_core_small_names] + [f"eval/downstream_bpb/{key}_mc_5shot_bpb" for key in v2_mmlu_test_names],
-        task_mc_accuracy_key=[f"eval/downstream/{key}_mc_5shot_acc" for key in v2_core_small_names] + [f"eval/downstream/{key}_mc_5shot_len_norm" for key in v2_mmlu_test_names],
+        ]
+        + [f"eval/downstream/{key}_rc_5shot_len_norm" for key in v2_mmlu_test_names],
+        task_mc_loss_key=[f"eval/downstream_bpb/{key}_mc_5shot_bpb" for key in v2_core_small_names]
+        + [f"eval/downstream_bpb/{key}_mc_5shot_bpb" for key in v2_mmlu_test_names],
+        task_mc_accuracy_key=[f"eval/downstream/{key}_mc_5shot_acc" for key in v2_core_small_names]
+        + [f"eval/downstream/{key}_mc_5shot_len_norm" for key in v2_mmlu_test_names],
         task_minimum=0.25,
         task_maximum=1.0,
         display_name="8 Task Average",
     ),
 }
+
 
 def get_task_sets(keys):
     if len(keys) == 1:
@@ -404,7 +411,11 @@ def get_task_sets(keys):
             keys = list(v2_mmlu_avg_test_5shot_tasks.keys()) + list(v2_core_small_5shot_tasks.keys())
         elif keys[0] == "v2_main_variance":
             keys = list(v2_mmlu_avg_test_5shot_tasks.keys()) + list(v2_core_5shot_tasks.keys())
-            keys = [k for k in keys if k not in ["openbookqa_val_5shot", "arc_challenge_val_5shot", "arc_easy_val_5shot"]]
+            keys = [
+                k
+                for k in keys
+                if k not in ["openbookqa_val_5shot", "arc_challenge_val_5shot", "arc_easy_val_5shot"]
+            ]
         elif keys[0] == "v2_main_avg":
             keys = ["main_avg_5shot"]
     return keys

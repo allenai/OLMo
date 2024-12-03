@@ -3,9 +3,10 @@
 # python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_taskce_main.pdf --skip_perc 0.5 --use_log_sigmoid --x_metric rc_soft_log
 
 import argparse
-import pandas as pd
+
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import seaborn as sns
 
 from olmo.scaling.scaling_laws.fitting_functions import (
@@ -130,7 +131,12 @@ def predict_step2(configs, data_by_name, coefficients, cov, y_metric, use_log_si
         "ys": [predict_fn(x, *coefficients) for x in xs],
     }
 
-    return predicted_data_by_name, plotted_predicted_data, (e_y, e_y_pred, rel_error, delta_error), unsigned_rel_errors
+    return (
+        predicted_data_by_name,
+        plotted_predicted_data,
+        (e_y, e_y_pred, rel_error, delta_error),
+        unsigned_rel_errors,
+    )
 
 
 def plot_step2(
@@ -182,7 +188,6 @@ def plot_step2(
                 label=f"{config.label} ({'fitted' if config.mode == 'train' else 'target'})",
             )
         for i, (x, y, y_pred) in enumerate(zip(data["xs"], data["ys"], predicted_data["ys"])):
-
             rel_error = (y_pred - y) / y
 
             if config.mode == "train":
@@ -346,25 +351,40 @@ def main():
 
     fig.tight_layout(w_pad=0.01)
     if num_tasks > 1:
-        legend = fig.legend(handles, labels, loc='upper center',
-                            ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.07),
-                            handletextpad=0.1,columnspacing=0.7)
+        legend = fig.legend(
+            handles,
+            labels,
+            loc="upper center",
+            ncol=10,
+            fontsize=FONTSIZE,
+            bbox_to_anchor=(0.5, 1.07),
+            handletextpad=0.1,
+            columnspacing=0.7,
+        )
     else:
-        legend = fig.legend(handles, labels, loc='upper center',
-                            ncol=1, fontsize=FONTSIZE, bbox_to_anchor=(1.4, 0.8),
-                            handletextpad=0.1,columnspacing=0.7)
+        legend = fig.legend(
+            handles,
+            labels,
+            loc="upper center",
+            ncol=1,
+            fontsize=FONTSIZE,
+            bbox_to_anchor=(1.4, 0.8),
+            handletextpad=0.1,
+            columnspacing=0.7,
+        )
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 
     df = pd.DataFrame.from_dict(results, orient="index").reset_index().rename({"index": "Task"}, axis=1)
-    
+
     if args.output_path:
         fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
         df.to_csv(args.output_path.replace(".pdf", ".csv"), index=False)
 
     print(results_str)
-    
+
     return df
+
 
 if __name__ == "__main__":
     main()

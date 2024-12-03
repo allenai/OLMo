@@ -19,7 +19,7 @@ MARKERS = {"1xC": "s", "2xC": "P", "5xC": "p", "10xC": "*"}
 PRETTY_METRIC_NAMES = {
     "winogrande_val_5shot": "WinoGrande",
     "boolq_val_5shot": "BoolQ",
-    "arc_easy_val_5shot": "ARC-Easy Val", 
+    "arc_easy_val_5shot": "ARC-Easy Val",
     "csqa_val_5shot": "CommonsenseQA",
     "openbookqa_test_5shot": "OpenBoolQA",
     "arc_easy_test_5shot": "ARC-Easy",
@@ -29,7 +29,7 @@ PRETTY_METRIC_NAMES = {
     "socialiqa_val_5shot": "Social IQa",
     "piqa_val_5shot": "PIQA",
     "hellaswag_val_5shot": "HellaSwag",
-    "mmlu_avg_test_5shot": "MMLU"
+    "mmlu_avg_test_5shot": "MMLU",
 }
 
 
@@ -197,7 +197,6 @@ def main():
     fig.subplots_adjust(top=0.95)
     fig.savefig(args.output_path, dpi=300)
 
-
     mean_loss_sd = np.mean(list(loss_std_devs.values()))
     mean_acc_sd = np.mean(list(acc_std_devs.values()))
     mean_loss_coeff = np.mean(list(loss_coeffs.values()))
@@ -254,44 +253,64 @@ def main():
     )
 
     # Run predictions on 7B scale
+    import sys
+
+    from predict import main as predict_main
     from step1 import main as step1_main
     from step2 import main as step2_main
-    from predict import main as predict_main
-    import sys
+
     orig_argv = sys.argv
 
     # Run step 1 only
     step1_args = [
-        "-k", keys_key,
-        "-c", "scripts/scaling/final_variance_7b.json", 
-        "-o", "/tmp/step1_main.pdf",
-        "--moving_avg", "5"
+        "-k",
+        keys_key,
+        "-c",
+        "scripts/scaling/final_variance_7b.json",
+        "-o",
+        "/tmp/step1_main.pdf",
+        "--moving_avg",
+        "5",
     ]
     sys.argv = [sys.argv[0]] + step1_args
     step1_df = step1_main()
 
     # Run step 2 only
     step2_args = [
-        "-k", keys_key,
-        "-c", "scripts/scaling/final_variance_7b.json",
-        "-o", "/tmp/step2_main.pdf",
-        "--skip_perc", "0.1",
-        "--moving_avg", "5"
+        "-k",
+        keys_key,
+        "-c",
+        "scripts/scaling/final_variance_7b.json",
+        "-o",
+        "/tmp/step2_main.pdf",
+        "--skip_perc",
+        "0.1",
+        "--moving_avg",
+        "5",
     ]
     sys.argv = [sys.argv[0]] + step2_args
     step2_df = step2_main()
 
     # Run stacked
     predict_args = [
-        "-k", keys_key,
-        "-c", "scripts/scaling/final.json",
-        "--step2-config-path", "scripts/scaling/final_variance_7b.json",
-        "-o", "/tmp/chained_main.pdf",
-        "-n", "6887575552",
-        "-d", "3945065873408",
-        "-t", "7B-4T",
-        "--skip_perc", "0.1",
-        "--moving_avg", "5"
+        "-k",
+        keys_key,
+        "-c",
+        "scripts/scaling/final.json",
+        "--step2-config-path",
+        "scripts/scaling/final_variance_7b.json",
+        "-o",
+        "/tmp/chained_main.pdf",
+        "-n",
+        "6887575552",
+        "-d",
+        "3945065873408",
+        "-t",
+        "7B-4T",
+        "--skip_perc",
+        "0.1",
+        "--moving_avg",
+        "5",
     ]
     sys.argv = [sys.argv[0]] + predict_args
     predict_df = predict_main()
@@ -300,19 +319,19 @@ def main():
     sys.argv = orig_argv
 
     # Merge with the existing df
-    step1_rel_errors = step1_df[['Task', 'Rel Error']].rename(columns={'Rel Error': '7B Loss Rel Error'})
-    step2_rel_errors = step2_df[['Task', 'Rel Error']].rename(columns={'Rel Error': '7B Accuracy Rel Error'})
-    predict_rel_errors = predict_df[['Task', 'Rel Error']].rename(columns={'Rel Error': '7B Stacked Rel Error'})
-    df = df.merge(step1_rel_errors, on='Task', how='left')
-    df = df.merge(step2_rel_errors, on='Task', how='left')
-    df = df.merge(predict_rel_errors, on='Task', how='left')
+    step1_rel_errors = step1_df[["Task", "Rel Error"]].rename(columns={"Rel Error": "7B Loss Rel Error"})
+    step2_rel_errors = step2_df[["Task", "Rel Error"]].rename(columns={"Rel Error": "7B Accuracy Rel Error"})
+    predict_rel_errors = predict_df[["Task", "Rel Error"]].rename(columns={"Rel Error": "7B Stacked Rel Error"})
+    df = df.merge(step1_rel_errors, on="Task", how="left")
+    df = df.merge(step2_rel_errors, on="Task", how="left")
+    df = df.merge(predict_rel_errors, on="Task", how="left")
 
     # print("\nDataFrame with relative errors from Step 1, Step 2 and Predict:")
     # print(df.to_string())
 
-    df['Task'] = df['Task'].map(lambda x: PRETTY_METRIC_NAMES.get(x, x))
+    df["Task"] = df["Task"].map(lambda x: PRETTY_METRIC_NAMES.get(x, x))
 
-    print(f'\nStandard deviation over last {args.last_n_points} checkpoints:')
+    print(f"\nStandard deviation over last {args.last_n_points} checkpoints:")
     print_table_as_latex = False
     if print_table_as_latex:
         # Convert to %
@@ -321,15 +340,17 @@ def main():
 
         # Add red cell color to values above the column-wise mean
         means = latex_df.iloc[:, 1:].mean()
-        def format_with_color(x, col, col_mean): 
-            if 'SD' in col:
-                return '\\cellcolor{red!30}' + f'{x:.2f} \\%' if x > col_mean else f'{x:.2f} \\%'
-            elif 'Error' in col:
-                return f'{abs(x):.2f} \\%'
+
+        def format_with_color(x, col, col_mean):
+            if "SD" in col:
+                return "\\cellcolor{red!30}" + f"{x:.2f} \\%" if x > col_mean else f"{x:.2f} \\%"
+            elif "Error" in col:
+                return f"{abs(x):.2f} \\%"
+
         formatters = {}
         for col, mean in means.items():
             formatters[col] = lambda x, c=col, m=mean: format_with_color(x, c, m)
-        
+
         # Print table as labex
         latex_table = latex_df.to_latex(index=False, formatters=formatters, escape=False)
         print(latex_table)
@@ -339,10 +360,10 @@ def main():
         means = colored_df.iloc[:, 1:].mean()
 
         # Print table header
-        table_str = colored_df.to_string(justify='left')
-        header = table_str.split('\n')[0]
+        table_str = colored_df.to_string(justify="left")
+        header = table_str.split("\n")[0]
         print(header)
-        
+
         # Add terminal colors
         for col in [col for col in df.columns[1:]]:
             if "SD" in col:
@@ -350,33 +371,37 @@ def main():
                 colored_df[col] = df[col].apply(
                     lambda x: f"\033[91m{x*100:>10.2f}%\033[0m" if x > mean else f"\033[92m{x*100:>10.2f}%\033[0m"
                 )
-            elif 'Error' in col:
-                colored_df[col] = df[col].apply(
-                    lambda x: f"\033[0m{abs(x)*100:>10.2f}%\033[0m"
-                )
-            
-        print(colored_df.to_string(justify='left', header=False))
+            elif "Error" in col:
+                colored_df[col] = df[col].apply(lambda x: f"\033[0m{abs(x)*100:>10.2f}%\033[0m")
+
+        print(colored_df.to_string(justify="left", header=False))
 
     # Compute pairwise pearson correlations between numeric columns
     from scipy import stats
-    numeric_cols = df.select_dtypes(include=['float64']).columns
-    
+
+    numeric_cols = df.select_dtypes(include=["float64"]).columns
+
     correlations = np.zeros((len(numeric_cols), len(numeric_cols)))
     p_values = np.zeros((len(numeric_cols), len(numeric_cols)))
-    
+
     for i, col1 in enumerate(numeric_cols):
         for j, col2 in enumerate(numeric_cols):
             corr, p_val = stats.pearsonr(abs(df[col1]), abs(df[col2]))
-            correlations[i,j] = corr
-            p_values[i,j] = p_val
-    
+            correlations[i, j] = corr
+            p_values[i, j] = p_val
+
     correlations_df = pd.DataFrame(correlations, columns=numeric_cols, index=numeric_cols)
     p_values_df = pd.DataFrame(p_values, columns=numeric_cols, index=numeric_cols)
-    
+
     print("\nPearson correlation (p-values):")
-    corr_with_p = correlations_df.apply(lambda x: x.map('{:.3f}'.format)).astype(str) + " (" + p_values_df.apply(lambda x: x.map('{:.3f}'.format)).astype(str) + ")"
-    corr_with_p = corr_with_p.where(np.tril(np.ones(corr_with_p.shape), k=-1).astype(bool), '')
-    print(corr_with_p.to_string(na_rep=''))
+    corr_with_p = (
+        correlations_df.apply(lambda x: x.map("{:.3f}".format)).astype(str)
+        + " ("
+        + p_values_df.apply(lambda x: x.map("{:.3f}".format)).astype(str)
+        + ")"
+    )
+    corr_with_p = corr_with_p.where(np.tril(np.ones(corr_with_p.shape), k=-1).astype(bool), "")
+    print(corr_with_p.to_string(na_rep=""))
 
 
 if __name__ == "__main__":

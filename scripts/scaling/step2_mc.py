@@ -2,9 +2,10 @@
 # python scripts/scaling/step2_mc.py -k mmlu_avg_test_5shot -c scripts/scaling/step2_mc_7B_full.json scripts/scaling/step2_mc_13B_full.json -o figure/peteish-moreeval/step2_mc_mmlu_full.pdf -y mc_acc --moving_avg 5
 
 import argparse
-import pandas as pd
+
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import seaborn as sns
 
 from olmo.scaling.scaling_laws.fitting_functions import (
@@ -88,7 +89,10 @@ def fit_step2(data_by_name, task_name, y_metric, use_log_sigmoid=False):
             sigmoid,
             p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, tasks[task_name].task_maximum],
             # bounds=([-1.0, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
-            bounds=([tasks[task_name].task_minimum - 1.0, 0.0, 0.0, 0.999], [tasks[task_name].task_minimum - 0.999, np.inf, np.inf, 1.0]),
+            bounds=(
+                [tasks[task_name].task_minimum - 1.0, 0.0, 0.0, 0.999],
+                [tasks[task_name].task_minimum - 0.999, np.inf, np.inf, 1.0],
+            ),
             disp=False,
             return_cov=True,
         )
@@ -180,7 +184,6 @@ def plot_step2(
                 label=f"{config.label} ({'fitted' if config.mode == 'train' else 'target'})",
             )
         for i, (x, y, y_pred) in enumerate(zip(data["xs"], data["ys"], predicted_data["ys"])):
-
             rel_error = (y_pred - y) / y
 
             if config.mode == "train":
@@ -294,7 +297,9 @@ def main():
                 skip_perc=args.skip_perc,
             )
 
-            coefficients, cov = fit_step2(data_by_name, task_name, args.y_metric, use_log_sigmoid=args.use_log_sigmoid)
+            coefficients, cov = fit_step2(
+                data_by_name, task_name, args.y_metric, use_log_sigmoid=args.use_log_sigmoid
+            )
             # a, x0, k, b = coefficients
 
             # make predictions
@@ -304,7 +309,12 @@ def main():
                 (y, y_pred, rel_error, delta_error),
                 all_rel_errors,
             ) = predict_step2(
-                configs, data_by_name, coefficients, cov, y_metric=args.y_metric, use_log_sigmoid=args.use_log_sigmoid
+                configs,
+                data_by_name,
+                coefficients,
+                cov,
+                y_metric=args.y_metric,
+                use_log_sigmoid=args.use_log_sigmoid,
             )
             rel_errors += all_rel_errors
 
@@ -345,13 +355,27 @@ def main():
 
     fig.tight_layout(w_pad=0.01)
     if num_tasks > 1:
-        legend = fig.legend(handles, labels, loc='upper center',
-                            ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.07),
-                            handletextpad=0.1,columnspacing=0.7)
+        legend = fig.legend(
+            handles,
+            labels,
+            loc="upper center",
+            ncol=10,
+            fontsize=FONTSIZE,
+            bbox_to_anchor=(0.5, 1.07),
+            handletextpad=0.1,
+            columnspacing=0.7,
+        )
     else:
-        legend = fig.legend(handles, labels, loc='upper center',
-                            ncol=1, fontsize=FONTSIZE, bbox_to_anchor=(1.4, 0.8),
-                            handletextpad=0.1,columnspacing=0.7)
+        legend = fig.legend(
+            handles,
+            labels,
+            loc="upper center",
+            ncol=1,
+            fontsize=FONTSIZE,
+            bbox_to_anchor=(1.4, 0.8),
+            handletextpad=0.1,
+            columnspacing=0.7,
+        )
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 

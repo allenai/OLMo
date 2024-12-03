@@ -4,12 +4,12 @@
 # python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_taskce_main.pdf -y rc_soft_log
 
 import argparse
-import pandas as pd
 import os
 from typing import Any, List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import seaborn as sns
 
 from olmo.scaling.scaling_laws.fitting_functions import (
@@ -183,7 +183,7 @@ def plot_step1(
             linestyle="--",
             alpha=0.7,
             linewidth=1.5,
-            label=f'{config.label} (fitted)' if config.mode == "train" else None,
+            label=f"{config.label} (fitted)" if config.mode == "train" else None,
         )
 
     # plot the actual and predicted data
@@ -285,7 +285,12 @@ def main():
         avg_unsigned_rel_error = np.mean(unsigned_rel_errors)
         fitting_error += avg_unsigned_rel_error
 
-        results[task_name] = {"Actual": y, "Pred": y_pred, "Rel Error": rel_error, "Fit Error": avg_unsigned_rel_error}
+        results[task_name] = {
+            "Actual": y,
+            "Pred": y_pred,
+            "Rel Error": rel_error,
+            "Fit Error": avg_unsigned_rel_error,
+        }
         results_str += f"\n{task_name} | {prettify(y, False)} | {prettify(y_pred, False)} | {prettify(rel_error)} | {prettify(avg_unsigned_rel_error)}"
 
         if args.output_path:
@@ -315,19 +320,33 @@ def main():
 
     fig.tight_layout(w_pad=0.01)
     if num_tasks > 1:
-        legend = fig.legend(handles, labels, loc='upper center',
-                            ncol=10, fontsize=FONTSIZE, bbox_to_anchor=(0.5, 1.07),
-                            handletextpad=0.3, columnspacing=0.7)
+        legend = fig.legend(
+            handles,
+            labels,
+            loc="upper center",
+            ncol=10,
+            fontsize=FONTSIZE,
+            bbox_to_anchor=(0.5, 1.07),
+            handletextpad=0.3,
+            columnspacing=0.7,
+        )
     else:
-        legend = fig.legend(handles, labels, loc='upper center',
-                            ncol=1, fontsize=FONTSIZE, bbox_to_anchor=(1.3, 0.9),
-                            handletextpad=0.1, columnspacing=0.7)
+        legend = fig.legend(
+            handles,
+            labels,
+            loc="upper center",
+            ncol=1,
+            fontsize=FONTSIZE,
+            bbox_to_anchor=(1.3, 0.9),
+            handletextpad=0.1,
+            columnspacing=0.7,
+        )
 
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 
     df = pd.DataFrame.from_dict(results, orient="index").reset_index().rename({"index": "Task"}, axis=1)
-    
+
     if args.output_path:
         os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
         fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
