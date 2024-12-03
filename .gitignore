@@ -32,7 +32,6 @@ doc/_build/
 *.swp
 .DS_Store
 
-
 # python
 
 *.pyc
