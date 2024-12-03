@@ -11,13 +11,17 @@ PRIORITY=$3
 CONFIG_DIR=configs/annealing
 CONFIG_PATH=${CONFIG_DIR}/${CONFIG_NAME}.yaml
 
+
+
+# --beaker-image petew/olmo-torch23-gantry \
+
 gantry run \
   --workspace ai2/davidw-oe-annealing \
   --task-name ${CONFIG_NAME} \
   --description ${CONFIG_NAME} \
   --priority $PRIORITY \
   --preemptible \
-  --beaker-image petew/olmo-torch23-gantry \
+  --beaker-image dirkg/OLMo \
   --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
