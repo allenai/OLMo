@@ -42,3 +42,8 @@ def compute_flops():
 
 if __name__ == "__main__":
 	compute_flops()
+
+	# Output:
+	# Compute needed to predict 7B: 3.535 %
+	# Compute needed to predict 13B: 1.53 %
+	# Compute needed to predict both target models: 1.068 %

@@ -520,6 +520,7 @@ if __name__ == "__main__":
         read_location=None,
         batch_size=-1,
         device_batch_size=-1,
+        device_eval_batch_size=-1,
         save_interval=1,
         eval_interval=1,
         alpha_f=0.1,
