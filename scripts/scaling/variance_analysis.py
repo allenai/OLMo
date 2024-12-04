@@ -1,5 +1,6 @@
+# python scripts/scaling/variance_analysis.py -k v2_main_variance -c scripts/scaling/final_variance.json -o figure/peteish-moreeval/variance.pdf --last_n_points 10 --run_prediction
+# python scripts/scaling/variance_analysis.py -k v2_main_variance -c scripts/scaling/final_variance.json -o figure/peteish-moreeval/variance.pdf --last_n_points 10 --run_prediction --print_table_as_latex
 # python scripts/scaling/variance_analysis.py -k v2_main_variance -c scripts/scaling/final_variance.json -o figure/peteish-moreeval/variance.pdf --last_n_points 10
-# python scripts/scaling/variance_analysis.py -k v2_main_variance -c scripts/scaling/final_variance.json -o figure/peteish-moreeval/variance.pdf --last_n_points 10 --print_table_as_latex
 
 import argparse
 import os
@@ -37,7 +38,12 @@ def parse_args():
     parser.add_argument("-c", "--config-path", type=str, required=True, help="Path to config file")
     parser.add_argument("-o", "--output-path", type=str, required=True, help="Path to write output figure")
     parser.add_argument(
-        "--print_table_as_latex", type=bool, default=False, help="Whether to print the analysis table in latex"
+        "--print_table_as_latex", action="store_true", help="Whether to print the analysis table in latex"
+    )
+    parser.add_argument(
+        "--run_prediction",
+        action="store_true",
+        help="Also report prediction errors alongisde the std. dev. of the ladder model",
     )
     args = parser.parse_args()
 
@@ -80,7 +86,7 @@ def plot_variance_analysis(configs, keys, last_n_points):
     if num_tasks < 4:
         n_groups = 1
         fig, axes = plt.subplots(
-            num_tasks // n_groups, 2 * n_groups, figsize=(2.75 * 2 * n_groups, 2.25 * (num_tasks // n_groups))
+            num_tasks // n_groups, 2 * n_groups, figsize=(2.75 * 2 * n_groups, 2.5 * (num_tasks // n_groups))
         )
     else:
         # Create a figure with spacing between the two groups of tasks
@@ -91,7 +97,7 @@ def plot_variance_analysis(configs, keys, last_n_points):
             (2 * n_groups) + 1,
             width_ratios=[1, 1, 0, 1, 1],
             wspace=0.4,
-            hspace=0.32,
+            hspace=0.4,
             left=0.05,
             right=0.97,
             bottom=0.05,
@@ -145,6 +151,7 @@ def plot_variance_analysis(configs, keys, last_n_points):
                         alpha=0.3,
                         # label=config.label
                         label=f"{config.label} (intermediate checkpoints)",
+                        # label=f"1B-10xC (intermediate checkpoints)",
                     )
                     ax_.scatter(
                         ds,
@@ -154,6 +161,7 @@ def plot_variance_analysis(configs, keys, last_n_points):
                         s=10,
                         alpha=0.5,
                         label=f"{config.label} (final {last_n_points} checkpoints)",
+                        # label=f"1B-10xC (final {last_n_points} checkpoints)",
                     )
 
                 ax1.set_xscale("log")
@@ -161,11 +169,15 @@ def plot_variance_analysis(configs, keys, last_n_points):
                 ax1.set_xlabel("Tokens (D)", fontsize=FONTSIZE)
                 ax1.set_ylabel("Task loss", fontsize=FONTSIZE)
                 ax1.set_title(
-                    f"{tasks[task_name].display_name} " + r"(Loss SD$_{10}$: " + f"{loss_coeff_of_var:.4f})",
+                    f"{tasks[task_name].display_name}\n"
+                    + r"(Loss relative SD$_{10}$: "
+                    + f"{loss_coeff_of_var*100:.2f}%)",
                     fontsize=FONTSIZE,
                     fontweight="bold",
                 )
                 ax1.yaxis.set_major_formatter(plt.FormatStrFormatter("%.2f"))
+                ax1.tick_params(axis="x", which="both", reset=True)
+                ax1.tick_params(axis="x", which="minor", labelsize=0)
 
                 # Step 2
                 ax2: plt.Axes = axes[r // (num_tasks // (2 * n_groups))][((r % n_groups) * 2) + 1]
@@ -179,6 +191,7 @@ def plot_variance_analysis(configs, keys, last_n_points):
                         s=10,
                         alpha=0.3,
                         label=f"{config.label} (intermediate checkpoints)",
+                        # label=f"1B-10xC (intermediate checkpoints)",
                     )
                     ax_.scatter(
                         xs,
@@ -188,13 +201,16 @@ def plot_variance_analysis(configs, keys, last_n_points):
                         s=10,
                         alpha=0.5,
                         label=f"{config.label} (final {last_n_points} checkpoints)",
+                        # label=f"1B-10xC (final {last_n_points} checkpoints)",
                     )
 
                 ax2.legend(loc="upper right", ncols=1, fontsize=10)
                 ax2.set_xlabel("Task loss", fontsize=FONTSIZE)
                 ax2.set_ylabel("Task RC accuracy", fontsize=FONTSIZE)
                 ax2.set_title(
-                    f"{tasks[task_name].display_name} " + r"(Accuracy SD$_{10}$: " + f"{acc_coeff_of_var:.4f})",
+                    f"{tasks[task_name].display_name}\n"
+                    + r"(Accuracy relative SD$_{10}$: "
+                    + f"{acc_coeff_of_var*100:.2f}%)",
                     fontsize=FONTSIZE,
                     fontweight="bold",
                 )
@@ -236,7 +252,7 @@ def plot_variance_analysis(configs, keys, last_n_points):
         handle.set_alpha(1.0)
 
     if num_tasks < 4:
-        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        fig.tight_layout(h_pad=0.02, rect=[0, 0, 1, 0.95])
 
     df = pd.merge(
         pd.merge(
@@ -261,6 +277,7 @@ def plot_variance_analysis(configs, keys, last_n_points):
 
 
 def run_two_step_prediction(keys_key):
+    """Use subprocesses to run each stage of the ladder model"""
     # Run predictions on 7B scale
     orig_argv = sys.argv
     original_stdout = sys.stdout
@@ -271,7 +288,7 @@ def run_two_step_prediction(keys_key):
         "-k",
         keys_key,
         "-c",
-        "scripts/scaling/final_variance_7b.json",
+        "scripts/scaling/final_7b_only.json",
         "-o",
         "/tmp/step1_main.pdf",
         "--moving_avg",
@@ -285,7 +302,7 @@ def run_two_step_prediction(keys_key):
         "-k",
         keys_key,
         "-c",
-        "scripts/scaling/final_variance_7b.json",
+        "scripts/scaling/final_7b_only.json",
         "-o",
         "/tmp/step2_main.pdf",
         "--skip_perc",
@@ -303,7 +320,7 @@ def run_two_step_prediction(keys_key):
         "-c",
         "scripts/scaling/final.json",
         "--step2-config-path",
-        "scripts/scaling/final_variance_7b.json",
+        "scripts/scaling/final_7b_only.json",
         "-o",
         "/tmp/chained_main.pdf",
         "-n",
@@ -325,10 +342,16 @@ def run_two_step_prediction(keys_key):
     sys.stdout = original_stdout
     sys.argv = orig_argv
 
+    # Rename columns
+    step1_df = step1_df[["Task", "Rel Error"]].rename(columns={"Rel Error": "7B Loss Rel Error"})
+    step2_df = step2_df[["Task", "Rel Error"]].rename(columns={"Rel Error": "7B Accuracy Rel Error"})
+    predict_df = predict_df[["Task", "Rel Error"]].rename(columns={"Rel Error": "7B Stacked Rel Error"})
+
     return step1_df, step2_df, predict_df
 
 
 def print_table(df, last_n_points, print_table_as_latex=False):
+    """Print std. dev. and (optionally) prediction errors"""
     print(f"Standard deviation over last {last_n_points} checkpoints:")
     if print_table_as_latex:
         # Convert to %
@@ -387,7 +410,7 @@ def print_table(df, last_n_points, print_table_as_latex=False):
 
 
 def print_correlation_table(df):
-    # Compute pairwise pearson correlations between numeric columns
+    """Compute pairwise pearson correlations between numeric columns"""
     from scipy import stats
 
     numeric_cols = df.select_dtypes(include=["float64"]).columns
@@ -420,33 +443,32 @@ def main():
 
     configs = get_final_configs(args.config_path)
 
+    # Render only two tasks for paper
+    # args.keys = ['mmlu_avg_test_5shot', 'openbookqa_test_5shot']
+
     keys = get_task_sets(args.keys)
     keys_key = str(args.keys[0])
 
     sns.set_style("whitegrid")
 
-    # Render only two tasks for paper
-    # args.keys = ['mmlu_avg_test_5shot', 'openbookqa_test_5shot']
-
     fig, df = plot_variance_analysis(configs, keys, args.last_n_points)
 
-    step1_df, step2_df, predict_df = run_two_step_prediction(keys_key)
+    if args.run_prediction:
+        step1_rel_errors, step2_rel_errors, predict_rel_errors = run_two_step_prediction(keys_key)
 
-    # Merge with the existing df
-    step1_rel_errors = step1_df[["Task", "Rel Error"]].rename(columns={"Rel Error": "7B Loss Rel Error"})
-    step2_rel_errors = step2_df[["Task", "Rel Error"]].rename(columns={"Rel Error": "7B Accuracy Rel Error"})
-    predict_rel_errors = predict_df[["Task", "Rel Error"]].rename(columns={"Rel Error": "7B Stacked Rel Error"})
-    df = df.merge(step1_rel_errors, on="Task", how="left")
-    df = df.merge(step2_rel_errors, on="Task", how="left")
-    df = df.merge(predict_rel_errors, on="Task", how="left")
+        # Merge with the existing df
+        df = df.merge(step1_rel_errors, on="Task", how="left")
+        df = df.merge(step2_rel_errors, on="Task", how="left")
+        df = df.merge(predict_rel_errors, on="Task", how="left")
 
     df = df.sort_values(by="Loss SD", ascending=False, ignore_index=True)
-    # df = df.sort_values(by="7B Stacked Rel Error", ascending=False, ignore_index=True)
 
     df["Task"] = df["Task"].map(lambda x: tasks[x].display_name)
 
     print_table(df, args.last_n_points, args.print_table_as_latex)
-    print_correlation_table(df)
+
+    if args.run_prediction:
+        print_correlation_table(df)
 
     if args.output_path:
         os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
