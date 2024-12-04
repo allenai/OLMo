@@ -250,7 +250,8 @@ def plot_step2(
     }[y_metric]
     ax.set_ylabel(y_label_name, fontsize=FONTSIZE)
 
-    # ax.set_ylim([0, 1.0])
+    ylim = ax.get_ylim()
+    ax.set_ylim(ylim[0], min(1.0, ylim[1]))
     ax.set_title(
         f"{tasks[task_name].display_name} (Fitting error: {avg_unsigned_rel_err * 100:.2f}%)",
         fontsize=FONTSIZE,
@@ -261,12 +262,6 @@ def plot_step2(
 def str_sigmoid(coefficients, use_log_sigmoid=False):
     if use_log_sigmoid:
         a, x0, k = coefficients
-
-        # def log_sigmoid(x, a, x0, k):
-        #     y = np.log(1 - 1/(1 + np.exp(-k * (x - x0))))
-        #     o = (-a) * y + 1
-        #     return o
-
         return f"Acc(L) = 1 - {-a:.2f} * log(1 - 1/(1 + e^(-{k:.2f}(L - {x0:.2f})))"
     else:
         a, x0, k, b = coefficients

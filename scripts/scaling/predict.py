@@ -4,6 +4,7 @@
 # python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_c4_main.pdf -n 13202396160 -d 5000088518656 -t 13B-5T --skip_perc 0.1 --moving_avg 5 --x_metric c4
 # python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2_mc_7B.json -o figure/peteish-moreeval/chained_mc_7B_main.pdf -y mc_acc -n 6887575552 -d 3945065873408 -t 7B-4T --moving_avg 5
 # python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2_mc_13B.json -o figure/peteish-moreeval/chained_mc_13B_main.pdf -y mc_acc -n 13202396160 -d 5000088518656 -t 13B-5T --moving_avg 5
+# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_taskce_main.pdf -n 6887575552 -d 3945065873408 -t 7B-4T --skip_perc 0.5 --x_metric rc_soft_log  --use_log_sigmoid
 
 import argparse
 
@@ -66,18 +67,20 @@ def parse_args():
     return args
 
 
-def predict_chained(data_by_name, step1_coefficients, step2_coefficients):
+def predict_chained(data_by_name, step1_coefficients, step2_coefficients, use_log_sigmoid=False):
     predicted_data_by_name = {}
     plotted_predicted_data_by_name = {}
 
     dmin = 0.8 * min([min(data["ds"]) for data in data_by_name.values()])
     dmax = 1.5 * max([max(data["ds"]) for data in data_by_name.values()])
 
+    fit_fn = log_sigmoid if use_log_sigmoid else sigmoid
+
     for name, data in data_by_name.items():
         predicted_data_by_name[name] = {
             "ds": data["ds"],
             "ys": [
-                sigmoid(chinchilla_n_d_fit([n, d], step1_coefficients), *step2_coefficients)
+                fit_fn(chinchilla_n_d_fit([n, d], step1_coefficients), *step2_coefficients)
                 for n, d in zip(data["ns"], data["ds"])
             ],
         }
@@ -86,7 +89,7 @@ def predict_chained(data_by_name, step1_coefficients, step2_coefficients):
         plotted_predicted_data_by_name[name] = {
             "ds": ds,
             "ys": [
-                sigmoid(chinchilla_n_d_fit([n, d], step1_coefficients), *step2_coefficients)
+                fit_fn(chinchilla_n_d_fit([n, d], step1_coefficients), *step2_coefficients)
                 for n, d in zip(ns, ds)
             ],
         }
@@ -99,11 +102,15 @@ def predict_chained(data_by_name, step1_coefficients, step2_coefficients):
     return predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error)
 
 
-def str_chained_fit(step1_coefficients, step2_coefficients):
+def str_chained_fit(step1_coefficients, step2_coefficients, use_log_sigmoid=False):
     a, b, alpha, beta, E = step1_coefficients
     A, B = np.exp(a), np.exp(b)
-    a, x0, k, b = step2_coefficients
-    return f"L(N, D) = {A:.2f} / N^{alpha:.2f} + {B:.2f} / D^{beta:.2f} + {E:.2f}; Acc(L) = {a:.2f} / (1 + e^(-{k:.2f}(L - {x0:.2f}))) + {b:.2f}"
+    if use_log_sigmoid:
+        a, x0, k = step2_coefficients
+        return f"L(N, D) = {A:.2f} / N^{alpha:.2f} + {B:.2f} / D^{beta:.2f} + {E:.2f}; Acc(L) = 1 - {-a:.2f} * log(1 - 1/(1 + e^(-{k:.2f}(L - {x0:.2f})))"
+    else:
+        a, x0, k, b = step2_coefficients
+        return f"L(N, D) = {A:.2f} / N^{alpha:.2f} + {B:.2f} / D^{beta:.2f} + {E:.2f}; Acc(L) = {a:.2f} / (1 + e^(-{k:.2f}(L - {x0:.2f}))) + {b:.2f}"
 
 
 def plot_chained(
@@ -226,7 +233,7 @@ def main():
 
         # make predictions
         predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error) = predict_chained(
-            single_step_data_by_name, step1_coefficients, step2_coefficients
+            single_step_data_by_name, step1_coefficients, step2_coefficients, args.use_log_sigmoid
         )
 
         plot_chained(
@@ -235,7 +242,7 @@ def main():
             predicted_data_by_name,
             plotted_predicted_data_by_name,
             task_name,
-            str_chained_fit(step1_coefficients, step2_coefficients),
+            str_chained_fit(step1_coefficients, step2_coefficients, args.use_log_sigmoid),
             axes[r // num_cols][r % num_cols],
         )
 
