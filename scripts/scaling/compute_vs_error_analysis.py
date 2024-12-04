@@ -204,7 +204,7 @@ def plot_vary_n(N_df, output_path, which_step):
                     color=colors[step_],
                     linestyle="--",
                     linewidth=1.5,
-                    label=step_,
+                    label=step_ if step_ != "stacked" else "chained",
                 )
             ax.set_ylabel(f"Prediction Error".title())
             ax.legend(loc="upper right", ncols=1, fontsize=8)
@@ -227,6 +227,31 @@ def plot_vary_n(N_df, output_path, which_step):
         # ax.set_xticks([MODEL_FLOPS[model] for model in task_df.index], task_df.index)
 
     fig.tight_layout()
+
+    handles, labels = axes[-1][-1].get_legend_handles_labels()
+    for i in range(num_cols):
+        for j in range(num_rows):
+            if j != num_rows - 1:
+                axes[j][i].set_xlabel("")
+            if i != 0:
+                axes[j][i].set_ylabel("")
+
+            axes[j][i].legend().remove()
+
+    legend = fig.legend(
+        handles,
+        labels,
+        loc="upper center",
+        ncol=10,
+        fontsize=FONTSIZE,
+        bbox_to_anchor=(0.5, 1.07),
+        handletextpad=0.1,
+        columnspacing=0.7,
+    )
+
+    for handle in legend.legend_handles:
+        handle.set_alpha(1.0)
+
     fig.savefig(output_path, dpi=300, bbox_inches="tight")
 
 
@@ -275,7 +300,7 @@ def plot_vary_xC(xC_df, output_path, which_step):
                     color=colors[step_],
                     linestyle="--",
                     linewidth=1.5,
-                    label=step_,
+                    label=step_ if step_ != "stacked" else "chained",
                 )
             ax.set_ylabel(f"Prediction Error".title())
             ax.legend(loc="upper right", ncols=1, fontsize=8)
@@ -296,6 +321,31 @@ def plot_vary_xC(xC_df, output_path, which_step):
         # ax.set_xticks([MODEL_FLOPS[model] for model in task_df.index], task_df.index)
 
     fig.tight_layout()
+
+    handles, labels = axes[-1][-1].get_legend_handles_labels()
+    for i in range(num_cols):
+        for j in range(num_rows):
+            if j != num_rows - 1:
+                axes[j][i].set_xlabel("")
+            if i != 0:
+                axes[j][i].set_ylabel("")
+
+            axes[j][i].legend().remove()
+
+    legend = fig.legend(
+        handles,
+        labels,
+        loc="upper center",
+        ncol=10,
+        fontsize=FONTSIZE,
+        bbox_to_anchor=(0.5, 1.07),
+        handletextpad=0.1,
+        columnspacing=0.7,
+    )
+
+    for handle in legend.legend_handles:
+        handle.set_alpha(1.0)
+
     fig.savefig(output_path, dpi=300, bbox_inches="tight")
 
 
@@ -353,7 +403,7 @@ def plot_vary_flops(flops_df, output_path, which_step, do_average=False):
                         color=colors[step_],
                         linestyle="--",
                         linewidth=1.5,
-                        label=step_,
+                        label=step_ if step_ != "stacked" else "chained",
                     )
                 ax.set_ylabel(f"Prediction Error".title())
                 ax.legend(loc="upper right", ncols=1, fontsize=8)
@@ -393,6 +443,33 @@ def plot_vary_flops(flops_df, output_path, which_step, do_average=False):
         ax.set_title(f"Average {which_step} prediction error".title(), fontsize=FONTSIZE, fontweight="bold")
 
     fig.tight_layout()
+
+    if not do_average:
+        handles, labels = axes[-1][-1].get_legend_handles_labels()
+        for i in range(num_cols):
+            for j in range(num_rows):
+                if j != num_rows - 1:
+                    axes[j][i].set_xlabel("")
+                if i != 0:
+                    axes[j][i].set_ylabel("")
+
+                axes[j][i].legend().remove()
+
+        legend = fig.legend(
+            handles,
+            labels,
+            loc="upper center",
+            ncol=10,
+            fontsize=FONTSIZE,
+            bbox_to_anchor=(0.5, 1.07),
+            handletextpad=0.1,
+            columnspacing=0.7,
+        )
+
+        for handle in legend.legend_handles:
+            handle.set_alpha(1.0)
+
+
     fig.savefig(output_path, dpi=300, bbox_inches="tight")
 
 
@@ -426,6 +503,48 @@ def run_predictions_vary_flops(args, which_step="stacked", do_average=False):
 
         # output_per_flops[cum_flops] = {key: val[which_step] for key, val in output.items()}
         output_per_flops[cum_flops] = output
+
+        print(f"{cum_flops:.3e}", output["mmlu_avg_test_5shot"])
+
+    flops_df = pd.DataFrame.from_dict(output_per_flops).transpose()
+
+    plot_vary_flops(flops_df, args.output_path, which_step=which_step, do_average=do_average)
+
+
+def run_predictions_vary_flops_step(args, which_step="stacked", do_average=False):
+    output_per_flops = {}
+
+    configs = {TARGET_CONFIG["label"]: TARGET_CONFIG}
+
+    all_flops = {}
+    for N in MODELS:
+        for mult in CHINCHILLA_MULTIPLIERS:
+            all_flops[f"{N}-{mult}xC"] = MODEL_FLOPS[N] * (MODEL_PARAMS[N] * 20 * mult)
+
+    # sorted_flops = sorted(all_flops.items(), key=lambda item: item[1])
+    sorted_flops = all_flops.items()
+
+    cum_flops = 0
+
+    for run_name, num_flops in sorted_flops:
+        cum_flops = num_flops
+        N, xC = run_name.replace("xC", "").split("-")
+        mult = int(xC)
+        if N in configs:
+            configs[N]["paths"] += [f"scripts/scaling/data/peteish-moreeval/{N}-{mult}xC.csv"]
+        else:
+            paths = [f"scripts/scaling/data/peteish-moreeval/{N}-{mult}xC.csv"]
+            configs[N] = {"paths": paths, "mode": "train", "n": MODEL_PARAMS[N], "label": N, "color": COLOR_MAP[N]}
+
+        final_configs = {name: FinalConfig(**config) for name, config in configs.items()}
+        print(final_configs)
+
+        output = run_all_steps(final_configs, moving_avg=args.moving_avg, skip_perc=args.skip_perc)
+
+        # output_per_flops[cum_flops] = {key: val[which_step] for key, val in output.items()}
+        output_per_flops[cum_flops] = output
+
+        print(f"{cum_flops:.3e}", output["mmlu_avg_test_5shot"])
 
     flops_df = pd.DataFrame.from_dict(output_per_flops).transpose()
 
