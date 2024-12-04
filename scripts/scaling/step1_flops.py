@@ -42,18 +42,18 @@ def parse_args():
 
 
 def fit_step1(data_by_name, y_metric):
-    train_fs, train_ys = [], []
+    train_fs, train_xs = [], []
     for name, data in data_by_name.items():
         if data["mode"] == "train":
             train_fs += data["fs"]
-            train_ys += data["ys"]
+            train_xs += data["xs"]
 
     if y_metric == "rc_bpb":
         p0 = [3.0, 0.1, 1.0]
         bounds = [(0, None), (0, 1.0), (0, None)]
         coefficients, cov = get_coefficients_huber(
             train_fs,
-            train_ys,
+            train_xs,
             chinchilla_flops_fit,
             grad_chinchilla_flops_fit,
             p0=p0,
@@ -98,21 +98,21 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
     for name, data in data_by_name.items():
         predicted_data_by_name[name] = {
             "fs": data["fs"],
-            "ys": [func(f, coefficients) for f in data["fs"]],
+            "xs": [func(f, coefficients) for f in data["fs"]],
         }
         fs = np.exp(np.linspace(np.log(fmin), np.log(fmax), 100))
         plotted_predicted_data_by_name[name] = {
             "fs": fs,
-            "ys": [func(f, coefficients) for f in fs],
+            "xs": [func(f, coefficients) for f in fs],
         }
 
         if configs[name].mode == "eval":
             predicted_data = predicted_data_by_name[name]
-            for f, y, y_pred in zip(data["fs"], data["ys"], predicted_data["ys"]):
+            for f, y, y_pred in zip(data["fs"], data["xs"], predicted_data["xs"]):
                 rel_error = (y_pred - y) / y
         else:
             predicted_data = predicted_data_by_name[name]
-            for f, y, y_pred in zip(data["fs"], data["ys"], predicted_data["ys"]):
+            for f, y, y_pred in zip(data["fs"], data["xs"], predicted_data["xs"]):
                 rel_error_t = (y_pred - y) / y
                 unsigned_rel_errors.append(np.abs(rel_error_t))
 
@@ -165,7 +165,7 @@ def plot_step1(
         config = configs[name]
         ax.plot(
             data["fs"],
-            data["ys"],
+            data["xs"],
             color="black",
             linestyle="--",
             alpha=0.7,
@@ -181,7 +181,7 @@ def plot_step1(
         config = configs[name]
         predicted_data = predicted_data_by_name[name]
 
-        for i, (f, y) in enumerate(zip(data["fs"], data["ys"])):
+        for i, (f, y) in enumerate(zip(data["fs"], data["xs"])):
             ax.scatter(
                 f,
                 y,
@@ -191,7 +191,7 @@ def plot_step1(
                 label=f"{config.label} (target)" if config.mode == "eval" else None,
             )
 
-        for f, y, y_pred in zip(data["fs"], data["ys"], predicted_data["ys"]):
+        for f, y, y_pred in zip(data["fs"], data["xs"], predicted_data["xs"]):
             rel_error = (y_pred - y) / y
             if config.mode == "train":
                 unsigned_rel_errors.append(np.abs(rel_error))
