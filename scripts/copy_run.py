@@ -13,10 +13,17 @@ ENTITY = "ai2-llm"
 #     at the end of their corresponding runs.
 RUNS_TO_COPY = [
     ###########################################################################################
+    # (
+    #     "ai2-llm/olmo-medium/runs/79h5h3aa",
+    #     "peteish7-weka-anneal-from-928646-50B-nowup_legal-whammy-2_seed42",
+    #     "peteish7-weka-anneal-from-928646-50B-nowup_legal-whammy-2_seed42",
+    #     "olmo-7b-anneals",
+    #     0
+    # ),
     (
-        "ai2-llm/olmo-medium/runs/79h5h3aa",
-        "peteish7-weka-anneal-from-928646-50B-nowup_legal-whammy-2_seed42",
-        "peteish7-weka-anneal-from-928646-50B-nowup_legal-whammy-2_seed42",
+        "ai2-llm/olmo-medium/runs/g4ccxhiw",
+        "peteish7-anneal-from-928646-50B-nowup-moremath-dclm07-fw2-se-flan",
+        "peteish7-anneal-from-928646-50B-nowup-moremath-dclm07-fw2-se-flan",
         "olmo-7b-anneals",
         0
     ),
