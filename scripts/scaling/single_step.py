@@ -186,6 +186,9 @@ def main():
     for i, task_name in enumerate(args.keys):
         data_by_name = get_step1_data_by_name(configs, task_name, y_metric="rc_acc", moving_avg=args.moving_avg)
 
+        for name, data in data_by_name.items():
+            data["ys"] = data["xs"]  # to deal with refactor
+
         # fit the parameters
         coefficients = fit_single_step(data_by_name, task_name)
 
