@@ -50,7 +50,7 @@ def download_model_to_image(model_dir, model_name, model_revision):
 # Our first order of business is to define the environment our server will run in
 # the container image. (See https://modal.com/docs/guide/custom-container)
 
-# This differs from vllm_interface.py in two major ways: first, as of the time this
+# This differs from vllm_inference.py in two major ways: first, as of the time this
 # is being written, the OLMo 2 model architecture requires building vLLM and transformers
 # from github commits that are too recent to have tagged versions, requiring that they
 # be built. The nvidia/cuda base image, git and build-essential apt_install, and the
@@ -145,7 +145,7 @@ def serve():
 
     # This example uses a token defined in the Modal secret linked above,
     # as described here: https://modal.com/docs/guide/secrets
-    async def is_authenticated(api_key: str = fastapi.Security(http_bearer)):
+    async def is_authenticated(api_key = fastapi.Security(http_bearer)):
         if api_key.credentials != os.getenv("MODAL_TOKEN"):
             raise fastapi.HTTPException(
                 status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
@@ -207,7 +207,7 @@ def serve():
 
 # To deploy the API on Modal, just run
 # ```bash
-# modal deploy vllm_inference.py
+# modal deploy olmo2_modal_openai.py
 # ```
 
 # This will create a new app on Modal, build the container image for it, and deploy.
@@ -218,7 +218,7 @@ def serve():
 # something like `https://your-workspace-name--olmo-2-1124-instruct-openai-serve.modal.run`.
 
 # You can find [interactive Swagger UI docs](https://swagger.io/tools/swagger-ui/)
-# at the `/docs` route of that URL, i.e. `https://your-workspace-name--example-vllm-openai-compatible-serve.modal.run/docs`.
+# at the `/docs` route of that URL, i.e. `https://your-workspace-name--olmo-2-1124-instruct-openai-serve.modal.run/docs`.
 # These docs describe each route and indicate the expected input and output
 # and translate requests into `curl` commands. They also demonstrate authentication.
 
