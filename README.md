@@ -154,7 +154,7 @@ The quantized model is sensitive to input types and CUDA handling. To avoid pote
 
 Additional tools for evaluating OLMo models are available at the [OLMo Eval](https://github.com/allenai/OLMo-eval) repo.
 
-## Hosting
+## Modal.com Hosting
 
 An example script is provided for hosting an OLMo 2 model on Modal.com using a the OpenAI API in ./scripts/olmo2_modal_openai.py.
 To run that:
