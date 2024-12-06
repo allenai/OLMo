@@ -20,7 +20,7 @@ gantry run \
   --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/pluto-cirrascale \
+  --cluster ai2/augusta-google-1 \
   --gpus 8 \
   $MULTI_NODE_ARGS \
   --budget ai2/oe-training \
