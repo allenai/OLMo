@@ -11,6 +11,16 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+conda shell.bash activate base
+
+
+pip install packaging ninja
+export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
+pip install flash-attn==2.5.9.post1 --no-build-isolation
+# pip install awscli
+pip install '.[train]'
+pip freeze
+
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
   --nproc-per-node 8 \
