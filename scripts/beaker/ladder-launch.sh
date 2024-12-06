@@ -14,14 +14,13 @@ else
 fi
 
 gantry run \
-  --workspace ai2/OLMo-training \
+  --workspace ai2/OLMo-pretraining-stability \
   --task-name ladder \
   --description "OLMo ladder with $*" \
-  --priority normal \
+  --priority high \
   --preemptible \
-  --beaker-image shanea/olmo-torch2.2-gantry \
+  --beaker-image petew/olmo-torch23-gantry  \
   --cluster ai2/jupiter-cirrascale-2 \
-  --weka=oe-training-default:/weka/oe-training-default \
   --gpus 8 \
   $MULTI_NODE_ARGS \
   --budget ai2/oe-training \
