@@ -19,7 +19,7 @@ gantry run \
   --description "OLMo ladder with $*" \
   --priority high \
   --preemptible \
-  --beaker-image shanea/olmo-torch2.2-gantry \
+  --beaker-image petew/olmo-torch23-gantry  \
   --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
   $MULTI_NODE_ARGS \
