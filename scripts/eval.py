@@ -116,18 +116,18 @@ def main(cfg: TrainConfig) -> None:
 
     if cfg.load_path is None:
         raise OLMoConfigurationError("To run eval you must provide a load_path")
-    # elif "://" in cfg.load_path:
-    #     raise OLMoConfigurationError(
-    #         "Eval does not support remote paths. Please specify a local path or WEKA mounted path."
-    #     )
+    elif "://" in cfg.load_path:
+        raise OLMoConfigurationError(
+            "Eval does not support remote paths. Please specify a local path or WEKA mounted path."
+        )
     if "step" in cfg.load_path.split("/")[-1]:
         load_paths = [cfg.load_path]
     # elif "s3://" in cfg.load_path:  # HACK: This is a temporary solution to eval peteish13-highlr
     #     load_paths = [f"{cfg.load_path}/step{step}" for step in range(90000, 105000, 5000)]
     # elif "gs://" in cfg.load_path:  # HACK: This is a temporary solution to eval peteish13-highlr
     #     load_paths = [f"{cfg.load_path}/step{step}" for step in range(275000, 520000, 5000)]
-    elif "gs://" in cfg.load_path:  # HACK: This is a temporary solution to eval peteish7-medlr
-        load_paths = [f"{cfg.load_path}/step{step}" for step in range(330000, 495000, 5000)]
+    # elif "gs://" in cfg.load_path:  # HACK: This is a temporary solution to eval peteish7-medlr
+    #     load_paths = [f"{cfg.load_path}/step{step}" for step in range(330000, 495000, 5000)]
     else:
         # This globbing only works with local paths
         load_paths = list(glob.glob(f"{cfg.load_path}/step*"))
