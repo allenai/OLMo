@@ -51,34 +51,26 @@ def download_model_to_image(model_dir, model_name, model_revision):
 # the container image. (See https://modal.com/docs/guide/custom-container)
 
 # This differs from vllm_inference.py in two major ways: first, as of the time this
-# is being written, the OLMo 2 model architecture requires building vLLM and transformers
-# from github commits that are too recent to have tagged versions, requiring that they
-# be built. The nvidia/cuda base image, git and build-essential apt_install, and the
-# torch and ray pip_installs, are all required to support these vllm and transformer
-# builds that follow.
+# is being written, the OLMo 2 model architecture requires a version of vLLM that is
+# too recent to have a tagged version, requiring a commit-specific wheel from vLLM's
+# archives.
 #
 # Second, we call the download_model_to_image function here, to build the resulting local
 # directory with model weights into our image.
 #
-# The image build can take a long time the first time you run this script; in particular,
-# the vLLM build can take well over an hour just by itself. The good news is that, as
-# long as the image definition doesn't change, Modal will cache and reuse the image on
-# later runs without having to re-run the full image build for each new container instance.
+# The image build can take several minutes the first time you run this script. The good
+# news is that, as long as the image definition doesn't change, Modal will cache and reuse
+# the image on later runs without having to re-run the full image build for each new container
+# instance.
 
 vllm_image = (
-    modal.Image.from_registry("nvidia/cuda:12.2.0-devel-ubuntu22.04", add_python="3.10")
+    modal.Image.debian_slim(python_version="3.10")
     .apt_install("git", "build-essential")
     .pip_install(
-        "torch==2.4.0",
-        "ray==2.10.0",
         "hf-transfer==0.1.6",
-        "huggingface_hub==0.23.4",
-    )
-    .pip_install(
-        "git+https://github.com/vllm-project/vllm.git@9db713a1dca7e1bc9b6ecf5303c63c7352c52a13",
-    )
-    .pip_install(
-        "git+https://github.com/huggingface/transformers.git@9121ab8fe87a296e57f9846e70153b1a3c555d75",
+        "huggingface_hub==0.24.0",
+        "https://vllm-wheels.s3.us-west-2.amazonaws.com/9db713a1dca7e1bc9b6ecf5303c63c7352c52a13/vllm-1.0.0.dev-cp38-abi3-manylinux1_x86_64.whl",
+        "transformers==4.47.0",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
@@ -98,11 +90,19 @@ vllm_image = (
 # the app.function annotation at the top. This handles setting up the inference
 # engine as well as a fastapi webserver, which is configured with completions and
 # chat endpoints.
+#
+# Note that keep_warm=0 means the app will spin down entirely when idle, which is more
+# cost efficient if the endpoint is not regularly used because you don't need to pay for
+# GPUs when they're not being used, but does require a cold start after idle timeouts
+# which will delay the initial responses until the instance finishes starting back up,
+# usually on the order of a minute or so.
+#
 app = modal.App(APP_NAME)
 
 @app.function(
     image=vllm_image,
     gpu=GPU_CONFIG,
+    keep_warm=0, # Spin down entirely when idle
     container_idle_timeout=5 * MINUTES,
     timeout=24 * HOURS,
     allow_concurrent_inputs=1000,
