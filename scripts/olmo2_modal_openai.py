@@ -4,8 +4,9 @@
 # It is based on Modal.com's own reference example for OpenAI with vLLM here:
 # https://github.com/modal-labs/modal-examples/blob/ed89980d7288cd35c57f23861ba1b1c8d198f68d/06_gpu_and_ml/llm-serving/vllm_inference.py
 
-import modal
 import os
+
+import modal
 
 MODEL_NAME = "allenai/OLMo-2-1124-13B-Instruct"
 MODEL_REVISION = "9b7f0b17b9c6d6f6a0c3d1bba2495294f704ac2d"
@@ -116,9 +117,7 @@ def serve():
     from vllm.engine.async_llm_engine import AsyncLLMEngine
     from vllm.entrypoints.logger import RequestLogger
     from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
-    from vllm.entrypoints.openai.serving_completion import (
-        OpenAIServingCompletion,
-    )
+    from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
     from vllm.entrypoints.openai.serving_engine import BaseModelPath
     from vllm.usage.usage_lib import UsageContext
 
