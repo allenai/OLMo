@@ -19,7 +19,7 @@ from olmo.scaling.scaling_laws.utils import (
     tasks,
 )
 
-MARKERS = ["s", "P", "p", "*", "o"]
+MARKERS = {"0.5xC": "D", "1xC": "s", "2xC": "P", "5xC": "p", "10xC": "*"}
 FONTSIZE = 9
 
 
@@ -124,12 +124,12 @@ def plot_single_step(
         config = configs[name]
         predicted_data = predicted_data_by_name[name]
 
-        for i, (d, y) in enumerate(zip(data["ds"], data["xs"])):
+        for i, (d, y, l) in enumerate(zip(data["ds"], data["xs"], data["ls"])):
             ax.scatter(
                 d,
                 y,
                 color=config.color,
-                marker=MARKERS[i] if config.mode == "train" else "o",
+                marker=MARKERS[l] if config.mode == "train" else "o",
                 s=50 if config.mode == "train" else 20,
                 label=f"{config.label} (target)" if config.mode == "eval" else None,
             )

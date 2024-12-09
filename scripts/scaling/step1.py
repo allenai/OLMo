@@ -1,6 +1,6 @@
 # python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_main.pdf --moving_avg 5
-# python scripts/scaling/step1.py -k mmlu_avg_test_5shot -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_c4_main.pdf --y_metric c4 --moving_avg 5
-# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_acc_main.pdf --y_metric rc_acc
+# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_c4_main.pdf -y c4 --moving_avg 5
+# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_acc_main.pdf -y rc_acc --moving_avg 5
 # python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_taskce_main.pdf -y rc_soft_log
 
 import argparse
@@ -352,7 +352,7 @@ def main():
     if args.output_path:
         os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
         fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
-        df.to_csv(args.output_path.replace(".pdf", ".csv"), index=False)
+        df.to_csv(args.output_path.replace(".pdf", ".csv").replace(".png", ".csv"), index=False)
 
     print(params_str)
     print(results_str)

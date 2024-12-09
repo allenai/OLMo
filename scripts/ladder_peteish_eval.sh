@@ -25,3 +25,5 @@
 
 ./scripts/beaker/peteish/peteish7-eval-launch.sh
 ./scripts/beaker/peteish/peteish13-eval-launch.sh
+./scripts/augusta/peteish13-eval-launch.sh
+./scripts/augusta/peteish7-medlr-eval-launch.sh

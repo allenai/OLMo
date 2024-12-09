@@ -29,7 +29,7 @@ from olmo.scaling.scaling_laws.utils import (
     tasks,
 )
 
-MARKERS = {"0.5xC": "D", "1xC": "s", "2xC": "P", "5xC": "p", "10xC": "*"}
+MARKERS = {"0.5xC": "D", "1xC": "s", "2xC": "P", "5xC": "p", "10xC": "*", "": "o"}
 FONTSIZE = 9
 
 
@@ -291,7 +291,7 @@ def main():
     if args.output_path:
         fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
         df = pd.DataFrame.from_dict(results, orient="index").reset_index().rename({"index": "Task"}, axis=1)
-        df.to_csv(args.output_path.replace(".pdf", ".csv"), index=False)
+        df.to_csv(args.output_path.replace(".pdf", ".csv").replace(".png", ".csv"), index=False)
 
     print(results_str)
 

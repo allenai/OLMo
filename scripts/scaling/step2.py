@@ -1,6 +1,6 @@
 # python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_main.pdf --skip_perc 0.1 --moving_avg 5
-# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_c4_main.pdf --x_metric c4 --skip_perc 0.1 --moving_avg 5
-# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_taskce_main.pdf --skip_perc 0.5 --use_log_sigmoid --x_metric rc_soft_log
+# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_c4_main.pdf -x c4 --skip_perc 0.1 --moving_avg 5
+# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_taskce_main.pdf -x rc_soft_log --skip_perc 0.5 --use_log_sigmoid
 
 import argparse
 
@@ -89,6 +89,7 @@ def fit_step2(data_by_name, task_name, y_metric, use_log_sigmoid=False):
             sigmoid,
             p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, tasks[task_name].task_maximum],
             bounds=([-1.0, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
+            # bounds=([tasks[task_name].task_minimum - 1.0, 0.0, 0.0, tasks[task_name].task_maximum - 0.0001], [tasks[task_name].task_minimum - 0.9999, np.inf, np.inf, tasks[task_name].task_maximum]),
             disp=False,
             return_cov=True,
         )
@@ -378,7 +379,7 @@ def main():
 
     if args.output_path:
         fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
-        df.to_csv(args.output_path.replace(".pdf", ".csv"), index=False)
+        df.to_csv(args.output_path.replace(".pdf", ".csv").replace(".png", ".csv"), index=False)
 
     print(results_str)
 
