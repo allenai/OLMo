@@ -8,6 +8,10 @@ def compute_stop_at(
         target_multiplier: str,
         sequence_length = 2048
 ):
+    if current_run_parameters in ["150M", "300M"]:
+        # no need to early stop small models
+        return None
+
     target_parameters_parsed = parse_size(target_parameters)
     target_length_parsed = parse_length(target_multiplier, target_parameters_parsed)
     target_compute = 6 * target_length_parsed * target_parameters_parsed
@@ -50,6 +54,10 @@ if __name__ == "__main__":
         "dclm_fw_top10",
         "dclm_ft7percentile_fw2",
         "dclm_ft7percentile_fw3",
+
+        # more
+        "dclm_fw_top3",
+        "dclm_mmlu_top3"
     ]
 
     sizes = [
@@ -61,13 +69,13 @@ if __name__ == "__main__":
     ]
 
     seeds = [
-        # None,
+        None,
         4,
         5
     ]
 
     stop_at_configs = [
-        # None,
+        None,
         0.25
     ]
 
@@ -75,6 +83,9 @@ if __name__ == "__main__":
         for mixture in mixtures:
             for size in sizes:
                 for stop_at_config in stop_at_configs:
+                    if stop_at_config is not None and seed is None:
+                        continue
+
                     seed_used = seed
                     if stop_at_config is not None:
                         stop_at = compute_stop_at(stop_at_config, size, "1B", "5xC")
@@ -87,6 +98,6 @@ if __name__ == "__main__":
                     bash_command = f"bash scripts/beaker/ladder-launch.sh 1 normal --model {size} --data {mixture} --length 5xC --name {mixture} --s3 --save_overwrite"
                     if seed is not None:
                         bash_command += f" --seed {seed_used}"
-                    if stop_at_config is not None:
+                    if stop_at_config is not None and stop_at is not None:
                         bash_command += f" --stop_at {stop_at}"
                     print(bash_command)
