@@ -25,7 +25,7 @@ dependencies = [
     "cached_path>=1.6.2",
     "transformers",
     "importlib_resources",
-    "baker-gantry"
+    "beaker-gantry"
 ]
 
 [project.optional-dependencies]
