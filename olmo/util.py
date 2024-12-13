@@ -30,6 +30,8 @@ from rich.traceback import Traceback
 
 from olmo_data.data import get_data_path
 
+from __future__ import annotations ### TO BE REMOVED -- hack --
+
 from .aliases import PathOrStr
 from .exceptions import (
     OLMoCliError,
