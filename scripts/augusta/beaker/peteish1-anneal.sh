@@ -51,6 +51,8 @@ export NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY=/dev/aperture_devices
 #conda install -y pytorch-cuda==12.4 packaging ninja cccl cuda-nvcc libcusolver-dev cuda-profiler-api libcusparse-dev libcublas-dev -c pytorch -c nvidia
 #pip install flash-attn==2.5.9.post1 --no-build-isolation
 pip install '.[train]'
+# wandb 0.19.1 breaks `group_name_from_wandb.py`
+pip install --upgrade wandb==0.19.0
 pip freeze
 
 # Force processes to synchronize at init_process_group
