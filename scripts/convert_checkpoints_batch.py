@@ -105,7 +105,10 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
                     subprocess.run(conversion_cmd, shell=True, check=True)
                 except subprocess.CalledProcessError as e:
                     print(f"Error during checkpoint conversion: {checkpoint_path}")
-                    error = ( e.return_code, e.stderr )  ### NOT ACTUALLY WORKING CORRECTLY. FIX THIS (not catching config not found error)
+                    error = {
+                        'error_code': e.return_code,
+                        'error_stderr': e.stderr
+                    }
                     conversion_status = "error"
                     converted_path = ""
 
