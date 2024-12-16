@@ -1,5 +1,3 @@
-from __future__ import annotations ### TO BE REMOVED
-
 import gzip
 import io
 import json
