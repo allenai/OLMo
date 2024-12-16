@@ -35,6 +35,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
     print(f">>> Total of {len(cps)} paths to process. <<<", flush=True)
 
     processed: Dict = {}
+    errored: Dict = {}
 
     # Convert to old-style checkpoint.
     for checkpoint_path in cps:
@@ -103,32 +104,40 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
                 try:
                     subprocess.run(conversion_cmd, shell=True, check=True)
                 except subprocess.CalledProcessError as e:
-                    error = (
-                        e.output
-                    )  ### NOT ACTUALLY WORKING CORRECTLY. FIX THIS (not catching config not found error)
+                    print(f"Error during checkpoint conversion: {checkpoint_path}")
+                    error = ( e.return_code, e.stderr )  ### NOT ACTUALLY WORKING CORRECTLY. FIX THIS (not catching config not found error)
                     conversion_status = "error"
                     converted_path = ""
+
+        timestamp = time.strftime("%b-%d-%Y_%H%M", time.localtime())
 
         # Keep info for log.jsonl
         local_log = {
             "unprocessed_path": checkpoint_path,
             "converted_path": converted_path.replace(load_dir, weka_prefix),
             "conversion": conversion_status,
-            "date_time": time.strftime("%b-%d-%Y_%H%M", time.localtime()),
+            "date_time": timestamp,
             "error": error,
         }
 
-        # output model checkpoint location for eval scripts
-        curr = Path(converted_path)
-        parent = curr.parent
-        if parent.name not in processed:
-            processed[parent.name] = {
-                "model_name": parent.name,
-                "checkpoints_location": str(parent).replace(load_dir, weka_prefix),
-                "revisions": [curr.name],
+        if conversion_status == 'error':
+            errored[checkpoint_path] = {
+                "unprocessed_path": checkpoint_path,
+                "date_time": timestamp,
+                "error": error
             }
         else:
-            processed[parent.name]["revisions"].append(curr.name)
+            # output model checkpoint location for eval scripts
+            curr = Path(converted_path)
+            parent = curr.parent
+            if parent.name not in processed:
+                processed[parent.name] = {
+                    "model_name": parent.name,
+                    "checkpoints_location": str(parent).replace(load_dir, weka_prefix),
+                    "revisions": [curr.name],
+                }
+            else:
+                processed[parent.name]["revisions"].append(curr.name)
 
         # Output Log
         if not sanity_check:
@@ -140,6 +149,10 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
         with open(os.path.join(RESULTS_DIR, "model_checkpoints.jsonl"), "w") as fout:
             for _, p in processed.items():
                 fout.write(json.dumps(p) + "\n")
+        if len(errored) > 0:
+            with open(os.path.join(RESULTS_DIR, "errors.jsonl"), "w") as fout:
+                for _, p in errored.items():
+                    fout.write(json.dumps(p) + "\n")
 
 
 def s3_path_exists(bucket, prefix, bucket_name):
