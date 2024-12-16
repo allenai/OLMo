@@ -94,7 +94,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
         if not path_found:
             conversion_status = "new"
             converted_path = local_path
-            conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{local_path}' --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5'  --cleanup-local-dir"
+            conversion_cmd = f"python hf_olmo/convert_olmo_to_hf.py --checkpoint-dir '{checkpoint_path}' --destination-dir '{local_path}' --tokenizer 'allenai/gpt-neox-olmo-dolma-v1_5'"
 
             if sanity_check:
                 print("SANITY CHECK MODE (not running the conversion)")
