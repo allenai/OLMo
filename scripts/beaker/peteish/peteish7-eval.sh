@@ -54,6 +54,6 @@ torchrun \
       --save_interval_ephemeral=500 \
       --save_overwrite \
       --device_eval_batch_size=16 \
-      --wandb.group="peteish7" \
-      --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7"
-      # --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-50B-no-warmup/step11931"
+      --wandb.group="peteish7-eval-eos" \
+      --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7-anneal-from-928646-50B-no-warmup/step11931"
+      # --load_path="/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7"

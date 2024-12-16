@@ -7,8 +7,8 @@ NUM_NODES=8
 gantry run \
   --allow-dirty \
   --workspace ai2/OLMo-tiny \
-  --task-name peteish7-eval \
-  --description "Pete-ish 7B eval" \
+  --task-name peteish7-eval-eos \
+  --description "Pete-ish 7B eval w/ prepended EOS" \
   --priority high \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \

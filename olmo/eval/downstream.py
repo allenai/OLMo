@@ -286,7 +286,7 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
                 continuations = self.doc_to_continuations(doc)
                 label_id = self.doc_to_label(doc)
                 doc_text = self.doc_to_text(doc)
-                ctx = self.token_encode(doc_text)
+                ctx = [self.tokenizer.eos_token_id] + self.token_encode(doc_text)
                 dc = self.token_encode(self.doc_to_domain_conditional(doc))
                 if self.log_instances > 0:
                     self.log_instances -= 1
@@ -613,7 +613,7 @@ class WinoGrande(ICLMultiChoiceTaskDataset):
             continuation = self.token_encode(continuation_str)
 
             for cont_id, (ctx, dc) in enumerate(zip(ctxs, dcs)):
-                ctx = self.token_encode(ctx)
+                ctx = [self.tokenizer.eos_token_id] + self.token_encode(ctx)
                 dc = self.token_encode(dc)
 
                 # query, remove last token from continuation, truncate from left is longer than model ctx length
@@ -1725,7 +1725,7 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
                         cont_id = 0
                         label_id = 0
                 doc_text = request_dict["context"]
-                ctx = self.token_encode(doc_text)
+                ctx = [self.tokenizer.eos_token_id] + self.token_encode(doc_text)
                 dc = self.token_encode(self.doc_to_domain_conditional(doc))
                 if self.log_instances > 0:
                     self.log_instances -= 1
