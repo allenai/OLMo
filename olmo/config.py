@@ -1359,7 +1359,7 @@ def config_to_moe_args(config: ModelConfig) -> Dict[str, Any]:
         "moe_num_experts": config.moe_num_experts,
         "num_layers": config.n_layers,
         # Handled by FSDP (https://github.com/databricks/megablocks/issues/57#issuecomment-1854594483)
-        "moe_weight_parallelism": False,
+        # "moe_weight_parallelism": False,
         "moe_expert_model_parallelism": False,
         "moe_top_k": config.moe_top_k,
         "moe_capacity_factor": config.moe_capacity_factor,
