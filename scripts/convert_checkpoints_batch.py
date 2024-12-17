@@ -106,7 +106,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
                 except subprocess.CalledProcessError as e:
                     print(f"Error during checkpoint conversion: {checkpoint_path}")
                     error = {
-                        'error_code': e.return_code,
+                        'error_code': e.returncode,
                         'error_stderr': e.stderr
                     }
                     conversion_status = "error"
