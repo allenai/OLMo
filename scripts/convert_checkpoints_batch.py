@@ -107,7 +107,7 @@ def convert_checkpoint(cps, load_dir="/data/input", sanity_check=False, weka_pre
                     print(f"Error during checkpoint conversion: {checkpoint_path}")
                     error = {
                         'error_code': e.returncode,
-                        'error_stderr': e.stderr
+                        'error_stderr': e.stdout
                     }
                     conversion_status = "error"
                     converted_path = ""
