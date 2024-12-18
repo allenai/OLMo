@@ -46,9 +46,6 @@ from matplotlib.font_manager import FontProperties
 #     print(font)
 
 
-cache_dir = mpl.get_cachedir()
-shutil.rmtree(cache_dir)
-
 # Load the font file
 font_path = "/Users/kylel/Library/Fonts/Manrope-VariableFont_wght.ttf"
 font_prop = FontProperties(fname=font_path)
@@ -226,7 +223,6 @@ plt.xticks(tick_locations, tick_labels, rotation=45, ha="right")
 # Customize the plot
 plt.xlabel("Approximate FLOPs", fontsize=12)
 plt.ylabel(f"Avg Performance ({num_datasets} Benchmarks)", fontsize=12)
-# plt.title("FLOPs vs Performance", fontsize=14, pad=20)
 
 # Add grid
 plt.grid(True, which="both", ls="-", alpha=0.2)
@@ -241,7 +237,7 @@ ordered_handles = [label_to_handle[label] for label in desired_order]
 plt.legend(
     ordered_handles,
     desired_order,
-    bbox_to_anchor=(0, 1.02, 1.0, 0.2),
+    bbox_to_anchor=(0, 0.97, 1.0, 0.2),
     loc="center",
     ncol=len(categories),
     mode="expand",
@@ -249,6 +245,7 @@ plt.legend(
     fontsize=8,
     handletextpad=0.05,  # Reduce space between marker and label
     columnspacing=0.5,  # Adjust space between columns
+    frameon=False,  # Remove the legend border
 )
 
 # Adjust the layout to prevent legend cutoff
