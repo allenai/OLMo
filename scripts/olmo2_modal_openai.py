@@ -18,8 +18,8 @@ GPU_CONFIG = modal.gpu.A100(size="80GB", count=N_GPU)
 APP_NAME = "OLMo-2-1124-13B-Instruct-openai"
 APP_LABEL = APP_NAME.lower()
 
-MINUTES = 60  # seconds
-HOURS = 60 * MINUTES
+ONE_MINUTE = 60  # seconds
+ONE_HOUR = 60 * ONE_MINUTE
 
 # ## Download the model weights
 
@@ -78,7 +78,7 @@ vllm_image = (
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
         download_model_to_image,
-        timeout=60 * MINUTES,  # typically much faster but set high to be conservative
+        timeout=60 * ONE_MINUTE,  # typically much faster but set high to be conservative
         kwargs={
             "model_dir": MODEL_DIR,
             "model_name": MODEL_NAME,
@@ -107,8 +107,8 @@ app = modal.App(APP_NAME)
     image=vllm_image,
     gpu=GPU_CONFIG,
     keep_warm=0,  # Spin down entirely when idle
-    container_idle_timeout=5 * MINUTES,
-    timeout=24 * HOURS,
+    container_idle_timeout=5 * ONE_MINUTE,
+    timeout=24 * ONE_HOUR,
     allow_concurrent_inputs=1000,
     secrets=[modal.Secret.from_name("example-secret-token")],  # contains MODAL_TOKEN used below
 )

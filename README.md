@@ -156,19 +156,17 @@ Additional tools for evaluating OLMo models are available at the [OLMo Eval](htt
 
 ## Modal.com Hosting
 
-An example script is provided for hosting an OLMo 2 model on Modal.com using a the OpenAI API in ./scripts/olmo2_modal_openai.py.
+An example script is provided for hosting an OLMo 2 model on Modal.com using the OpenAI API in ./scripts/olmo2_modal_openai.py.
 To run that:
-<ol>
-<li>Follow the instructions under Getting Started in [the Modal.com Guide](https://modal.com/docs/guide) to install
+
+1. Follow the instructions under Getting Started in [the Modal.com Guide](https://modal.com/docs/guide) to install
 the Modal library and command line tools.</li>
-<li>Follow the instructions under [Secrets](https://modal.com/docs/guide/secrets) in the Modal.com Guide to create a Modal secret named "example-secret-token"
+2. Follow the instructions under [Secrets](https://modal.com/docs/guide/secrets) in the Modal.com Guide to create a Modal secret named "example-secret-token"
 that defines a value for the variable MODAL_TOKEN for your server.</li>
-<li>Then run
+3. Then run
 ```bash
 modal deploy ./scripts/olmo2_modal_openai.py
 ```
-</li>
-</ol>
 
 You can check your endpoint using curl similar to the following:
 ```bash
