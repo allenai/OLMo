@@ -557,6 +557,7 @@ class SchedulerType(StrEnum):
     max_scheduler = "max_scheduler"
     constant = "constant"
     cosine_linear_envelope = "cosine_linear_envelope"
+    constant_with_warmup = "constant_with_warmup"
 
 
 class SchedulerUnits(StrEnum):
@@ -693,6 +694,17 @@ class CompilerConfig(BaseConfig):
     backend: str = "inductor"
     """
     The backend to use.
+    """
+
+    dynamic: Optional[bool] = None
+    """
+    From the torch docs:
+    
+    Use dynamic shape tracing. When this is True, we will up-front attempt to generate a kernel that is as dynamic
+    as possible to avoid recompilations when sizes change. This may not always work as some
+    operations/optimizations will force specialization; use TORCH_LOGS=dynamic to debug overspecialization. When
+    this is False, we will NEVER generate dynamic kernels, we will always specialize. By default (None), we
+    automatically detect if dynamism has occurred and compile a more dynamic kernel upon recompile.
     """
 
 
@@ -851,6 +863,11 @@ class ActivationCheckpointingStrategy(StrEnum):
     one_in_four = "one_in_four"
     """
     Checkpoint one in four transformer layers.
+    """
+
+    one_in_eight = "one_in_eight"
+    """
+    Checkpoint one in eight transformer layers.
     """
 
     two_in_three = "two_in_three"
