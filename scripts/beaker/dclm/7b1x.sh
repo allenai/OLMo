@@ -23,6 +23,7 @@ source .venv/bin/activate
 git clone https://github.com/mlfoundations/DCLM.git
 uv pip install -r DCLM/requirements.txt 
 
+apt update
 apt install cmake build-essential -y
 apt install g++-9 -y
 update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 90
