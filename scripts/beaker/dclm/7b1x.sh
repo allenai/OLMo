@@ -64,7 +64,7 @@ torchrun \
     --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
     --node_rank "${BEAKER_REPLICA_RANK}" \
     --rdzv_conf 'read_timeout=420' \
-	-m training.train -- \
+	training/train.py -- \
 	--scale 7b_1x_fast_2e-3_lr_5e-6_zloss \
 	--data-config /weka/oe-training-default/mattj/dclm/configs/zyphra_dlcm_dedup.json \
 	--logs /weka/oe-training-default/mattj/dclm/7b1x/zyphra_dlcm_dedup/ \
