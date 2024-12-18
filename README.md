@@ -156,7 +156,7 @@ Additional tools for evaluating OLMo models are available at the [OLMo Eval](htt
 
 ## Modal.com Hosting
 
-An example script is provided for hosting an OLMo 2 model on Modal.com using the OpenAI API in ./scripts/olmo2_modal_openai.py.
+An example script is provided for hosting an OLMo 2 model on Modal.com using the OpenAI API in `./scripts/olmo2_modal_openai.py`.
 To run that:
 
 1. Follow the instructions under Getting Started in [the Modal.com Guide](https://modal.com/docs/guide) to install
