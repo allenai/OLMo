@@ -28,7 +28,9 @@ apt install cmake build-essential -y
 apt install g++-9 -y
 update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 90
 
-python DCLM/setup.py install
+cd DCLM
+python setup.py install
+cd ..
 
 uv pip install packaging
 uv pip install ninja 
