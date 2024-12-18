@@ -31,7 +31,37 @@ Zamba-2-7B,,65.2,92.2,89.4,79.6,68.5,51.7,36.5,55.5,67.2,32.8,78.8
 
 """
 
+# First clear any existing font cache
+import shutil
+
+import matplotlib as mpl
+import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
+
+# Find path to Manrope font on your computer
+# fonts = [f for f in fm.findSystemFonts()]
+# manrope_fonts = [f for f in fonts if "manrope" in f.lower()]
+# for font in manrope_fonts:
+#     print(font)
+
+
+cache_dir = mpl.get_cachedir()
+shutil.rmtree(cache_dir)
+
+# Load the font file
+font_path = "/Users/kylel/Library/Fonts/Manrope-VariableFont_wght.ttf"
+font_prop = FontProperties(fname=font_path)
+
+
+# Try setting weight after creation
+font_prop.set_weight(500)
+
+
+# Set it globally using the font property
+plt.rcParams["font.family"] = "sans-serif"
+plt.rcParams["font.sans-serif"] = [font_prop.get_name()]
+
 import numpy as np
 import pandas as pd
 
