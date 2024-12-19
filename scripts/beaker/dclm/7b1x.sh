@@ -40,6 +40,9 @@ uv pip install flash-attn==2.5.9.post1 --no-build-isolation
 
 # Move AWS credentials from env to relevant files
 mkdir -p ~/.aws
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+./aws/install
 aws configure set aws_access_key_id $AWS_ACCESS_KEY
 aws configure set aws_secret_access_key $AWS_SECRET
 aws configure set default.region us-east-1
