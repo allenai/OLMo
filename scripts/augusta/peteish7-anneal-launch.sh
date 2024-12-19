@@ -2,24 +2,15 @@
 
 set -ex
 
-NUM_NODES=$1
+NUM_NODES=8
 shift
-
-NAME=$1
-shift
-
-if [ -z $1 ]; then
-  PRIORITY='high'
-else
-  PRIORITY=$1
-fi
 
 
 gantry run \
   --workspace ai2/13B \
-  --task-name $NAME \
-  --description "Peteish7 annealing: $NAME" \
-  --priority ${PRIORITY} \
+  --task-name peteish7-medlr-anneal-lb-v0 \
+  --description "Peteish7 med-lr anneal on lb v0" \
+  --priority high \
   --preemptible \
   --beaker-image dirkg/OLMo \
   --cluster ai2/augusta-google-1 \
@@ -36,9 +27,9 @@ gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
-  --env-secret WANDB_API_KEY=DIRKG_WANDB_API_KEY \
-  --env-secret AWS_ACCESS_KEY_ID=DIRKG_AWS_ACCESS_KEY_ID \
-  --env-secret AWS_SECRET_ACCESS_KEY=DIRKG_AWS_SECRET_ACCESS_KEY \
+  --env-secret WANDB_API_KEY=DUSTINS_WANDB_API_KEY \
+  --env-secret AWS_ACCESS_KEY_ID=DUSTINS_AWS_ACCESS_KEY_ID \
+  --env-secret AWS_SECRET_ACCESS_KEY=DUSTINS_AWS_SECRET_ACCESS_KEY \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \

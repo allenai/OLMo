@@ -64,7 +64,7 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/annealing/$NAME-google.yaml \
+    configs/annealing/peteish7-medlr-anneal-from-477000-100B-lb_v0.yaml \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
       --save_interval_ephemeral=1000 \
@@ -72,16 +72,12 @@ torchrun \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
       --save_folder=$SAVE_FOLDER \
-      --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/$NAME/" \
       --try_load_latest_save \
       --save_overwrite \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=2 \
       --activation_checkpointing=one_in_four \
       --compile.fullgraph=false \
-      --fused_loss=true \
-      --model.flash_attention=true \
       --data.num_workers=8 \
       --no_pre_train_checkpoint \
-      --optimizer.metrics_log_interval=10 \
       --data.prefetch_factor=8
