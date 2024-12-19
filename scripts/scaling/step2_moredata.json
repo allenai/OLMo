@@ -68,7 +68,7 @@
         "paths": [
             "scripts/scaling/data/peteish-moreeval/peteish7_eval_anneal.csv"
         ],
-        "mode": "train",
+        "mode": "eval",
         "n": 6887575552,
         "label": "7B-4T",
         "color": "darkviolet"
