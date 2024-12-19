@@ -12,7 +12,7 @@ CONFIG_DIR=configs/annealing
 CONFIG_PATH=${CONFIG_DIR}/${CONFIG_NAME}.yaml
 
 gantry run \
-  --workspace ai2/mashai-oe-annealing \
+  --workspace ai2/oe-data \
   --task-name ${CONFIG_NAME} \
   --description ${CONFIG_NAME} \
   --priority $PRIORITY \
@@ -37,10 +37,8 @@ gantry run \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
   --env NCCL_DEBUG=INFO \
-  --env NCCL_IB_DISABLE=1 \
   --env TORCH_DISTRIBUTED_DEBUG=DETAIL \
   --env NCCL_SOCKET_TIMEOUT=1200 \
-  --env GLOO_SOCKET_TIMEOUT=1200 \
   --env-secret AWS_CONFIG=PETEW_AWS_CONFIG \
   --env-secret AWS_CREDENTIALS=PETEW_AWS_CREDENTIALS \
   --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
