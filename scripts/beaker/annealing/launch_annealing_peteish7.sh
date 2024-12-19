@@ -17,13 +17,13 @@ gantry run \
   --description ${CONFIG_NAME} \
   --priority $PRIORITY \
   --preemptible \
-  --beaker-image dirkg/OLMo \
+  --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
-  --budget ai2/oe-data \
+  --budget ai2/oe-training \
   --no-nfs \
   --weka oe-training-default:/weka/oe-training-default \
   --propagate-failure \
