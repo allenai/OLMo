@@ -40,8 +40,9 @@ uv pip install flash-attn==2.5.9.post1 --no-build-isolation
 
 # Move AWS credentials from env to relevant files
 mkdir -p ~/.aws
-printenv AWS_CONFIG > ~/.aws/config
-printenv AWS_CREDENTIALS > ~/.aws/credentials
+aws configure set aws_access_key_id $AWS_ACCESS_KEY
+aws configure set aws_secret_access_key $AWS_SECRET
+aws configure set default.region us-east-1
 
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
@@ -56,12 +57,4 @@ export NCCL_SOCKET_IFNAME=ib
 
 cd DCLM
 
-torchrun \
---nnodes "${NUM_NODES}:${NUM_NODES}" \
---nproc-per-node 8 \
---rdzv_id 12347 \
---rdzv_backend static \
---rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
---node_rank "${BEAKER_REPLICA_RANK}" \
---rdzv_conf 'read_timeout=420' \
--m training.train -- --scale 7b_1x_fast_2e-3_lr_5e-6_zloss --data-config /weka/oe-training-default/mattj/dclm/configs/zyphra_dlcm_dedup.json --logs /weka/oe-training-default/mattj/dclm/7b1x/zyphra_dlcm_dedup/ --attn-name torch_attn --report-to-wandb --num-checkpoints 20 --acc 4 --torchcompile
+torchrun --nnodes "${NUM_NODES}:${NUM_NODES}" --nproc-per-node 8 --rdzv_id 12347 --rdzv_backend static --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" --node_rank "${BEAKER_REPLICA_RANK}" --rdzv_conf 'read_timeout=420' -m training.train -- --scale 7b_1x_fast_2e-3_lr_5e-6_zloss --data-config /weka/oe-training-default/mattj/dclm/configs/zyphra_dlcm_dedup.json --logs /weka/oe-training-default/mattj/dclm/7b1x/zyphra_dlcm_dedup/ --attn-name torch_attn --report-to-wandb --num-checkpoints 20 --acc 4 --torchcompile
