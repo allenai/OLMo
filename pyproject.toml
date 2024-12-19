@@ -54,6 +54,9 @@ train = [
 all = [
     "ai2-olmo[dev,train]",
 ]
+figures = [
+    "matplotlib",
+]
 
 [project.urls]
 Homepage = "https://github.com/allenai/OLMo"
