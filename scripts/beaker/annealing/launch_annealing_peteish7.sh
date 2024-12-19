@@ -23,7 +23,7 @@ gantry run \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
-  --budget ai2/oe-training \
+  --budget ai2/oe-data \
   --no-nfs \
   --weka oe-training-default:/weka/oe-training-default \
   --propagate-failure \
@@ -36,11 +36,11 @@ gantry run \
   --env R2_PROFILE=R2 \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
-  --env-secret AWS_CONFIG=mashai_AWS_ACCESS_KEY_ID \
-  --env-secret AWS_CREDENTIALS=mashai_AWS_SECRET_ACCESS_KEY \
+  --env-secret AWS_CONFIG=PETEW_AWS_CONFIG \
+  --env-secret AWS_CREDENTIALS=PETEW_AWS_CREDENTIALS \
   --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
   --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
-  --env-secret WANDB_API_KEY=mashai_WANDB_API_KEY \
+  --env-secret WANDB_API_KEY=PETEW_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
