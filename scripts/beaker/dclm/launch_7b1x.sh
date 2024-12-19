@@ -17,7 +17,7 @@ gantry run \
   --description ${CONFIG_NAME} \
   --priority $PRIORITY \
   --preemptible \
-  --cluster ai2/jupiter-cirrascale-2 \
+  --cluster ai2/neptune-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
