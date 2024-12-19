@@ -3,11 +3,10 @@
 set -ex
 
 NUM_NODES=8
-shift
 
 
 gantry run \
-  --workspace ai2/13B \
+  --workspace ai2/long-contexts \
   --task-name peteish7-medlr-anneal-lb-v0 \
   --description "Peteish7 med-lr anneal on lb v0" \
   --priority high \
