@@ -61,4 +61,4 @@ export NCCL_SOCKET_IFNAME=ib
 
 cd DCLM
 
-torchrun --nnodes "${NUM_NODES}" --nproc-per-node 8 --rdzv_id 12347 --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" --node_rank "${BEAKER_REPLICA_RANK}" --rdzv_conf 'read_timeout=420' -m training.train -- --scale 7b_1x_fast_2e-3_lr_5e-6_zloss --data-config /weka/oe-training-default/mattj/dclm/configs/zyphra_dlcm_dedup.json --logs /weka/oe-training-default/mattj/dclm/7b1x/zyphra_dlcm_dedup/ --attn-name torch_attn --report-to-wandb --num-checkpoints 20 --acc 4 --torchcompile
+torchrun --nnodes "${NUM_NODES}" --nproc-per-node 8 --rdzv_id 12347 --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" --node_rank "${BEAKER_REPLICA_RANK}" --rdzv_conf 'read_timeout=420' -m training.train -- --scale 7b_1x_fast_2e-3_lr_5e-6_zloss --data-config /weka/oe-training-default/mattj/dclm/configs/zyphra_dlcm_dedup.json --logs /weka/oe-training-default/mattj/dclm/7b1x/zyphra_dlcm_dedup/ --attn-name torch_attn --report-to-wandb --num-checkpoints 20 --acc 64 --torchcompile
