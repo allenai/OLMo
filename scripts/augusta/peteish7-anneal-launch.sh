@@ -7,8 +7,8 @@ NUM_NODES=8
 
 gantry run \
   --workspace ai2/long-contexts \
-  --task-name peteish7-medlr-anneal-lb-v0 \
-  --description "Peteish7 med-lr anneal on lb v0" \
+  --task-name peteish7-medlr-anneal-lb-v0p9 \
+  --description "Peteish7 med-lr anneal on lb v0p9" \
   --priority high \
   --preemptible \
   --beaker-image dirkg/OLMo \
