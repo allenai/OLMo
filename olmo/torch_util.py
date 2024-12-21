@@ -156,3 +156,11 @@ def get_cumulative_document_lengths(doc_lens: torch.Tensor) -> torch.Tensor:
             torch.cumsum(doc_lens.masked_select(doc_lens != 0), 0, dtype=torch.int32),
         ]
     )
+
+class SingleAccelerator(torch.nn.Module):
+    process_group = None
+    def __init__(self, module: torch.nn.Module):
+        super().__init__()
+        self.module = module
+    def forward(self, *args, **kwargs):
+        return self.module(*args, **kwargs)

@@ -332,7 +332,8 @@ class Trainer:
                 "python": random.getstate(),
                 "numpy": np.random.get_state(),
                 "torch": torch.random.get_rng_state(),
-                "cuda": torch.cuda.get_rng_state(),
+                "cuda": torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
+                "mps": torch.mps.get_rng_state() if torch.mps.is_available() else None,
             },
         }
 
@@ -430,7 +431,10 @@ class Trainer:
         random.setstate(rng_state["python"])
         np.random.set_state(rng_state["numpy"])
         torch.set_rng_state(rng_state["torch"])
-        torch.cuda.set_rng_state(rng_state["cuda"])
+        if rng_state["cuda"] is not None:
+            torch.cuda.set_rng_state(rng_state["cuda"])
+        if rng_state["mps"] is not None:
+            torch.mps.set_rng_state(rng_state["mps"])
 
     def _save_checkpoint(
         self, checkpointer: Checkpointer, checkpoint_type: CheckpointType

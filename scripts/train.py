@@ -27,6 +27,7 @@ from olmo.eval import build_evaluators
 from olmo.exceptions import OLMoCliError, OLMoConfigurationError
 from olmo.model import OLMo
 from olmo.optim import BoltOnWarmupScheduler, build_optimizer, build_scheduler
+from olmo.torch_util import SingleAccelerator as SINGLE
 from olmo.torch_util import (
     barrier,
     get_default_device,
@@ -65,9 +66,14 @@ def main(cfg: TrainConfig) -> None:
     barrier()
 
     # Set CUDA device.
-    torch.cuda.set_device(f"cuda:{get_local_rank()}")
-    torch.cuda.empty_cache()
-    device = torch.device("cuda")
+    if torch.cuda.is_available():
+        torch.cuda.set_device(f"cuda:{get_local_rank()}")
+        torch.cuda.empty_cache()
+        device = torch.device("cuda")
+    elif torch.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
 
     # Fill some configuration options.
     cfg.model.precision = cfg.precision
@@ -211,8 +217,9 @@ def main(cfg: TrainConfig) -> None:
             param_init_fn=param_init_fn,
             **hybrid_sharding_fsdp_kwargs,
         )
-    elif cfg.distributed_strategy is None:
-        raise NotImplementedError("Single accelerator training not implemented yet!")
+    elif cfg.distributed_strategy == DistributedStrategy.single:
+        param_init_fn = None
+        dist_model = SINGLE(olmo_model)
 
     # when param_init_fn is None, FSDP will call reset_parameters() automatically
     if param_init_fn is not None or cfg.distributed_strategy == DistributedStrategy.ddp:
@@ -305,8 +312,21 @@ def main(cfg: TrainConfig) -> None:
                 checkpoint_type = (
                     CheckpointType.sharded if cfg.save_num_checkpoints_to_keep != 0 else CheckpointType.unsharded
                 )
-            else:
-                raise NotImplementedError(f"Distributed strategy {cfg.distributed_strategy} not supported yet!")
+            elif cfg.distributed_strategy == DistributedStrategy.single:
+                #raise NotImplementedError(f"Distributed strategy {cfg.distributed_strategy} not supported yet!")
+                checkpoint_type = CheckpointType.unsharded
+
+                if cfg.save_interval_unsharded is None:
+                    log.warning(
+                        "single accelerator training requires setting `save_interval_unsharded`. Using the value set for `save_interval`."
+                    )
+                    cfg.save_interval_unsharded = cfg.save_interval
+
+                if cfg.save_num_unsharded_checkpoints_to_keep == 0:
+                    log.warning(
+                        "single accelerator training requires setting `save_num_unsharded_checkpoints_to_keep`. Using the value set for `save_num_checkpoints_to_keep`."
+                    )
+                    cfg.save_num_unsharded_checkpoints_to_keep = cfg.save_num_checkpoints_to_keep
 
             # We save a checkpoint up-front to make sure this won't fail (due to disk space or whatever).
             log.info("Saving pre-train checkpoint...")
@@ -363,17 +383,20 @@ if __name__ == "__main__":
         print(f"failed to set multiprocessing start method: {e}")
     log.info(f"Multiprocessing start method set to '{mp.get_start_method()}'")
 
-    # Set CUDA device.
-    torch.cuda.set_device(f"cuda:{get_local_rank()}")
+    if torch.cuda.is_available():
+        # Set CUDA device.
+        torch.cuda.set_device(f"cuda:{get_local_rank()}")
 
-    # Initialize process group.
-    device_as_string = f"cuda:{get_local_rank()}"
-    torch.cuda.set_device(
-        device_as_string
-    )  # Set this early to prevent GPU 0 from picking up a bunch of tensors it shouldn't have.
-    dist.init_process_group(
-        backend="nccl", timeout=timedelta(minutes=30), device_id=torch.device(device_as_string)
-    )
+        # Initialize process group.
+        device_as_string = f"cuda:{get_local_rank()}"
+        torch.cuda.set_device(
+            device_as_string
+        )  # Set this early to prevent GPU 0 from picking up a bunch of tensors it shouldn't have.
+        dist.init_process_group(
+            backend="nccl", timeout=timedelta(minutes=30), device_id=torch.device(device_as_string)
+        )
+    else:
+        dist.init_process_group(backend="gloo", timeout=timedelta(minutes=30))
     log.info("Process group initialized")
 
     prepare_cli_environment()

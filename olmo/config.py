@@ -719,6 +719,10 @@ class DistributedStrategy(StrEnum):
     Wrap OLMo in torch.distributed.fsdp.FullyShardedDataParallel to train across ranks.
     """
 
+    single = "single"
+    """
+    Train on a single device, i.e., do not distribute trainig. For development and debugging.
+    """
 
 class DDPGradSyncMode(StrEnum):
     batch = "batch"
