@@ -39,7 +39,7 @@ gantry run \
   --env-secret AWS_SECRET=MATTJ_AWS_SECRET \
   --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
   --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
-  --env-secret WANDB_API_KEY=PETEW_WANDB_API_KEY \
+  --env-secret WANDB_API_KEY=MATTJ_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
