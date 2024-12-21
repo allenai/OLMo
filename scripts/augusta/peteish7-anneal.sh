@@ -64,11 +64,12 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/annealing/peteish7-medlr-anneal-from-477000-100B-lb_v0p9.yaml \
+    configs/annealing/peteish7-medlr-anneal-from-477000-100B-dclm_baseline.yaml \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
       --save_interval_ephemeral=1000 \
       --eval_interval=1000 \
+      --seed=1209 \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
       --save_folder=$SAVE_FOLDER \
