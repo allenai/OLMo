@@ -1251,7 +1251,7 @@ class Trainer:
                             stop_at = min(stop_at, self.global_step + extra_steps)
 
                     # Maybe save sharded checkpoint.
-                    if self.cfg.distributed_strategy != DistributedStrategy.ddp:
+                    if self.cfg.distributed_strategy == DistributedStrategy.fsdp:
                         if save_checkpoints and (
                             cancel_initiated
                             or (
