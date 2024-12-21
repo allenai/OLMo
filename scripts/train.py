@@ -219,7 +219,7 @@ def main(cfg: TrainConfig) -> None:
         )
     elif cfg.distributed_strategy == DistributedStrategy.single:
         param_init_fn = None
-        dist_model = SINGLE(olmo_model)
+        dist_model = SINGLE(olmo_model.to(device))
 
     # when param_init_fn is None, FSDP will call reset_parameters() automatically
     if param_init_fn is not None or cfg.distributed_strategy == DistributedStrategy.ddp:
