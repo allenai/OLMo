@@ -901,11 +901,18 @@ def get_step2_data_by_name(
                     if config.mode == "train":
                         # skip initial ckpts
 
-                        xs = xs[int(np.ceil(skip_perc * len(xs))) :]
-                        ys = ys[int(np.ceil(skip_perc * len(ys))) :]
-                        ds = ds[int(np.ceil(skip_perc * len(ds))) :]
-                        ns = ns[int(np.ceil(skip_perc * len(ns))) :]
-                        ls = ls[int(np.ceil(skip_perc * len(ls))) :]
+                        if skip_perc == 1:
+                            xs = [xs[-1]]
+                            ys = [ys[-1]]
+                            ds = [ds[-1]]
+                            ns = [ns[-1]]
+                            ls = [ls[-1]]
+                        else:
+                            xs = xs[int(np.ceil(skip_perc * len(xs))) :]
+                            ys = ys[int(np.ceil(skip_perc * len(ys))) :]
+                            ds = ds[int(np.ceil(skip_perc * len(ds))) :]
+                            ns = ns[int(np.ceil(skip_perc * len(ns))) :]
+                            ls = ls[int(np.ceil(skip_perc * len(ls))) :]
 
                     # apply moving_avg
                     xs = moving_average(xs, n=moving_avg).tolist()

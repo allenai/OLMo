@@ -54,7 +54,7 @@ def parse_args():
     return args
 
 
-def fit_step2(data_by_name, task_name, y_metric, use_log_sigmoid=False):
+def fit_step2(data_by_name, task_name, y_metric, _min=None, _max=None, use_log_sigmoid=False):
     train_xs, train_ys = [], []
     for name, data in data_by_name.items():
         if data["mode"] == "train":
@@ -64,10 +64,13 @@ def fit_step2(data_by_name, task_name, y_metric, use_log_sigmoid=False):
             data["xs"] = data["xs"][-1:]
             data["ys"] = data["ys"][-1:]
 
+    if _max is None: _max = tasks[task_name].task_maximum
+    if _min is None: _min = tasks[task_name].task_minimum
+
     # add ideal points (these are not plotted)
     if not use_log_sigmoid:
         train_xs.append(0.0)
-        train_ys.append(tasks[task_name].task_maximum)
+        train_ys.append(_max)
         # train_xs.append(max(train_xs))
         # train_ys.append(tasks[task_name].task_minimum)
 
@@ -87,7 +90,7 @@ def fit_step2(data_by_name, task_name, y_metric, use_log_sigmoid=False):
             train_xs,
             train_ys,
             sigmoid,
-            p0=[tasks[task_name].task_minimum - 1.0, 0.9, 3.0, tasks[task_name].task_maximum],
+            p0=[_min - 1.0, 0.9, 3.0, _max],
             bounds=([-1.0, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
             # bounds=([tasks[task_name].task_minimum - 1.0, 0.0, 0.0, tasks[task_name].task_maximum - 0.0001], [tasks[task_name].task_minimum - 0.9999, np.inf, np.inf, tasks[task_name].task_maximum]),
             disp=False,
@@ -113,13 +116,13 @@ def predict_step2(configs, data_by_name, coefficients, cov, y_metric, use_log_si
         }
         if config.mode == "eval":
             for x, e_y, e_y_pred in zip(data["xs"], data["ys"], predicted_data_by_name[name]["ys"]):
-                rel_error = (e_y_pred - e_y) / e_y
+                rel_error = (e_y_pred - e_y) / e_y if e_y > 0 else float('inf')
                 std_error = get_std_errors([x], [e_y_pred], coefficients, cov, fit_fn, grad_fit_fn)  # [0]
                 delta_error = 1.96 * std_error
         else:
             predicted_data = predicted_data_by_name[name]
             for x, y, y_pred in zip(data["xs"], data["ys"], predicted_data["ys"]):
-                rel_error_t = (y_pred - y) / y
+                rel_error_t = (y_pred - y) / y if y > 0 else float('inf')
                 unsigned_rel_errors.append(np.abs(rel_error_t))
 
     xmin = min(min(data["xs"]) for data in data_by_name.values())
@@ -152,6 +155,7 @@ def plot_step2(
     coefficients,
     cov,
     use_log_sigmoid=False,
+    add_texts=False,
     ax=plt.gca(),
 ):
     fit_fn = log_sigmoid_fit if use_log_sigmoid else sigmoid_fit
@@ -173,6 +177,7 @@ def plot_step2(
 
     num_eval_annotation = 0
     eval_num = 0
+    texts = []
     for name, data in data_by_name.items():
         config = configs[name]
         predicted_data = predicted_data_by_name[name]
@@ -189,12 +194,12 @@ def plot_step2(
                 label=f"{config.label} ({'fitted' if config.mode == 'train' else 'target'})",
             )
         for i, (x, y, y_pred) in enumerate(zip(data["xs"], data["ys"], predicted_data["ys"])):
-            rel_error = (y_pred - y) / y
+            rel_error = (y_pred - y) / y if y > 0 else float('inf')
 
             if config.mode == "train":
                 unsigned_rel_errs.append(abs(rel_error))
             else:
-                if i == 0:
+                if i == 0:                    
                     ax.scatter(
                         x,
                         y,
@@ -222,6 +227,10 @@ def plot_step2(
                         color=config.color,
                     )
                     num_eval_annotation += 1
+                    if add_texts:
+                        texts += [ax.text(
+                            x, y, config.label, fontsize=6, alpha=0.8, ha='center', va='center'
+                        )]
                 else:
                     pass
     avg_unsigned_rel_err = np.mean(unsigned_rel_errs)
@@ -236,6 +245,30 @@ def plot_step2(
     )
 
     ax.fill_between(plotted_predicted_data["xs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
+
+    if len(texts) > 0:
+        # Adjust text annotations to not overlap with each other
+        import matplotlib
+        existing_annotations=[child for child in ax.get_children() if isinstance(child, matplotlib.text.Annotation)]
+
+        # Remove existing annotation
+        for child in existing_annotations:
+            child.remove()
+
+        from adjustText import adjust_text
+        adjust_text(
+            texts, 
+            arrowprops=dict(arrowstyle="-", color='gray', lw=0.5, alpha=0.5),
+            avoid_points=True,
+            avoid_self=True,
+            avoid_lines=True,
+            existing_annotations=existing_annotations,
+            autoalign='xy',
+            force_points=0.5,
+            force_text=0.2,
+            expand_points=(1.5, 1.5),
+            ax=ax
+        )
 
     ax.legend(loc="upper right", ncols=1, fontsize=FONTSIZE)
     x_label_name = {
@@ -253,8 +286,9 @@ def plot_step2(
 
     ylim = ax.get_ylim()
     ax.set_ylim(ylim[0], min(1.0, ylim[1]))
+    display_name = tasks[task_name].display_name if task_name in tasks else task_name
     ax.set_title(
-        f"{tasks[task_name].display_name} (Fitting error: {avg_unsigned_rel_err * 100:.2f}%)",
+        f"{display_name} (Fitting error: {avg_unsigned_rel_err * 100:.2f}%)",
         fontsize=FONTSIZE,
         fontweight="bold",
     )

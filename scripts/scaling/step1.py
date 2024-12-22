@@ -242,8 +242,9 @@ def plot_step1(
         "rc_soft_log": "TaskCE",
     }[y_metric]
     ax.set_ylabel(y_label_name, fontsize=FONTSIZE)
+    display_name = tasks[task_name].display_name if task_name in tasks else task_name
     ax.set_title(
-        f"{tasks[task_name].display_name} (Fitting error: {avg_unsigned_rel_error * 100:.2f}%)",
+        f"{display_name} (Fitting error: {avg_unsigned_rel_error * 100:.2f}%)",
         fontsize=FONTSIZE,
         fontweight="bold",
     )
