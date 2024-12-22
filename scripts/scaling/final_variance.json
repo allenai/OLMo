@@ -1,5 +1,5 @@
 {
-    "1B-eval": {
+    "1.3B": {
         "paths": [
             "scripts/scaling/data/peteish-moreeval/1B-10xC.csv"
         ],

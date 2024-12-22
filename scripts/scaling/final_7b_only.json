@@ -35,7 +35,7 @@
         "label": "760M",
         "color": "darkgreen"
     },
-    "1B": {
+    "1.3B": {
         "paths": [
             "scripts/scaling/data/peteish-moreeval/1B-1xC.csv",
             "scripts/scaling/data/peteish-moreeval/1B-2xC.csv",

@@ -80,8 +80,86 @@ def inset_zoom_step2(ax, axins, x, y):
     ax.indicate_inset_zoom(axins, edgecolor="black")
 
 
-def plot_variance_analysis(configs, keys, last_n_points):
-    num_tasks = len(keys)
+def _plot_single_variance_analysis(config, ds, xs, ys, task_name, last_n_points, loss_coeff_of_var, acc_coeff_of_var, ax1, ax2):
+    assert config.mode == "eval"  # we are assuming that we have results of intermediate steps here
+    total_points = len(ds)
+    start_point = int(np.ceil(0.3 * total_points))
+
+    # Step 1
+    for ax_ in [ax1]:
+        ax_.scatter(
+            ds[start_point:-last_n_points],
+            xs[start_point:-last_n_points],
+            color=config.color,
+            marker="o",
+            s=10,
+            alpha=0.3,
+            label=f"{config.label} (intermediate checkpoints)",
+        )
+        ax_.scatter(
+            ds[-last_n_points:],
+            xs[-last_n_points:],
+            color="orange",
+            marker="o",
+            s=10,
+            alpha=0.5,
+            label=f"{config.label} (final {last_n_points} checkpoints)",
+        )
+
+    ax1.set_xscale("log")
+    ax1.legend(loc="upper right", ncols=1, fontsize=FONTSIZE)
+    ax1.set_xlabel("Tokens (D)", fontsize=FONTSIZE)
+    ax1.set_ylabel("Task loss", fontsize=FONTSIZE)
+    display_name = tasks[task_name].display_name if task_name in tasks else task_name
+    ax1.set_title(
+        f"{display_name}\n"
+        + r"(Loss relative SD$_{10}$: "
+        + f"{loss_coeff_of_var*100:.2f}%)",
+        fontsize=FONTSIZE,
+        fontweight="bold",
+    )
+    ax1.yaxis.set_major_formatter(plt.FormatStrFormatter("%.2f"))
+    ax1.tick_params(axis="x", which="both", reset=True)
+    ax1.tick_params(axis="x", which="minor", labelsize=0)
+
+    # Step 2
+    for ax_ in [ax2]:
+        ax_.scatter(
+            xs[start_point:-last_n_points],
+            ys[start_point:-last_n_points],
+            color=config.color,
+            marker="o",
+            s=10,
+            alpha=0.3,
+            label=f"{config.label} (intermediate checkpoints)",
+        )
+        ax_.scatter(
+            xs[-last_n_points:],
+            ys[-last_n_points:],
+            color="orange",
+            marker="o",
+            s=10,
+            alpha=0.5,
+            label=f"{config.label} (final {last_n_points} checkpoints)",
+        )
+
+    ax2.legend(loc="upper right", ncols=1, fontsize=10)
+    ax2.set_xlabel("Task loss", fontsize=FONTSIZE)
+    ax2.set_ylabel("Task RC accuracy", fontsize=FONTSIZE)
+    display_name = tasks[task_name].display_name if task_name in tasks else task_name
+    ax2.set_title(
+        f"{display_name}\n"
+        + r"(Accuracy relative SD$_{10}$: "
+        + f"{acc_coeff_of_var*100:.2f}%)",
+        fontsize=FONTSIZE,
+        fontweight="bold",
+    )
+    ax2.xaxis.set_major_formatter(plt.FormatStrFormatter("%.2f"))
+    ax2.yaxis.set_major_formatter(plt.FormatStrFormatter("%.2f"))
+
+
+def plot_variance_analysis(config, variance_results, last_n_points):
+    num_tasks = len(variance_results)
 
     if num_tasks < 4:
         n_groups = 1
@@ -91,7 +169,7 @@ def plot_variance_analysis(configs, keys, last_n_points):
     else:
         # Create a figure with spacing between the two groups of tasks
         n_groups = 2
-        fig = plt.figure(figsize=(2.25 * (num_tasks // n_groups), 2.75 * 2 * n_groups))
+        fig = plt.figure(figsize=(2.75 * 2 * n_groups, 2.25 * num_tasks // n_groups))
         gs = fig.add_gridspec(
             (num_tasks // n_groups),
             (2 * n_groups) + 1,
@@ -111,112 +189,20 @@ def plot_variance_analysis(configs, keys, last_n_points):
             axes.append(row_axes)
         axes = np.array(axes)
 
-    loss_std_devs = {}
-    acc_std_devs = {}
-    loss_coeffs = {}
-    acc_coeffs = {}
+    # Plot results
+    for i, (task_name, results) in enumerate(variance_results.items()):
+        ax1: plt.Axes = axes[(i * 2) // (2*n_groups)][(i * 2) % (2*n_groups)]
+        ax2: plt.Axes = axes[(i * 2) // (2*n_groups)][((i * 2) % (2*n_groups))+1]
 
-    for r, task_name in enumerate(keys):
-        data_by_name = get_step2_data_by_name(configs, task_name)
-
-        for name, data in data_by_name.items():
-            config = configs[name]
-            if config.mode == "eval":  # we are assuming that we have results of intermediate steps here
-                total_points = len(data["ds"])
-                start_point = int(np.ceil(0.3 * total_points))
-                ds = data["ds"][-last_n_points:]
-                xs = data["xs"][-last_n_points:]
-                ys = data["ys"][-last_n_points:]
-
-                loss_std_dev = np.std(xs)
-                loss_coeff_of_var = loss_std_dev / np.mean(xs)
-                acc_std_dev = np.std(ys)
-                acc_coeff_of_var = acc_std_dev / np.mean(ys)
-
-                loss_std_devs[task_name] = loss_std_dev
-                acc_std_devs[task_name] = acc_std_dev
-                loss_coeffs[task_name] = loss_coeff_of_var
-                acc_coeffs[task_name] = acc_coeff_of_var
-
-                # Step 1
-                ax1: plt.Axes = axes[r // (num_tasks // (2 * n_groups))][(r % n_groups) * 2]
-
-                for ax_ in [ax1]:
-                    ax_.scatter(
-                        data["ds"][start_point:-last_n_points],
-                        data["xs"][start_point:-last_n_points],
-                        color=config.color,
-                        marker="o",
-                        s=10,
-                        alpha=0.3,
-                        # label=config.label
-                        label=f"{config.label} (intermediate checkpoints)",
-                        # label=f"1B-10xC (intermediate checkpoints)",
-                    )
-                    ax_.scatter(
-                        ds,
-                        xs,
-                        color="orange",
-                        marker="o",
-                        s=10,
-                        alpha=0.5,
-                        label=f"{config.label} (final {last_n_points} checkpoints)",
-                        # label=f"1B-10xC (final {last_n_points} checkpoints)",
-                    )
-
-                ax1.set_xscale("log")
-                ax1.legend(loc="upper right", ncols=1, fontsize=FONTSIZE)
-                ax1.set_xlabel("Tokens (D)", fontsize=FONTSIZE)
-                ax1.set_ylabel("Task loss", fontsize=FONTSIZE)
-                ax1.set_title(
-                    f"{tasks[task_name].display_name}\n"
-                    + r"(Loss relative SD$_{10}$: "
-                    + f"{loss_coeff_of_var*100:.2f}%)",
-                    fontsize=FONTSIZE,
-                    fontweight="bold",
-                )
-                ax1.yaxis.set_major_formatter(plt.FormatStrFormatter("%.2f"))
-                ax1.tick_params(axis="x", which="both", reset=True)
-                ax1.tick_params(axis="x", which="minor", labelsize=0)
-
-                # Step 2
-                ax2: plt.Axes = axes[r // (num_tasks // (2 * n_groups))][((r % n_groups) * 2) + 1]
-
-                for ax_ in [ax2]:
-                    ax_.scatter(
-                        data["xs"][start_point:-last_n_points],
-                        data["ys"][start_point:-last_n_points],
-                        color=config.color,
-                        marker="o",
-                        s=10,
-                        alpha=0.3,
-                        label=f"{config.label} (intermediate checkpoints)",
-                        # label=f"1B-10xC (intermediate checkpoints)",
-                    )
-                    ax_.scatter(
-                        xs,
-                        ys,
-                        color="orange",
-                        marker="o",
-                        s=10,
-                        alpha=0.5,
-                        label=f"{config.label} (final {last_n_points} checkpoints)",
-                        # label=f"1B-10xC (final {last_n_points} checkpoints)",
-                    )
-
-                ax2.legend(loc="upper right", ncols=1, fontsize=10)
-                ax2.set_xlabel("Task loss", fontsize=FONTSIZE)
-                ax2.set_ylabel("Task RC accuracy", fontsize=FONTSIZE)
-                ax2.set_title(
-                    f"{tasks[task_name].display_name}\n"
-                    + r"(Accuracy relative SD$_{10}$: "
-                    + f"{acc_coeff_of_var*100:.2f}%)",
-                    fontsize=FONTSIZE,
-                    fontweight="bold",
-                )
-                ax2.xaxis.set_major_formatter(plt.FormatStrFormatter("%.2f"))
-                ax2.yaxis.set_major_formatter(plt.FormatStrFormatter("%.2f"))
-                break
+        _plot_single_variance_analysis(
+            config, 
+            results["data"]["ds"], results["data"]["xs"], results["data"]["ys"], 
+            task_name, 
+            last_n_points, 
+            results['loss_coeff_of_var'], 
+            results['acc_coeff_of_var'], 
+            ax1, ax2
+        )
 
     # Collect all unique handles and labels
     all_handles = []
@@ -244,7 +230,7 @@ def plot_variance_analysis(configs, keys, last_n_points):
         loc="upper center",
         ncol=2,
         fontsize=FONTSIZE,
-        bbox_to_anchor=(0.5, 1),  # 1
+        bbox_to_anchor=(0.5, 1),
         handletextpad=0.3,
         columnspacing=0.7,
     )
@@ -256,24 +242,59 @@ def plot_variance_analysis(configs, keys, last_n_points):
 
     df = pd.merge(
         pd.merge(
-            pd.DataFrame.from_dict(loss_std_devs, orient="index")
+            pd.DataFrame.from_dict({t: r['loss_std_dev'] for t, r in variance_results.items()}, orient="index")
             .reset_index()
             .rename({0: "Loss SD", "index": "Task"}, axis=1),
-            pd.DataFrame.from_dict(loss_coeffs, orient="index")
+            pd.DataFrame.from_dict({t: r['loss_coeff_of_var'] for t, r in variance_results.items()}, orient="index")
             .reset_index()
             .rename({0: "Loss Rel SD (CV)", "index": "Task"}, axis=1),
         ),
         pd.merge(
-            pd.DataFrame.from_dict(acc_std_devs, orient="index")
+            pd.DataFrame.from_dict({t: r['acc_std_dev'] for t, r in variance_results.items()}, orient="index")
             .reset_index()
             .rename({0: "Accuracy SD", "index": "Task"}, axis=1),
-            pd.DataFrame.from_dict(acc_coeffs, orient="index")
+            pd.DataFrame.from_dict({t: r['acc_coeff_of_var'] for t, r in variance_results.items()}, orient="index")
             .reset_index()
             .rename({0: "Accuracy Rel SD (CV)", "index": "Task"}, axis=1),
         ),
     )
 
     return fig, df
+
+
+def compute_variance(configs, keys, last_n_points):
+    variance_results = {}
+
+    for r, task_name in enumerate(keys):
+        data_by_name = get_step2_data_by_name(configs, task_name)
+
+        # get only entry of data_by_name
+        assert len(data_by_name) == 1, f'Can only compute variance on one model at a time, seeing: {data_by_name.keys()}'
+        name = list(data_by_name.keys())[0]
+        data = data_by_name[name]
+        
+        config = configs[name]
+
+        ds = data["ds"][-last_n_points:]
+        xs = data["xs"][-last_n_points:]
+        ys = data["ys"][-last_n_points:]
+
+        loss_std_dev = np.std(xs)
+        loss_coeff_of_var = loss_std_dev / np.mean(xs)
+        acc_std_dev = np.std(ys)
+        acc_coeff_of_var = acc_std_dev / np.mean(ys)
+
+        variance_results[task_name] = {
+            'config': config,
+            'data': data,
+            'last_n_points': last_n_points,
+            'loss_std_dev': loss_std_dev,
+            'acc_std_dev': acc_std_dev,
+            'loss_coeff_of_var': loss_coeff_of_var,
+            'acc_coeff_of_var': acc_coeff_of_var,
+        }
+
+    return name, variance_results
 
 
 def run_two_step_prediction(keys_key):
@@ -451,7 +472,8 @@ def main():
 
     sns.set_style("whitegrid")
 
-    fig, df = plot_variance_analysis(configs, keys, args.last_n_points)
+    model_name, variance_results = compute_variance(configs, keys, args.last_n_points)
+    fig, df = plot_variance_analysis(configs[model_name], variance_results, args.last_n_points)
 
     if args.run_prediction:
         step1_rel_errors, step2_rel_errors, predict_rel_errors = run_two_step_prediction(keys_key)
