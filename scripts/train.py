@@ -20,6 +20,7 @@ from olmo.config import (
     CheckpointType,
     DDPGradSyncMode,
     DistributedStrategy,
+    OptimizerType,
     TrainConfig,
 )
 from olmo.data import build_train_dataloader
@@ -147,6 +148,8 @@ def main(cfg: TrainConfig) -> None:
     if cfg.distributed_strategy == DistributedStrategy.ddp:
         log.info("Wrapping model with DDP...")
         assert cfg.ddp is not None, "DistributedStrategy ddp needs cfg.ddp to be set!"
+        if cfg.optimizer.name == OptimizerType.demo and cfg.ddp.grad_sync_mode != DDPGradSyncMode.none:
+            raise OLMoConfigurationError("DeMo requires that `ddp.grad_sync_mode` be set to `none`.")
 
         if cfg.model.init_device != "cuda":
             raise OLMoConfigurationError("DDP does not work with init_device set to anything other than `cuda`.")
@@ -164,6 +167,8 @@ def main(cfg: TrainConfig) -> None:
         # Wrap the model in FSDP.
         log.info("Wrapping model with FSDP...")
         assert cfg.fsdp is not None, "DistributedStrategy fsdp needs cfg.fsdp to be set!"
+        if cfg.optimizer.name == OptimizerType.demo and not cfg.fsdp.disable_grad_sync:
+            raise OLMoConfigurationError("DeMo requires that `fsdp.disable_grad_sync` be set to `true`.")
         wrap_policy = olmo_model.get_fsdp_wrap_policy(cfg.fsdp.wrapping_strategy)
 
         if version.parse(torch.__version__) >= version.parse("2.1.0"):

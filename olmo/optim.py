@@ -2,7 +2,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, replace
 from math import cos, pi, sqrt
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.distributed as dist
@@ -14,11 +14,13 @@ from torch.optim.optimizer import Optimizer as OptimizerBase
 from . import LayerNormBase
 from .config import OptimizerType, SchedulerConfig, SchedulerType, TrainConfig
 from .torch_util import get_default_device, is_distributed
+from .demo_util import TransformDCT, CompressDCT
 
 __all__ = [
     "Optimizer",
     "LionW",
     "AdamW",
+    "DeMo",
     "Scheduler",
     "CosWithWarmup",
     "LinearWithWarmup",
@@ -647,6 +649,177 @@ class AdamW(torch.optim.AdamW, Optimizer):
             return metrics
 
 
+class DeMo(torch.optim.SGD, Optimizer):
+    def __init__(
+        self,
+        params,
+        compression_decay: float = 0.999,
+        compression_topk: int = 32,
+        compression_chunk: int = 64,
+        weight_decay: float = 0.0,
+        process_group: Optional[dist.ProcessGroup] = None,
+        record_update_metrics: bool = False,
+        selective_updates: bool = False,
+        **kwargs,
+    ):
+        super().__init__(
+            params,
+            foreach=False,
+            momentum=0.0,
+            dampening=0.0,
+            nesterov=False,
+            maximize=False,
+            weight_decay=0.0,
+            **kwargs,
+        )
+
+        # Need to set these here just like in our base `Optimizer` class since our `Optimizer.__init__`
+        # won't be called.
+        self._record_update_metrics = record_update_metrics
+        self._collecting_metrics = False
+        self._selective_updates = selective_updates
+
+        self.compression_decay = compression_decay
+        self.compression_chunk = compression_chunk
+        self.compression_topk = compression_topk
+        self.process_group = process_group
+        self.weight_decay = weight_decay
+
+        if self.compression_topk <= 0:
+            raise ValueError("topk_size has to be positive")
+        if self.compression_chunk <= 0:
+            raise ValueError("chunk_size has to be positive")
+        if self.compression_decay < 0:
+            raise ValueError("Negative compression_decay is currently not supported")
+        if self.compression_decay >= 1:
+            raise ValueError("Values of compression_decay bigger or equal to 1.0 is currently not supported")
+
+        self.demo_state = {}
+        self._init_demo_states()
+        self._init_opt_parameters()
+
+        self.default_dtype = self._find_dtype()
+        self.transform = TransformDCT(self.param_groups, self.compression_chunk)
+        self.compress = CompressDCT()
+
+    def _find_dtype(self):
+        for group in self.param_groups:
+            for p in group["params"]:
+                if p.requires_grad:
+                    return p.dtype
+        return torch.float32
+
+    def _init_demo_states(self):
+        for group in self.param_groups:
+            for p in group["params"]:
+                if p.requires_grad:
+                    self.demo_state[p] = {}
+
+    def _state_parameter(self, p):
+        if p not in self.demo_state:
+            self.demo_state[p] = {}
+        return self.demo_state[p]
+
+    def _init_opt_parameters(self):
+        for group in self.param_groups:
+            for p in group["params"]:
+                if p.requires_grad:
+                    state = self._state_parameter(p)
+
+                    state["step"] = 0
+                    state["delta"] = torch.zeros_like(p)
+
+    def _demo_all_gather(self, sparse_idx, sparse_val):
+        world_size = dist.get_world_size() if self.process_group is None else self.process_group.size()
+
+        # Gather all the idx and vals
+        sparse_idx_list = [torch.zeros_like(sparse_idx) for wi in range(world_size)]
+        sparse_val_list = [torch.zeros_like(sparse_val) for wi in range(world_size)]
+
+        sparse_idx_handle = dist.all_gather(sparse_idx_list, sparse_idx, group=self.process_group, async_op=True)
+        sparse_val_handle = dist.all_gather(sparse_val_list, sparse_val, group=self.process_group, async_op=True)
+
+        sparse_idx_handle.wait()
+        sparse_val_handle.wait()
+
+        return sparse_idx_list, sparse_val_list
+
+
+    @torch.no_grad()
+    def step(self, closure: Callable | None = None):
+
+        self.data_transmit = 0
+        self.data_receive = 0
+
+        for group in self.param_groups:
+            lr = group["lr"]
+            for p in group["params"]:
+                if not p.requires_grad:
+                    continue
+                state = self._state_parameter(p)
+
+                # Update step
+                state["step"] += 1
+
+                # Step-Weight decay
+                if self.weight_decay != 0.0:
+                    p.data.mul_(1.0 - lr * self.weight_decay)
+
+                # Decay delta
+                if self.compression_decay != 1:
+                    state["delta"].mul_(self.compression_decay)
+
+                # Add delta to new gradient
+                state["delta"].add_(p.grad, alpha=lr)
+
+                # Compress delta
+                sparse_idx, sparse_val, xshape, totalk = self.compress.compress(
+                    self.transform.encode(state["delta"]), self.compression_topk
+                )
+
+                # Estimate transmitted delta
+                transmit_grad = self.transform.decode(
+                    self.compress.decompress(p, sparse_idx, sparse_val, xshape, totalk)
+                )
+
+                # Remove transmitted from delta
+                state["delta"].sub_(transmit_grad)
+
+                # All-gather
+                sparse_idx_gather, sparse_val_gather = self._demo_all_gather(sparse_idx, sparse_val)
+
+                # Log I/O data size
+                self.data_transmit += sparse_idx.nbytes + sparse_val.nbytes
+                for si, v in zip(sparse_idx_gather, sparse_val_gather):
+                    self.data_receive += si.nbytes + v.nbytes
+
+                # Decode grad from all nodes
+                new_grad = self.transform.decode(
+                    self.compress.batch_decompress(p, sparse_idx_gather, sparse_val_gather, xshape, totalk)
+                )
+
+                # Set grad to values
+                if p.grad is None:
+                    p.grad = new_grad
+                else:
+                    p.grad.copy_(new_grad)
+
+                # Sign-SGD
+                p.grad.sign_()
+
+        # SGD step
+        return super().step(closure)
+
+
+    def get_post_step_metrics(
+        self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
+    ) -> Dict[str, torch.Tensor]:
+        return {
+            "data_receive": torch.tensor(self.data_receive, device=get_default_device()),
+            "data_transmit": torch.tensor(self.data_transmit, device=get_default_device()),
+        }
+
+
 @dataclass
 class Scheduler(metaclass=ABCMeta):
     # NOTE: these fields are not given default values because otherwise dataclasses complains
@@ -960,6 +1133,17 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
             record_update_metrics=cfg.optimizer.record_update_metrics,
             selective_updates=cfg.optimizer.selective_updates,
             eps=cfg.optimizer.eps,
+        )
+    elif cfg.optimizer.name == OptimizerType.demo:
+        return DeMo(
+            param_groups,
+            compression_decay=cfg.optimizer.compression_decay,
+            compression_topk=cfg.optimizer.compression_topk,
+            compression_chunk=cfg.optimizer.compression_chunk,
+            weight_decay=cfg.optimizer.weight_decay,
+            process_group=None,  # TODO: fix for hybrid sharding
+            record_update_metrics=cfg.optimizer.record_update_metrics,
+            selective_updates=cfg.optimizer.selective_updates,
         )
     else:
         raise NotImplementedError
