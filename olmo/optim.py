@@ -574,8 +574,9 @@ class AdamW(torch.optim.AdamW, Optimizer):
 
                 step = step_t.item()
 
-                bias_correction1 = 1 - beta1**step
-                bias_correction2 = 1 - beta2**step
+                # DEBUG code here, just to try if running with fixed bias correction makes a difference
+                bias_correction1 = 1 - beta1**(step + 596057)
+                bias_correction2 = 1 - beta2**(step + 596057)
 
                 step_size = lr / bias_correction1
 
