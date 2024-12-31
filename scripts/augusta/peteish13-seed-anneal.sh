@@ -55,7 +55,7 @@ export PYTHONFAULTHANDLER=1
 
 NAME=${GANTRY_TASK_NAME// /_}
 FILENAME=configs/annealing/$NAME-google.yaml
-NAME=$NAME-seed$SEED
+NAME=$NAME-seed$SEED-fixedbiascorrection
 RUN_NAME=$NAME-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/data/$RUN_NAME
 mkdir -p $SAVE_FOLDER
