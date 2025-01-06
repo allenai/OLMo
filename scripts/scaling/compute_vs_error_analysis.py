@@ -29,6 +29,8 @@ COLOR_MAP = {"190M": "darkred", "370M": "darkorange", "760M": "darkgreen", "1B":
 
 TARGET_COLOR = "darkviolet"
 
+STEP_COLORS = {"step1": "rosybrown", "step2": "grey", "stacked": "darkgreen"}
+
 MODEL_FLOPS = {
     "190M": 1903391232,
     "370M": 3443922944,
@@ -196,12 +198,12 @@ def plot_vary_n(N_df, output_path, which_step):
         task_df = N_df[task_name]
 
         if which_step == "all":
-            colors = {"step1": "lightgrey", "step2": "grey", "stacked": "darkgreen"}
+            
             for step_ in ["step1", "step2", "stacked"]:
                 ax.plot(
                     [MODEL_PARAMS[model] for model in task_df.index],
                     [x[step_] for x in task_df.values],
-                    color=colors[step_],
+                    color=STEP_COLORS[step_],
                     linestyle="--",
                     linewidth=1.5,
                     label=step_ if step_ != "stacked" else "chained",
@@ -292,12 +294,11 @@ def plot_vary_xC(xC_df, output_path, which_step):
         task_df = xC_df[task_name]
 
         if which_step == "all":
-            colors = {"step1": "lightgrey", "step2": "grey", "stacked": "darkgreen"}
             for step_ in ["step1", "step2", "stacked"]:
                 ax.plot(
                     CHINCHILLA_MULTIPLIERS,
                     [x[step_] for x in task_df.values],
-                    color=colors[step_],
+                    color=STEP_COLORS[step_],
                     linestyle="--",
                     linewidth=1.5,
                     label=step_ if step_ != "stacked" else "chained",
@@ -395,12 +396,11 @@ def plot_vary_flops(flops_df, output_path, which_step, do_average=False):
             task_df = flops_df[task_name]
 
             if which_step == "all":
-                colors = {"step1": "lightgrey", "step2": "grey", "stacked": "darkgreen"}
                 for step_ in ["step1", "step2", "stacked"]:
                     ax.plot(
                         task_df.index,
                         [x[step_] for x in task_df.values],
-                        color=colors[step_],
+                        color=STEP_COLORS[step_],
                         linestyle="--",
                         linewidth=1.5,
                         label=step_ if step_ != "stacked" else "chained",

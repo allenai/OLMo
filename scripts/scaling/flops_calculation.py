@@ -51,14 +51,17 @@ def compute_kaplan_flops():
 def compute_flops():
     ladder_flops = 0
 
+    target_flops_7B = MODEL_FLOPS["7B"] * (4 * 10**12 + 50 * 10**9)
+
+    target_flops_13B = MODEL_FLOPS["13B"] * 5 * 10**12
+
     for N in ["190M", "370M", "760M", "1B"]:
         for mult in [1, 2, 5, 10]:
             flops = MODEL_FLOPS[N] * (MODEL_PARAMS[N] * 20 * mult)
             ladder_flops += flops
 
-    target_flops_7B = MODEL_FLOPS["7B"] * (4 * 10**12 + 50 * 10**9)
+            print(f"{ladder_flops:.3e}, {round(ladder_flops * 100 / target_flops_7B, 3)} %")
 
-    target_flops_13B = MODEL_FLOPS["13B"] * 5 * 10**12
 
     print("7B flops:", "{:.2e}".format(target_flops_7B))
 
@@ -74,10 +77,15 @@ def compute_flops():
         f"Compute needed to predict both target models: {round(ladder_flops * 100 / (target_flops_7B + target_flops_13B), 3)} %"
     )
 
+    # print()
+
+    # print(f"Half the ladder for 7B: {round(2.58 * 10**21 * 100 / target_flops_7B, 3)} %")
+    # print(f"Hardest ladder for 7B: {round(7.25 * 10**18 * 100 / target_flops_7B, 3)} %")
+
 
 if __name__ == "__main__":
-    compute_flops()
-    # compute_kaplan_flops()
+    # compute_flops()
+    compute_kaplan_flops()
 
     # Output:
     # 7B flops: 2.00e+23
