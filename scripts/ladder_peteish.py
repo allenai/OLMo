@@ -252,7 +252,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
 
     return TrainConfig(
         run_name=run_name,
-        seed=6198,
+        seed=args.seed,
         wandb=None if not args.wandb else WandbConfig(name=run_name, group=run_name, project="olmo-ladder"),
         model=model_config,
         ddp=DDPConfig(),  # defaults are fine
@@ -528,6 +528,7 @@ if __name__ == "__main__":
         alpha_f=0.1,
         batch_size_divisor=32,
         scheduler_type="cosine_with_warmup",
+        seed=6198,
     )
 
     nodecounts_parser = subparsers.add_parser("nodecounts")
@@ -555,6 +556,7 @@ if __name__ == "__main__":
 
     train_parser = subparsers.add_parser("train")
     train_parser.set_defaults(func=train_cmd)
+    train_parser.add_argument("--seed", type=int, required=False)
 
     eval_parser = subparsers.add_parser("eval")
     eval_parser.set_defaults(func=eval_cmd)
