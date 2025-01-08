@@ -65,7 +65,7 @@ torchrun \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
     configs/annealing/peteish7-medlr-anneal-from-477000-100B-dclm_baseline.yaml \
-      --run_name=$RUN_NAME \
+      # --run_name=$RUN_NAME \
       --wandb.group=$NAME \
       --save_interval_ephemeral=1000 \
       --eval_interval=1000 \
