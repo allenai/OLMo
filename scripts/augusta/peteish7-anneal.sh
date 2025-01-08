@@ -69,7 +69,7 @@ torchrun \
       --wandb.group=$NAME \
       --save_interval_ephemeral=1000 \
       --eval_interval=1000 \
-      --seed=1209 \
+      --seed=2654 \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
       --save_folder=$SAVE_FOLDER \
