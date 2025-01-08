@@ -16,7 +16,12 @@ from ..tokenizer import Tokenizer
 log = logging.getLogger(__name__)
 
 # Map from oe-eval metrics to metrics used here
-METRIC_FROM_OE_EVAL = {"acc_raw": "acc", "acc_per_char": "len_norm", "acc_uncond": "pmi_dc", "logits_per_byte": "bpb"}
+METRIC_FROM_OE_EVAL = {
+    "acc_raw": "acc",
+    "acc_per_char": "len_norm",
+    "acc_uncond": "pmi_dc",
+    "logits_per_byte": "bpb",
+}
 LOG_2_OF_E = 1.44269504089
 
 
@@ -1760,7 +1765,10 @@ label_to_task_map = {
     "csqa_rc_0shot_bpb": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
     "csqa_rc_5shot": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"}),
     "csqa_rc_5shot_bpb": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "rc_5shot", "metric_type": "bpb"}),
-    "gsm8k_gold_bpb_5shot": (OEEvalTask, {"dataset_path": "gsm8k", "dataset_name": "gold_bpb_5shot", "metric_type": "bpb"}),
+    "gsm8k_gold_bpb_5shot": (
+        OEEvalTask,
+        {"dataset_path": "gsm8k", "dataset_name": "gold_bpb_5shot", "metric_type": "bpb"},
+    ),
     "hellaswag_mc_5shot": (
         OEEvalTask,
         {"dataset_path": "hellaswag", "dataset_name": "mc_5shot", "metric_type": "acc"},

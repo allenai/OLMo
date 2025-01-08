@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Add GSM8K to in-loop evals (BPB over correct continuation)
+
 ## [v0.6.0](https://github.com/allenai/OLMo/releases/tag/v0.6.0) - 2024-12-17
 
 ### Added
