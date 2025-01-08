@@ -17,6 +17,7 @@ from torch.distributed.fsdp import ShardingStrategy
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from olmo.config import (
+    ActivationCheckpointingStrategy,
     CheckpointType,
     DDPGradSyncMode,
     DistributedStrategy,
@@ -130,9 +131,20 @@ def main(cfg: TrainConfig) -> None:
 
     # Initialize the model.
     log.info("Building model...")
+    if (
+        cfg.model.block_type == "moe"
+        and cfg.activation_checkpointing
+        and cfg.activation_checkpointing != ActivationCheckpointingStrategy.fine_grained
+    ):
+        raise OLMoConfigurationError(
+            "Only no or fine-grained activation checkpointing is supported for MoE models."
+        )
+
     olmo_model = OLMo(cfg.model)
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
+    if olmo_model.config.block_type == "moe":
+        log.info(f"Number of active parameters: {olmo_model.num_params(include_inactive_params=False):,d}")
     log.info(f"Peak GPU Memory (MB) before {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
 
     # Compile one block at a time.
