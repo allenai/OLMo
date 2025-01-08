@@ -361,8 +361,10 @@ class ICLMultiChoiceTaskDataset(metaclass=abc.ABCMeta):
             "cont_byte_len": torch.LongTensor(cont_byte_lens),
             "input_ids": torch.stack(queries),
             "dc_input_ids": torch.stack(dc_queries),
-            "label_id": torch.LongTensor(label_ids),
         }
+
+        if not isinstance(label_ids, str):
+            batch["label_id"] = torch.LongTensor(label_ids)
 
         return batch
 
@@ -1538,7 +1540,7 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
                 label_id = request["label"]
                 cont_id = request["idx"]
                 if self.metric_type in ["ce_loss", "bpb"]:
-                    if label_id != cont_id:
+                    if label_id != cont_id and not isinstance(label_id, str):
                         # Skip non-target continuations for ce_loss and bpb
                         continue
                     else:
@@ -1758,6 +1760,7 @@ label_to_task_map = {
     "csqa_rc_0shot_bpb": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "rc_0shot", "metric_type": "bpb"}),
     "csqa_rc_5shot": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "rc_5shot", "metric_type": "len_norm"}),
     "csqa_rc_5shot_bpb": (OEEvalTask, {"dataset_path": "csqa", "dataset_name": "rc_5shot", "metric_type": "bpb"}),
+    "gsm8k_gold_bpb_5shot": (OEEvalTask, {"dataset_path": "gsm8k", "dataset_name": "gold_bpb_5shot", "metric_type": "bpb"}),
     "hellaswag_mc_5shot": (
         OEEvalTask,
         {"dataset_path": "hellaswag", "dataset_name": "mc_5shot", "metric_type": "acc"},
