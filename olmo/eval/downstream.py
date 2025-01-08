@@ -16,7 +16,7 @@ from ..tokenizer import Tokenizer
 log = logging.getLogger(__name__)
 
 # Map from oe-eval metrics to metrics used here
-METRIC_FROM_OE_EVAL = {"acc_raw": "acc", "acc_per_char": "len_norm", "acc_uncond": "pmi_dc"}
+METRIC_FROM_OE_EVAL = {"acc_raw": "acc", "acc_per_char": "len_norm", "acc_uncond": "pmi_dc", "logits_per_byte": "bpb"}
 LOG_2_OF_E = 1.44269504089
 
 
