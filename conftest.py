@@ -1,6 +1,8 @@
+from datetime import timedelta
 from typing import List
 
 import pytest
+import torch.distributed as dist
 
 from olmo.config import (
     DataConfig,
@@ -96,3 +98,25 @@ def lorem_ipsum_docs() -> List[str]:
 @pytest.fixture(scope="function")
 def model_path() -> str:
     return "test_fixtures/test-olmo-model"
+
+
+@pytest.fixture(scope="function")
+def xtiny_model_path() -> str:
+    return "test_fixtures/test-olmo-model-xtiny"
+
+
+@pytest.fixture(scope="function")
+def make_process_group():
+    initialized = False
+
+    def init():
+        nonlocal initialized
+
+        dist.init_process_group(
+            backend="nccl", timeout=timedelta(minutes=30), world_size=1, rank=0, store=dist.HashStore()
+        )
+        initialized = True
+
+    yield init
+    if initialized:
+        dist.destroy_process_group()
