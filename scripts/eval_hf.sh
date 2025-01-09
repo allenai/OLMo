@@ -9,7 +9,7 @@ gantry run \
   --workspace ai2/OLMo-tiny \
   --task-name eval-bpb-mc \
   --description "Evaluate bpb and mc for ${MODEL_NAME}" \
-  --priority urgent \
+  --priority high \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
