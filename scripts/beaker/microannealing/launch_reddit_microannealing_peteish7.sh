@@ -17,7 +17,7 @@ gantry run \
   --description ${CONFIG_NAME} \
   --priority $PRIORITY \
   --preemptible \
-  --beaker-image petew/olmo-torch23-gantry \
+  --beaker-image dirkg/OLMo \
   --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
