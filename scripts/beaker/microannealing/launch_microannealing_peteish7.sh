@@ -8,11 +8,11 @@ CONFIG_NAME=$1
 NUM_NODES=$2
 PRIORITY=$3
 
-CONFIG_DIR=configs/microannealing
+CONFIG_DIR=configs/reddit_microannealing
 CONFIG_PATH=${CONFIG_DIR}/${CONFIG_NAME}.yaml
 
 gantry run \
-  --workspace ai2/davidw-oe-annealing \
+  --workspace ai2/reddit \
   --task-name ${CONFIG_NAME} \
   --description ${CONFIG_NAME} \
   --priority $PRIORITY \
