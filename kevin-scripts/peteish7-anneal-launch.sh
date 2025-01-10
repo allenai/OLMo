@@ -25,7 +25,7 @@ gantry run \
   --workspace ai2/kevin_onboard_test \
   --task-name ${CONFIG_NAME} \
   --description ${CONFIG_NAME} \
-  --priority high \
+  --priority normal \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/ceres-cirrascale \
