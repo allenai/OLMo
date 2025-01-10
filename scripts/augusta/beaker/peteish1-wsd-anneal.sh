@@ -85,7 +85,7 @@ torchrun \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
       --fsdp.wrapping_strategy=by_block_and_size \
-      --load_path="gs://ai2-llm/shanea/checkpoints/OLMo-medium/$BASE_NAME/" \
+      --load_path="gs://ai2-llm/shanea/checkpoints/OLMo-medium/$BASE_NAME/step$LOAD_STEP/" \
       --save_folder=$SAVE_FOLDER \
       --remote_save_folder="gs://ai2-llm/shanea/checkpoints/OLMo-medium/$ANNEAL_NAME/" \
       --try_load_latest_save \
