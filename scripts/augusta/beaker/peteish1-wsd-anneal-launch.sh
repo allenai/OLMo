@@ -41,5 +41,5 @@ gantry run \
   --yes \
   --timeout=-1 \
   --allow-dirty \
-  --retries 10 \
+  --retries 1 \
   -- /bin/bash -c "scripts/augusta/beaker/peteish1-wsd-anneal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK $LR $LOAD_STEP $ANNEAL_STEPS ${@}"
