@@ -28,7 +28,7 @@ gantry run \
   --priority normal \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
-  --cluster allennlp-elara-cirrascale \
+  --cluster ai2/allennlp-elara-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
