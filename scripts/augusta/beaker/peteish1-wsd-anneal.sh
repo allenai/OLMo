@@ -79,7 +79,11 @@ torchrun \
       --run_name=$RUN_NAME \
       --wandb.group=$ANNEAL_NAME \
       --optimizer.learning_rate=$LR \
+      --scheduler.t_warmup=$LOAD_STEP \
+      --scheduler.name=linear_with_warmup \
       --scheduler.alpha_f=0.0 \
+      --scheduler.t_max=$MAX_STEPS \
+      --stop_at=$(($MAX_STEPS + 101)) \
       --save_interval_ephemeral=250 \
       --eval_interval=1000 \
       --fsdp.sharding_strategy=HYBRID_SHARD \
