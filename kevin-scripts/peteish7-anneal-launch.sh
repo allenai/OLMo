@@ -25,10 +25,10 @@ gantry run \
   --workspace ai2/kevin_onboard_test \
   --task-name ${CONFIG_NAME} \
   --description ${CONFIG_NAME} \
-  --priority low \
+  --priority normal \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
-  --cluster ai2/neptune-cirrascale \
+  --cluster allennlp-elara-cirrascale \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
@@ -50,5 +50,5 @@ gantry run \
   --env-secret WANDB_API_KEY=KEVINFARHAT_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
-  --timeout=600 \
+  --timeout=3600 \
   -- /bin/bash -c "kevin-scripts/peteish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${CONFIG_PATH}"
