@@ -13,5 +13,5 @@ shift
 
 for LR in 1.56e-2
 do
-  ./peteish1-wsd-anneal-launch.sh $NUM_NODES $LR $LOAD_STEP $ANNEAL_STEPS ${@}
+  ./scripts/augusta/beaker/peteish1-wsd-anneal-launch.sh $NUM_NODES $LR $LOAD_STEP $ANNEAL_STEPS ${@}
 done
