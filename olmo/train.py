@@ -242,7 +242,6 @@ class Trainer:
 
     @property
     def dataset(self) -> IterableDataset:
-        assert isinstance(self.train_loader.dataset, IterableDataset)
         return self.train_loader.dataset
 
     @property
@@ -251,7 +250,10 @@ class Trainer:
 
     @property
     def batches_per_epoch(self) -> int:
-        return self.dataset.total_size // self.cfg.global_train_batch_size
+        if isinstance(self.dataset, IterableDataset):
+            return self.dataset.total_size // self.cfg.global_train_batch_size
+        else:
+            return len(self.dataset) // self.cfg.global_train_batch_size
 
     @property
     def max_epochs(self) -> int:
@@ -384,7 +386,7 @@ class Trainer:
 
         assert self.epoch is not None
         # Reshuffle dataset if needed.
-        if self.dataset.epoch != self.epoch:
+        if isinstance(self.dataset, IterableDataset) and self.dataset.epoch != self.epoch:
             log.info(f"Reshuffling data loader for epoch {self.epoch}...")
             self.dataset.reshuffle(self.epoch)
 
@@ -398,8 +400,7 @@ class Trainer:
             # NOTE: on the other hand we don't add anything to 'self.global_train_tokens_seen' here because
             # that variable is meant to track the actual number of tokens trained on.
 
-        if self.global_train_examples_seen_this_epoch > 0:
-            assert isinstance(self.dataset, IterableDataset)
+        if self.global_train_examples_seen_this_epoch > 0 and isinstance(self.dataset, IterableDataset):
             log.info(f"Data loader will start at instance index {self.global_train_examples_seen_this_epoch:,d}")
             self.dataset.start_index = self.global_train_examples_seen_this_epoch
 
@@ -1183,6 +1184,9 @@ class Trainer:
 
         with torch_profiler as p:
             for epoch in range(self.epoch or 0, self.max_epochs):
+                if not isinstance(self.dataset, IterableDataset):
+                    if isinstance(self.train_loader.sampler, torch.utils.data.DistributedSampler):
+                        self.train_loader.sampler.set_epoch(self.epoch or 0)
                 for batch in self.train_loader:
                     # Bookkeeping.
                     # NOTE: To track the global batch size / number of tokens per batch we make the assumption that all
@@ -1338,7 +1342,7 @@ class Trainer:
                     self.epoch = epoch + 1
                     self.global_train_examples_seen_this_epoch = 0
                     self.dataset.start_index = 0
-                    if self.epoch < self.max_epochs:
+                    if self.epoch < self.max_epochs and isinstance(self.dataset, IterableDataset):
                         log.info(f"Reshuffling data loader for epoch {self.epoch}...")
                         self.dataset.reshuffle(self.epoch)
                     continue

@@ -1,3 +1,5 @@
+import importlib
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
@@ -7,12 +9,14 @@ from ..aliases import PathOrStr
 from ..config import DataConfig, TrainConfig
 from ..exceptions import OLMoConfigurationError
 from ..torch_util import barrier, get_global_rank, get_world_size
-from .collator import DataCollator
+from .collator import DataCollator, CustomDatasetDataCollator
+from .custom_datasets import build_custom_dataset, extract_module_and_class
 from .iterable_dataset import IterableDataset
 from .memmap_dataset import MemMapDataset
 
 __all__ = ["MemMapDataset", "DataCollator", "IterableDataset", "build_eval_dataloader", "build_train_dataloader"]
 
+LOGGER = logging.getLogger(__name__)
 
 def build_memmap_dataset(
     train_config: TrainConfig, data_config: DataConfig, include_instance_metadata: bool = True
@@ -46,6 +50,34 @@ def build_memmap_dataset(
         label_mask_paths=cast(Optional[List[PathOrStr]], data_config.label_mask_paths),
         instance_filter_config=data_config.instance_filter,
     )
+
+
+
+
+def build_collator(train_config: TrainConfig) -> DataCollator:
+    if train_config.data.custom_dataset:
+        if train_config.data.custom_dataset.collate_fn:
+            module, function = extract_module_and_class(train_config.data.custom_dataset.collate_fn)
+            if module is None:
+                if train_config.data.custom_dataset.module is None:
+                    module, _ = extract_module_and_class(train_config.data.custom_dataset.name)
+                else:
+                    module = train_config.data.custom_dataset.module
+            try:
+                collator = getattr(importlib.import_module(module), function)
+            except AttributeError:
+                raise OLMoConfigurationError(f"collate_fn {train_config.data.custom_dataset.collate_fn} not found in {module}. Please specify the full module path of the function.")
+            return collator
+            
+        return CustomDatasetDataCollator(
+            pad_direction=train_config.data.pad_direction,
+            pad_token_id=train_config.model.pad_token_id,
+            **train_config.data.custom_dataset.collate_config.asdict(),  # type: ignore
+        )
+    else:
+        return DataCollator(
+            pad_direction=train_config.data.pad_direction, pad_token_id=train_config.model.pad_token_id
+        )
 
 
 def build_eval_dataloader(
@@ -92,24 +124,27 @@ def build_train_dataloader(
     include_instance_metadata: bool = False,
 ) -> DataLoader:
     assert train_config.device_train_batch_size is not None
-    collator = DataCollator(
-        pad_direction=train_config.data.pad_direction, pad_token_id=train_config.model.pad_token_id
-    )
-    dataset = build_memmap_dataset(
-        train_config, train_config.data, include_instance_metadata=include_instance_metadata
-    )
-    work_dir = Path(train_config.save_folder) / "train_data"
-    if get_global_rank() == 0:
-        if work_dir.is_dir() and not train_config.save_overwrite:
-            raise OLMoConfigurationError(
-                "train data working directory already exists, use --save_overwrite to overwrite"
-            )
-        else:
-            work_dir.mkdir(exist_ok=True, parents=True)
-    barrier()
     seed = train_config.data.seed if train_config.data.seed is not None else train_config.seed
-    return DataLoader(
-        IterableDataset(
+    collator = build_collator(train_config)
+    if train_config.data.custom_dataset:
+        if train_config.data.paths is not None or train_config.data.datasets is not None:
+            raise OLMoConfigurationError(
+                "custom_dataset_class is mutually exclusive with DataConfig.paths and DataConfig.datasets"
+            )
+        dataset = build_custom_dataset(train_config)
+    else:
+        dataset = build_memmap_dataset(
+            train_config, train_config.data, include_instance_metadata=include_instance_metadata
+        )
+        work_dir = Path(train_config.save_folder) / "train_data"
+        if get_global_rank() == 0:
+            if work_dir.is_dir() and not train_config.save_overwrite:
+                raise OLMoConfigurationError(
+                    "train data working directory already exists, use --save_overwrite to overwrite"
+                )
+            else:
+                work_dir.mkdir(exist_ok=True, parents=True)
+        dataset = IterableDataset(
             dataset,  # type: ignore
             train_config.global_train_batch_size,
             seed=seed,
@@ -120,7 +155,21 @@ def build_train_dataloader(
             rank=rank,
             fs_local_rank=fs_local_rank,
             work_dir=work_dir,
-        ),
+        )
+    barrier()
+    if train_config.data.custom_dataset:
+        sampler = DistributedSampler(          
+            dataset,
+            drop_last=train_config.data.drop_last,
+            shuffle=True,
+            num_replicas=get_world_size(),
+            rank=get_global_rank(),
+            seed=seed,
+        )
+    else:
+        sampler = None
+    out = DataLoader(
+        dataset,
         batch_size=train_config.device_train_batch_size,
         drop_last=train_config.data.drop_last,
         collate_fn=collator,
@@ -129,4 +178,6 @@ def build_train_dataloader(
         prefetch_factor=None if train_config.data.num_workers == 0 else train_config.data.prefetch_factor,
         persistent_workers=False if train_config.data.num_workers == 0 else train_config.data.persistent_workers,
         timeout=train_config.data.timeout,
+        sampler=sampler,
     )
+    return out

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, Optional
 
 import torch
 import torch.nn.functional as F
@@ -138,3 +138,40 @@ class DataCollator:
             out["metadata"] = all_metadata
 
         return out
+
+@dataclass
+class CustomDatasetDataCollator(DataCollator):
+    input_id_field: str = "input_ids"
+    attention_mask_field: Optional[str] = None
+    attention_bias_field: Optional[str] = None
+    label_mask_field: Optional[str] = None
+    index_field: Optional[str] = None
+    instance_mask_field: Optional[str] = None
+    doc_lens_field: Optional[str] = None
+    metadata_field: Optional[str] = None
+
+
+
+    def _relabel_fields(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return [
+            self._relabel_item(x) for x in items
+        ]
+    
+    def _relabel_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
+        out = {
+            "input_ids": item.__getitem__(self.input_id_field),
+            "attention_mask": item.__getitem__(self.attention_mask_field) if self.attention_mask_field else None,
+            "attention_bias": item.__getitem__(self.attention_bias_field) if self.attention_bias_field else None,
+            "label_mask": item.__getitem__(self.label_mask_field) if self.label_mask_field else None,
+            "index": item.__getitem__(self.index_field) if self.index_field else None,
+            "instance_mask": item.__getitem__(self.instance_mask_field) if self.instance_mask_field else None,
+            "metadata": item.__getitem__(self.metadata_field) if self.metadata_field else None,
+        }
+        if self.doc_lens_field:
+            out["doc_lens"] = item.__getitem__(self.doc_lens_field)
+        return out
+
+    def __call__(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
+        if not isinstance(items[0], torch.Tensor):
+            items = self._relabel_fields(items)
+        return super().__call__(items)
