@@ -19,7 +19,7 @@ set -ex
 # bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-others
 
 CONFIG_NAME=$1
-NUM_NODES=8
+NUM_NODES=1
 
 gantry run \
   --workspace ai2/kevin_onboard_test \
