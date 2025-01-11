@@ -1,4 +1,4 @@
-run_name: peteish7-anneal-from-2T-50B-no-warmup
+run_name: kevin-test-peteish7-medlr-anneal-from-2T-50B-no-warmup
 seed: 7201
 dry_run: false
 
@@ -79,12 +79,13 @@ sharded_checkpointer: olmo_core
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
-load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step477000
-
+# load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step477000
+load_path: gs://ai2-llm/checkpoints/OLMo-medium/peteish7-medlr/step477000
 restore_dataloader: false
 no_pre_train_checkpoint: true
 
 max_duration: 50e9T
+# max_dration: 5e6T
 stop_at: 11931                  # round(50e9 / (1024 * 4096)) + 10
 global_train_batch_size: 1024
 device_train_microbatch_size: 2

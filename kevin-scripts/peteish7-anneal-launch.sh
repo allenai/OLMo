@@ -19,13 +19,13 @@ set -ex
 # bash sewon-scripts/peteish7-anneal-launch.ch peteish7-anneal-from-1T-others
 
 CONFIG_NAME=$1
-NUM_NODES=2
+NUM_NODES=8
 
 gantry run \
-  --workspace ai2/kevin_onboard_test \
+  --workspace ai2/ds-olmo \
   --task-name ${CONFIG_NAME} \
   --description ${CONFIG_NAME} \
-  --priority normal \
+  --priority high \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/ceres-cirrascale \
@@ -50,5 +50,5 @@ gantry run \
   --env-secret WANDB_API_KEY=KEVINFARHAT_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
-  --timeout=3600 \
+  # --timeout=3600 \
   -- /bin/bash -c "kevin-scripts/peteish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${CONFIG_PATH}"
