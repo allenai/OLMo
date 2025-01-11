@@ -50,5 +50,5 @@ gantry run \
   --env-secret WANDB_API_KEY=KEVINFARHAT_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
-  # --timeout=3600 \
+  --timeout=259200 \
   -- /bin/bash -c "kevin-scripts/peteish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${CONFIG_PATH}"
