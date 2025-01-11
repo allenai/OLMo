@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import torch
 import torch.nn.functional as F
@@ -139,6 +139,7 @@ class DataCollator:
 
         return out
 
+
 @dataclass
 class CustomDatasetDataCollator(DataCollator):
     input_id_field: str = "input_ids"
@@ -150,13 +151,9 @@ class CustomDatasetDataCollator(DataCollator):
     doc_lens_field: Optional[str] = None
     metadata_field: Optional[str] = None
 
-
-
     def _relabel_fields(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        return [
-            self._relabel_item(x) for x in items
-        ]
-    
+        return [self._relabel_item(x) for x in items]
+
     def _relabel_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
         out = {
             "input_ids": item.__getitem__(self.input_id_field),

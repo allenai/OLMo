@@ -9,7 +9,7 @@ from ..aliases import PathOrStr
 from ..config import DataConfig, TrainConfig
 from ..exceptions import OLMoConfigurationError
 from ..torch_util import barrier, get_global_rank, get_world_size
-from .collator import DataCollator, CustomDatasetDataCollator
+from .collator import CustomDatasetDataCollator, DataCollator
 from .custom_datasets import build_custom_dataset, extract_module_and_class
 from .iterable_dataset import IterableDataset
 from .memmap_dataset import MemMapDataset
@@ -17,6 +17,7 @@ from .memmap_dataset import MemMapDataset
 __all__ = ["MemMapDataset", "DataCollator", "IterableDataset", "build_eval_dataloader", "build_train_dataloader"]
 
 LOGGER = logging.getLogger(__name__)
+
 
 def build_memmap_dataset(
     train_config: TrainConfig, data_config: DataConfig, include_instance_metadata: bool = True
@@ -52,9 +53,14 @@ def build_memmap_dataset(
     )
 
 
-
-
 def build_collator(train_config: TrainConfig) -> DataCollator:
+    """Returns a collator for the train dataloader. Either returns the default
+    collator or a custom collator specified in the train config.
+
+    :param train_config: OLMo train config
+    :raises OLMoConfigurationError: Raises an error if the collate function is not found
+    :return: Collator for the train dataloader
+    """
     if train_config.data.custom_dataset:
         if train_config.data.custom_dataset.collate_fn:
             module, function = extract_module_and_class(train_config.data.custom_dataset.collate_fn)
@@ -64,11 +70,14 @@ def build_collator(train_config: TrainConfig) -> DataCollator:
                 else:
                     module = train_config.data.custom_dataset.module
             try:
+                assert module is not None
                 collator = getattr(importlib.import_module(module), function)
             except AttributeError:
-                raise OLMoConfigurationError(f"collate_fn {train_config.data.custom_dataset.collate_fn} not found in {module}. Please specify the full module path of the function.")
+                raise OLMoConfigurationError(
+                    f"collate_fn {train_config.data.custom_dataset.collate_fn} not found in {module}. Please specify the full module path of the function."
+                )
             return collator
-            
+
         return CustomDatasetDataCollator(
             pad_direction=train_config.data.pad_direction,
             pad_token_id=train_config.model.pad_token_id,
@@ -158,7 +167,7 @@ def build_train_dataloader(
         )
     barrier()
     if train_config.data.custom_dataset:
-        sampler = DistributedSampler(          
+        sampler = DistributedSampler(
             dataset,
             drop_last=train_config.data.drop_last,
             shuffle=True,
