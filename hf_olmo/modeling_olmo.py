@@ -2,7 +2,7 @@ import logging
 from dataclasses import fields
 import os
 import sys
-from typing import List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import torch
 from transformers import PreTrainedModel
@@ -11,7 +11,7 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.auto import AutoModelForCausalLM
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from olmo.config import ModelConfig
+from olmo.config import ActivationCheckpointingStrategy, ModelConfig
 from olmo.model import OLMo
 
 from .configuration_olmo import OLMoConfig
@@ -31,6 +31,15 @@ def create_model_config_from_pretrained_config(config: OLMoConfig):
         kwargs[field.name] = getattr(config, field.name)
 
     model_config = ModelConfig(**kwargs)
+
+    # Handle flash attention settings
+    if config._attn_implementation == "flash_attention_2":
+        model_config.flash_attention = True
+    elif config._attn_implementation in ("eager", "sdpa"):
+        model_config.flash_attention = False
+    else:
+        raise ValueError(f"Unexpected _attn_implementation {config._attn_implementation}")
+
     return model_config
 
 
@@ -42,10 +51,16 @@ class OLMoForCausalLM(PreTrainedModel):
     config_class = OLMoConfig
     base_model_prefix = "model"
     _no_split_modules = ["OLMoBlock"]
+    _supports_flash_attn_2 = True
+    _supports_sdpa = True
+    supports_gradient_checkpointing = True
 
     def __init__(self, config: OLMoConfig, model: Optional[OLMo] = None, init_params: bool = False,
                  max_batch_size_per_device: int = 1024, local_rank: int = 0, global_rank: int = 0, local_world_size: int = 1, world_size: int = 1):
         super().__init__(config)
+
+        self._gradient_checkpointing_func: Optional[Callable] = None
+        self._gradient_checkpointing = False
 
         if not model:
             model_config = create_model_config_from_pretrained_config(config)
@@ -66,6 +81,23 @@ class OLMoForCausalLM(PreTrainedModel):
                 local_world_size=local_world_size,
                 world_size=world_size,
             )
+
+    @property
+    def gradient_checkpointing(self) -> bool:
+        return self._gradient_checkpointing
+
+    @gradient_checkpointing.setter
+    def gradient_checkpointing(self, enabled: bool):
+        if self._gradient_checkpointing == enabled:
+            return
+
+        # HF does not specify a way to pass checkpointing strategies, so we pick
+        # whole layer as our strategy. We can make this configurable later if needed.
+        checkpointing_strategy = ActivationCheckpointingStrategy.whole_layer if enabled else None
+        self.model.set_activation_checkpointing(
+            checkpointing_strategy, checkpoint_func=self._gradient_checkpointing_func
+        )
+        self._gradient_checkpointing = enabled
 
     def forward(
         self,
