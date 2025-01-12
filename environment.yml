@@ -1,0 +1,8 @@
+name: hb-wolf
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11.8
+  - pip:
+    - beaker-gantry
