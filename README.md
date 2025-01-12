@@ -41,9 +41,13 @@ OLMo pretraining follows a two-stage training procedure.
 In the first stage, we train on large amounts of mostly web-based data: [OLMo-mix-1124](https://huggingface.co/datasets/allenai/olmo-mix-1124)
 In the second stage, we train on a smaller amount of high-quality, targeted data: [Dolmino-mix-1124](https://huggingface.co/datasets/allenai/dolmino-mix-1124)
 
-You can find *all* the checkpoints, at minimum every 1000 training steps, on Huggingface:
- * [Huggingface for the 7B variant](https://huggingface.co/allenai/OLMo-2-1124-7B)
- * [Huggingface for the 13B variant](https://huggingface.co/allenai/OLMo-2-1124-13B)
+You can find *all* the checkpoints, at minimum every 1000 training steps in OLMo core and Hugging Face format:
+
+
+| Variant          | OLMo Format                                                                                          | Hugging Face Format                                                               |
+|------------------|-----------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
+| **OLMo 7B**      | [OLMo 7B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-7B.csv)       | [Hugging Face for the 7B variant](https://huggingface.co/allenai/OLMo-2-1124-7B)  |
+| **OLMo 13B**     | [OLMo 13B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B.csv)     | [Hugging Face for the 13B variant](https://huggingface.co/allenai/OLMo-2-1124-13B) |
 
 ### Steps to reproduce
 
@@ -152,16 +156,18 @@ The quantized model is sensitive to input types and CUDA handling. To avoid pote
 
 ## Evaluation
 
-Additional tools for evaluating OLMo models are available at the [OLMo Eval](https://github.com/allenai/OLMo-eval) repo.
+Additional tools for evaluating OLMo models are available at the [OLMo Eval](https://github.com/allenai/OLMo-eval) and [olmes](https://github.com/allenai/olmes) repositories.
 
 ## Citing
 
 ```bibtex
-@article{OLMo,
-  title={OLMo: Accelerating the Science of Language Models},
-  author={Dirk Groeneveld and Iz Beltagy and Pete Walsh and Akshita Bhagia and Rodney Kinney and Oyvind Tafjord and A. Jha and Hamish Ivison and Ian Magnusson and Yizhong Wang and Shane Arora and David Atkinson and Russell Authur and Khyathi Raghavi Chandu and Arman Cohan and Jennifer Dumas and Yanai Elazar and Yuling Gu and Jack Hessel and Tushar Khot and William Merrill and Jacob Daniel Morrison and Niklas Muennighoff and Aakanksha Naik and Crystal Nam and Matthew E. Peters and Valentina Pyatkin and Abhilasha Ravichander and Dustin Schwenk and Saurabh Shah and Will Smith and Emma Strubell and Nishant Subramani and Mitchell Wortsman and Pradeep Dasigi and Nathan Lambert and Kyle Richardson and Luke Zettlemoyer and Jesse Dodge and Kyle Lo and Luca Soldaini and Noah A. Smith and Hanna Hajishirzi},
-  year={2024},
-  url={https://api.semanticscholar.org/CorpusID:267365485},
-  journal={arXiv preprint},
+@misc{olmo20242olmo2furious,
+      title={2 OLMo 2 Furious}, 
+      author={Team OLMo and Pete Walsh and Luca Soldaini and Dirk Groeneveld and Kyle Lo and Shane Arora and Akshita Bhagia and Yuling Gu and Shengyi Huang and Matt Jordan and Nathan Lambert and Dustin Schwenk and Oyvind Tafjord and Taira Anderson and David Atkinson and Faeze Brahman and Christopher Clark and Pradeep Dasigi and Nouha Dziri and Michal Guerquin and Hamish Ivison and Pang Wei Koh and Jiacheng Liu and Saumya Malik and William Merrill and Lester James V. Miranda and Jacob Morrison and Tyler Murray and Crystal Nam and Valentina Pyatkin and Aman Rangapur and Michael Schmitz and Sam Skjonsberg and David Wadden and Christopher Wilhelm and Michael Wilson and Luke Zettlemoyer and Ali Farhadi and Noah A. Smith and Hannaneh Hajishirzi},
+      year={2024},
+      eprint={2501.00656},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2501.00656}, 
 }
 ```
