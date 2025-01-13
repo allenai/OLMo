@@ -82,6 +82,6 @@ torchrun \
       --fused_loss=false \
       --model.flash_attention=false \
       --data.num_workers=8 \
-      --optimizer.learning_rate=6.0e-4 \
+      --global_train_batch_size=2048 \
       --optimizer.metrics_log_interval=10 \
       --data.prefetch_factor=8
