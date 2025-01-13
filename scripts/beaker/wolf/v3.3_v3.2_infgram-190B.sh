@@ -4,7 +4,7 @@ set -ex
 
 CONFIG_PATH=configs/peteish1-weka.yaml
 NUM_NODES=1
-RUN_NAME="v3.2_v3.0_moreeval"
+RUN_NAME="v3.3_v3.2_infgram-190B"
 
 gantry run \
   --allow-dirty \
@@ -50,4 +50,5 @@ gantry run \
         --save_folder=/weka/oe-training-default/jiachengl/hb-wolf/ckpt/${RUN_NAME} --save_overwrite=true --load_path=\\\${path.last_checkpoint:/weka/oe-training-default/jiachengl/hb-wolf/ckpt/${RUN_NAME}} \
         --global_train_batch_size=1024 --device_train_microbatch_size=4 \
         --max_duration=12202 \
+        --infgram.index_dir=/weka/oe-training-default/jiachengl/hb-wolf/index/v5_olmoe-mix-0924_dolma2/0 --infgram.prefetch=true --model.separate_infgram_wte=false --infgram.method_train=7 --infgram.method_eval=7 --infgram.min_cnt=5 --infgram.dtype=u32 \
     "

@@ -376,7 +376,7 @@ if __name__ == "__main__":
         device_as_string
     )  # Set this early to prevent GPU 0 from picking up a bunch of tensors it shouldn't have.
     dist.init_process_group(
-        backend="cpu:gloo,cuda:nccl", timeout=timedelta(minutes=30), device_id=torch.device(device_as_string)
+        backend="cpu:gloo,cuda:nccl", timeout=timedelta(minutes=1440), device_id=torch.device(device_as_string)
     )
     log.info("Process group initialized")
 
