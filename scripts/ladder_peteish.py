@@ -384,6 +384,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
             instance_filter=InstanceFilterConfig(),  # defaults are fine
             paths=[f"{read_location}/{path}" for path in named_data_mixes.DATA_PATHS[args.data]],
             memmap_dtype="uint32",
+            seed=args.data_seed,
         ),
         auxiliary_loss_multiplier=1e-5,
         softmax_auxiliary_loss=True,
@@ -529,6 +530,7 @@ if __name__ == "__main__":
         batch_size_divisor=32,
         scheduler_type="cosine_with_warmup",
         seed=6198,
+        data_seed=None,
     )
 
     nodecounts_parser = subparsers.add_parser("nodecounts")
@@ -557,6 +559,7 @@ if __name__ == "__main__":
     train_parser = subparsers.add_parser("train")
     train_parser.set_defaults(func=train_cmd)
     train_parser.add_argument("--seed", type=int, required=False)
+    train_parser.add_argument("--data_seed", type=int, required=False)
 
     eval_parser = subparsers.add_parser("eval")
     eval_parser.set_defaults(func=eval_cmd)
