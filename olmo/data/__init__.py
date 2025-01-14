@@ -145,38 +145,27 @@ def build_train_dataloader(
         dataset = build_memmap_dataset(
             train_config, train_config.data, include_instance_metadata=include_instance_metadata
         )
-        work_dir = Path(train_config.save_folder) / "train_data"
-        if get_global_rank() == 0:
-            if work_dir.is_dir() and not train_config.save_overwrite:
-                raise OLMoConfigurationError(
-                    "train data working directory already exists, use --save_overwrite to overwrite"
-                )
-            else:
-                work_dir.mkdir(exist_ok=True, parents=True)
-        dataset = IterableDataset(
-            dataset,  # type: ignore
-            train_config.global_train_batch_size,
-            seed=seed,
-            epoch=train_config.epoch or 0,
-            shuffle=True,
-            drop_last=train_config.data.drop_last,
-            world_size=world_size,
-            rank=rank,
-            fs_local_rank=fs_local_rank,
-            work_dir=work_dir,
-        )
+    work_dir = Path(train_config.save_folder) / "train_data"
+    if get_global_rank() == 0:
+        if work_dir.is_dir() and not train_config.save_overwrite:
+            raise OLMoConfigurationError(
+                "train data working directory already exists, use --save_overwrite to overwrite"
+            )
+        else:
+            work_dir.mkdir(exist_ok=True, parents=True)
+    dataset = IterableDataset(
+        dataset,  # type: ignore
+        train_config.global_train_batch_size,
+        seed=seed,
+        epoch=train_config.epoch or 0,
+        shuffle=True,
+        drop_last=train_config.data.drop_last,
+        world_size=world_size,
+        rank=rank,
+        fs_local_rank=fs_local_rank,
+        work_dir=work_dir,
+    )
     barrier()
-    if train_config.data.custom_dataset:
-        sampler = DistributedSampler(
-            dataset,
-            drop_last=train_config.data.drop_last,
-            shuffle=True,
-            num_replicas=get_world_size(),
-            rank=get_global_rank(),
-            seed=seed,
-        )
-    else:
-        sampler = None
     out = DataLoader(
         dataset,
         batch_size=train_config.device_train_batch_size,
@@ -187,6 +176,5 @@ def build_train_dataloader(
         prefetch_factor=None if train_config.data.num_workers == 0 else train_config.data.prefetch_factor,
         persistent_workers=False if train_config.data.num_workers == 0 else train_config.data.persistent_workers,
         timeout=train_config.data.timeout,
-        sampler=sampler,
     )
     return out
