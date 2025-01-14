@@ -94,10 +94,11 @@ def predict_chained(data_by_name, step1_coefficients, step2_coefficients, use_lo
             ],
         }
 
+        y, y_pred,rel_error = 0, 0, 0
         if data["mode"] == "eval":
             predicted_data = predicted_data_by_name[name]
             for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["ys"]):
-                rel_error = (y_pred - y) / y
+                rel_error = (y_pred - y) / y if y > 0 else float('inf')
 
     return predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error)
 
@@ -142,14 +143,15 @@ def plot_chained(
         predicted_data = predicted_data_by_name[name]
 
         for i, (d, y, l) in enumerate(zip(data["ds"], data["xs"], data["ls"])):
-            ax.scatter(
-                d,
-                y,
-                color=config.color,
-                marker=MARKERS[l] if config.mode == "train" else "o",
-                s=50 if config.mode == "train" else 20,
-                label=f"{config.label} (target)" if config.mode == "eval" else None,
-            )
+            if y != 0:
+                ax.scatter(
+                    d,
+                    y,
+                    color=config.color,
+                    marker=MARKERS[l] if config.mode == "train" else "o",
+                    s=50 if config.mode == "train" else 20,
+                    label=f"{config.label} (target)" if config.mode == "eval" else None,
+                )
 
         for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["ys"]):
             rel_error = (y_pred - y) / y if y > 0 else float('inf')
@@ -164,16 +166,17 @@ def plot_chained(
                     s=20,
                     label=f"{config.label} (predicted)",
                 )
-                ax.annotate(
-                    f"{abs(rel_error * 100):.1f}%",
-                    (d, y_pred),
-                    textcoords="offset points",
-                    xytext=(10, -5 + 10 * num_eval_annotation),
-                    ha="left",
-                    va="bottom",
-                    fontsize=FONTSIZE,
-                    color=config.color,
-                )
+                if rel_error != float('inf'):
+                    ax.annotate(
+                        f"{abs(rel_error * 100):.1f}%",
+                        (d, y_pred),
+                        textcoords="offset points",
+                        xytext=(10, -5 + 10 * num_eval_annotation),
+                        ha="left",
+                        va="bottom",
+                        fontsize=FONTSIZE,
+                        color=config.color,
+                    )
                 num_eval_annotation += 1
 
     ax.set_xscale("log")

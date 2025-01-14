@@ -114,6 +114,7 @@ def predict_step2(configs, data_by_name, coefficients, cov, y_metric, use_log_si
             "xs": data["xs"],
             "ys": [predict_fn(x, *coefficients) for x in data["xs"]],
         }
+        e_y, e_y_pred, rel_error, delta_error = 0, 0, 0, 0
         if config.mode == "eval":
             for x, e_y, e_y_pred in zip(data["xs"], data["ys"], predicted_data_by_name[name]["ys"]):
                 rel_error = (e_y_pred - e_y) / e_y if e_y > 0 else float('inf')
@@ -200,6 +201,7 @@ def plot_step2(
                 unsigned_rel_errs.append(abs(rel_error))
             else:
                 if i == 0:                    
+                    if x != 0:
                     ax.scatter(
                         x,
                         y,
@@ -216,6 +218,7 @@ def plot_step2(
                         s=20,
                         label=f"{config.label} ({'predicted'})",
                     )
+                    if rel_error != float('inf'):
                     ax.annotate(
                         f"{np.abs(rel_error) * 100:.1f}%",
                         (x, y),

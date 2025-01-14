@@ -117,8 +117,8 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
 
     unsigned_rel_errors = []
 
-    dmin = 0.8 * min([min(data["ds"]) for data in data_by_name.values()])
-    dmax = 1.5 * max([max(data["ds"]) for data in data_by_name.values()])
+    dmin = 0.8 * min([min(data["ds"]) for data in data_by_name.values() if len(data["ds"]) > 0])
+    dmax = 1.5 * max([max(data["ds"]) for data in data_by_name.values() if len(data["ds"]) > 0])
 
     if y_metric == "rc_bpb" or y_metric == "c4" or y_metric == "rc_soft_log":
         func = chinchilla_n_d_fit
@@ -141,10 +141,11 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
             "xs": [func([n, d], coefficients) for n, d in zip(ns, ds)],
         }
 
+        e_y, e_y_pred, rel_error = 0, 0, 0
         if configs[name].mode == "eval":
             predicted_data = predicted_data_by_name[name]
             for d, e_y, e_y_pred in zip(data["ds"], data["xs"], predicted_data["xs"]):
-                rel_error = (e_y_pred - e_y) / e_y
+                rel_error = (e_y_pred - e_y) / e_y if e_y > 0 else float('inf')
         else:
             predicted_data = predicted_data_by_name[name]
             for f, y, y_pred in zip(data["fs"], data["xs"], predicted_data["xs"]):
@@ -194,17 +195,18 @@ def plot_step1(
         predicted_data = predicted_data_by_name[name]
 
         for i, (d, x, l) in enumerate(zip(data["ds"], data["xs"], data["ls"])):
-            ax.scatter(
-                d,
-                x,
-                color=config.color,
-                marker=MARKERS[l] if config.mode == "train" else "o",
-                s=50 if config.mode == "train" else 20,
-                label=f"{config.label} (target)" if config.mode == "eval" else None,
-            )
+            if x != 0:
+                ax.scatter(
+                    d,
+                    x,
+                    color=config.color,
+                    marker=MARKERS[l] if config.mode == "train" else "o",
+                    s=50 if config.mode == "train" else 20,
+                    label=f"{config.label} (target)" if config.mode == "eval" else None,
+                )
 
         for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["xs"]):
-            rel_error = (y_pred - y) / y
+            rel_error = (y_pred - y) / y if y > 0 else float('inf')
             if config.mode == "train":
                 unsigned_rel_errors.append(np.abs(rel_error))
             else:
@@ -217,18 +219,19 @@ def plot_step1(
                     label=f"{config.label} ({'predicted'})",
                 )
 
-                ax.annotate(
-                    f"{abs(rel_error) * 100:.1f}%",
-                    (d, y_pred),
-                    textcoords="offset points",
-                    xytext=(10, 1 - 10 * num_eval_annotation)
-                    if y_metric == "rc_bpb"
-                    else (-3, 5 * (-3 if num_eval_annotation % 2 == 0 else 1)),
-                    ha="left",
-                    va="bottom",
-                    fontsize=FONTSIZE,
-                    color=config.color,
-                )
+                if rel_error != float('inf'):
+                    ax.annotate(
+                        f"{abs(rel_error) * 100:.1f}%",
+                        (d, y_pred),
+                        textcoords="offset points",
+                        xytext=(10, 1 - 10 * num_eval_annotation)
+                        if y_metric == "rc_bpb"
+                        else (-3, 5 * (-3 if num_eval_annotation % 2 == 0 else 1)),
+                        ha="left",
+                        va="bottom",
+                        fontsize=FONTSIZE,
+                        color=config.color,
+                    )
                 num_eval_annotation += 1
     avg_unsigned_rel_error = np.mean(unsigned_rel_errors)
 
