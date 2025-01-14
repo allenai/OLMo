@@ -2,6 +2,7 @@
 
 import gzip
 import logging
+import os
 import sys
 from datetime import timedelta
 from pathlib import Path
