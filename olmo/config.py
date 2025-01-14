@@ -95,6 +95,7 @@ class BaseConfig:
             latest_checkpoint = find_latest_checkpoint(path)
             if latest_checkpoint is None:
                 if validate_paths:
+                    return ""
                     raise FileNotFoundError(f"Could not find a latest checkpoint at {path}")
                 else:
                     return ""
@@ -699,7 +700,7 @@ class CompilerConfig(BaseConfig):
     dynamic: Optional[bool] = None
     """
     From the torch docs:
-    
+
     Use dynamic shape tracing. When this is True, we will up-front attempt to generate a kernel that is as dynamic
     as possible to avoid recompilations when sizes change. This may not always work as some
     operations/optimizations will force specialization; use TORCH_LOGS=dynamic to debug overspecialization. When
