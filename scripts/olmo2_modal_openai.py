@@ -9,7 +9,7 @@ import os
 import modal
 
 MODEL_NAME = "allenai/OLMo-2-1124-13B-Instruct"
-MODEL_REVISION = "9b7f0b17b9c6d6f6a0c3d1bba2495294f704ac2d"
+MODEL_REVISION = "3a5c85baefbb1896a54d56fe2e76c0395627ddf4"
 MODEL_DIR = "/root/models/{MODEL_NAME}"
 
 N_GPU = 1
@@ -68,12 +68,13 @@ def download_model_to_image(model_dir, model_name, model_revision):
 
 vllm_image = (
     modal.Image.debian_slim(python_version="3.10")
-    .apt_install("git", "build-essential")
     .pip_install(
-        "hf-transfer==0.1.6",
+        "vllm==0.6.6.post1",
+        "torch==2.5.1",
+        "transformers==4.47.1",
+        "ray==2.10.0",
         "huggingface_hub==0.24.0",
-        "https://vllm-wheels.s3.us-west-2.amazonaws.com/9db713a1dca7e1bc9b6ecf5303c63c7352c52a13/vllm-1.0.0.dev-cp38-abi3-manylinux1_x86_64.whl",
-        "transformers==4.47.0",
+        "hf-transfer==0.1.6",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1"})
     .run_function(
