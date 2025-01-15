@@ -70,9 +70,15 @@ if __name__ == "__main__":
     )
     log.info("Process group initialized")
 
+    # rank = get_global_rank()
+    # input = torch.arange(4) + rank * 4
+    # input = list(input.chunk(4))
+    # output = list(torch.empty([4], dtype=torch.int64).chunk(4))
+    # dist.all_to_all(output, input)
+    # print(f"Rank {get_global_rank()}, output: {output}")
+
     rank = get_global_rank()
     input = torch.arange(4) + rank * 4
-    input = list(input.chunk(4))
-    output = list(torch.empty([4], dtype=torch.int64).chunk(4))
-    dist.all_to_all(output, input)
+    output = torch.empty([4], dtype=torch.int64)
+    dist.all_to_all_single(output, input)
     print(f"Rank {get_global_rank()}, output: {output}")
