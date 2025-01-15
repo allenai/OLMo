@@ -31,8 +31,9 @@ gantry run \
     set -exuo pipefail; \
     IFS=$'\n\t'; \
     conda shell.bash activate base; \
-    pip install -U torch==2.5.1; \
+    pip install '.[train]'; \
     export TORCH_DIST_INIT_BARRIER=1; \
+    export PYTHONPATH=.; \
     torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 2 --rdzv_id=20310 --rdzv_backend=static --rdzv_conf='read_timeout=1200' --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 --node_rank=\$BEAKER_REPLICA_RANK \
         scripts/test_gloo.py \
   "
