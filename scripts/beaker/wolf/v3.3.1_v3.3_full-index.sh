@@ -16,7 +16,6 @@ gantry run \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
   --priority high \
-  --preemptible \
   --no-nfs \
   --weka oe-training-default:/weka/oe-training-default \
   --gpus 8 \
@@ -55,7 +54,7 @@ gantry run \
         --run_name=${RUN_NAME} \
         --wandb.project=hb-wolf-olmo-3 --wandb.entity=liujch1998 \
         --save_folder=/weka/oe-training-default/jiachengl/hb-wolf/ckpt/${RUN_NAME} --save_overwrite=true --load_path=\\\${path.last_checkpoint:/weka/oe-training-default/jiachengl/hb-wolf/ckpt/${RUN_NAME}} \
-        --global_train_batch_size=1280 --device_train_microbatch_size=4 \
+        --global_train_batch_size=1280 --device_train_microbatch_size=2 \
         --max_duration=3e12T \
         --infgram.index_dir=/weka/oe-training-default/jiachengl/hb-wolf/index/v5_olmoe-mix-0924_dolma2 --infgram.sharded=true --infgram.prefetch=true --model.separate_infgram_wte=false --infgram.method_train=7 --infgram.method_eval=7 --infgram.min_cnt=5 --infgram.dtype=u32 \
     "
