@@ -17,7 +17,7 @@ gantry run \
   --priority high \
   --no-nfs \
   --weka oe-training-default:/weka/oe-training-default \
-  --gpus 2 \
+  --gpus 8 \
   --shared-memory 10GiB \
   --replicas "${NUM_NODES}" \
   --host-networking \
@@ -34,6 +34,6 @@ gantry run \
     pip install '.[train]'; \
     export TORCH_DIST_INIT_BARRIER=1; \
     export PYTHONPATH=.; \
-    torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 2 --rdzv_id=20310 --rdzv_backend=static --rdzv_conf='read_timeout=1200' --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 --node_rank=\$BEAKER_REPLICA_RANK \
+    torchrun --nnodes ${NUM_NODES}:${NUM_NODES} --nproc-per-node 8 --rdzv_id=20310 --rdzv_backend=static --rdzv_conf='read_timeout=1200' --rdzv_endpoint=\$BEAKER_LEADER_REPLICA_HOSTNAME:29400 --node_rank=\$BEAKER_REPLICA_RANK \
         scripts/test_gloo.py \
   "

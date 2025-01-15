@@ -3,8 +3,8 @@
 set -ex
 
 CONFIG_PATH=configs/peteish1-weka.yaml
-NUM_NODES=20
-RUN_NAME="v3.3.1_v3.3_full-index"
+NUM_NODES=2
+RUN_NAME="v3.3.1_v3.3_full-index_n2"
 
 gantry run \
   --allow-dirty \

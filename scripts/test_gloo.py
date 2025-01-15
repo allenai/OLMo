@@ -78,7 +78,7 @@ if __name__ == "__main__":
     # print(f"Rank {get_global_rank()}, output: {output}")
 
     rank = get_global_rank()
-    input = torch.arange(4) + rank * 4
-    output = torch.empty([4], dtype=torch.int64)
+    input = torch.arange(16) + rank * 16
+    output = torch.empty([16], dtype=torch.int64)
     dist.all_to_all_single(output, input)
     print(f"Rank {get_global_rank()}, output: {output}")
