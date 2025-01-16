@@ -333,6 +333,8 @@ class Trainer:
                 "numpy": np.random.get_state(),
                 "torch": torch.random.get_rng_state(),
                 "cuda": torch.cuda.get_rng_state(),
+                "cuda": torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
+                "mps": torch.mps.get_rng_state() if torch.backends.mps.is_available() else None,
             },
         }
 
@@ -431,6 +433,8 @@ class Trainer:
         np.random.set_state(rng_state["numpy"])
         torch.set_rng_state(rng_state["torch"])
         torch.cuda.set_rng_state(rng_state["cuda"])
+        torch.set_rng_state(rng_state["mps"])
+        
 
     def _save_checkpoint(
         self, checkpointer: Checkpointer, checkpoint_type: CheckpointType
@@ -1247,7 +1251,7 @@ class Trainer:
                             stop_at = min(stop_at, self.global_step + extra_steps)
 
                     # Maybe save sharded checkpoint.
-                    if self.cfg.distributed_strategy != DistributedStrategy.ddp:
+                    if self.cfg.distributed_strategy == DistributedStrategy.fsdp:
                         if save_checkpoints and (
                             cancel_initiated
                             or (

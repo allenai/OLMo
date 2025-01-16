@@ -72,6 +72,12 @@ __all__ = [
     "OLMoGenerateOutput",
 ]
 
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+else:
+    device = torch.device("cpu")
 
 log = logging.getLogger(__name__)
 
@@ -121,8 +127,12 @@ def _non_meta_init_device(config: ModelConfig) -> torch.device:
     if config.init_device is not None and config.init_device != "meta":
         return torch.device(config.init_device)
     else:
-        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        elif torch.backends.mps.is_available():
+            return torch.device("mps")
+        else:
+            return torch.device("cpu")
 
 class Dropout(nn.Dropout):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
@@ -1099,7 +1109,7 @@ class OLMo(nn.Module):
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(
-                    config.embedding_size or config.vocab_size, config.d_model, device=config.init_device
+                    config.embedding_size or config.vocab_size, config.d_model, device=device
                 ),
                 emb_drop=Dropout(config.embedding_dropout),
                 ln_f=LayerNorm.build(config),
