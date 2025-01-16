@@ -56,3 +56,6 @@ site/
 /wandb/
 /scratch/
 core
+
+# kevin checkpoints
+kevin-scripts/local_checkpoints/
