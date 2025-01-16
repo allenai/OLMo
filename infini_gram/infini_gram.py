@@ -130,21 +130,21 @@ class InfiniGramEngine:
             # dist.all_to_all(all_infgram_ntd, infgram_ntd, group=self.group)
             # infgram_ntd = torch.cat(all_infgram_ntd.chunk(self.nnodes, dim=0), dim=-1) # (batch_size_per_device, L, NNODES * support)
 
-            # infgram_ntd_by_node = list(infgram_ntd.chunk(self.nnodes, dim=0)) # [NNODES * (batch_size_per_device, L, support)]
-            # outs = [torch.zeros_like(infgram_ntd_by_node[0]) for _ in range(self.nnodes)]
-            # handles = []
-            # for r in range(self.nnodes):
-            #     src_global_rank = r * self.local_world_size + self.local_rank
-            #     scatter_list = infgram_ntd_by_node if src_global_rank == self.global_rank else None
-            #     handle = dist.scatter(outs[r], scatter_list, src=src_global_rank, group=self.group, async_op=True)
-            #     handles.append(handle)
-            # for handle in handles:
-            #     handle.wait()
-            # infgram_ntd = torch.cat(outs, dim=-1) # (batch_size_per_device, L, NNODES * support)
+            infgram_ntd_by_node = list(infgram_ntd.chunk(self.nnodes, dim=0)) # [NNODES * (batch_size_per_device, L, support)]
+            outs = [torch.zeros_like(infgram_ntd_by_node[0]) for _ in range(self.nnodes)]
+            handles = []
+            for r in range(self.nnodes):
+                src_global_rank = r * self.local_world_size + self.local_rank
+                scatter_list = infgram_ntd_by_node if src_global_rank == self.global_rank else None
+                handle = dist.scatter(outs[r], scatter_list, src=src_global_rank, group=self.group, async_op=True)
+                handles.append(handle)
+            for handle in handles:
+                handle.wait()
+            infgram_ntd = torch.cat(outs, dim=-1) # (batch_size_per_device, L, NNODES * support)
 
-            all_infgram_ntd = torch.zeros_like(infgram_ntd) # (NNODES * batch_size_per_device, L, support)
-            dist.all_to_all_single(all_infgram_ntd, infgram_ntd, group=self.group)
-            infgram_ntd = torch.cat(all_infgram_ntd.chunk(self.nnodes, dim=0), dim=-1) # (batch_size_per_device, L, NNODES * support)
+            # all_infgram_ntd = torch.zeros_like(infgram_ntd) # (NNODES * batch_size_per_device, L, support)
+            # dist.all_to_all_single(all_infgram_ntd, infgram_ntd, group=self.group)
+            # infgram_ntd = torch.cat(all_infgram_ntd.chunk(self.nnodes, dim=0), dim=-1) # (batch_size_per_device, L, NNODES * support)
 
             # truncate the padding
             infgram_ntd = infgram_ntd[:, :seq_len, :]
