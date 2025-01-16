@@ -26,7 +26,6 @@ gantry run \
   --task-name ${CONFIG_NAME} \
   --description ${CONFIG_NAME} \
   --priority high \
-  --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/ceres-cirrascale \
   --gpus 8 \
@@ -52,3 +51,5 @@ gantry run \
   --yes \
   --timeout=259200 \
   -- /bin/bash -c "kevin-scripts/peteish7.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${CONFIG_PATH}"
+  # --preemptible \
+
