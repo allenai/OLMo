@@ -402,7 +402,7 @@ if __name__ == "__main__":
         dist.init_process_group(
             backend="nccl", timeout=timedelta(minutes=30), device_id=torch.device(device_as_string)
         )
-    else:
+    elif torch.backends.mps.is_available():
         if not os.getenv("RANK"):
             os.environ["RANK"] = "0"
         if not os.getenv("WORLD_SIZE"):
@@ -411,9 +411,11 @@ if __name__ == "__main__":
             os.environ["MASTER_ADDR"] = "0.0.0.0"
         if not os.getenv("MASTER_PORT"):
             os.environ["MASTER_PORT"] = "24500"
-
         dist.init_process_group(backend="gloo", timeout=timedelta(minutes=30))
 
+    else:
+        dist.init_process_group(backend="gloo", timeout=timedelta(minutes=30))
+    
     log.info("Process group initialized")
 
     prepare_cli_environment()
