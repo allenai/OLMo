@@ -127,10 +127,10 @@ def _non_meta_init_device(config: ModelConfig) -> torch.device:
     if config.init_device is not None and config.init_device != "meta":
         return torch.device(config.init_device)
     else:
-        if torch.cuda.is_available():
-            return torch.device("cuda")
-        elif torch.backends.mps.is_available():
+        if torch.backends.mps.is_available():
             return torch.device("mps")
+        elif torch.cuda.is_available():
+            return torch.device("cuda")
         else:
             return torch.device("cpu")
 
@@ -190,6 +190,8 @@ class LayerNormBase(nn.Module):
             return tensor.to(dtype=dtype if dtype is not None else torch.get_autocast_gpu_dtype())
         elif tensor.device.type == "cpu" and torch.is_autocast_cpu_enabled():
             return tensor.to(dtype=dtype if dtype is not None else torch.get_autocast_cpu_dtype())
+        # elif tensor.device.type == "mps":
+        #     return tensor.to(dtype=dtype if dtype is not None else torch.float32)
         else:
             return tensor
 
@@ -529,6 +531,8 @@ class OLMoBlock(nn.Module):
             target_dtype = torch.get_autocast_gpu_dtype()
         elif bias.device.type == "cpu" and torch.is_autocast_cpu_enabled():
             target_dtype = torch.get_autocast_cpu_dtype()
+        elif bias.device.type == "mps":
+            target_dtype = torch.float32
         if bias.dtype != target_dtype:
             bias = bias.to(target_dtype)
             ensure_finite_(bias, check_neg_inf=True, check_pos_inf=False)
@@ -1757,7 +1761,7 @@ class OLMo(nn.Module):
         if checkpoint_type == CheckpointType.unsharded:
             # Initialize model (always on CPU to start with so we don't run out of GPU memory).
             model_config.init_device = "cpu"
-            model = OLMo(model_config)
+            model = OLMo(model_config).to(device)
 
             # Load state dict directly to target device.
             state_dict_path = resource_path(checkpoint_dir, "model.pt")
@@ -1772,7 +1776,7 @@ class OLMo(nn.Module):
                 )
 
                 model_config.init_device = device
-                model = OLMo(model_config)
+                model = OLMo(model_config).to(device)
                 load_model_and_optim_state(checkpoint_dir, model)
             else:
                 # train_config.sharded_checkpointer == ShardedCheckpointerType.torch_new
@@ -1781,7 +1785,7 @@ class OLMo(nn.Module):
                 # Initialize model on target device. In this case the state dict is loaded in-place
                 # so it's not necessary to start on CPU if the target device is a GPU.
                 model_config.init_device = device
-                model = OLMo(model_config)
+                model = OLMo(model_config).to(device)
 
                 # Load state dict in place.
                 load_model_state(checkpoint_dir, model)

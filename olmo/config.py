@@ -56,6 +56,7 @@ __all__ = [
     "FSDPPrecision",
     "FSDPWrapStrategy",
     "FSDPConfig",
+    "SingleGPUConfig",
     "CheckpointType",
 ]
 
@@ -429,7 +430,7 @@ class ModelConfig(BaseConfig):
     The ID of the token to use for padding. Defaults to the ID of the EOS token.
     """
 
-    init_device: Optional[str] = None
+    init_device: Optional[str] = "None"
     """
     The torch device to use when initializing the model parameters, e.g. "cpu", "cuda:0", "meta".
     """
@@ -718,10 +719,10 @@ class DistributedStrategy(StrEnum):
     """
     Wrap OLMo in torch.distributed.fsdp.FullyShardedDataParallel to train across ranks.
     """
-    
+
     single = "single"
     """
-    Train on a single device, i.e., do not distribute trainig. For development and debugging.
+    Train on a single device, i.e., do not distribute training. For development and debugging.
     """
 
 
@@ -834,6 +835,30 @@ class FSDPConfig(BaseConfig):
     a model instance is used per node (as determined by ``get_world_size() // get_local_world_size()``).
     PyTorch's default HSDP behavior matches this default behavior.
     """
+
+@dataclass
+class SingleGPUConfig(BaseConfig):
+    device: str = "auto"
+    """
+    Device to run single-device training.
+    """
+
+    def get_device(self):
+        if self.device == "auto":
+            if torch.backends.mps.is_available():
+                return torch.device("mps")
+            elif torch.cuda.is_available():
+                return torch.device("cuda")
+            else:
+                return torch.device("cpu")
+        elif self.device == "mps" and not torch.backends.mps.is_available():
+            print("MPS not available.")
+            return torch.device("cpu")
+        elif self.device == "cuda" and not torch.cuda.is_available():
+            print("CUDA not available.")
+            return torch.device("cpu")
+        else:
+            return torch.device(self.device)
 
 
 class CheckpointType(StrEnum):
@@ -1183,6 +1208,11 @@ class TrainConfig(BaseConfig):
     DDP settings.
     """
 
+    single: SingleGPUConfig = field(default_factory=lambda: SingleGPUConfig(device="auto"))
+    """
+    Single device settings for GPU/CPU/MPS. Defaults to auto-detect the best device.
+    """
+
     softmax_auxiliary_loss: bool = False
     """
     If ``True``, we add the auxiliary loss function from PaLM that encourages the softmax
@@ -1255,7 +1285,7 @@ class TrainConfig(BaseConfig):
     Outputs of model submodules are saved during the provided steps. Submodule outputs
     can be compared using `scripts/compare_module_outputs.py`.
     """
-
+        
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":

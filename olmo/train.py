@@ -332,7 +332,6 @@ class Trainer:
                 "python": random.getstate(),
                 "numpy": np.random.get_state(),
                 "torch": torch.random.get_rng_state(),
-                "cuda": torch.cuda.get_rng_state(),
                 "cuda": torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
                 "mps": torch.mps.get_rng_state() if torch.backends.mps.is_available() else None,
             },
@@ -800,7 +799,7 @@ class Trainer:
             output_hooks += self._setup_module_output_save_hooks(micro_batch_idx)
 
             with grad_sync_context():
-                with torch.autocast("cuda", enabled=True, dtype=self.cfg.autocast_precision):
+                with torch.autocast("mps", enabled=True, dtype=self.cfg.autocast_precision):
                     # Run forward pass.
                     loss, ce_loss, z_loss = self.train_micro_batch(micro_batch, batch_size_in_tokens)
 
