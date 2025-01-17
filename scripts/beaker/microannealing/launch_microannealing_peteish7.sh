@@ -16,7 +16,6 @@ gantry run \
   --task-name ${CONFIG_NAME} \
   --description ${CONFIG_NAME} \
   --priority $PRIORITY \
-  --preemptible \
   --beaker-image dirkg/OLMo \
   --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
