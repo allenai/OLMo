@@ -1,4 +1,4 @@
-run_name: peteish7-anneal-from-477000-50B-dclm_baseline
+run_name: peteish7-medlr-anneal-from-477000-50B-dclm_baseline
 seed: 7201
 dry_run: false
 
