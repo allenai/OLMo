@@ -20,7 +20,8 @@ base_dir="s3://ai2-kevinfarhat/checkpoints"
 #for m in peteish7-anneal-B3x50 peteish7-init ; do \
 #for m in peteish7-anneal-dclmx1_booksx50 peteish7-anneal-dclmx1_mathx30 peteish7-anneal-dclmx1_codex20 ; do \
 
-for m in peteish7-medlr-anneal-dclmish-baseline-seed-1209-20241221_005535; do \
+# for m in peteish7-medlr-anneal-dclmish-baseline-seed-1209-20241221_005535; do \
+for m in peteish7-medlr-anneal-dclmish-baseline-seed-1209-20241221; do \
 
 	# CHECKPOINT="${base_dir}/$m/latest"
 	CHECKPOINT="${base_dir}/$m/step23852"
