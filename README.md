@@ -158,6 +158,46 @@ The quantized model is sensitive to input types and CUDA handling. To avoid pote
 
 Additional tools for evaluating OLMo models are available at the [OLMo Eval](https://github.com/allenai/OLMo-eval) and [olmes](https://github.com/allenai/olmes) repositories.
 
+## Modal.com Hosting
+
+An example script is provided for hosting an OLMo 2 model on Modal.com using the OpenAI API in `./scripts/olmo2_modal_openai.py`.
+To run that:
+
+1. Follow the instructions under Getting Started in [the Modal.com Guide](https://modal.com/docs/guide) to install
+the Modal library and command line tools.</li>
+2. Follow the instructions under [Secrets](https://modal.com/docs/guide/secrets) in the Modal.com Guide to create a Modal secret named "example-secret-token"
+that defines a value for the variable MODAL_TOKEN for your server.</li>
+3. Then run
+```bash
+modal deploy ./scripts/olmo2_modal_openai.py
+```
+
+You can check your endpoint using curl similar to the following:
+```bash
+curl -X POST \
+  -H "Authorization: Bearer [the secret token from above]" \
+  -H "Content-Type: application/json" \
+  -d @body.json \
+  https://[the web endpoint modal creates above]/v1/chat/completions
+```
+
+where `body.json` is of the form:
+```
+{
+    "model": "OLMo-2-1124-13B-Instruct",
+    "messages": [
+        {
+            "role": "user",
+            "content": "Who was Alan Turing?"
+        }
+      ],
+    "max_tokens": 100,
+    "temperature": 0.9,
+    "stream": true
+}
+```
+
+
 ## Citing
 
 ```bibtex
