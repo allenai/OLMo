@@ -52,7 +52,7 @@ from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
 from .exceptions import OLMoCheckpointError
 from .optim import Optimizer, fix_optim_state_dict
 from .safetensors_util import safetensors_file_to_state_dict
-from .torch_util import SingleAccelerator as SINGLE
+from .torch_util import SingleAccelerator
 from .torch_util import (
     barrier,
     gc_cuda,
@@ -646,7 +646,7 @@ class FullCheckpointer(Checkpointer):
                     self._write_optim_dict(
                         optim_state_dict, checkpoint_dir, upload_to, save_overwrite=self.cfg.save_overwrite
                     )
-            elif isinstance(dist_model, DDP) or isinstance(dist_model, SINGLE):
+            elif isinstance(dist_model, DDP) or isinstance(dist_model, SingleAccelerator):
                 # _write_model_dict and _write_optim_dict only write checkpoints for rank 0
                 # First, get the model state dict from DDP wrapped model
                 model_state_dict = dist_model.module.state_dict()
@@ -661,7 +661,7 @@ class FullCheckpointer(Checkpointer):
                 )
             else:
                 log.info(
-                    "`FullCheckpointer.save_checkpoint` only supported for FSDP, DDP, and SINGLE distributed strategies!"
+                    "`FullCheckpointer.save_checkpoint` only supported for FSDP, DDP, and SingleAccelerator distributed strategies!"
                 )
 
             # Save trainer state.
@@ -758,7 +758,7 @@ class FullCheckpointer(Checkpointer):
                             torch.cuda.empty_cache()
                         barrier()
                     del optim_state_dict_to_load
-        elif isinstance(dist_model, DDP) or isinstance(dist_model, SINGLE):
+        elif isinstance(dist_model, DDP) or isinstance(dist_model, SingleAccelerator):
             # Load model state.
             with torch.no_grad():
                 state_dict_to_load = load_state_dict(
@@ -779,7 +779,7 @@ class FullCheckpointer(Checkpointer):
             barrier()
         else:
             raise NotImplementedError(
-                "`FullCheckpointer.restore_checkpoint` only supported for FSDP, DDP, and SINGLE distributed strategies!"
+                "`FullCheckpointer.restore_checkpoint` only supported for FSDP, DDP, and SingleAccelerator distributed strategies!"
             )
 
         # Load other state.

@@ -45,6 +45,7 @@ from .eval import Evaluator
 from .exceptions import OLMoConfigurationError
 from .model import OLMo
 from .optim import Optimizer, Scheduler
+from .torch_util import SingleAccelerator
 from .torch_util import (
     barrier,
     gc_cuda,
@@ -208,7 +209,7 @@ except ImportError:
 class Trainer:
     cfg: TrainConfig
     model: OLMo
-    dist_model: Union[DDP, FSDP]
+    dist_model: Union[DDP, FSDP, SingleAccelerator]
     optim: Optimizer
     scheduler: Scheduler
     train_loader: DataLoader
@@ -431,8 +432,10 @@ class Trainer:
         random.setstate(rng_state["python"])
         np.random.set_state(rng_state["numpy"])
         torch.set_rng_state(rng_state["torch"])
-        torch.cuda.set_rng_state(rng_state["cuda"])
-        torch.set_rng_state(rng_state["mps"])
+        if rng_state["cuda"] is not None:
+            torch.cuda.set_rng_state(rng_state["cuda"])
+        if rng_state["mps"] is not None:
+            torch.mps.set_rng_state(rng_state["mps"])
         
 
     def _save_checkpoint(

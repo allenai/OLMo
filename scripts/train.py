@@ -37,6 +37,7 @@ from olmo.torch_util import (
     peak_gpu_memory,
     seed_all,
 )
+from olmo.torch_util import SingleAccelerator
 from olmo.train import Trainer
 from olmo.util import (
     add_cached_path_clients,
@@ -48,14 +49,6 @@ from olmo.util import (
 import os
 
 log = logging.getLogger("train")
-
-class SINGLE(torch.nn.Module):
-    process_group = None
-    def __init__(self, module: torch.nn.Module):
-        super().__init__()
-        self.module = module
-    def forward(self, *args, **kwargs):
-        return self.module(*args, **kwargs)
 
 def main(cfg: TrainConfig) -> None:
     # Ensure run name set.
@@ -227,7 +220,7 @@ def main(cfg: TrainConfig) -> None:
     elif cfg.distributed_strategy == DistributedStrategy.single:
         param_init_fn = None
         olmo_model = olmo_model.to(device)
-        dist_model = SINGLE(olmo_model)
+        dist_model = SingleAccelerator(olmo_model)
 
     # when param_init_fn is None, FSDP will call reset_parameters() automatically
     if param_init_fn is not None or cfg.distributed_strategy == DistributedStrategy.ddp:
