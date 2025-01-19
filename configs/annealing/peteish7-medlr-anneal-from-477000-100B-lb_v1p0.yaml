@@ -1,0 +1,450 @@
+run_name: peteish7-anneal-from-477000-100B-lb_v1p0
+seed: 7201
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: spicy-olmo-medium
+  group: ${run_name}
+
+model:
+  d_model: 4096
+  n_heads: 32
+  n_layers: 32
+  mlp_hidden_size: 22016
+  weight_tying: false
+  alibi: false
+  rope: true
+  rope_theta: 500000
+  flash_attention: true
+  attention_dropout: 0.0
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  bias_for_layer_norm: false
+  attention_layer_norm: true
+  attention_layer_norm_with_affine: true
+  norm_after: true
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 4096
+  vocab_size: 100278
+  embedding_size: 100352
+  eos_token_id: 100257
+  pad_token_id: 100277
+  init_device: meta
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3
+
+softmax_auxiliary_loss: true
+auxiliary_loss_multiplier: 1e-5
+fused_loss: true
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 0.00041414
+  weight_decay: 0.1
+  eps: 1e-8
+  decay_norm_and_bias: true
+  decay_embeddings: false
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 10
+
+scheduler:
+  units: steps
+  name: linear_with_warmup
+  t_warmup: 0
+  alpha_f: 0
+
+tokenizer:
+  identifier: tokenizers/allenai_dolma2.json
+  truncate_direction: right
+
+remote_save_folder: gs://allennlp-dustins/checkpoints/${run_name}
+save_overwrite: false
+
+save_interval: 1000
+save_num_checkpoints_to_keep: -1
+sharded_checkpointer: olmo_core
+
+save_interval_unsharded: null
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: gs://ai2-llm/checkpoints/OLMo-medium/peteish7-medlr/step477000
+
+restore_dataloader: false
+no_pre_train_checkpoint: true
+
+max_duration: 100e9T
+stop_at: 23852                  # round(100e9 / (1024 * 4096)) + 10
+global_train_batch_size: 1024
+device_train_microbatch_size: 2
+
+precision: amp_bf16
+
+fsdp:
+  wrapping_strategy: by_block_and_size
+  precision: mixed
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 1
+
+gen1_gc_interval: 1
+
+eval_interval: 1000
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: mmlu_stem_mc_5shot
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot
+    type: downstream
+
+  - label: mmlu_other_mc_5shot
+    type: downstream
+
+  - label: arc_challenge_mc_5shot
+    type: downstream
+
+  - label: arc_challenge_mc_5shot_bpb
+    type: downstream
+
+  - label: arc_easy_mc_5shot
+    type: downstream
+
+  - label: arc_easy_mc_5shot_bpb
+    type: downstream
+
+  - label: boolq_mc_5shot
+    type: downstream
+
+  - label: boolq_mc_5shot_bpb
+    type: downstream
+
+  - label: csqa_mc_5shot
+    type: downstream
+
+  - label: csqa_mc_5shot_bpb
+    type: downstream
+
+  - label: hellaswag_mc_5shot
+    type: downstream
+
+  - label: hellaswag_mc_5shot_bpb
+    type: downstream
+
+  - label: openbookqa_mc_5shot
+    type: downstream
+
+  - label: openbookqa_mc_5shot_bpb
+    type: downstream
+
+  - label: piqa_mc_5shot
+    type: downstream
+
+  - label: piqa_mc_5shot_bpb
+    type: downstream
+
+  - label: socialiqa_mc_5shot
+    type: downstream
+
+  - label: socialiqa_mc_5shot_bpb
+    type: downstream
+
+  - label: winogrande_mc_5shot
+    type: downstream
+
+  - label: winogrande_mc_5shot_bpb
+    type: downstream
+
+  - label: basic_arithmetic
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+data:
+  pad_direction: right
+  # generate_doc_lengths: true
+  num_workers: 32
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 8
+  persistent_workers: true
+  memmap_dtype: uint32
+  timeout: 0
+  instance_filter:
+    repetition_max_period: 13
+    repetition_min_period: 1
+    repetition_max_count: 32
+  paths:
+     # lb_v1p0
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-00-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-01-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-02-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-03-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-04-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-05-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-06-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-07-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-08-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-09-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-10-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-11-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-12-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-13-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-14-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-15-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-16-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-17-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-18-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-19-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-20-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-21-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-22-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-23-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-24-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-25-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-26-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-27-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-28-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-29-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-30-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-31-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-32-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-33-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-34-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-35-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-36-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-37-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-38-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-39-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-40-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-41-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-42-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-43-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-44-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-45-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-46-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-47-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-48-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-49-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-50-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-51-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-52-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-53-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-54-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-55-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-56-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-57-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-58-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-59-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-60-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-61-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-62-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-63-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-64-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-65-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-66-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-67-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-68-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-69-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-70-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-71-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_1/part-72-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-00-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-01-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-02-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-03-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-04-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-05-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-06-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-07-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-08-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-09-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-11-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-12-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-13-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-14-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-15-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-16-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-17-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-18-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-19-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-20-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-21-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-22-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-23-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-24-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-25-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-26-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-27-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-28-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-29-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-30-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-31-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-32-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-33-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-34-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-35-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-36-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-37-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-38-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-39-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-40-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-41-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-42-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-43-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-44-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-45-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-46-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-47-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-48-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-50-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-51-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-52-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-53-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-55-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-57-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-58-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-59-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-60-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-61-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-62-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-63-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-64-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-65-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-66-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-67-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-69-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-70-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-71-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_2/part-72-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-00-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-01-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-02-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-03-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-04-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-05-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-07-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-08-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-09-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-11-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-12-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-13-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-15-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-17-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-18-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-19-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-20-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-21-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-22-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-23-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-24-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-25-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-27-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-28-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-29-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-31-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-32-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-33-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-38-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-39-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-40-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-41-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-42-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-44-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-45-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-46-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-47-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-48-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-49-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-50-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-51-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-52-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-54-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-55-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-56-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-57-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-60-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-61-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-62-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-63-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-64-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-66-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-67-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-68-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-70-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-71-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/beaker_3/part-72-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-00-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-01-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-02-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-03-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-04-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-05-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-06-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-07-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-08-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-09-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-10-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-11-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-12-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-13-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-14-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-15-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-16-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-17-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-18-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-19-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-20-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-21-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-22-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-23-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-24-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-25-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-26-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-27-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-28-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-29-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-30-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-31-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-32-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-33-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-34-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-35-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-36-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-37-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-38-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-39-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-40-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-41-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-42-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-43-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-44-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-45-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-46-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-47-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-48-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-49-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-50-00000.npy
+    - gs://allennlp-dustins/preprocessed/lb_v1p0/birr_1/part-51-00000.npy
+
