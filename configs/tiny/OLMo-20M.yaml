@@ -78,10 +78,10 @@ load_path: null
 
 max_duration: 1ep
 stop_at: 406_934
-global_train_batch_size: 1024
-device_train_microbatch_size: 16
+global_train_batch_size: 16
+device_train_microbatch_size: 2
 
-precision: amp_fp16
+precision: fp32
 distributed_strategy: single
 
 gen1_gc_interval: 1
