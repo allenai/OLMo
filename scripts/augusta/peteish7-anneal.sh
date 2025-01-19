@@ -64,7 +64,7 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/annealing/peteish7-medlr-anneal-from-477000-100B-dclm_baseline.yaml \
+    configs/annealing/peteish7-medlr-anneal-from-477000-100B-lb_v1p0.yaml \
       # --run_name=$RUN_NAME \
       --wandb.group=$NAME \
       --save_interval_ephemeral=1000 \
