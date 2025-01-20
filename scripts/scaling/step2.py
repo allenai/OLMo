@@ -178,6 +178,7 @@ def plot_step2(
 
     num_eval_annotation = 0
     eval_num = 0
+    eval_points = sum(model['mode'] == 'eval' for model in data_by_name.values())
     texts = []
     for name, data in data_by_name.items():
         config = configs[name]
@@ -210,25 +211,26 @@ def plot_step2(
                             s=20,
                             label=f"{config.label} ({'target'})",
                         )
-                        ax.scatter(
-                            x,
-                            y_pred,
-                            color=config.color,
-                            marker="o",
-                            s=20,
-                            label=f"{config.label} ({'predicted'})",
-                        )
-                    if rel_error != float('inf'):
-                        ax.annotate(
-                            f"{np.abs(rel_error) * 100:.1f}%",
-                            (x, y),
-                            textcoords="offset points",
-                            xytext=(8 - 40 * num_eval_annotation, -7 + eval_num * 2),
-                            ha="left",
-                            va="bottom",
-                            fontsize=FONTSIZE,
-                            color=config.color,
-                        )
+                        if eval_points < 5:
+                            ax.scatter(
+                                x,
+                                y_pred,
+                                color=config.color,
+                                marker="o",
+                                s=20,
+                                label=f"{config.label} ({'predicted'})",
+                            )
+                            if rel_error != float('inf'):
+                                ax.annotate(
+                                    f"{np.abs(rel_error) * 100:.1f}%",
+                                    (x, y),
+                                    textcoords="offset points",
+                                    xytext=(8 - 40 * num_eval_annotation, -7 + eval_num * 2),
+                                    ha="left",
+                                    va="bottom",
+                                    fontsize=FONTSIZE,
+                                    color=config.color,
+                                )
                     num_eval_annotation += 1
                     if add_texts:
                         texts += [ax.text(

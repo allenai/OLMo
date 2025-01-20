@@ -109,7 +109,7 @@ def predict_chained_flops(data_by_name, step1_coefficients, step2_coefficients):
 
         if data["mode"] == "eval":
             predicted_data = predicted_data_by_name[name]
-            for f, y, y_pred in zip(data["fs"], data["xs"], predicted_data["ys"]):
+            for f, y, y_pred in zip(data["fs"], data["ys"], predicted_data["ys"]):
                 rel_error = (y_pred - y) / y
 
     return predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error)

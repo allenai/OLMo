@@ -97,7 +97,7 @@ def predict_chained(data_by_name, step1_coefficients, step2_coefficients, use_lo
         y, y_pred,rel_error = 0, 0, 0
         if data["mode"] == "eval":
             predicted_data = predicted_data_by_name[name]
-            for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["ys"]):
+            for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["ys"]):
                 rel_error = (y_pred - y) / y if y > 0 else float('inf')
 
     return predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error)
@@ -183,7 +183,7 @@ def plot_chained(
     ax.legend(loc="upper right", ncols=1, fontsize=FONTSIZE)
     ax.set_xlabel("Tokens (D)", fontsize=FONTSIZE)
     ax.set_ylabel("Task RC accuracy", fontsize=FONTSIZE)
-    display_name = tasks[task_name].display_name if task_name in tasks else task_name
+    display_name = tasks[task_name].display_name if isinstance(task_name, str) and task_name in tasks else task_name
     ax.set_title(
         f"{display_name}",
         fontsize=FONTSIZE,
