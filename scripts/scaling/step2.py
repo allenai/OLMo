@@ -202,33 +202,33 @@ def plot_step2(
             else:
                 if i == 0:                    
                     if x != 0:
-                    ax.scatter(
-                        x,
-                        y,
-                        color=config.color,
-                        marker="x",
-                        s=20,
-                        label=f"{config.label} ({'target'})",
-                    )
-                    ax.scatter(
-                        x,
-                        y_pred,
-                        color=config.color,
-                        marker="o",
-                        s=20,
-                        label=f"{config.label} ({'predicted'})",
-                    )
+                        ax.scatter(
+                            x,
+                            y,
+                            color=config.color,
+                            marker="x",
+                            s=20,
+                            label=f"{config.label} ({'target'})",
+                        )
+                        ax.scatter(
+                            x,
+                            y_pred,
+                            color=config.color,
+                            marker="o",
+                            s=20,
+                            label=f"{config.label} ({'predicted'})",
+                        )
                     if rel_error != float('inf'):
-                    ax.annotate(
-                        f"{np.abs(rel_error) * 100:.1f}%",
-                        (x, y),
-                        textcoords="offset points",
-                        xytext=(8 - 40 * num_eval_annotation, -7 + eval_num * 2),
-                        ha="left",
-                        va="bottom",
-                        fontsize=FONTSIZE,
-                        color=config.color,
-                    )
+                        ax.annotate(
+                            f"{np.abs(rel_error) * 100:.1f}%",
+                            (x, y),
+                            textcoords="offset points",
+                            xytext=(8 - 40 * num_eval_annotation, -7 + eval_num * 2),
+                            ha="left",
+                            va="bottom",
+                            fontsize=FONTSIZE,
+                            color=config.color,
+                        )
                     num_eval_annotation += 1
                     if add_texts:
                         texts += [ax.text(
