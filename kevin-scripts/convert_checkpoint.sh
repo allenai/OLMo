@@ -35,6 +35,7 @@ for m in peteish7-medlr-anneal-dclmish-baseline-seed-1209-20241221; do \
 	    exit 1
 	fi
 
+	#	python hf_olmo/convert_olmo_to_hf.py \
 	python /Users/kevinfarhat/ai2/OLMo/hf_olmo/convert_olmo_to_hf.py \
 	    --checkpoint-dir $CHECKPOINT \
 	    --destination-dir ${CHECKPOINT}-hf \
