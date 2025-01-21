@@ -856,6 +856,21 @@ class Trainer:
             process_group=self.dist_model.process_group,
         )
 
+        # collect pre-step optimizer specific metrics
+        for key, value in optim_metrics.items():
+            if "param/" in key:
+                metrics[f"{key}"] = value.item()
+            elif "grad/" in key:
+                metrics[f"{key}"] = value.item()
+            elif "exp_avg/" in key:
+                metrics[f"first_moment/{key}"] = value.item()
+            elif "exp_avg_sq/" in key:
+                metrics[f"second_moment/{key}"] = value.item()
+            elif "grad_norm_exp_avg/" in key:
+                metrics[f"clip_stats/{key}"] = value.item()
+            else:
+                metrics[f"optim/{key}"] = value.item()
+
         # Adjust the learning rate.
         for group in self.optim.param_groups:
             # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
@@ -872,6 +887,7 @@ class Trainer:
             )
 
         # Optimizer step.
+        # self._collecting_metrics flag set in clip_grads_and_collect_metrics also works for optim.step()
         self.optim.step()
 
         # Collect metrics and check for NaN loss.
@@ -881,11 +897,6 @@ class Trainer:
         if z_batch_loss is not None and torch.isnan(z_batch_loss):
             raise ValueError("nan loss encountered")
 
-        #######################################################################
-        for key, value in optim_metrics.items():
-            metrics[f"optim/{key}"] = value.item()
-        #######################################################################
-
         self.cur_train_loss = ce_batch_loss.item()
         self.min_train_loss = min(self.min_train_loss, self.cur_train_loss)
         metrics["train/CrossEntropyLoss"] = self.cur_train_loss
@@ -894,6 +905,7 @@ class Trainer:
             metrics["train/ZLoss"] = z_batch_loss.item()
 
         #######################################################################
+        # TODO: update this to be logged properly
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
             optim_metrics = self.optim.get_post_step_metrics(
@@ -977,7 +989,11 @@ class Trainer:
                     f"    {name}={format_float(value)}"
                     for name, value in metrics.items()
                     if name == "optim/total_grad_norm"
-                    or not name.startswith("optim/")  # there's too many optimizer metrics
+                    or (not name.startswith("optim/")
+                      and not name.startswith("param/")
+                        and not name.startswith("grad/")
+                          and not name.startswith("first_moment/")
+                            and not name.startswith("second_moment/"))  # there's too many optimizer metrics
                 ]
             )
         )

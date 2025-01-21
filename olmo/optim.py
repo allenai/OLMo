@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from math import cos, pi, sqrt
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import math
 import torch
 import torch.distributed as dist
 import torch.nn as nn
@@ -43,7 +44,22 @@ class Optimizer(OptimizerBase):
         self._selective_updates = selective_updates
 
     def _clean_param_name(self, name: str) -> str:
-        return name.replace("_fsdp_wrapped_module.", "")
+        name = name.replace("_fsdp_wrapped_module.", "")
+        name = name.replace("module.transformer.", "")
+        name = name.replace(".weight", "")
+
+        if 'blocks' in name:
+            name_split = name.split('.')
+            name = name_split[0] + '_' + name_split[1] + '/' + name_split[2]
+
+        return name
+
+    def get_norm(self, x, norm_list, device):
+        # grad or state tensors could be none for params that have their shards completely on other ranks.
+        if x is not None and x.numel() > 0:
+            norm_list.extend([torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0)])
+        else:
+            norm_list.extend([torch.tensor([0.0], device=device, dtype=torch.float32)])
 
     @torch.no_grad()
     def clip_grads_and_collect_metrics(
@@ -71,12 +87,6 @@ class Optimizer(OptimizerBase):
         # - min, max, avg, norm of any additional per-parameter optimizer state metrics returned from
         #   `self.get_state_for_param()`.
         # Afterwards we'll reduce these all over all ranks.
-
-        # TODO: mark and remove all references to these two
-        per_param_norm_metric_names: List[str] = []
-        per_param_norm_metrics: List[torch.Tensor] = []
-
-        #####################################################
         per_param_param_names: List[str] = []
         per_param_param_tensors: List[torch.Tensor] = []
         per_param_param_norm: List[torch.Tensor] = []
@@ -84,10 +94,6 @@ class Optimizer(OptimizerBase):
         per_param_grad_names: List[str] = []
         per_param_grad_tensors: List[torch.Tensor] = []
         per_param_grad_norm: List[torch.Tensor] = []
-
-        per_param_update_names: List[str] = []
-        per_param_update_tensors: List[torch.Tensor] = []
-        per_param_update_norm: List[torch.Tensor] = []
 
         per_param_grad_state_1_names: List[str] = []
         per_param_grad_state_1_tensors: List[torch.Tensor] = []
@@ -109,75 +115,68 @@ class Optimizer(OptimizerBase):
                 name = self._clean_param_name(name)
                 # Always need to collect the norm of gradients for clipping, even if we're not collecting
                 # other metrics.
-                tensors: List[Optional[torch.Tensor]] = [p.grad]
-                prefixes: List[str] = [f"grad/{name}"]
+                per_param_grad_names.extend([f"grad/{name}"])
+                per_param_grad_tensors.extend([p.grad])
+                self.get_norm(p.grad, per_param_grad_norm, device)
+
                 if collect_param_metrics:
+                    per_param_param_names.extend([f"param/{name}"])
+                    per_param_param_tensors.extend([p])
+                    self.get_norm(p, per_param_param_norm, device)
+
                     state = self.get_state_for_param(p)
                     sorted_state_keys = sorted([k for k in state.keys()])
-                    tensors.extend([p] + [state[key] for key in sorted_state_keys])
-                    prefixes.extend([f"param/{name}"] + [f"{key}/{name}" for key in sorted_state_keys])
 
-                assert len(tensors) == len(prefixes)
+                    per_param_grad_state_1_names.extend([f"exp_avg/{name}"])
+                    per_param_grad_state_1_tensors.extend([state['exp_avg']])
+                    self.get_norm(state['exp_avg'], per_param_grad_state_1_norm, device)
 
-                # Get min, max, avg, and norm for all `tensors` associated with the parameter.
-                for x, prefix in zip(tensors, prefixes):
-                    # grad or state tensors could be none for params that have their shards completely on
-                    # other ranks.
-                    if x is not None and x.numel() > 0:
-                        per_param_norm_metrics.append(
-                            torch.linalg.vector_norm(x, 2.0, dtype=torch.float32).unsqueeze(0)
-                        )
-                    else:
-                        per_param_norm_metrics.append(torch.tensor([0.0], device=device, dtype=torch.float32))
-                    per_param_norm_metric_names.append(f"{prefix}.norm")
+                    per_param_grad_state_2_names.extend([f"exp_avg_sq/{name}"])
+                    per_param_grad_state_2_tensors.extend([state['exp_avg_sq']])
+                    self.get_norm(state['exp_avg_sq'], per_param_grad_state_2_norm, device)
 
-        assert len(per_param_norm_metrics) == len(per_param_norm_metric_names)
-
-        import ipdb
-        ipdb.set_trace()
-
-        def is_grad_norm_metric(metric_name: str) -> bool:
-            return metric_name.startswith("grad/") and metric_name.endswith(".norm")
+        assert (
+            len(per_param_grad_names)
+            == len(per_param_grad_tensors)
+            == len(per_param_grad_norm)
+            == len(per_param_param_names)
+            == len(per_param_param_tensors)
+            == len(per_param_param_norm)
+            == len(per_param_grad_state_1_names)
+            == len(per_param_grad_state_1_tensors)
+            == len(per_param_grad_state_1_norm)
+            == len(per_param_grad_state_2_names)
+            == len(per_param_grad_state_2_tensors)
+            == len(per_param_grad_state_2_norm)
+        )
 
         #######################################################################
         # part 2: reduce metrics over ranks
         # NOTE (ananya) for DDP, this step should be unnecessary for logging params, grads and optimizer states
         # as gradients should have synchornized across ranks by the time ``clip_grads_and_collect_metrics`` is called.
+        # loss.backward() is called in self.train_batch(batch)
+        # NOTE (ananya) doesn't work with FSDP right now
         #######################################################################
-        param_group_sharded = False
-        for group in self.param_groups:
-            param_group_sharded = param_group_sharded or group.get("sharded", False)
+        all_metrics: Dict[str, torch.Tensor] = {}
 
         total_grad_norm: torch.Tensor
-        if is_distributed() and param_group_sharded:
-            # Reduce metrics across all ranks. Note that we can use a `reduce` for most cases
-            # instead of an `all_reduce`, but we need `all_reduce` for norms so that all ranks
-            # get the right value for gradient norms so they can clip correctly.
-            # Reduce sums or just norms.
-            all_norms = torch.cat(per_param_norm_metrics).to(device) ** 2.0
-            dist.all_reduce(all_norms, op=dist.ReduceOp.SUM, group=process_group)
-            grad_norm_metric_mask = torch.tensor(
-                [float(is_grad_norm_metric(n)) for n in per_param_norm_metric_names], device=all_norms.device
-            )
-            total_grad_norm = (all_norms * grad_norm_metric_mask).sum() ** 0.5
-            per_param_norm_metrics = (all_norms ** (0.5)).squeeze(0).split(1)
-        else:
-            total_grad_norm = (
-                torch.cat(
-                    [
-                        m
-                        for m, n in zip(per_param_norm_metrics, per_param_norm_metric_names)
-                        if is_grad_norm_metric(n)
-                    ]
-                )
-                ** 2.0
-            ).sum() ** 0.5
-
-        # Collect all metrics into a single dict.
-        all_metrics: Dict[str, torch.Tensor] = {}
-        for metric_name, metric in zip(per_param_norm_metric_names, per_param_norm_metrics):
-            all_metrics[metric_name] = metric.squeeze(0)
+        total_grad_norm = (torch.cat(per_param_grad_norm) ** 2.0).sum() ** 0.5
         all_metrics["total_grad_norm"] = total_grad_norm
+
+        if collect_param_metrics:
+            total_param_norm: torch.Tensor
+            total_param_norm = (torch.cat(per_param_param_norm) ** 2.0).sum() ** 0.5
+            all_metrics["total_param_norm"] = total_param_norm
+
+            for metric_name, metric in zip(per_param_param_names, per_param_param_norm):
+                all_metrics[metric_name] = metric.squeeze(0)
+            for metric_name, metric in zip(per_param_grad_state_1_names, per_param_grad_state_1_norm):
+                all_metrics[metric_name] = metric.squeeze(0)
+            for metric_name, metric in zip(per_param_grad_state_2_names, per_param_grad_state_2_norm):
+                all_metrics[metric_name] = metric.squeeze(0)
+
+        for metric_name, metric in zip(per_param_grad_names, per_param_grad_norm):
+            all_metrics[metric_name] = metric.squeeze(0)
 
         #######################################################################
         # part 3: clip grads
@@ -234,7 +233,7 @@ class Optimizer(OptimizerBase):
         beta = max(beta1, beta2)
         for name, p in zip(group["param_names"], group["params"]):
             name = self._clean_param_name(name)
-            grad_norm = all_metrics.get(f"grad/{name}.norm")
+            grad_norm = all_metrics.get(f"grad/{name}")
             if grad_norm is None:
                 continue
 
@@ -319,6 +318,93 @@ class Optimizer(OptimizerBase):
     def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
         del param
         return {}
+    
+    def get_angle_between_vecs(self, mat1, mat2) -> torch.Tensor:
+        if len(mat1.shape) > 2:
+            raise NotImplementedError("computing angle between update and gradient not implemented for more than 2 dimensions!")
+
+        dot_products = torch.sum(mat1 * mat2, dim=-1)
+
+        norms_matrix1 = torch.norm(mat1, dim=-1)
+        norms_matrix2 = torch.norm(mat2, dim=-1)
+
+        cosine_angles = dot_products / (norms_matrix1 * norms_matrix2)
+        cosine_angles = torch.clamp(cosine_angles, -1.0, 1.0)
+
+        angles_radians = torch.acos(cosine_angles)
+
+        return torch.rad2deg(angles_radians)
+
+
+class SGD(Optimizer):
+    """
+        Option to add Polyak and Nesterov momentum.
+    """
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
+
+
+class ScheduleFreeSGD(Optimizer):
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
+
+
+class Muon(Optimizer):
+    """
+        Muon is intended to optimize only the internal ≥2D parameters of a network. Embeddings, classifier heads,
+        and scalar or vector parameters should be optimized using AdamW instead. Muon provides an internal AdamW
+        for this so you don't have to use an extra optimizer.
+    """
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
+
+
+class Adafactor(Optimizer):
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
 
 
 class LionW(Optimizer):
@@ -470,98 +556,116 @@ class AdamW(torch.optim.AdamW, Optimizer):
         # won't be called.
         self._record_update_metrics = record_update_metrics
         self._collecting_metrics = False
+        # NOTE (ananya) skipping the flag selective_updates here
         self._selective_updates = selective_updates
 
-        self._step_size_param_names: Optional[List[str]] = None
-        self._step_size_norms: Optional[List[torch.Tensor]] = None
-        self._step_size_maxs: Optional[List[torch.Tensor]] = None
+        self._update_names: Optional[List[str]] = None
+        self._update_tensors: Optional[List[torch.Tensor]] = None
+        self._update_norms: Optional[List[torch.Tensor]] = None
+        self._update_grad_angles: Optional[List[torch.Tensor]] = None
 
     @torch.no_grad()
     def step(self, closure=None) -> None:
-        if not (self._record_update_metrics and self._collecting_metrics) and not self._selective_updates:
-            return super().step(closure=closure)
+        # TODO: log when record_update_metrics is true, and collecting metrics flag is set
+        # TODO: record the angle between gradients and update for each layer
+        # TODO: compute the Hessian and its eigenvalues
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
 
-        device = get_default_device()
-        param_names = []
-        step_size_norms = []
-        step_size_maxs = []
+        if self._record_update_metrics and self._collecting_metrics:
+            self._update_names = []
+            self._update_tensors = []
+            self._update_norms = []
+            self._update_grad_angles = []
+
         for group in self.param_groups:
-            beta1, beta2 = group["betas"]
-            lr = group["lr"]
-            weight_decay = group["weight_decay"]
-            eps = group["eps"]
-            amsgrad = group["amsgrad"]
-            for name, param in zip(group["param_names"], group["params"]):
-                name = self._clean_param_name(name)
-                param_names.append(name)
-                grad = param.grad
-                if grad is None:
-                    step_size_norms.append(torch.tensor([0.0], device=device))
-                    step_size_maxs.append(torch.tensor([0.0], device=device))
+            for name, p in zip(group["param_names"], group["params"]):
+                if self._record_update_metrics and self._collecting_metrics:
+                    name = self._clean_param_name(name)
+                    self._update_names.extend([f"update/{name}"])
+
+                if p.grad is None:
+                    if self._record_update_metrics and self._collecting_metrics:
+                        # add update tensors and norm here
+                        self._update_tensors.extend([None])
+                        self.get_norm(None, self._update_norms, p.device)
+
+                        # [out, in] dimension, each layer has out dim number of neurons
+                        self._update_grad_angles.extend([None])
+
                     continue
 
-                state = self.state[param]
-                # init state if needed
+                # Perform stepweight decay
+                p.mul_(1 - group['lr'] * group['weight_decay'])
+
+                # Perform optimization step
+                grad = p.grad
+                if grad.is_sparse:
+                    raise RuntimeError('AdamW does not support sparse gradients')
+                amsgrad = group['amsgrad']
+
+                state = self.state[p]
+
+                # State initialization
                 if len(state) == 0:
-                    state["step"] = (
-                        torch.zeros((), dtype=torch.float32, device=param.device)
-                        if group["capturable"] or group["fused"]
-                        else torch.tensor(0.0, dtype=torch.float32)
-                    )
+                    state['step'] = 0
                     # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros_like(param, memory_format=torch.preserve_format)
+                    state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                     # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = torch.zeros_like(param, memory_format=torch.preserve_format)
+                    state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                     if amsgrad:
                         # Maintains max of all exp. moving avg. of sq. grad. values
-                        state["max_exp_avg_sq"] = torch.zeros_like(param, memory_format=torch.preserve_format)
+                        state['max_exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
 
-                exp_avg = state["exp_avg"]
-                exp_avg_sq = state["exp_avg_sq"]
-                step_t = state["step"]
-
-                # Update step.
-                step_t += 1
-
-                # Perform step weight decay.
-                mask: Union[torch.Tensor, int] = grad != 0 if self._selective_updates else 1
-                param.mul_(1 - mask * (lr * weight_decay))
-
-                # Decay the first and second moment running average coefficient.
-                exp_avg.lerp_(grad, mask * (1 - beta1))
-                exp_avg_sq.mul_(1 - mask * (1 - beta2)).addcmul_(grad, grad, value=1 - beta2)
-
-                step = step_t.item()
-
-                bias_correction1 = 1 - beta1**step
-                bias_correction2 = 1 - beta2**step
-
-                step_size = lr / bias_correction1
-
-                bias_correction2_sqrt = sqrt(bias_correction2)
-
+                exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
                 if amsgrad:
-                    max_exp_avg_sq = state["max_exp_avg_sq"]
+                    max_exp_avg_sq = state['max_exp_avg_sq']
+                beta1, beta2 = group['betas']
+
+                state['step'] += 1
+                bias_correction1 = 1 - beta1 ** state['step']
+                bias_correction2 = 1 - beta2 ** state['step']
+
+                # Decay the first and second moment running average coefficient
+                exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
+                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+                if amsgrad:
                     # Maintains the maximum of all 2nd moment running avg. till now
-                    torch.maximum(max_exp_avg_sq, exp_avg_sq, out=max_exp_avg_sq)
-
+                    torch.max(max_exp_avg_sq, exp_avg_sq, out=max_exp_avg_sq)
                     # Use the max. for normalizing running avg. of gradient
-                    denom = (max_exp_avg_sq.sqrt() / bias_correction2_sqrt).add_(eps)
+                    denom = (max_exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(group['eps'])
                 else:
-                    denom = (exp_avg_sq.sqrt() / bias_correction2_sqrt).add_(eps)
+                    denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(group['eps'])
 
+                step_size = group['lr'] / bias_correction1
+
+                # modified addcdiv_ of OG code to get stats about update
                 update = -step_size * torch.div(exp_avg, denom)
-                if isinstance(mask, torch.Tensor):
-                    # When mask isn't a tensor it's just a literal `1` (python int), so there's
-                    # no point in calling this op.
-                    update.mul_(mask)
-                param.add_(update)
-                step_size_norms.append(torch.linalg.vector_norm(update, 2.0, dtype=torch.float32).unsqueeze(0))
-                step_size_maxs.append(update.abs().max().unsqueeze(0))
+                p.add_(update)
 
-        self._step_size_param_names = param_names
-        self._step_size_norms = step_size_norms
-        self._step_size_maxs = step_size_maxs
+                if self._record_update_metrics and self._collecting_metrics:
+                    # add update tensors and norm here
+                    self._update_tensors.extend([update])
+                    self.get_norm(None, self._update_norms, p.device)
+
+                    # [out, in] dimension, each layer has out dim number of neurons
+                    self._update_grad_angles.extend([self.get_angle_between_vecs(p.grad, update)])
+
+        if self._update_names is not None:
+            assert self._update_tensors is not None
+            assert self._update_norms is not None
+            assert self._update_grad_angles is not None
+
+            assert (
+                len(self._update_names)
+                == len(self._update_tensors)
+                == len(self._update_norms)
+                == len(self._update_grad_angles)
+            )
+
+        return loss
 
     def get_state_for_param(self, param: nn.Parameter) -> Dict[str, Optional[torch.Tensor]]:
         return {key: self.state[param].get(key) for key in ("exp_avg", "exp_avg_sq")}  # type: ignore
@@ -569,41 +673,139 @@ class AdamW(torch.optim.AdamW, Optimizer):
     def get_post_step_metrics(
         self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
     ) -> Dict[str, torch.Tensor]:
-        if not (self._record_update_metrics and self._collecting_metrics):
-            return {}
-        else:
-            device = get_default_device()
-            dst_rank = 0
-            if process_group is not None:
-                dst_rank = dist.get_global_rank(process_group, 0)
-            param_names = self._step_size_param_names
-            step_size_norms = self._step_size_norms
-            step_size_maxs = self._step_size_maxs
-            assert param_names is not None
-            assert step_size_norms is not None
-            assert step_size_maxs is not None
+        # 2 types of update_grad_angles, for len(tensor) > 1, plot histogram, otherwise plot value
+        import ipdb
+        ipdb.set_trace()
 
-            # Reduce metrics if needed.
-            if is_distributed() and isinstance(module, FullyShardedDataParallel):
-                # Reduce norms.
-                all_norms = torch.cat(step_size_norms).to(device) ** 2.0
-                dist.reduce(all_norms, dst_rank, op=dist.ReduceOp.SUM, group=process_group)
-                step_size_norms = (all_norms ** (0.5)).squeeze(0).split(1)
+        metrics = {}
 
-                # Reduce maxs.
-                all_maxs = torch.cat(step_size_maxs).to(device)
-                dist.reduce(all_maxs, dst_rank, op=dist.ReduceOp.MAX, group=process_group)
-                step_size_maxs = all_maxs.split(1)
+        # get top-k eigenvalues of the Hessian using HVP and Lanczos algorithm
+        # if self._record_update_metrics and self._collecting_metrics:
+        #     params = module.module.parameters()
 
-            metrics = {}
-            for param_name, step_size_norm, step_size_max in zip(param_names, step_size_norms, step_size_maxs):  # type: ignore[arg-type]
-                metrics[f"step/{param_name}.norm"] = step_size_norm.squeeze(0)
-                metrics[f"step/{param_name}.max"] = step_size_max.squeeze(0)
+        #     for group in self.param_groups:
+        #         for name, p in zip(group["param_names"], group["params"]):
+        #             name = self._clean_param_name(name)
 
-            self._step_size_param_names = None
-            self._step_size_norms = None
-            self._step_size_maxs = None
-            return metrics
+        #             import ipdb
+        #             ipdb.set_trace()
+
+        return {}
+        # if not (self._record_update_metrics and self._collecting_metrics):
+        #     return {}
+        # else:
+        #     device = get_default_device()
+        #     dst_rank = 0
+        #     if process_group is not None:
+        #         dst_rank = dist.get_global_rank(process_group, 0)
+        #     param_names = self._step_size_param_names
+        #     step_size_norms = self._step_size_norms
+        #     step_size_maxs = self._step_size_maxs
+        #     assert param_names is not None
+        #     assert step_size_norms is not None
+        #     assert step_size_maxs is not None
+
+        #     # Reduce metrics if needed.
+        #     if is_distributed() and isinstance(module, FullyShardedDataParallel):
+        #         # Reduce norms.
+        #         all_norms = torch.cat(step_size_norms).to(device) ** 2.0
+        #         dist.reduce(all_norms, dst_rank, op=dist.ReduceOp.SUM, group=process_group)
+        #         step_size_norms = (all_norms ** (0.5)).squeeze(0).split(1)
+
+        #         # Reduce maxs.
+        #         all_maxs = torch.cat(step_size_maxs).to(device)
+        #         dist.reduce(all_maxs, dst_rank, op=dist.ReduceOp.MAX, group=process_group)
+        #         step_size_maxs = all_maxs.split(1)
+
+        #     metrics = {}
+        #     # for param_name, step_size_norm, step_size_max in zip(param_names, step_size_norms, step_size_maxs):  # type: ignore[arg-type]
+        #     #     metrics[f"step/{param_name}.norm"] = step_size_norm.squeeze(0)
+        #     #     metrics[f"step/{param_name}.max"] = step_size_max.squeeze(0)
+
+        #     self._step_size_param_names = None
+        #     self._step_size_norms = None
+        #     self._step_size_maxs = None
+        #     return metrics
+
+
+class Adan(Optimizer):
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
+
+
+class AdEMAMix(Optimizer):
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
+
+
+class ScheduleFreeAdamW(Optimizer):
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
+
+
+class Soap(Optimizer):
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
+
+
+class Shampoo(Optimizer):
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
 
 
 @dataclass
