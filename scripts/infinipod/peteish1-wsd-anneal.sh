@@ -49,6 +49,7 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # Tell OLMo all ranks share the same filesystem for checkpoints.
 export OLMO_SHARED_FS=1
 # Redirect stdout and stderr so that we get a prefix with the node name
+export NODENAME=$(hostname -s)
 exec > >(trap "" INT TERM; sed -u "s/^/$NODENAME:$LOCAL_RANK out: /")
 exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME:$LOCAL_RANK err: /" >&2)
 
