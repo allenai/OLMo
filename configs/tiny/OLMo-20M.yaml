@@ -33,7 +33,7 @@ model:
   embedding_size: 50304
   eos_token_id: 0
   pad_token_id: 1
-  init_device: mps
+  init_device: cuda
   init_fn: normal
   init_std: 0.02
   init_cutoff_factor: 3
@@ -78,11 +78,11 @@ load_path: null
 
 max_duration: 1ep
 stop_at: 406_934
-global_train_batch_size: 16
-device_train_microbatch_size: 2
+global_train_batch_size: 1024
+device_train_microbatch_size: 16
 
-precision: fp32
-distributed_strategy: single
+precision: amp_bf16
+distributed_strategy: ddp
 
 gen1_gc_interval: 1
 

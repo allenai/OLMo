@@ -45,7 +45,6 @@ from .eval import Evaluator
 from .exceptions import OLMoConfigurationError
 from .model import OLMo
 from .optim import Optimizer, Scheduler
-from .torch_util import SingleAccelerator
 from .torch_util import (
     barrier,
     gc_cuda,
@@ -54,6 +53,7 @@ from .torch_util import (
     get_world_size,
     move_to_device,
     peak_gpu_memory,
+    SingleAccelerator,
     synchronize_flag,
     synchronize_value,
 )

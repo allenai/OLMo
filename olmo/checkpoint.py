@@ -52,7 +52,6 @@ from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
 from .exceptions import OLMoCheckpointError
 from .optim import Optimizer, fix_optim_state_dict
 from .safetensors_util import safetensors_file_to_state_dict
-from .torch_util import SingleAccelerator
 from .torch_util import (
     barrier,
     gc_cuda,
@@ -61,6 +60,7 @@ from .torch_util import (
     get_local_rank,
     get_local_world_size,
     get_world_size,
+    SingleAccelerator
 )
 from .util import (
     _get_s3_client,

@@ -35,9 +35,9 @@ from olmo.torch_util import (
     get_local_world_size,
     get_world_size,
     peak_gpu_memory,
+    SingleAccelerator,
     seed_all,
 )
-from olmo.torch_util import SingleAccelerator
 from olmo.train import Trainer
 from olmo.util import (
     add_cached_path_clients,
@@ -382,7 +382,7 @@ if __name__ == "__main__":
     except RuntimeError as e:
         print(f"failed to set multiprocessing start method: {e}")
     log.info(f"Multiprocessing start method set to '{mp.get_start_method()}'")
-
+    mps_device = False
     if torch.cuda.is_available():
         # Set CUDA device.
         torch.cuda.set_device(f"cuda:{get_local_rank()}")
@@ -396,6 +396,7 @@ if __name__ == "__main__":
             backend="nccl", timeout=timedelta(minutes=30), device_id=torch.device(device_as_string)
         )
     elif torch.backends.mps.is_available():
+        mps_device = True
         if not os.getenv("RANK"):
             os.environ["RANK"] = "0"
         if not os.getenv("WORLD_SIZE"):
@@ -422,4 +423,11 @@ if __name__ == "__main__":
         raise OLMoCliError(f"Usage: {sys.argv[0]} [CONFIG_PATH] [OPTIONS]")
 
     cfg = TrainConfig.load(yaml_path, [clean_opt(s) for s in args_list])
+    if mps_device:
+        log.info("Device is MPS. Updating config...")
+        cfg.model.init_device = "mps"
+        cfg.global_train_batch_size = 16
+        cfg.device_train_microbatch_size = 2
+        cfg.precision = "fp32"
+        cfg.distributed_strategy = "single"
     main(cfg)
