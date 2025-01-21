@@ -1,4 +1,4 @@
-run_name: peteish7-medlr-anneal-from-477000-100B-dclm_baseline
+run_name: peteish7-lr-0.00041414-anneal-from-477000-50B-dclm_baseline
 seed: 7201
 dry_run: false
 
@@ -48,7 +48,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 0.00020709 # learning rate at 2T
+  learning_rate: 0.00041414 # learning rate at 2T
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
@@ -85,9 +85,9 @@ load_path: /weka/oe-training-default/kevinf/checkpoints/OLMo-medium/peteish7-med
 restore_dataloader: false
 no_pre_train_checkpoint: true
 
-max_duration: 100e9T
+max_duration: 50e9T
 # max_dration: 5e6T
-stop_at: 23852                  # round(50e9 / (1024 * 4096)) + 10
+stop_at: 11931                  # round(50e9 / (1024 * 4096)) + 10
 global_train_batch_size: 1024
 device_train_microbatch_size: 2
 
