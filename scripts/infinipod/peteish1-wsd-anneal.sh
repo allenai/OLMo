@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=peteish1-wsd-anneal
-#SBATCH --output=/home/common/shanea/%j.log
+#SBATCH --output=/home/common/shanea/logs/%j.log
 #SBATCH --nodes=2              # Total number of nodes
 #SBATCH --ntasks-per-node=8
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
@@ -24,7 +24,7 @@ ANNEAL_STEPS=$1
 shift
 
 # Set up conda
-eval $(conda shell.bash hook)
+eval "$(conda shell.bash hook)"
 conda activate $CONDA_ENV
 pip freeze
 
