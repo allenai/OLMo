@@ -38,7 +38,7 @@ eval "$(conda shell.bash hook)"
 conda activate $CONDA_ENV
 pip freeze
 
-# infinipod specific environment
+# Infinipod specific environment
 export NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY="/dev/aperture_devices"
 NCCL_LIB_DIR="/usr/local/nvidia/lib64" source /usr/local/nvidia/lib64/nccl-env-profile.sh
 export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:/usr/lib/x86_64-linux-gnu:"$LD_LIBRARY_PATH"
@@ -48,6 +48,9 @@ export NVIDIA_PYTORCH_VERSION=24.03
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # Tell OLMo all ranks share the same filesystem for checkpoints.
 export OLMO_SHARED_FS=1
+# Redirect stdout and stderr so that we get a prefix with the node name
+exec > >(trap "" INT TERM; sed -u "s/^/$NODENAME:$LOCAL_RANK out: /")
+exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME:$LOCAL_RANK err: /" >&2)
 
 # Setup for multi-node
 MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
