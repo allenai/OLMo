@@ -183,8 +183,6 @@ class LayerNormBase(nn.Module):
             return tensor.to(dtype=dtype if dtype is not None else torch.get_autocast_gpu_dtype())
         elif tensor.device.type == "cpu" and torch.is_autocast_cpu_enabled():
             return tensor.to(dtype=dtype if dtype is not None else torch.get_autocast_cpu_dtype())
-        # elif tensor.device.type == "mps":
-        #     return tensor.to(dtype=dtype if dtype is not None else torch.float32)
         else:
             return tensor
 

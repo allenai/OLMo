@@ -403,7 +403,7 @@ if __name__ == "__main__":
         if not os.getenv("MASTER_ADDR"):
             os.environ["MASTER_ADDR"] = "0.0.0.0"
         if not os.getenv("MASTER_PORT"):
-            os.environ["MASTER_PORT"] = "24500"
+            os.environ["MASTER_PORT"] = "24501"
         dist.init_process_group(backend="gloo", timeout=timedelta(minutes=30))
 
     else:

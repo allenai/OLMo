@@ -75,7 +75,7 @@ def move_to_device(o: T, device: torch.device) -> T:
     elif isinstance(o, tuple):
         return tuple((move_to_device(x, device) for x in o))  # type: ignore[return-value]
     else:
-        return o.to(device)  # type: ignore[return-value]
+        return o.to(device)
 
 
 def ensure_finite_(x: torch.Tensor, check_neg_inf: bool = True, check_pos_inf: bool = False):
@@ -92,6 +92,8 @@ def ensure_finite_(x: torch.Tensor, check_neg_inf: bool = True, check_pos_inf: b
 def get_default_device() -> torch.device:
     if torch.cuda.is_available() and torch.cuda.is_initialized():
         return torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        return torch.device("mps")
     else:
         return torch.device("cpu")
 
