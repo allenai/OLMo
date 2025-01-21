@@ -28,7 +28,9 @@ shift
 
 # Read secrets from env file
 set -a
+set +x
 source /home/common/shanea/.env
+set -x
 set +a
 
 # Set up conda
