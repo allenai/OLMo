@@ -82,7 +82,7 @@ srun \
         --save_interval_ephemeral=250 \
         --eval_interval=1000 \
         --fsdp.sharding_strategy=HYBRID_SHARD \
-        --fsdp.hybrid_sharding_num_model_replicas="${$SLURM_NNODES}" \
+        --fsdp.hybrid_sharding_num_model_replicas="${SLURM_NNODES}" \
         --fsdp.wrapping_strategy=by_block_and_size \
         --load_path="/mnt/checkpoints/shanea/checkpoints/OLMo-medium/$BASE_RUN_NAME/step$LOAD_STEP/" \
         --save_folder=$SAVE_FOLDER \
