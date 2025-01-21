@@ -105,4 +105,4 @@ srun \
         --model.flash_attention=false \
         --data.num_workers=$SLURM_CPUS_PER_TASK \
         --optimizer.metrics_log_interval=10 \
-        --data.prefetch_factor=8
+        --data.prefetch_factor=1
