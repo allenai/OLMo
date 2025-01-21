@@ -11,6 +11,9 @@
 
 set -exuo pipefail
 
+BASE_RUN_NAME=$1
+shift
+
 CONDA_ENV=$1
 shift
 
@@ -48,8 +51,7 @@ export TORCH_DIST_INIT_BARRIER=1
 export PYTHONFAULTHANDLER=1
 
 # Job details
-BASE_NAME=${GANTRY_TASK_NAME// /_}
-ANNEAL_NAME="${BASE_NAME}_anneal${LOAD_STEP}_${ANNEAL_STEPS}"
+ANNEAL_NAME="${BASE_RUN_NAME}_anneal${LOAD_STEP}_${ANNEAL_STEPS}"
 RUN_NAME=$ANNEAL_NAME-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/mnt/checkpoints/shanea/checkpoints/$RUN_NAME
 mkdir -p $SAVE_FOLDER
@@ -82,7 +84,7 @@ srun \
         --fsdp.sharding_strategy=HYBRID_SHARD \
         --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
         --fsdp.wrapping_strategy=by_block_and_size \
-        --load_path="/mnt/checkpoints/shanea/checkpoints/OLMo-medium/$BASE_NAME/step$LOAD_STEP/" \
+        --load_path="/mnt/checkpoints/shanea/checkpoints/OLMo-medium/$BASE_RUN_NAME/step$LOAD_STEP/" \
         --save_folder=$SAVE_FOLDER \
         --remote_save_folder=null \
         --try_load_latest_save \
