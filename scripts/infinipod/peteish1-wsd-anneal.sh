@@ -60,7 +60,7 @@ export PYTHONFAULTHANDLER=1
 # Job details
 ANNEAL_NAME="${BASE_RUN_NAME}_anneal${LOAD_STEP}_${ANNEAL_STEPS}"
 RUN_NAME=$ANNEAL_NAME-$(date -u +"%Y%m%d_%H%M%S")
-SAVE_FOLDER=/mnt/checkpoints/shanea/checkpoints/$RUN_NAME
+SAVE_FOLDER=/mnt/checkpoints/shanea/checkpoints/OLMo-medium/$ANNEAL_NAME
 mkdir -p $SAVE_FOLDER
 
 MAX_STEPS=$(($ANNEAL_STEPS + $LOAD_STEP))
