@@ -45,6 +45,7 @@ export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:/usr/lib/x86_64-linux-gnu:"$LD_LI
 export NCCL_SHIMNET_SHIM_LAYERS="unused"
 export NCCL_TUNER_PLUGIN="none"
 export NVIDIA_PYTORCH_VERSION=24.03
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 # Setup for multi-node
 MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
