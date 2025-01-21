@@ -5,12 +5,11 @@ set -ex
 NUM_NODES=8
 
 gantry run \
-  --workspace ai2/OLMo-pretraining-stability \
-  --task-name peteish7-anneal \
-  --description "Pete-ish 7B post-training annealing" \
+  --workspace ai2/long-contexts \
+  --task-name peteish7-medlr-anneal-lb-v1p0 \
+  --description "Peteish7 med-lr anneal on lb_v1p0"  \
   --priority high \
-  --preemptible \
-  --beaker-image petew/olmo-torch23-gantry \
+  --beaker-image dirkg/OLMo \
   --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
@@ -29,11 +28,11 @@ gantry run \
   --env R2_PROFILE=R2 \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
-  --env-secret AWS_CONFIG=PETEW_AWS_CONFIG \
-  --env-secret AWS_CREDENTIALS=PETEW_AWS_CREDENTIALS \
+  --env-secret WANDB_API_KEY=DUSTINS_WANDB_API_KEY \
+  --env-secret AWS_ACCESS_KEY_ID=DUSTINS_AWS_ACCESS_KEY_ID \
+  --env-secret AWS_SECRET_ACCESS_KEY=DUSTINS_AWS_SECRET_ACCESS_KEY \
   --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
   --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
-  --env-secret WANDB_API_KEY=PETEW_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
