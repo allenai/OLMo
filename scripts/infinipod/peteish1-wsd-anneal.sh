@@ -50,8 +50,8 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export OLMO_SHARED_FS=1
 # Redirect stdout and stderr so that we get a prefix with the node name
 export NODENAME=$(hostname -s)
-exec > >(trap "" INT TERM; sed -u "s/^/$NODENAME:$LOCAL_RANK out: /")
-exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME:$LOCAL_RANK err: /" >&2)
+exec > >(trap "" INT TERM; sed -u "s/^/$NODENAME:$SLURM_LOCALID out: /")
+exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME:$SLURM_LOCALID err: /" >&2)
 
 # Setup for multi-node
 MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
