@@ -26,6 +26,11 @@ shift
 ANNEAL_STEPS=$1
 shift
 
+# Read secrets from env file
+set -a
+source /home/common/shanea/.env
+set +a
+
 # Set up conda
 eval "$(conda shell.bash hook)"
 conda activate $CONDA_ENV
