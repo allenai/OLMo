@@ -98,7 +98,7 @@ srun \
         --fsdp.hybrid_sharding_num_model_replicas="${SLURM_NNODES}" \
         --fsdp.wrapping_strategy=by_block_and_size \
         --load_path="/mnt/checkpoints/shanea/checkpoints/OLMo-medium/$BASE_RUN_NAME/step$LOAD_STEP/" \
-        --save_interval=None \
+        --save_interval=null \
         --save_folder=$SAVE_FOLDER \
         --remote_save_folder="gs://infinipod-checkpoints/shanea/checkpoints/OLMo-medium/$ANNEAL_NAME/" \
         --try_load_latest_save \
