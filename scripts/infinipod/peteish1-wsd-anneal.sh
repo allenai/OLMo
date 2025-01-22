@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=peteish1-wsd-anneal
 #SBATCH --output=/home/common/shanea/logs/%u_%j.log
-#SBATCH --nodes=1              # Total number of nodes
-#SBATCH --ntasks-per-node=8
+#SBATCH --nodes=2              # Total number of nodes
+#SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
-#SBATCH --cpus-per-task=6
+#SBATCH --cpus-per-task=180
 #SBATCH --time=01:00:00
 #SBATCH --time-min=01:00:00
 #SBATCH --mem=0			# All memory on the node
@@ -57,7 +57,6 @@ exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME:$SLURM_LOCALID err: /" >&2)
 MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$MASTER_ADDR
 export MASTER_PORT=34126 # This can be any free port
-export GPUS_PER_NODE=8 # Please replace with number of GPUs per node
 
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
@@ -74,10 +73,9 @@ MAX_STEPS=$(($ANNEAL_STEPS + $LOAD_STEP))
 
 srun \
   --mpi=pmi2 \
-  --nodes="$SLURM_NNODES" \
   torchrun \
     --nnodes $SLURM_NNODES \
-    --nproc-per-node $GPUS_PER_NODE \
+    --nproc-per-node $SLURM_GPUS_PER_NODE \
     --rdzv_id $SLURM_JOB_ID \
     --node_rank $SLURM_PROCID \
     --rdzv_backend c10d \
@@ -109,6 +107,6 @@ srun \
         --compile.fullgraph=false \
         --fused_loss=false \
         --model.flash_attention=false \
-        --data.num_workers=$SLURM_CPUS_PER_TASK \
+        --data.num_workers=16 \
         --optimizer.metrics_log_interval=10 \
         --data.prefetch_factor=8
