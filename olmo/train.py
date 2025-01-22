@@ -904,16 +904,16 @@ class Trainer:
         if z_batch_loss is not None:
             metrics["train/ZLoss"] = z_batch_loss.item()
 
-        #######################################################################
-        # TODO: update this to be logged properly
-        # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
             optim_metrics = self.optim.get_post_step_metrics(
                 self.dist_model, process_group=self.dist_model.process_group
             )
+
             for key, value in optim_metrics.items():
-                metrics[f"optim/{key}"] = value.item()
-        #######################################################################
+                if value.numel() > 1:
+                    metrics[key] = value
+                else:
+                    metrics[key] = value.item()
 
         return metrics
 
@@ -993,7 +993,9 @@ class Trainer:
                       and not name.startswith("param/")
                         and not name.startswith("grad/")
                           and not name.startswith("first_moment/")
-                            and not name.startswith("second_moment/"))  # there's too many optimizer metrics
+                            and not name.startswith("second_moment/")
+                                and not name.startswith("update_norm/")
+                                    and not name.startswith("grad_update_angle/"))  # there's too many optimizer metrics
                 ]
             )
         )
@@ -1256,7 +1258,22 @@ class Trainer:
                         and self.cfg.wandb is not None
                         and self.global_step % self.cfg.wandb.log_interval == 0
                     ):
+                        tensor_metrics = {}
+                        tensor_metrics_keys = []
+
+                        for key, val in metrics.items():
+                            if isinstance(val, torch.Tensor):
+                                tensor_metrics[key] = val
+                                tensor_metrics_keys.append(key)
+
+                        for key in tensor_metrics_keys:
+                            del metrics[key]
+
                         wandb.log(metrics, step=self.global_step)
+
+                        # log tensor metrics as histograms over time and lineplots
+                        for key, val in tensor_metrics.items():
+                            wandb.log({key: wandb.Histogram(val.cpu().numpy())}, step=self.global_step)
 
                     # Check if/when run should be canceled.
                     if not cancel_initiated and self.global_step % self.cfg.canceled_check_interval == 0:
