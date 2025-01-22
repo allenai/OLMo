@@ -46,6 +46,7 @@ from .exceptions import OLMoConfigurationError
 from .model import OLMo
 from .optim import Optimizer, Scheduler
 from .torch_util import (
+    SingleAccelerator,
     barrier,
     gc_cuda,
     get_fs_local_rank,
@@ -53,7 +54,6 @@ from .torch_util import (
     get_world_size,
     move_to_device,
     peak_gpu_memory,
-    SingleAccelerator,
     synchronize_flag,
     synchronize_value,
 )

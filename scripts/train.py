@@ -2,6 +2,7 @@
 
 import gzip
 import logging
+import os
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -28,6 +29,7 @@ from olmo.exceptions import OLMoCliError, OLMoConfigurationError
 from olmo.model import OLMo
 from olmo.optim import BoltOnWarmupScheduler, build_optimizer, build_scheduler
 from olmo.torch_util import (
+    SingleAccelerator,
     barrier,
     get_default_device,
     get_global_rank,
@@ -35,7 +37,6 @@ from olmo.torch_util import (
     get_local_world_size,
     get_world_size,
     peak_gpu_memory,
-    SingleAccelerator,
     seed_all,
 )
 from olmo.train import Trainer
@@ -46,7 +47,6 @@ from olmo.util import (
     log_extra_field,
     prepare_cli_environment,
 )
-import os
 
 log = logging.getLogger("train")
 
@@ -429,5 +429,5 @@ if __name__ == "__main__":
         cfg.global_train_batch_size = 16
         cfg.device_train_microbatch_size = 2
         cfg.precision = "fp32"
-        cfg.distributed_strategy = "single"
+        cfg.distributed_strategy = "single" # type: ignore
     main(cfg)
