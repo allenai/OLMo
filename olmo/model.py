@@ -127,6 +127,7 @@ def _non_meta_init_device(config: ModelConfig) -> torch.device:
         else:
             return torch.device("cpu")
 
+
 class Dropout(nn.Dropout):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         if self.p == 0.0:

@@ -75,7 +75,7 @@ def move_to_device(o: T, device: torch.device) -> T:
     elif isinstance(o, tuple):
         return tuple((move_to_device(x, device) for x in o))  # type: ignore[return-value]
     else:
-        return o.to(device) # type: ignore[return-value]
+        return o.to(device)  # type: ignore
 
 
 def ensure_finite_(x: torch.Tensor, check_neg_inf: bool = True, check_pos_inf: bool = False):
@@ -159,10 +159,13 @@ def get_cumulative_document_lengths(doc_lens: torch.Tensor) -> torch.Tensor:
         ]
     )
 
+
 class SingleAccelerator(torch.nn.Module):
     process_group = None
+
     def __init__(self, module: torch.nn.Module):
         super().__init__()
         self.module = module
+
     def forward(self, *args, **kwargs):
         return self.module(*args, **kwargs)

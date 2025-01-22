@@ -436,7 +436,6 @@ class Trainer:
             torch.cuda.set_rng_state(rng_state["cuda"])
         if rng_state["mps"] is not None:
             torch.mps.set_rng_state(rng_state["mps"])
-        
 
     def _save_checkpoint(
         self, checkpointer: Checkpointer, checkpoint_type: CheckpointType

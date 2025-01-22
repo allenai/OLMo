@@ -50,6 +50,7 @@ from olmo.util import (
 
 log = logging.getLogger("train")
 
+
 def main(cfg: TrainConfig) -> None:
     # Ensure run name set.
     if cfg.run_name is None:
@@ -409,7 +410,7 @@ if __name__ == "__main__":
 
     else:
         dist.init_process_group(backend="gloo", timeout=timedelta(minutes=30))
-    
+
     log.info("Process group initialized")
 
     prepare_cli_environment()
@@ -429,5 +430,5 @@ if __name__ == "__main__":
         cfg.global_train_batch_size = 16
         cfg.device_train_microbatch_size = 2
         cfg.precision = "fp32"
-        cfg.distributed_strategy = "single" # type: ignore
+        cfg.distributed_strategy = "single"  # type: ignore
     main(cfg)

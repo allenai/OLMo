@@ -836,6 +836,7 @@ class FSDPConfig(BaseConfig):
     PyTorch's default HSDP behavior matches this default behavior.
     """
 
+
 @dataclass
 class SingleGPUConfig(BaseConfig):
     device: str = "auto"
@@ -1285,7 +1286,7 @@ class TrainConfig(BaseConfig):
     Outputs of model submodules are saved during the provided steps. Submodule outputs
     can be compared using `scripts/compare_module_outputs.py`.
     """
-        
+
     @property
     def autocast_precision(self) -> torch.dtype:
         if self.precision == "amp_bf16":
