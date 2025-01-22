@@ -93,14 +93,14 @@ srun \
         --scheduler.alpha_f=0.0 \
         --scheduler.t_max=$MAX_STEPS \
         --stop_at=$(($MAX_STEPS + 101)) \
-        --save_interval_ephemeral=250 \
         --eval_interval=1000 \
         --fsdp.sharding_strategy=HYBRID_SHARD \
         --fsdp.hybrid_sharding_num_model_replicas="${SLURM_NNODES}" \
         --fsdp.wrapping_strategy=by_block_and_size \
         --load_path="/mnt/checkpoints/shanea/checkpoints/OLMo-medium/$BASE_RUN_NAME/step$LOAD_STEP/" \
+        --save_interval=None \
         --save_folder=$SAVE_FOLDER \
-        --remote_save_folder=null \
+        --remote_save_folder="gs://infinipod-checkpoints/shanea/checkpoints/OLMo-medium/$ANNEAL_NAME/" \
         --try_load_latest_save \
         --save_overwrite \
         --sharded_checkpointer=olmo_core \
