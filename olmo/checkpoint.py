@@ -571,7 +571,7 @@ class Checkpointer(metaclass=ABCMeta):
         # creating the temp directory from rank 0 might not be immediately
         # realized in the file systems of the other ranks.
         # So we wait here across all ranks until that tmp checkpoint directory is visible.
-        wait_for(lambda: checkpoint_dir_tmp.exists(), "Waiting for checkpoint directory", timeout=10.0)
+        wait_for(lambda: checkpoint_dir_tmp.exists(), "Waiting for checkpoint directory", timeout=60.0)
 
         barrier()
 
