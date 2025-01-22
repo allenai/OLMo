@@ -13,7 +13,7 @@
     <img alt="GitHub release" src="https://img.shields.io/github/release/allenai/OLMo.svg">
   </a>
   <a href="https://arxiv.org/pdf/2501.00656.pdf">
-    <img alt="Paper URL" src="https://img.shields.io/badge/arxiv-2501.00656-blue">
+    <img alt="Paper URL" src="https://img.shields.io/badge/arxiv-2402.00838-blue">
   </a>
 </p>
 
