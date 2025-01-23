@@ -65,7 +65,7 @@ export PYTHONFAULTHANDLER=1
 # Job details
 ANNEAL_NAME="${BASE_RUN_NAME}_anneal${LOAD_STEP}_${ANNEAL_STEPS}"
 RUN_NAME=$ANNEAL_NAME-$(date -u +"%Y%m%d_%H%M%S")
-SAVE_FOLDER=/tmp/$ANNEAL_NAME
+SAVE_FOLDER=/mnt/checkpoints/shanea/checkpoints/OLMo-small/$ANNEAL_NAME
 mkdir -p $SAVE_FOLDER
 
 MAX_STEPS=$(($ANNEAL_STEPS + $LOAD_STEP))
@@ -98,7 +98,7 @@ srun \
         --save_folder=$SAVE_FOLDER \
         --save_interval=5000 \
         --save_interval_ephemeral=500 \
-        --remote_save_folder="/mnt/checkpoints/shanea/checkpoints/OLMo-small/$ANNEAL_NAME/" \
+        --remote_save_folder=null \
         --try_load_latest_save \
         --save_overwrite \
         --sharded_checkpointer=olmo_core \
