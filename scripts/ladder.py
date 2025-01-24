@@ -214,6 +214,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         save_num_unsharded_checkpoints_to_keep=-1,
         save_interval=None,
         load_path=load_path,
+        epoch=args.epoch,
         eval_on_load=args.eval_on_load,
         sharded_checkpointer=ShardedCheckpointerType.olmo_core,
         device_train_microbatch_size=device_batch_size,
@@ -438,6 +439,7 @@ if __name__ == "__main__":
             "--wandb", action=argparse.BooleanOptionalAction, default=True, help="create a run in wandb"
         )
         subparser.add_argument("--stop_at", type=int, default=None)
+        subparser.add_argument("--epoch", type=int, default=None)
         subparser.add_argument("--write_location", type=str, default=None)
         subparser.add_argument("--save_overwrite", action="store_true")
         subparser.add_argument("--load_path", type=str)
