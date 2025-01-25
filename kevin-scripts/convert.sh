@@ -11,7 +11,7 @@ base_dir="s3://ai2-kevinfarhat/checkpoints"
 #for m in peteish7-anneal-B3x50 peteish7-init ; do \
 #for m in peteish7-anneal-dclmx1_booksx50 peteish7-anneal-dclmx1_mathx30 peteish7-anneal-dclmx1_codex20 ; do \
 
-for m in peteish7-lr-0.00041414-anneal-from-477000-100B-dclm_baseline ; do \
+for m in peteish7-lr-0.00041414-anneal-from-477000-100B-lb-v1p0 ; do \
 
 	CHECKPOINT="${base_dir}/$m/step23852"
 
