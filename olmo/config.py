@@ -19,6 +19,7 @@ from typing import (
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from omegaconf import DictConfig, ListConfig
 from omegaconf import OmegaConf as om
 from omegaconf.errors import OmegaConfBaseException
@@ -196,6 +197,11 @@ class BlockType(StrEnum):
     """
     A block similar to the sequential block with slightly different
     implementations of operations like attention to imitate the behavior of Llama.
+    """
+
+    moe = "moe"
+    """
+    A block for OLMoE-style Mixture-of-Experts models.
     """
 
 
@@ -455,6 +461,56 @@ class ModelConfig(BaseConfig):
     """
     Precision used to train/evaluate with. You shouldn't set this directly.
     See :data:`TrainConfig.precision` instead.
+    """
+
+    moe_num_experts: Optional[int] = 8
+    """
+    The number of experts to use in the MoE block.
+    """
+
+    moe_top_k: Optional[int] = 2
+    """
+    The number of experts to select for each token.
+    """
+
+    moe_mlp_impl: Optional[str] = "sparse"
+    """
+    Choose "grouped" for grouped GEMM installable via `pip install git+https://git@github.com/tgale96/grouped_gemm.git@66c7195e35e8c4f22fa6a014037ef511bfa397cb`.
+    """
+
+    moe_log_expert_assignment: Optional[bool] = True
+    """
+    Whether to log the expert assignment.
+    """
+
+    moe_shared_expert: Optional[bool] = False
+    """
+    Whether to have an always-used expert like in [DeepSeekMoE](https://arxiv.org/abs/2401.06066).
+    """
+
+    moe_lbl_in_fp32: Optional[bool] = False
+    """
+    Whether to perform load balancing in FP32.
+    """
+
+    moe_loss_weight: Optional[float] = 0.1
+    """
+    The weight to use for the MoE load balancing loss.
+    """
+
+    moe_zloss_weight: Optional[float] = None
+    """
+    Weight for MoE router z-loss where None means no router z-loss. 0.001 is a common value.
+    """
+
+    moe_dropless: Optional[bool] = True
+    """
+    Whether to use [dMoE](https://arxiv.org/abs/2211.15841).
+    """
+
+    moe_capacity_factor: Optional[float] = 1.25
+    """
+    The capacity factor to use in the MoE block. Only applies if not using dMoE.
     """
 
     scale_emb_init: bool = False
@@ -1300,3 +1356,41 @@ class TrainConfig(BaseConfig):
                 new_config.optimizer = OptimizerConfig.update_legacy_settings(new_config.optimizer)
 
         return new_config
+
+
+def config_to_moe_args(config: ModelConfig) -> Dict[str, Any]:
+    from megablocks.layers.arguments import Arguments as MoEArgs
+
+    from .model import Activation
+
+    hidden_size = (
+        config.mlp_hidden_size if config.mlp_hidden_size is not None else config.mlp_ratio * config.d_model
+    )
+    act = Activation.build(config)
+    kwargs = {
+        "activation_fn": F.silu if "swiglu" in config.activation_type.lower() else Activation.build(config),
+        "mlp_type": "glu" if "glu" in config.activation_type.lower() else "mlp",
+        "mlp_impl": config.moe_mlp_impl,
+        "hidden_size": config.d_model,
+        "ffn_hidden_size": int(act.output_multiplier * hidden_size),
+        "moe_num_experts": config.moe_num_experts,
+        "num_layers": config.n_layers,
+        # Handled by FSDP (https://github.com/databricks/megablocks/issues/57#issuecomment-1854594483)
+        "moe_weight_parallelism": False,
+        "moe_expert_model_parallelism": False,
+        "moe_top_k": config.moe_top_k,
+        "moe_capacity_factor": config.moe_capacity_factor,
+        "moe_loss_weight": config.moe_loss_weight,
+        "device": config.init_device,
+        # Handled by FSDP
+        "bf16": False,
+        "fp16": False,
+        "bias": config.include_bias,
+        "return_bias": False,
+        "shared_expert": config.moe_shared_expert,
+        "moe_lbl_in_fp32": config.moe_lbl_in_fp32,
+    }
+    if config.moe_zloss_weight:
+        kwargs["moe_zloss_weight"] = config.moe_zloss_weight
+
+    return MoEArgs(**kwargs)

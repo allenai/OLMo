@@ -15,7 +15,18 @@ from dataclasses import dataclass, field
 from itertools import islice
 from pathlib import Path
 from pstats import SortKey
-from typing import Any, Callable, Deque, Dict, List, Optional, TextIO, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Deque,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    TextIO,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 import torch
@@ -32,6 +43,7 @@ from torch.utils.data import DataLoader
 from .aliases import PathOrStr
 from .checkpoint import Checkpointer, FullCheckpointer, build_sharded_checkpointer
 from .config import (
+    BlockType,
     CheckpointType,
     DDPGradSyncMode,
     DistributedStrategy,
@@ -57,6 +69,15 @@ from .torch_util import (
     synchronize_value,
 )
 from .util import upload
+
+try:
+    from megablocks.layers.moe import (
+        batched_load_balancing_loss,
+        clear_load_balancing_loss,
+        get_load_balancing_loss,
+    )
+except ImportError:
+    pass
 
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 
@@ -239,6 +260,11 @@ class Trainer:
                 self.loss_fn = fused_loss_fn
             else:
                 raise NameError("`fused_loss_fn` is not defined. Please ensure that `flash_attn` is installed.")
+
+        if self.model.config.block_type == BlockType.moe:
+            from .config import config_to_moe_args
+
+            self.moe_args = config_to_moe_args(self.cfg.model)
 
     @property
     def dataset(self) -> IterableDataset:
@@ -768,7 +794,15 @@ class Trainer:
 
         return loss, ce_loss, z_loss
 
-    def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    def train_batch(
+        self, batch: Dict[str, Any]
+    ) -> Tuple[
+        torch.Tensor,
+        Optional[torch.Tensor],
+        Optional[torch.Tensor],
+        Optional[torch.Tensor],
+        Optional[Iterable[Any]],
+    ]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
         batch_size_in_tokens = batch["input_ids"].numel()
@@ -778,6 +812,20 @@ class Trainer:
 
         ce_batch_loss = torch.tensor(0.0, device=self.device)
         z_batch_loss = None if not self.cfg.softmax_auxiliary_loss else torch.tensor(0.0, device=self.device)
+        lb_batch_loss = (
+            None if self.model.config.block_type != BlockType.moe else torch.tensor(0.0, device=self.device)
+        )
+        moe_z_batch_loss = (
+            None if not self.model.config.moe_zloss_weight else torch.tensor(0.0, device=self.device)
+        )
+        expert_assignments = (
+            None
+            if (
+                (self.model.config.block_type != BlockType.moe)
+                or (self.model.config.moe_log_expert_assignment is False)
+            )
+            else torch.zeros((self.model.config.n_layers, self.model.config.moe_num_experts), device=self.device)
+        )
         num_micro_batches = len(micro_batches)
 
         for micro_batch_idx, micro_batch in enumerate(micro_batches):
@@ -808,6 +856,27 @@ class Trainer:
                         assert z_batch_loss is not None
                         z_batch_loss += z_loss.detach()
 
+                if self.model.config.block_type == BlockType.moe:
+                    if self.model.config.moe_zloss_weight:
+                        lb_loss, moe_z_loss = batched_load_balancing_loss(self.moe_args)
+                        lb_loss = lb_loss / len(micro_batches)
+                        moe_z_loss = moe_z_loss / len(micro_batches)
+                    elif self.model.config.moe_loss_weight:
+                        lb_loss = batched_load_balancing_loss(self.moe_args) / len(micro_batches)
+                    if self.model.config.moe_log_expert_assignment:
+                        if self.model.config.moe_zloss_weight:
+                            tokens_per_expert, _, _ = zip(*get_load_balancing_loss())
+                        else:
+                            tokens_per_expert, _ = zip(*get_load_balancing_loss())
+                        expert_assignments += torch.stack(tokens_per_expert, dim=0)
+                    clear_load_balancing_loss()
+                    if self.model.config.moe_loss_weight:
+                        loss += lb_loss
+                        lb_batch_loss += lb_loss.detach()
+                    if self.model.config.moe_zloss_weight:
+                        loss += moe_z_loss
+                        moe_z_batch_loss += moe_z_loss.detach()
+
                 # Run backward pass.
                 loss.backward()
 
@@ -815,7 +884,7 @@ class Trainer:
             for hook in output_hooks:
                 hook.remove()
 
-        return ce_batch_loss, z_batch_loss
+        return ce_batch_loss, z_batch_loss, lb_batch_loss, moe_z_batch_loss, expert_assignments
 
     def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
         metrics: Dict[str, float] = {}
@@ -836,7 +905,7 @@ class Trainer:
         batch = move_to_device(batch, self.device)
 
         # Run forward-backward pass.
-        ce_batch_loss, z_batch_loss = self.train_batch(batch)
+        ce_batch_loss, z_batch_loss, lb_batch_loss, moe_z_batch_loss, expert_assignments = self.train_batch(batch)
 
         # Collect loss, potentially reducing over all ranks.
         if reduce_global_loss:
@@ -845,6 +914,12 @@ class Trainer:
             if z_batch_loss is not None:
                 dist.reduce(z_batch_loss, 0)
                 z_batch_loss.div_(get_world_size())
+            if lb_batch_loss is not None:
+                dist.reduce(lb_batch_loss, 0)
+                lb_batch_loss.div_(get_world_size())
+            if moe_z_batch_loss is not None:
+                dist.reduce(moe_z_batch_loss, 0)
+                moe_z_batch_loss.div_(get_world_size())
 
         # Clip gradient norms and collect param/gradient/optim metrics.
         should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
@@ -888,6 +963,21 @@ class Trainer:
         metrics["train/Perplexity"] = math.exp(self.cur_train_loss)
         if z_batch_loss is not None:
             metrics["train/ZLoss"] = z_batch_loss.item()
+        if lb_batch_loss is not None:
+            metrics["train/LoadBalancingLoss"] = lb_batch_loss.item()
+            # Log assignment metrics.
+            if expert_assignments is not None:
+                for layer_idx, expert_assignments_layer in enumerate(expert_assignments):
+                    total_tokens = expert_assignments_layer.sum().item()
+                    for expert_idx, expert_assignment in enumerate(expert_assignments_layer):
+                        metrics[f"train/TokensPercentage/layer{layer_idx}/expert{expert_idx}"] = (
+                            expert_assignment.item() / total_tokens
+                        ) * 100
+                        metrics[
+                            f"train/TokensTotal/layer{layer_idx}/expert{expert_idx}"
+                        ] = expert_assignment.item()
+        if moe_z_batch_loss is not None:
+            metrics["train/MoEZLoss"] = moe_z_batch_loss.item()
 
         # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
