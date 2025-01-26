@@ -56,6 +56,7 @@ optimizer:
   - 0.95
   metrics_log_interval: 1
   record_update_metrics: true
+  num_eigenvalues: 50
 
 scheduler:
   name: cosine_with_warmup
@@ -87,7 +88,7 @@ distributed_strategy: ddp
 
 gen1_gc_interval: 1
 
-max_grad_norm: 1.0
+max_grad_norm: null
 max_grad_norm_ratio: null
 
 speed_monitor:

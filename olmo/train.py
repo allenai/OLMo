@@ -768,7 +768,7 @@ class Trainer:
 
         return loss, ce_loss, z_loss
 
-    def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    def train_batch(self, batch: Dict[str, Any], should_log_optim_metrics_this_step: bool = False) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
         batch_size_in_tokens = batch["input_ids"].numel()
@@ -809,7 +809,10 @@ class Trainer:
                         z_batch_loss += z_loss.detach()
 
                 # Run backward pass.
-                loss.backward()
+                if should_log_optim_metrics_this_step:
+                    loss.backward(retain_graph=True)
+                else:
+                    loss.backward()
 
             # Remove output hooks
             for hook in output_hooks:
@@ -829,6 +832,8 @@ class Trainer:
         if (instance_mask := batch.get("instance_mask")) is not None:
             metrics["train/masked_instances_local_rank"] = (~instance_mask).sum().item()
 
+        should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
+
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
 
@@ -836,7 +841,7 @@ class Trainer:
         batch = move_to_device(batch, self.device)
 
         # Run forward-backward pass.
-        ce_batch_loss, z_batch_loss = self.train_batch(batch)
+        ce_batch_loss, z_batch_loss = self.train_batch(batch, should_log_optim_metrics_this_step)
 
         # Collect loss, potentially reducing over all ranks.
         if reduce_global_loss:
@@ -847,7 +852,6 @@ class Trainer:
                 z_batch_loss.div_(get_world_size())
 
         # Clip gradient norms and collect param/gradient/optim metrics.
-        should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
         optim_metrics = self.optim.clip_grads_and_collect_metrics(
             self.global_step,
             collect_param_metrics=should_log_optim_metrics_this_step,
@@ -856,18 +860,18 @@ class Trainer:
             process_group=self.dist_model.process_group,
         )
 
+        exclude_key_list = [
+            'param', 'grad', 'first_moment', 'second_moment', 'clip_stats',
+            'param_tensors', 'grad_tensors', 'first_moment_tensors', 'second_moment_tensors'
+        ]
+
         # collect pre-step optimizer specific metrics
         for key, value in optim_metrics.items():
-            if "param/" in key:
-                metrics[f"{key}"] = value.item()
-            elif "grad/" in key:
-                metrics[f"{key}"] = value.item()
-            elif "exp_avg/" in key:
-                metrics[f"first_moment/{key}"] = value.item()
-            elif "exp_avg_sq/" in key:
-                metrics[f"second_moment/{key}"] = value.item()
-            elif "grad_norm_exp_avg/" in key:
-                metrics[f"clip_stats/{key}"] = value.item()
+            if key.split('/')[0] in exclude_key_list:
+                if value.numel() > 1:
+                    metrics[key] = value
+                else:
+                    metrics[key] = value.item()
             else:
                 metrics[f"optim/{key}"] = value.item()
 
@@ -909,11 +913,20 @@ class Trainer:
                 self.dist_model, process_group=self.dist_model.process_group
             )
 
+            # eigenvalue plot, or distribution plot should go under optim
+            exclude_key_list = ['update_norm', 'grad_update_angle', 'update_tensors']
+
             for key, value in optim_metrics.items():
-                if value.numel() > 1:
-                    metrics[key] = value
+                if key.split('/')[0] in exclude_key_list:
+                    if value.numel() > 1:
+                        metrics[key] = value
+                    else:
+                        metrics[key] = value.item()
                 else:
-                    metrics[key] = value.item()
+                    if value.numel() > 1:
+                        metrics[f"optim/{key}"] = value
+                    else:
+                        metrics[f"optim/{key}"] = value.item()
 
         return metrics
 
@@ -990,12 +1003,18 @@ class Trainer:
                     for name, value in metrics.items()
                     if name == "optim/total_grad_norm"
                     or (not name.startswith("optim/")
-                      and not name.startswith("param/")
+                        and not name.startswith("param/")
                         and not name.startswith("grad/")
-                          and not name.startswith("first_moment/")
-                            and not name.startswith("second_moment/")
-                                and not name.startswith("update_norm/")
-                                    and not name.startswith("grad_update_angle/"))  # there's too many optimizer metrics
+                        and not name.startswith("first_moment/")
+                        and not name.startswith("second_moment/")
+                        and not name.startswith("update_norm/")
+                        and not name.startswith("grad_update_angle/")
+                        and not name.startswith("param_tensors/")
+                        and not name.startswith("grad_tensors/")
+                        and not name.startswith("first_moment_tensors/")
+                        and not name.startswith("second_moment_tensors/")
+                        and not name.startswith("update_tensors/")
+                    )  # there's too many optimizer metrics
                 ]
             )
         )
@@ -1261,6 +1280,7 @@ class Trainer:
                         tensor_metrics = {}
                         tensor_metrics_keys = []
 
+                        # we separate metrics which are tensors and plot histograms for them
                         for key, val in metrics.items():
                             if isinstance(val, torch.Tensor):
                                 tensor_metrics[key] = val

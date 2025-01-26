@@ -533,6 +533,11 @@ class OptimizerConfig(BaseConfig):
     of the update with AdamW.
     """
 
+    num_eigenvalues: int = 10
+    """
+    Number of eigenvalues to log from the hessian of a batch
+    """
+
     def __post_init__(self):
         self.betas = tuple(self.betas)  # type: ignore[assignment]
 
