@@ -73,7 +73,7 @@ torchrun \
       --fsdp.wrapping_strategy=by_block_and_size \
       --save_folder=$SAVE_FOLDER \
       --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-small/$NAME/" \
-      --load_path="gs://ai2-llm/checkpoints/OLMo-small/peteish1/step1907359/" \
+      --load_path="gs://ai2-llm/checkpoints/OLMo-small/peteish1/step1907359" \
       --save_overwrite \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=4 \
