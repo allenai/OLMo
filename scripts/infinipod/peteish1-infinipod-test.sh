@@ -61,9 +61,9 @@ RUN_NAME=$BASE_RUN_NAME-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/mnt/localdisk/shanea/checkpoints/OLMo-small/$BASE_RUN_NAME
 mkdir -p $SAVE_FOLDER
 
-# Copy dataset files to local disk
-mkdir -p /mnt/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/
-cp /mnt/datasets/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/* /mnt/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/
+# # Copy dataset files to local disk
+# mkdir -p /mnt/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/
+# cp /mnt/datasets/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/* /mnt/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/
 
 srun \
   --mpi=pmi2 \
