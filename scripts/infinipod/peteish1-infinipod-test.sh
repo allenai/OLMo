@@ -97,5 +97,6 @@ srun \
         --model.flash_attention=false \
         --data.num_workers=16 \
         --optimizer.metrics_log_interval=10 \
+        --no_pre_train_checkpoint \
         --data.paths=[/mnt/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-00-00000.npy,/mnt/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-01-00000.npy] \
         --data.prefetch_factor=8
