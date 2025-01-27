@@ -58,12 +58,12 @@ export PYTHONFAULTHANDLER=1
 
 # Job details
 RUN_NAME=$BASE_RUN_NAME-$(date -u +"%Y%m%d_%H%M%S")
-SAVE_FOLDER=/mount/localdisk/shanea/checkpoints/OLMo-small/$BASE_RUN_NAME
+SAVE_FOLDER=/mnt/localdisk/shanea/checkpoints/OLMo-small/$BASE_RUN_NAME
 mkdir -p $SAVE_FOLDER
 
 # Copy dataset files to local disk
-mkdir -p /mount/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/
-cp /mnt/datasets/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/* /mount/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/
+mkdir -p /mnt/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/
+cp /mnt/datasets/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/* /mnt/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/
 
 srun \
   --mpi=pmi2 \
@@ -97,5 +97,5 @@ srun \
         --model.flash_attention=false \
         --data.num_workers=16 \
         --optimizer.metrics_log_interval=10 \
-        --data.paths=[/mount/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-00-00000.npy,/mount/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-01-00000.npy] \
+        --data.paths=[/mnt/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-00-00000.npy,/mnt/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-01-00000.npy] \
         --data.prefetch_factor=8
