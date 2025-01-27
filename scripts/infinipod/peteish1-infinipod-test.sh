@@ -63,7 +63,7 @@ mkdir -p $SAVE_FOLDER
 
 # Copy dataset files to local disk
 mkdir -p /mount/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/
-cp -r /mnt/datasets/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/ /mount/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/
+cp /mnt/datasets/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/* /mount/localdisk/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/
 
 srun \
   --mpi=pmi2 \
