@@ -731,12 +731,25 @@ class LinearWithWarmup(Scheduler):
 @dataclass
 class InvSqrtWithWarmup(Scheduler):
     warmup_steps: int
+    post_warmup_x: int
+    """
+    Sets the (positive) x-value to apply inverse square root to when the step is `warmup_steps`.
+    Subsequent steps use subsequent x-values.
+    The inverse square root is (still) scaled so that it attains the initial LR when the step is `warmup_steps`.
+    Set this to `warmup_steps` to attain original inverse sqrt behavior.
+    """
+    t_max: Optional[int] = None
 
     def get_lr(self, initial_lr: float, step: int, max_steps: int) -> float:
         if step < self.warmup_steps:
             return self._linear_warmup(initial_lr, step, self.warmup_steps)
-        del max_steps
-        return initial_lr * sqrt(self.warmup_steps / max(self.warmup_steps, step))
+
+        if self.t_max is not None and step > self.t_max:
+            step = self.t_max
+
+        return initial_lr * sqrt(
+            self.post_warmup_x / (max(self.warmup_steps, step) + self.post_warmup_x - self.warmup_steps)
+        )
 
 
 @dataclass
@@ -792,6 +805,7 @@ class ConstantScheduler(Scheduler):
 @dataclass
 class CosLinearEnvelope(Scheduler):
     "Pointwise product of cosine schedule and linear decay; useful during annealing."
+
     warmup_steps: int
     alpha_f: float = 0.1
     t_max: Optional[int] = None
@@ -997,6 +1011,8 @@ def build_scheduler(cfg: TrainConfig, sched_cfg: Optional[SchedulerConfig] = Non
             grad_clip_warmup_factor=sched_cfg.grad_clip_warmup_factor,
             warmup_steps=int(sched_cfg.t_warmup),
             warmup_min_lr=sched_cfg.warmup_min_lr,
+            post_warmup_x=int(sched_cfg.post_warmup_x or sched_cfg.t_warmup),
+            t_max=None if sched_cfg.t_max is None else int(sched_cfg.t_max),
         )
     elif sched_cfg.name == SchedulerType.max_scheduler:
         return MaxScheduler(

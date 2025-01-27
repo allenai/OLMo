@@ -591,6 +591,15 @@ class SchedulerConfig(BaseConfig):
     the target LR.
     """
 
+    post_warmup_x: Optional[Union[int, float]] = None
+    """
+    Used by the inverse square root with warmup scheduler to make the LR curve more/less steep.
+
+    Sets the positive x-value input of the inverse square root when the step is `warmup_steps`.
+    The inverse square root is scaled so that it is (still) the initial LR when the step is `warmup_steps`.
+    Defaults to `t_warmup` to attain original inverse sqrt behavior.
+    """
+
 
 class PaddingDirection(StrEnum):
     right = "right"
