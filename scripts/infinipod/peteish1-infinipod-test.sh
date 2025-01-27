@@ -41,6 +41,12 @@ export NVIDIA_PYTORCH_VERSION=24.03
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # Tell OLMo all ranks share the same filesystem for checkpoints.
 export OLMO_SHARED_FS=0
+export WORLD_SIZE=$SLURM_NTASKS
+export RANK=$SLURM_PROCID
+export FS_LOCAL_RANK=$SLURM_PROCID
+export LOCAL_WORLD_SIZE=$SLURM_NTASKS_PER_NODE
+export LOCAL_RANK=$SLURM_LOCALID
+export NODE_RANK=$((($RANK - $LOCAL_RANK) / $LOCAL_WORLD_SIZE))
 # Redirect stdout and stderr so that we get a prefix with the node name
 export NODENAME=$(hostname -s)
 exec > >(trap "" INT TERM; sed -u "s/^/$NODENAME:$SLURM_LOCALID out: /")
