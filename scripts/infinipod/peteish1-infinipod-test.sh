@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=peteish1-wsd-anneal
-#SBATCH --output=/home/common/shanea/logs/%u_%j.log
+#SBATCH --output=/mnt/localdisk/%u_%j.log
 #SBATCH --nodes=2              # Total number of nodes
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
@@ -31,6 +31,11 @@ eval "$(conda shell.bash hook)"
 conda activate $CONDA_ENV
 pip freeze
 
+# Redirect stdout and stderr so that we get a prefix with the node name
+export NODENAME=$(hostname -s)
+exec > >(trap "" INT TERM; sed -u "s/^/$NODENAME:$SLURM_LOCALID out: /")
+exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME:$SLURM_LOCALID err: /" >&2)
+
 # Infinipod specific environment
 export NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY="/dev/aperture_devices"
 NCCL_LIB_DIR="/usr/local/nvidia/lib64" source /usr/local/nvidia/lib64/nccl-env-profile.sh
@@ -47,10 +52,6 @@ export FS_LOCAL_RANK=$SLURM_PROCID
 export LOCAL_WORLD_SIZE=$SLURM_NTASKS_PER_NODE
 export LOCAL_RANK=$SLURM_LOCALID
 export NODE_RANK=$((($RANK - $LOCAL_RANK) / $LOCAL_WORLD_SIZE))
-# Redirect stdout and stderr so that we get a prefix with the node name
-export NODENAME=$(hostname -s)
-exec > >(trap "" INT TERM; sed -u "s/^/$NODENAME:$SLURM_LOCALID out: /")
-exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME:$SLURM_LOCALID err: /" >&2)
 
 # Setup for multi-node
 MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
