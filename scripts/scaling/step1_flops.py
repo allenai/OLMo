@@ -1,4 +1,4 @@
-# python scripts/scaling/step1_flops.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_flops_main.pdf --moving_avg 5
+# python scripts/scaling/step1_flops.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_flops_main.png --moving_avg 5
 
 import argparse
 

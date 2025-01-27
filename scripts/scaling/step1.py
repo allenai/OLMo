@@ -1,7 +1,7 @@
-# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_main.pdf --moving_avg 5
-# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_c4_main.pdf -y c4 --moving_avg 5
+# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_main.png --moving_avg 5
+# python scripts/scaling/step1.py -k mmlu_avg_test_5shot -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_c4_main.png -y c4 --moving_avg 5
 # python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_acc_main.pdf -y rc_acc --moving_avg 5
-# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_taskce_main.pdf -y rc_soft_log
+# python scripts/scaling/step1.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/step1_taskce_main.png -y rc_soft_log
 
 import argparse
 import os
@@ -225,7 +225,7 @@ def plot_step1(
                         (d, y_pred),
                         textcoords="offset points",
                         xytext=(10, 1 - 10 * num_eval_annotation)
-                        if y_metric == "rc_bpb"
+                        if y_metric != "rc_acc"
                         else (-3, 5 * (-3 if num_eval_annotation % 2 == 0 else 1)),
                         ha="left",
                         va="bottom",
@@ -247,7 +247,7 @@ def plot_step1(
     ax.set_ylabel(y_label_name, fontsize=FONTSIZE)
     display_name = tasks[task_name].display_name if task_name in tasks else task_name
     ax.set_title(
-        f"{display_name} (Fitting error: {avg_unsigned_rel_error * 100:.2f}%)",
+        f"{display_name} ({avg_unsigned_rel_error * 100:.2f}%)",
         fontsize=FONTSIZE,
         fontweight="bold",
     )

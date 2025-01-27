@@ -1,0 +1,16 @@
+name: hc-law-olmo
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11.8 # needs >=3.9 because ai2-olmo calls functools.cache, but <3.12 because ai2-olmo depends on torch>=2.0,<2.2 but python 3.12 only supports torch>=2.2
+  - pip:
+    - wandb
+    - matplotlib
+    - seaborn
+    - ipykernel
+    - torch==2.3
+    - ai2-olmo==0.5.0
+    - datasets
+    - beaker-gantry
+    - torchmetrics
+    - scikit-learn

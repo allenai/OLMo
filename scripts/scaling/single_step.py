@@ -1,4 +1,4 @@
-# python scripts/scaling/single_step.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/single_step_main.pdf --moving_avg 5
+# python scripts/scaling/single_step.py -k v2_main -c scripts/scaling/final.json -o figure/peteish-moreeval/single_step_main.png --moving_avg 5
 
 import argparse
 

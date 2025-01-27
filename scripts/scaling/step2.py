@@ -1,6 +1,8 @@
-# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_main.pdf --skip_perc 0.1 --moving_avg 5
-# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_c4_main.pdf -x c4 --skip_perc 0.1 --moving_avg 5
-# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_taskce_main.pdf -x rc_soft_log --skip_perc 0.5 --use_log_sigmoid
+# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_main.png --skip_perc 0.1 --moving_avg 5
+# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_c4_main.png -x c4 --skip_perc 0.1 --moving_avg 5
+# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/step2_taskce_main.png -x rc_soft_log --skip_perc 0.5 --use_log_sigmoid
+# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2_wsd.json -o figure/peteish-moreeval-wsd/step2_main.png
+# python scripts/scaling/step2.py -k v2_main -c scripts/scaling/step2_wsd.json -x c4 -o figure/peteish-moreeval-wsd/step2_c4_main.png
 
 import argparse
 
@@ -201,7 +203,7 @@ def plot_step2(
             if config.mode == "train":
                 unsigned_rel_errs.append(abs(rel_error))
             else:
-                if i == 0:                    
+                if i == 0:
                     if x != 0:
                         ax.scatter(
                             x,
@@ -262,7 +264,7 @@ def plot_step2(
 
         from adjustText import adjust_text
         adjust_text(
-            texts, 
+            texts,
             arrowprops=dict(arrowstyle="-", color='gray', lw=0.5, alpha=0.5),
             avoid_points=True,
             avoid_self=True,

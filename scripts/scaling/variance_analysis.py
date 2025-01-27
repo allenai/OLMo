@@ -1,6 +1,7 @@
-# python scripts/scaling/variance_analysis.py -k v2_main_variance -c scripts/scaling/final_variance.json -o figure/peteish-moreeval/variance.pdf --last_n_points 10 --run_prediction
-# python scripts/scaling/variance_analysis.py -k v2_main_variance -c scripts/scaling/final_variance.json -o figure/peteish-moreeval/variance.pdf --last_n_points 10 --run_prediction --print_table_as_latex
-# python scripts/scaling/variance_analysis.py -k v2_main_variance -c scripts/scaling/final_variance.json -o figure/peteish-moreeval/variance.pdf --last_n_points 10
+# python scripts/scaling/variance_analysis.py -k v2_main_variance -c scripts/scaling/final_variance.json -o figure/peteish-moreeval/variance_all.png --last_n_points 10 --run_prediction
+# python scripts/scaling/variance_analysis.py -k v2_main_variance -c scripts/scaling/final_variance.json -o figure/peteish-moreeval/variance_all.png --last_n_points 10 --run_prediction --print_table_as_latex
+# python scripts/scaling/variance_analysis.py -k v2_main_variance -c scripts/scaling/final_variance.json -o figure/peteish-moreeval/variance_all.png --last_n_points 10
+# python scripts/scaling/variance_analysis.py -k mmlu_avg_test_5shot openbookqa_test_5shot -c scripts/scaling/final_variance.json -o figure/peteish-moreeval/variance.png --last_n_points 10
 
 import argparse
 import os
@@ -195,12 +196,12 @@ def plot_variance_analysis(config, variance_results, last_n_points):
         ax2: plt.Axes = axes[(i * 2) // (2*n_groups)][((i * 2) % (2*n_groups))+1]
 
         _plot_single_variance_analysis(
-            config, 
-            results["data"]["ds"], results["data"]["xs"], results["data"]["ys"], 
-            task_name, 
-            last_n_points, 
-            results['loss_coeff_of_var'], 
-            results['acc_coeff_of_var'], 
+            config,
+            results["data"]["ds"], results["data"]["xs"], results["data"]["ys"],
+            task_name,
+            last_n_points,
+            results['loss_coeff_of_var'],
+            results['acc_coeff_of_var'],
             ax1, ax2
         )
 
@@ -272,7 +273,7 @@ def compute_variance(configs, keys, last_n_points):
         assert len(data_by_name) == 1, f'Can only compute variance on one model at a time, seeing: {data_by_name.keys()}'
         name = list(data_by_name.keys())[0]
         data = data_by_name[name]
-        
+
         config = configs[name]
 
         ds = data["ds"][-last_n_points:]
@@ -495,7 +496,7 @@ def main():
     if args.output_path:
         os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
         fig.savefig(args.output_path, dpi=300)
-        df.to_csv(args.output_path.replace(".pdf", ".csv"), index=False)
+        df.to_csv(args.output_path.replace(".pdf", ".csv").replace(".png", ".csv"), index=False)
 
 
 if __name__ == "__main__":

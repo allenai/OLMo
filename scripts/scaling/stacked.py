@@ -1,5 +1,5 @@
 # python scripts/scaling/stacked.py -k v2_main -c scripts/scaling/step2.json -o figure/peteish-moreeval/stacked_main.pdf --skip_perc 0.1 --moving_avg 5
-# python scripts/scaling/stacked.py -k mmlu_avg_test_5shot -c scripts/scaling/step2.json -o figure/peteish-moreeval/figure1.pdf --skip_perc 0.1 --moving_avg 5
+# python scripts/scaling/stacked.py -k mmlu_avg_test_5shot -c scripts/scaling/step2.json -o figure/peteish-moreeval/figure1.png --skip_perc 0.1 --moving_avg 5
 
 import argparse
 import re

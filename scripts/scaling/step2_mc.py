@@ -1,5 +1,5 @@
-# python scripts/scaling/step2_mc.py -k mmlu_avg_test_5shot -c scripts/scaling/step2_mc_7B.json scripts/scaling/step2_mc_13B.json -o figure/peteish-moreeval/step2_mc_mmlu.pdf -y mc_acc --moving_avg 5
-# python scripts/scaling/step2_mc.py -k mmlu_avg_test_5shot -c scripts/scaling/step2_mc_7B_full.json scripts/scaling/step2_mc_13B_full.json -o figure/peteish-moreeval/step2_mc_mmlu_full.pdf -y mc_acc --moving_avg 5
+# python scripts/scaling/step2_mc.py -k mmlu_avg_test_5shot -c scripts/scaling/step2_mc_7B.json scripts/scaling/step2_mc_13B.json -o figure/peteish-moreeval/step2_mc_mmlu.png -y mc_acc --moving_avg 5
+# python scripts/scaling/step2_mc.py -k mmlu_avg_test_5shot -c scripts/scaling/step2_mc_7B_full.json scripts/scaling/step2_mc_13B_full.json -o figure/peteish-moreeval/step2_mc_mmlu_full.png -y mc_acc --skip_perc 0.01 --moving_avg 5
 
 import argparse
 
@@ -248,7 +248,7 @@ def plot_step2(
 
     # ax.set_ylim([0, 1.0])
     ax.set_title(
-        f"{tasks[task_name].display_name} (Fitting error: {avg_unsigned_rel_err * 100:.2f}%)",
+        f"{tasks[task_name].display_name} ({avg_unsigned_rel_err * 100:.2f}%)",
         fontsize=FONTSIZE,
         fontweight="bold",
     )
@@ -382,7 +382,7 @@ def main():
     if args.output_path:
         fig.savefig(args.output_path, dpi=300, bbox_inches="tight")
         df = pd.DataFrame.from_dict(results, orient="index").reset_index().rename({"index": "Task"}, axis=1)
-        df.to_csv(args.output_path.replace(".pdf", ".csv"), index=False)
+        df.to_csv(args.output_path.replace(".pdf", ".csv").replace(".png", ".csv"), index=False)
 
     print(results_str)
 

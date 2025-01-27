@@ -1,10 +1,11 @@
-# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_main.pdf -n 6887575552 -d 3945065873408 -t 7B-4T --skip_perc 0.1 --moving_avg 5
-# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_main.pdf -n 13202396160 -d 5000088518656 -t 13B-5T --skip_perc 0.1 --moving_avg 5
-# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_c4_main.pdf -n 6887575552 -d 3945065873408 -t 7B-4T --skip_perc 0.1 --moving_avg 5 --x_metric c4
-# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_c4_main.pdf -n 13202396160 -d 5000088518656 -t 13B-5T --skip_perc 0.1 --moving_avg 5 --x_metric c4
-# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2_mc_7B.json -o figure/peteish-moreeval/chained_mc_7B_main.pdf -y mc_acc -n 6887575552 -d 3945065873408 -t 7B-4T --moving_avg 5
-# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2_mc_13B.json -o figure/peteish-moreeval/chained_mc_13B_main.pdf -y mc_acc -n 13202396160 -d 5000088518656 -t 13B-5T --moving_avg 5
-# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_taskce_main.pdf -n 6887575552 -d 3945065873408 -t 7B-4T --skip_perc 0.5 --x_metric rc_soft_log  --use_log_sigmoid
+# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_main.png -n 1279395840 -d 4000021741568 -t 1.3B-4T --skip_perc 0.1 --moving_avg 5
+# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_main.png -n 6887575552 -d 3945065873408 -t 7B-4T --skip_perc 0.1 --moving_avg 5
+# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_main.png -n 13202396160 -d 5000088518656 -t 13B-5T --skip_perc 0.1 --moving_avg 5
+# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_c4_main.png -n 6887575552 -d 3945065873408 -t 7B-4T --skip_perc 0.1 --moving_avg 5 --x_metric c4
+# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_c4_main.png -n 13202396160 -d 5000088518656 -t 13B-5T --skip_perc 0.1 --moving_avg 5 --x_metric c4
+# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2.json -o figure/peteish-moreeval/chained_taskce_main.png -n 6887575552 -d 3945065873408 -t 7B-4T --skip_perc 0.5 --x_metric rc_soft_log  --use_log_sigmoid
+# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2_mc_7B.json -o figure/peteish-moreeval/chained_mc_7B_main.png -y mc_acc -n 6887575552 -d 3945065873408 -t 7B-4T --moving_avg 5
+# python scripts/scaling/predict.py -k v2_main -c scripts/scaling/final.json --step2-config-path scripts/scaling/step2_mc_13B.json -o figure/peteish-moreeval/chained_mc_13B_main.png -y mc_acc -n 13202396160 -d 5000088518656 -t 13B-5T --moving_avg 5
 
 import argparse
 
@@ -97,7 +98,7 @@ def predict_chained(data_by_name, step1_coefficients, step2_coefficients, use_lo
         y, y_pred,rel_error = 0, 0, 0
         if data["mode"] == "eval":
             predicted_data = predicted_data_by_name[name]
-            for d, y, y_pred in zip(data["ds"], data["ys"], predicted_data["ys"]):
+            for d, y, y_pred in zip(data["ds"], data["xs"], predicted_data["ys"]):
                 rel_error = (y_pred - y) / y if y > 0 else float('inf')
 
     return predicted_data_by_name, plotted_predicted_data_by_name, (y, y_pred, rel_error)
@@ -227,10 +228,10 @@ def main():
         # fit the parameters
         step1_coefficients, _ = fit_step1(step1_data_by_name, y_metric=args.x_metric)
         if args.y_metric == "rc_acc":
-            step2_coefficients, _ = fit_step2(step2_data_by_name, task_name, args.y_metric, args.use_log_sigmoid)
+            step2_coefficients, _ = fit_step2(step2_data_by_name, task_name, args.y_metric, use_log_sigmoid=args.use_log_sigmoid)
         elif args.y_metric == "mc_acc":
             step2_coefficients, _ = fit_step2_mc(
-                step2_data_by_name, task_name, args.y_metric, args.use_log_sigmoid
+                step2_data_by_name, task_name, args.y_metric, use_log_sigmoid=args.use_log_sigmoid
             )
         else:
             raise ValueError(f"Invalid y_metric: {args.y_metric})")
