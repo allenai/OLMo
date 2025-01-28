@@ -10,6 +10,11 @@ shift
 LR=$1
 shift
 
+# Redirect stdout and stderr so that we get a prefix with the node name
+export NODENAME=$(hostname -s)
+exec > >(trap "" INT TERM; sed -u "s/^/$NODENAME:$SLURM_LOCALID out: /")
+exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME:$SLURM_LOCALID err: /" >&2)
+
 # Read secrets from env file
 set -a
 set +x
@@ -32,10 +37,6 @@ export NVIDIA_PYTORCH_VERSION=24.03
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # Tell OLMo all ranks share the same filesystem for checkpoints.
 export OLMO_SHARED_FS=0
-# Redirect stdout and stderr so that we get a prefix with the node name
-export NODENAME=$(hostname -s)
-exec > >(trap "" INT TERM; sed -u "s/^/$NODENAME:$SLURM_LOCALID out: /")
-exec 2> >(trap "" INT TERM; sed -u "s/^/$NODENAME:$SLURM_LOCALID err: /" >&2)
 
 # Setup for multi-node
 MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
