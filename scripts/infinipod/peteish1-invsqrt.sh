@@ -55,7 +55,7 @@ fi
 
 # Job details
 RUN_NAME=$BASE_RUN_NAME-$(date -u +"%Y%m%d_%H%M%S")
-SAVE_FOLDER=/mnt/localdisk/shanea/checkpoints/OLMo-small/$BASE_RUN_NAME
+SAVE_FOLDER=/home/common/shanea/checkpoints/OLMo-small/$BASE_RUN_NAME
 mkdir -p $SAVE_FOLDER
 
 torchrun \
