@@ -52,42 +52,40 @@ RUN_NAME=$BASE_RUN_NAME-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/mnt/checkpoints/shanea/checkpoints/OLMo-small/$BASE_RUN_NAME
 mkdir -p $SAVE_FOLDER
 
-srun \
-  --mpi=pmi2 \
-  torchrun \
-    --nnodes $SLURM_NNODES \
-    --nproc-per-node $SLURM_GPUS_PER_NODE \
-    --rdzv_id $SLURM_JOB_ID \
-    --node_rank $SLURM_PROCID \
-    --rdzv_backend c10d \
-    --rdzv_endpoint $MASTER_ADDR:$MASTER_PORT \
-    scripts/train.py \
-      configs/peteish1-infinipod.yaml \
-        --run_name=$RUN_NAME \
-        --wandb.group=$BASE_RUN_NAME \
-        --optimizer.learning_rate=$LR \
-        --scheduler.units=steps \
-        --scheduler.t_warmup=5000 \
-        --scheduler.t_max=10000 \
-        --scheduler.name=inverse_sqrt_with_warmup \
-        --scheduler.post_warmup_x=80 \
-        --eval_interval=1000 \
-        --fsdp.sharding_strategy=HYBRID_SHARD \
-        --fsdp.hybrid_sharding_num_model_replicas="${SLURM_NNODES}" \
-        --fsdp.wrapping_strategy=by_block_and_size \
-        --load_path="/mnt/checkpoints/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000" \
-        --save_folder=$SAVE_FOLDER \
-        --save_interval=5000 \
-        --save_interval_ephemeral=500 \
-        --remote_save_folder=null \
-        --try_load_latest_save \
-        --save_overwrite \
-        --sharded_checkpointer=olmo_core \
-        --device_train_microbatch_size=4 \
-        --device_eval_batch_size=8 \
-        --compile.fullgraph=false \
-        --fused_loss=false \
-        --model.flash_attention=false \
-        --data.num_workers=16 \
-        --optimizer.metrics_log_interval=10 \
-        --data.prefetch_factor=8
+torchrun \
+  --nnodes $SLURM_NNODES \
+  --nproc-per-node $SLURM_GPUS_PER_NODE \
+  --rdzv_id $SLURM_JOB_ID \
+  --node_rank $SLURM_PROCID \
+  --rdzv_backend c10d \
+  --rdzv_endpoint $MASTER_ADDR:$MASTER_PORT \
+  scripts/train.py \
+    configs/peteish1-infinipod.yaml \
+      --run_name=$RUN_NAME \
+      --wandb.group=$BASE_RUN_NAME \
+      --optimizer.learning_rate=$LR \
+      --scheduler.units=steps \
+      --scheduler.t_warmup=5000 \
+      --scheduler.t_max=10000 \
+      --scheduler.name=inverse_sqrt_with_warmup \
+      --scheduler.post_warmup_x=80 \
+      --eval_interval=1000 \
+      --fsdp.sharding_strategy=HYBRID_SHARD \
+      --fsdp.hybrid_sharding_num_model_replicas="${SLURM_NNODES}" \
+      --fsdp.wrapping_strategy=by_block_and_size \
+      --load_path="/mnt/checkpoints/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000" \
+      --save_folder=$SAVE_FOLDER \
+      --save_interval=5000 \
+      --save_interval_ephemeral=500 \
+      --remote_save_folder=null \
+      --try_load_latest_save \
+      --save_overwrite \
+      --sharded_checkpointer=olmo_core \
+      --device_train_microbatch_size=4 \
+      --device_eval_batch_size=8 \
+      --compile.fullgraph=false \
+      --fused_loss=false \
+      --model.flash_attention=false \
+      --data.num_workers=16 \
+      --optimizer.metrics_log_interval=10 \
+      --data.prefetch_factor=8
