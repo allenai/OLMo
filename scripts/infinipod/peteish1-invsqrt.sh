@@ -30,6 +30,7 @@ export NCCL_SHIMNET_SHIM_LAYERS="unused"
 export NCCL_TUNER_PLUGIN="none"
 export NVIDIA_PYTORCH_VERSION=24.03
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+export FS_LOCAL_RANK=$SLURM_PROCID
 # Tell OLMo all ranks share the same filesystem for checkpoints.
 export OLMO_SHARED_FS=0
 # Redirect stdout and stderr so that we get a prefix with the node name
