@@ -35,8 +35,8 @@ export NCCL_SHIMNET_SHIM_LAYERS="unused"
 export NCCL_TUNER_PLUGIN="none"
 export NVIDIA_PYTORCH_VERSION=24.03
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-# Tell OLMo all ranks share the same filesystem for checkpoints.
-export OLMO_SHARED_FS=0
+# Tell OLMo all ranks do NOT share the same filesystem for checkpoints.
+unset OLMO_SHARED_FS
 
 # Setup for multi-node
 MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
