@@ -47,9 +47,16 @@ export TORCH_DIST_INIT_BARRIER=1
 # Better error handling from Python
 export PYTHONFAULTHANDLER=1
 
+if [ ! -d /mnt/localdisk/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000 ]; then
+  mkdir -p /mnt/localdisk/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000
+  cp -r /mnt/checkpoints/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000/* /mnt/localdisk/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000/
+else
+  
+fi
+
 # Job details
 RUN_NAME=$BASE_RUN_NAME-$(date -u +"%Y%m%d_%H%M%S")
-SAVE_FOLDER=/mnt/checkpoints/shanea/checkpoints/OLMo-small/$BASE_RUN_NAME
+SAVE_FOLDER=/mnt/localdisk/shanea/checkpoints/OLMo-small/$BASE_RUN_NAME
 mkdir -p $SAVE_FOLDER
 
 torchrun \
@@ -73,7 +80,7 @@ torchrun \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas="${SLURM_NNODES}" \
       --fsdp.wrapping_strategy=by_block_and_size \
-      --load_path="/mnt/checkpoints/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000" \
+      --load_path="/mnt/localdisk/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000" \
       --save_folder=$SAVE_FOLDER \
       --save_interval=5000 \
       --save_interval_ephemeral=500 \
