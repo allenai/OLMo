@@ -563,6 +563,7 @@ class Checkpointer(metaclass=ABCMeta):
         # Prepare temporary directory. We don't have to be as careful here, we can
         # just remove it if it already exists.
         checkpoint_dir_tmp = checkpoint_dir.with_name(checkpoint_dir.name + "-tmp")
+        log.warning("Debug: this is FS local rank %d, local rank %d, global rank %d", get_fs_local_rank(), get_local_rank(), get_global_rank())
         if get_fs_local_rank() == 0:
             shutil.rmtree(checkpoint_dir_tmp, ignore_errors=True)
             checkpoint_dir_tmp.mkdir(exist_ok=True, parents=True)

@@ -82,7 +82,7 @@ torchrun \
       --load_path="/mnt/localdisk/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000" \
       --save_folder=$SAVE_FOLDER \
       --save_interval=5000 \
-      --save_interval_ephemeral=500 \
+      --save_interval_ephemeral=50 \
       --remote_save_folder=null \
       --try_load_latest_save \
       --save_overwrite \
