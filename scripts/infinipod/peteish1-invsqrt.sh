@@ -1,13 +1,4 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=peteish1-wsd-anneal
-#SBATCH --output=/home/common/shanea/logs/%u_%j.log
-#SBATCH --nodes=2              # Total number of nodes
-#SBATCH --ntasks-per-node=1
-#SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
-#SBATCH --cpus-per-task=180
-#SBATCH --time=96:00:00
-#SBATCH --mem=0			# All memory on the node
-
 set -exuo pipefail
 
 BASE_RUN_NAME=$1
