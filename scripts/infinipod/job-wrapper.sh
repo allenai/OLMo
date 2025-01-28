@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=peteish1-wsd-anneal
-#SBATCH --output=/mnt/localdisk/%u_%j.log
+#SBATCH --output=/home/common/shanea/logs/%u_%j.log
 #SBATCH --nodes=2              # Total number of nodes
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=8       # Allocate one gpu per MPI rank
