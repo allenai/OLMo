@@ -8,4 +8,4 @@
 #SBATCH --time=96:00:00
 #SBATCH --mem=0			# All memory on the node
 
-srun --mpi=pmi2 --nnodes="$SLURM_NNODES" ${@}
+srun --mpi=pmi2 --nodes="$SLURM_NNODES" ${@}
