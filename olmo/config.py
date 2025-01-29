@@ -430,7 +430,7 @@ class ModelConfig(BaseConfig):
     The ID of the token to use for padding. Defaults to the ID of the EOS token.
     """
 
-    init_device: Optional[str] = "None"
+    init_device: Optional[str] = None
     """
     The torch device to use when initializing the model parameters, e.g. "cpu", "cuda:0", "meta".
     """
