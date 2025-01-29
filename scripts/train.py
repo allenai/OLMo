@@ -427,8 +427,5 @@ if __name__ == "__main__":
     if mps_device:
         log.info("Device is MPS. Updating config...")
         cfg.model.init_device = "mps"
-        cfg.global_train_batch_size = 16
-        cfg.device_train_microbatch_size = 2
-        cfg.precision = "fp32"
         cfg.distributed_strategy = "single"  # type: ignore
     main(cfg)
