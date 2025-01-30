@@ -48,10 +48,10 @@ export TORCH_DIST_INIT_BARRIER=1
 # Better error handling from Python
 export PYTHONFAULTHANDLER=1
 
-if [ ! -d /mnt/localdisk/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000 ]; then
-  mkdir -p /mnt/localdisk/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000
-  cp -r /mnt/checkpoints/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000/* /mnt/localdisk/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000/
-fi
+# if [ ! -d /mnt/localdisk/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000 ]; then
+#   mkdir -p /mnt/localdisk/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000
+#   cp -r /mnt/checkpoints/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000/* /mnt/localdisk/shanea/checkpoints/OLMo-small/peteish1-wsd-lr3.91e-3/step5000/
+# fi
 
 # Job details
 RUN_NAME=$BASE_RUN_NAME-$(date -u +"%Y%m%d_%H%M%S")
