@@ -594,6 +594,8 @@ class Checkpointer(metaclass=ABCMeta):
                 if not checkpoint_dir.exists():
                     raise
 
+        barrier()
+
         # In the cases where we're using a shared NFS drive between ranks to save checkpoints,
         # replacing the temp directory with the final directory from rank 0 might not be immediately
         # realized in the file systems of the other ranks.
