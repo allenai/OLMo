@@ -568,6 +568,8 @@ class Checkpointer(metaclass=ABCMeta):
             shutil.rmtree(checkpoint_dir_tmp, ignore_errors=True)
             checkpoint_dir_tmp.mkdir(exist_ok=True, parents=True)
 
+        barrier()
+
         # In the cases where we're using a shared NFS drive between ranks to save checkpoints,
         # creating the temp directory from rank 0 might not be immediately
         # realized in the file systems of the other ranks.
