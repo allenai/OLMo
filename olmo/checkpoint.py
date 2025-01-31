@@ -1927,7 +1927,7 @@ class OlmoCoreCheckpointer(Checkpointer):
                 (checkpoint_dir / "train").mkdir(exist_ok=True, parents=True)
 
             wait_for(
-                lambda: (checkpoint_dir / "model").exists(), "Waiting for checkpoint model directory", timeout=10.0
+                lambda: (checkpoint_dir / "model").exists(), "Waiting for checkpoint model directory", timeout=60.0
             )
             wait_for(
                 lambda: (checkpoint_dir / "optim").exists(), "Waiting for checkpoint optim directory", timeout=10.0
