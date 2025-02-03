@@ -313,7 +313,7 @@ def load_state_dict(
             pass
 
     path = resource_path(str(checkpoint_dir).rstrip("/"), fname, local_cache=local_cache)
-    return torch.load(path, map_location=map_location)
+    return torch.load(path, map_location=map_location, weights_only=False)
 
 
 def load_model_state(checkpoint_dir: PathOrStr, model: torch.nn.Module):
