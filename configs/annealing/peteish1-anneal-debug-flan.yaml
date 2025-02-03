@@ -99,11 +99,17 @@ no_pre_train_checkpoint: true
 # device_train_microbatch_size: 2
 
 # custom stuff
-stop_at: 15    # round(1e6 / (16 * 4096)) + 10
-max_duration: 1e6T
+# stop_at: 15    # round(1e6 / (16 * 4096)) + 10
+# max_duration: 1e6T
 
-global_train_batch_size: 16
-device_train_microbatch_size: 2
+# global_train_batch_size: 16
+# device_train_microbatch_size: 2
+
+stop_at: 3    # round(1e6 / (16 * 4096)) + 10
+max_duration: 1e5T
+
+global_train_batch_size: 8
+device_train_microbatch_size: 1
 
 precision: amp_bf16
 
