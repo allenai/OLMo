@@ -168,7 +168,7 @@ class CustomDatasetDataCollator(DataCollator):
             out["doc_lens"] = item.__getitem__(self.doc_lens_field)
         return out
 
-    def __call__(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def __call__(self, items: Union[List[Dict[str, Any]], List[torch.Tensor]]) -> Dict[str, Any]:
         if not isinstance(items[0], torch.Tensor):
             items = self._relabel_fields(items)
         return super().__call__(items)
