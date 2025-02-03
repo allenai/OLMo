@@ -257,7 +257,7 @@ data:
     repetition_max_count: 32
   paths:
     # Autobench
-    - /oe-training-default/ai2-llm/preprocessed/synthetic_mcqa/v0/dolma2-tokenizer/part-0-00000.npy
+    - /weka/oe-training-default/ai2-llm/preprocessed/synthetic_mcqa/v0/dolma2-tokenizer/part-0-00000.npy
     # # Flan
     # - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-00-00000.npy
     # - /weka/oe-training-default/ai2-llm/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-01-00000.npy
