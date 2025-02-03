@@ -22,6 +22,7 @@ gantry run \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
   --weka=oe-training-default:/weka/oe-training-default \
+  --weka=oe-eval-default:/oe-eval-default \
   --gpus 8 \
   $MULTI_NODE_ARGS \
   --budget ai2/oe-eval \
