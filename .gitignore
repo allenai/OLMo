@@ -60,5 +60,4 @@ core
 latest-run
 *.wandb
 *.json
-*.txt
 checkpoints/*
