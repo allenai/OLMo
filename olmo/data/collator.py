@@ -156,13 +156,13 @@ class CustomDatasetDataCollator(DataCollator):
 
     def _relabel_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
         out = {
-            "input_ids": item.__getitem__(self.input_id_field),
-            "attention_mask": item.__getitem__(self.attention_mask_field) if self.attention_mask_field else None,
-            "attention_bias": item.__getitem__(self.attention_bias_field) if self.attention_bias_field else None,
-            "label_mask": item.__getitem__(self.label_mask_field) if self.label_mask_field else None,
-            "index": item.__getitem__(self.index_field) if self.index_field else None,
-            "instance_mask": item.__getitem__(self.instance_mask_field) if self.instance_mask_field else None,
-            "metadata": item.__getitem__(self.metadata_field) if self.metadata_field else None,
+            "input_ids": item[self.input_id_field],
+            "attention_mask": item[self.attention_mask_field] if self.attention_mask_field else None,
+            "attention_bias": item[self.attention_bias_field] if self.attention_bias_field else None,
+            "label_mask": item[self.label_mask_field] if self.label_mask_field else None,
+            "index": item[self.index_field] if self.index_field else None,
+            "instance_mask": item[self.instance_mask_field] if self.instance_mask_field else None,
+            "metadata": item[self.metadata_field] if self.metadata_field else None,
         }
         if self.doc_lens_field:
             out["doc_lens"] = item.__getitem__(self.doc_lens_field)
