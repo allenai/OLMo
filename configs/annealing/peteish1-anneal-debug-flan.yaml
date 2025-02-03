@@ -83,13 +83,13 @@ load_path: /oe-eval-default/davidh/base/checkpoints/OLMo-small/peteish1/step1907
 restore_dataloader: false
 no_pre_train_checkpoint: true
 
-# 10B tokens
-stop_at: 23852  # round(50e9 / (512 * 4096)) + 10
-max_duration: 50e9T
+# # 50B tokens
+# stop_at: 23852  # round(50e9 / (512 * 4096)) + 10
+# max_duration: 50e9T
 
-# # 10B tokens
-# stop_at: 4778   # round(10e9 / (512 * 4096)) + 10
-# max_duration: 10e9T
+# 10B tokens
+stop_at: 4778   # round(10e9 / (512 * 4096)) + 10
+max_duration: 10e9T
 
 # # 1B tokens
 # stop_at: 487    # round(10e9 / (512 * 4096)) + 10
@@ -114,7 +114,7 @@ speed_monitor:
 
 gen1_gc_interval: 10
 
-eval_interval: 100
+eval_interval: 20
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
@@ -229,14 +229,14 @@ evaluators:
   - label: mmlu_other_mc_5shot_test
     type: downstream
 
-  - label: basic_arithmetic
-    type: downstream
+  # - label: basic_arithmetic
+  #   type: downstream
 
-  - label: trivia_qa_wiki_ppl
-    type: downstream
+  # - label: trivia_qa_wiki_ppl
+  #   type: downstream
 
-  - label: natural_qs_open_ppl
-    type: downstream
+  # - label: natural_qs_open_ppl
+  #   type: downstream
 
   - label: arc_easy_ppl
     type: downstream

@@ -19,7 +19,7 @@ gantry run \
   --description "OLMo microanneal with $*" \
   --priority normal \
   --preemptible \
-  --beaker-image shanea/olmo-torch2.2-gantry \
+  --beaker-image shanea/olmo-torch2.3-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
   --weka=oe-training-default:/weka/oe-training-default \
   --weka=oe-eval-default:/oe-eval-default \
@@ -37,4 +37,5 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
+  --allow-dirty \
   -- /bin/bash -c "${COMMAND}"
