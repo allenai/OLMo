@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Support for specifying custom dataset objects in the `data` section of the config file.
+
 ## [v0.6.0](https://github.com/allenai/OLMo/releases/tag/v0.6.0) - 2024-12-17
 
 ### Added
