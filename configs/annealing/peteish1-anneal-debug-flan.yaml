@@ -1,4 +1,4 @@
-run_name: peteish1-anneal-from-1907359-50B-debug-flan
+run_name: peteish1-anneal-from-1907359-10B-debug-flan
 seed: 7201
 dry_run: false
 
@@ -93,7 +93,7 @@ max_duration: 10e9T
 
 # # 1B tokens
 # stop_at: 487    # round(10e9 / (512 * 4096)) + 10
-# max_duration: 10e9T
+# max_duration: 1e9T
 
 global_train_batch_size: 512
 device_train_microbatch_size: 2
@@ -114,7 +114,7 @@ speed_monitor:
 
 gen1_gc_interval: 10
 
-eval_interval: 20
+eval_interval: 100
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
