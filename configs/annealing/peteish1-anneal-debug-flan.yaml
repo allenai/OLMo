@@ -99,7 +99,7 @@ no_pre_train_checkpoint: true
 # device_train_microbatch_size: 2
 
 # custom stuff
-stop_at: 25    # round(1e7 / (16 * 4096)) + 10
+stop_at: 15    # round(1e6 / (16 * 4096)) + 10
 max_duration: 1e6T
 
 global_train_batch_size: 16
