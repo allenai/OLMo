@@ -12,7 +12,7 @@
   <a href="https://github.com/allenai/OLMo/releases">
     <img alt="GitHub release" src="https://img.shields.io/github/release/allenai/OLMo.svg">
   </a>
-  <a href="https://arxiv.org/pdf/2402.00838.pdf">
+  <a href="https://arxiv.org/pdf/2501.00656.pdf">
     <img alt="Paper URL" src="https://img.shields.io/badge/arxiv-2402.00838-blue">
   </a>
 </p>
@@ -41,9 +41,13 @@ OLMo pretraining follows a two-stage training procedure.
 In the first stage, we train on large amounts of mostly web-based data: [OLMo-mix-1124](https://huggingface.co/datasets/allenai/olmo-mix-1124)
 In the second stage, we train on a smaller amount of high-quality, targeted data: [Dolmino-mix-1124](https://huggingface.co/datasets/allenai/dolmino-mix-1124)
 
-You can find *all* the checkpoints, at minimum every 1000 training steps, on Huggingface:
- * [Huggingface for the 7B variant](https://huggingface.co/allenai/OLMo-2-1124-7B)
- * [Huggingface for the 13B variant](https://huggingface.co/allenai/OLMo-2-1124-13B)
+You can find *all* the checkpoints, at minimum every 1000 training steps in OLMo core and Hugging Face format:
+
+
+| Variant          | OLMo Format                                                                                          | Hugging Face Format                                                               |
+|------------------|-----------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
+| **OLMo 7B**      | [OLMo 7B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-7B.csv)       | [Hugging Face for the 7B variant](https://huggingface.co/allenai/OLMo-2-1124-7B)  |
+| **OLMo 13B**     | [OLMo 13B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B.csv)     | [Hugging Face for the 13B variant](https://huggingface.co/allenai/OLMo-2-1124-13B) |
 
 ### Steps to reproduce
 
@@ -81,7 +85,7 @@ Stage 1 is the biggest stage, where we train on 4T or 5T tokens on largely web-b
 | Number of tokens| 4 Trillion                                                                                                        | 5 Trillion                                                                                                         |
 | Checkpoint      | [stage1-step928646-tokens3896B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage1-step928646-tokens3896B) | [stage1-step596057-tokens5001B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage1-step596057-tokens5001B) | 
 | Training config | [OLMo2-7B-stage1.yaml](configs/official-1124/OLMo2-7B-stage1.yaml)      | [OLMo2-13B-stage1.yaml](configs/official-1124/OLMo2-13B-stage1.yaml)     |
-| WandB           | wandb.ai/…/OLMo2-7B (link to come)                                                                                | wandb.ai/…/OLMo2-13B (link to come)                                                                                |
+| WandB           | [wandb.ai/OLMo2-7B](https://wandb.ai/ai2-llm/OLMo-2-1124-7B/reports/OLMo-2-7B-Nov-2024--VmlldzoxMDUzMzE1OA)                                                                                | [wandb.ai/OLMo2-13B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg)                                                                                |
 
 ### Stage 2 for the 7B
 
@@ -89,9 +93,9 @@ For the 7B model, we train three times with different data order on 50B high qua
 
 |                        | Checkpoint                                                                                                                          | Training config                                                                        | WandB       |
 |------------------------|-------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|-------------|
-| random seed 42         | [stage2-ingredient1-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient1-step11931-tokens50B) | [OLMo2-7B-stage2-seed42.yaml](configs/official-1124/OLMo2-7B-stage2-seed42.yaml)       | link to come |
-| random seed 42069      | [stage2-ingredient2-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient2-step11931-tokens50B) | [OLMo2-7B-stage2-seed42069.yaml](configs/official-1124/OLMo2-7B-stage2-seed42069.yaml) | link to come |
-| random seed 666        | [stage2-ingredient3-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient3-step11931-tokens50B) | [OLMo2-7B-stage2-seed666.yaml](configs/official-1124/OLMo2-7B-stage2-seed666.yaml)     | link to come |
+| random seed 42         | [stage2-ingredient1-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient1-step11931-tokens50B) | [OLMo2-7B-stage2-seed42.yaml](configs/official-1124/OLMo2-7B-stage2-seed42.yaml)       | [wandb.ai/OLMo2-7B](https://wandb.ai/ai2-llm/OLMo-2-1124-7B/reports/) |
+| random seed 42069      | [stage2-ingredient2-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient2-step11931-tokens50B) | [OLMo2-7B-stage2-seed42069.yaml](configs/official-1124/OLMo2-7B-stage2-seed42069.yaml) | [wandb.ai/OLMo2-7B](https://wandb.ai/ai2-llm/OLMo-2-1124-7B/reports/) |
+| random seed 666        | [stage2-ingredient3-step11931-tokens50B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage2-ingredient3-step11931-tokens50B) | [OLMo2-7B-stage2-seed666.yaml](configs/official-1124/OLMo2-7B-stage2-seed666.yaml)     | [wandb.ai/OLMo2-7B](https://wandb.ai/ai2-llm/OLMo-2-1124-7B/reports/) |
 | **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/main) | no config, we just averaged the weights in Python                                      | |
 
 The training configs linked here are set up to download the latest checkpoint after stage 1, and start training from there.
@@ -103,10 +107,10 @@ on 300B high quality tokens. Then we average ("soup") the models.
 
 |                        | Checkpoint                                                                                                                             | Training config                                                                                  | WandB       |
 |------------------------|----------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|-------------|
-| random seed 1110, 100B | [stage2-ingredient1-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient1-step11931-tokens100B) | [OLMo2-13B-stage2-seed1110-100B.yaml](configs/official-1124/OLMo2-13B-stage2-seed1110-100B.yaml) | link to come |
-| random seed 2662, 100B | [stage2-ingredient2-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient2-step11931-tokens100B) | [OLMo2-13B-stage2-seed2662-100B.yaml](configs/official-1124/OLMo2-13B-stage2-seed2662-100B.yaml) | link to come |
-| random seed 6209, 100B | [stage2-ingredient3-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient3-step11931-tokens100B) | [OLMo2-13B-stage2-seed6209-100B.yaml](configs/official-1124/OLMo2-13B-stage2-seed6209-100B.yaml) | link to come |
-| random seed 2662, 300B | [stage2-ingredient4-step11931-tokens300B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient4-step35773-tokens300B) | [OLMo2-13B-stage2-seed2662-300B.yaml](configs/official-1124/OLMo2-13B-stage2-seed2662-300B.yaml) | link to come |
+| random seed 1110, 100B | [stage2-ingredient1-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient1-step11931-tokens100B) | [OLMo2-13B-stage2-seed1110-100B.yaml](configs/official-1124/OLMo2-13B-stage2-seed1110-100B.yaml) | [wandb.ai/OLMo2-13B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg) |
+| random seed 2662, 100B | [stage2-ingredient2-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient2-step11931-tokens100B) | [OLMo2-13B-stage2-seed2662-100B.yaml](configs/official-1124/OLMo2-13B-stage2-seed2662-100B.yaml) | [wandb.ai/OLMo2-13B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg) |
+| random seed 6209, 100B | [stage2-ingredient3-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient3-step11931-tokens100B) | [OLMo2-13B-stage2-seed6209-100B.yaml](configs/official-1124/OLMo2-13B-stage2-seed6209-100B.yaml) | [wandb.ai/OLMo2-13B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg) |
+| random seed 2662, 300B | [stage2-ingredient4-step11931-tokens300B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient4-step35773-tokens300B) | [OLMo2-13B-stage2-seed2662-300B.yaml](configs/official-1124/OLMo2-13B-stage2-seed2662-300B.yaml) | [wandb.ai/OLMo2-13B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg) |
 | **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/main)                                                                       | no config, we just averaged the weights in Python                                                | |
 
 The training configs linked here are set up to download the latest checkpoint after stage 1, and start training from there.
@@ -152,16 +156,58 @@ The quantized model is sensitive to input types and CUDA handling. To avoid pote
 
 ## Evaluation
 
-Additional tools for evaluating OLMo models are available at the [OLMo Eval](https://github.com/allenai/OLMo-eval) repo.
+Additional tools for evaluating OLMo models are available at the [OLMo Eval](https://github.com/allenai/OLMo-eval) and [olmes](https://github.com/allenai/olmes) repositories.
+
+## Modal.com Hosting
+
+An example script is provided for hosting an OLMo 2 model on Modal.com using the OpenAI API in `./scripts/olmo2_modal_openai.py`.
+To run that:
+
+1. Follow the instructions under Getting Started in [the Modal.com Guide](https://modal.com/docs/guide) to install
+the Modal library and command line tools.</li>
+2. Follow the instructions under [Secrets](https://modal.com/docs/guide/secrets) in the Modal.com Guide to create a Modal secret named "example-secret-token"
+that defines a value for the variable MODAL_TOKEN for your server.</li>
+3. Then run
+```bash
+modal deploy ./scripts/olmo2_modal_openai.py
+```
+
+You can check your endpoint using curl similar to the following:
+```bash
+curl -X POST \
+  -H "Authorization: Bearer [the secret token from above]" \
+  -H "Content-Type: application/json" \
+  -d @body.json \
+  https://[the web endpoint modal creates above]/v1/chat/completions
+```
+
+where `body.json` is of the form:
+```
+{
+    "model": "OLMo-2-1124-13B-Instruct",
+    "messages": [
+        {
+            "role": "user",
+            "content": "Who was Alan Turing?"
+        }
+      ],
+    "max_tokens": 100,
+    "temperature": 0.9,
+    "stream": true
+}
+```
+
 
 ## Citing
 
 ```bibtex
-@article{OLMo,
-  title={OLMo: Accelerating the Science of Language Models},
-  author={Dirk Groeneveld and Iz Beltagy and Pete Walsh and Akshita Bhagia and Rodney Kinney and Oyvind Tafjord and A. Jha and Hamish Ivison and Ian Magnusson and Yizhong Wang and Shane Arora and David Atkinson and Russell Authur and Khyathi Raghavi Chandu and Arman Cohan and Jennifer Dumas and Yanai Elazar and Yuling Gu and Jack Hessel and Tushar Khot and William Merrill and Jacob Daniel Morrison and Niklas Muennighoff and Aakanksha Naik and Crystal Nam and Matthew E. Peters and Valentina Pyatkin and Abhilasha Ravichander and Dustin Schwenk and Saurabh Shah and Will Smith and Emma Strubell and Nishant Subramani and Mitchell Wortsman and Pradeep Dasigi and Nathan Lambert and Kyle Richardson and Luke Zettlemoyer and Jesse Dodge and Kyle Lo and Luca Soldaini and Noah A. Smith and Hanna Hajishirzi},
-  year={2024},
-  url={https://api.semanticscholar.org/CorpusID:267365485},
-  journal={arXiv preprint},
+@misc{olmo20242olmo2furious,
+      title={2 OLMo 2 Furious}, 
+      author={Team OLMo and Pete Walsh and Luca Soldaini and Dirk Groeneveld and Kyle Lo and Shane Arora and Akshita Bhagia and Yuling Gu and Shengyi Huang and Matt Jordan and Nathan Lambert and Dustin Schwenk and Oyvind Tafjord and Taira Anderson and David Atkinson and Faeze Brahman and Christopher Clark and Pradeep Dasigi and Nouha Dziri and Michal Guerquin and Hamish Ivison and Pang Wei Koh and Jiacheng Liu and Saumya Malik and William Merrill and Lester James V. Miranda and Jacob Morrison and Tyler Murray and Crystal Nam and Valentina Pyatkin and Aman Rangapur and Michael Schmitz and Sam Skjonsberg and David Wadden and Christopher Wilhelm and Michael Wilson and Luke Zettlemoyer and Ali Farhadi and Noah A. Smith and Hannaneh Hajishirzi},
+      year={2024},
+      eprint={2501.00656},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2501.00656}, 
 }
 ```
