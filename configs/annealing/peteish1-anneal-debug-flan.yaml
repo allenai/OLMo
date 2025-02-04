@@ -1,4 +1,4 @@
-run_name: peteish1-anneal-from-1907359-1B-debug-autobench
+run_name: peteish1-anneal-from-1907359-40M-debug-single-docs-very-slow-autobench
 seed: 7201
 dry_run: false
 
@@ -49,6 +49,7 @@ compile: null
 optimizer:
   name: adamw
   learning_rate: 7.448728958032132e-05
+  # learning_rate: 2.0e-04
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
@@ -94,22 +95,44 @@ no_pre_train_checkpoint: true
 # # 1B tokens
 # stop_at: 487    # round(1e9 / (512 * 4096)) + 10
 # max_duration: 1e9T
-
 # global_train_batch_size: 512
 # device_train_microbatch_size: 2
 
-# custom stuff
-# stop_at: 15    # round(1e6 / (16 * 4096)) + 10
-# max_duration: 1e6T
+# # 20M tokens (full dataset 10x duplicated)
+# stop_at: 10    # round(2e7 / (512 * 4096))
+# max_duration: 2e7T
+# global_train_batch_size: 512
+# device_train_microbatch_size: 2
 
+# 40M tokens (full dataset 20x duplicated) -- very slow setup
+stop_at: 1221    # round(4e7 / (8 * 4096))
+max_duration: 4e7T
+global_train_batch_size: 8
+device_train_microbatch_size: 2
+
+# # 20M tokens (full dataset 10x duplicated) -- slow setup
+# stop_at: 305    # round(2e7 / (16 * 4096))
+# max_duration: 2e7T
 # global_train_batch_size: 16
 # device_train_microbatch_size: 2
 
-stop_at: 3    # round(1e6 / (16 * 4096)) + 10
-max_duration: 1e5T
+# # 2M tokens (full dataset 1x duplicated)
+# stop_at: 15   # round(2e6 / (512 * 4096))
+# max_duration: 2e6T
+# global_train_batch_size: 32
+# device_train_microbatch_size: 2
 
-global_train_batch_size: 8
-device_train_microbatch_size: 1
+# # 1M tokens (full dataset 0.5x duplicated)
+# stop_at: 15    # round(1e6 / (16 * 4096))
+# max_duration: 1e6T
+# global_train_batch_size: 16
+# device_train_microbatch_size: 2
+
+# 100K tokens
+# stop_at: 3    # round(1e5 / (8 * 4096))
+# max_duration: 1e5T
+# global_train_batch_size: 8
+# device_train_microbatch_size: 1
 
 precision: amp_bf16
 
@@ -127,84 +150,49 @@ speed_monitor:
 
 gen1_gc_interval: 10
 
-eval_interval: 10
+eval_interval: 100
 eval_subset_num_batches: -1
-device_eval_batch_size: ${device_train_microbatch_size}
+# idk, A100s can handle bs=20
+device_eval_batch_size: 20 # ${device_train_microbatch_size}
 evaluators:
-  # - label: all-small-ppl-validation
-  #   data:
-  #     num_workers: 0
-  #     drop_last: true
-  #     # generate_doc_lengths: true
-  #     memmap_dtype: uint32
-  #     datasets:
-  #       c4_en-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
-  #       dolma_books-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
-  #       dolma_common-crawl-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
-  #       dolma_pes2o-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
-  #       dolma_reddit-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
-  #       dolma_stack-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
-  #       dolma_wiki-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
-  #       ice-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
-  #       m2d2_s2orc-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
-  #       pile-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
-  #       wikitext_103-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
-
   ##########################
   # Downstream evaluations #
   ##########################
-  - label: piqa
-    type: downstream
+  # - label: piqa
+  #   type: downstream
 
-  - label: hellaswag
-    type: downstream
+  # - label: hellaswag
+  #   type: downstream
 
-  - label: winogrande
-    type: downstream
+  # - label: winogrande
+  #   type: downstream
 
-  - label: openbook_qa
-    type: downstream
+  # - label: openbook_qa
+  #   type: downstream
 
-  - label: boolq
-    type: downstream
+  # - label: boolq
+  #   type: downstream
 
-  - label: sciq
-    type: downstream
+  # - label: sciq
+  #   type: downstream
 
-  - label: arc_easy
-    type: downstream
+  # - label: arc_easy
+  #   type: downstream
 
-  - label: arc_challenge
-    type: downstream
+  # - label: arc_challenge
+  #   type: downstream
 
-  - label: copa
-    type: downstream
+  # - label: copa
+  #   type: downstream
 
-  #- label: rte
-  #  type: downstream
+  # - label: commonsense_qa
+  #   type: downstream
 
-  #- label: commitment_bank
-  #  type: downstream
+  # - label: social_iqa
+  #   type: downstream
 
-  #- label: sst2
-  #  type: downstream
-
-  - label: commonsense_qa
-    type: downstream
-
-  - label: social_iqa
-    type: downstream
+  # - label: arc_easy_ppl
+  #   type: downstream
 
   - label: mmlu_stem_var
     type: downstream
@@ -240,18 +228,6 @@ evaluators:
     type: downstream
 
   - label: mmlu_other_mc_5shot_test
-    type: downstream
-
-  # - label: basic_arithmetic
-  #   type: downstream
-
-  # - label: trivia_qa_wiki_ppl
-  #   type: downstream
-
-  # - label: natural_qs_open_ppl
-  #   type: downstream
-
-  - label: arc_easy_ppl
     type: downstream
 
 data:
