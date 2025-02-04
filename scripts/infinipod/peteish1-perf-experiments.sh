@@ -86,7 +86,7 @@ torchrun \
       --scheduler.t_max=$MAX_STEPS \
       --stop_at=$(($MAX_STEPS + 101)) \
       --eval_interval=1000 \
-      --fsdp.sharding_strategy=HYBRID_SHARD \
+      --fsdp.sharding_strategy=FULL_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas="${SLURM_NNODES}" \
       --fsdp.wrapping_strategy=by_block_and_size \
       --load_path="/mnt/checkpoints/shanea/checkpoints/OLMo-small/$BASE_RUN_NAME/step$LOAD_STEP/" \
