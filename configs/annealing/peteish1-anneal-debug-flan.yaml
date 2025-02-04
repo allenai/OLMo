@@ -159,7 +159,7 @@ gen1_gc_interval: 10
 eval_interval: 100
 eval_subset_num_batches: -1
 # idk, A100s can handle bs=20
-device_eval_batch_size: 20 # ${device_train_microbatch_size}
+device_eval_batch_size: 10 # ${device_train_microbatch_size}
 evaluators:
   ##########################
   # Downstream evaluations #
