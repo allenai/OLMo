@@ -1,4 +1,5 @@
-run_name: peteish1-anneal-from-1907359-200M-debug-single-docs-very-very-slow-autobench
+run_name: ladder-370M-1xC-anneal-from-9452-200M-debug-autobench
+# run_name: peteish1-anneal-from-1907359-200M-debug-single-docs-very-very-slow-autobench
 seed: 7201
 dry_run: false
 
@@ -7,38 +8,85 @@ wandb:
   project: olmo-rc-mc
   group: ${run_name}
 
+# peteish1 config
+# model:
+#   d_model: 2048
+#   n_heads: 16
+#   n_layers: 16
+#   mlp_ratio: 8
+#   weight_tying: false
+#   alibi: false
+#   rope: true
+#   rope_theta: 500000
+#   flash_attention: true
+#   attention_dropout: 0.0
+#   include_bias: false
+#   block_type: sequential
+#   layer_norm_type: rms
+#   layer_norm_with_affine: true
+#   layer_norm_eps: 1e-6
+#   bias_for_layer_norm: false
+#   attention_layer_norm: true
+#   attention_layer_norm_with_affine: true
+#   norm_after: true
+#   activation_type: swiglu
+#   residual_dropout: 0.0
+#   embedding_dropout: 0.0
+#   max_sequence_length: 4096
+#   vocab_size: 100278
+#   embedding_size: 100352
+#   eos_token_id: 100257
+#   pad_token_id: 100277
+#   init_device: meta
+#   init_fn: normal
+#   init_std: 0.02
+#   init_cutoff_factor: 3
+
+# 370M config
 model:
-  d_model: 2048
+  d_model: 1024
   n_heads: 16
+  n_kv_heads: null
+  clip_qkv: null
   n_layers: 16
   mlp_ratio: 8
-  weight_tying: false
+  mlp_hidden_size: null
+  activation_type: swiglu
+  block_type: sequential
+  block_group_size: 1
   alibi: false
+  alibi_bias_max: 8.0
   rope: true
+  rope_full_precision: true
   rope_theta: 500000
   flash_attention: true
   attention_dropout: 0.0
-  include_bias: false
-  block_type: sequential
-  layer_norm_type: rms
-  layer_norm_with_affine: true
-  layer_norm_eps: 1e-6
-  bias_for_layer_norm: false
+  multi_query_attention: null
   attention_layer_norm: true
-  attention_layer_norm_with_affine: true
-  norm_after: true
-  activation_type: swiglu
   residual_dropout: 0.0
   embedding_dropout: 0.0
+  embedding_layer_norm: false
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1.0e-06
+  attention_layer_norm_with_affine: true
   max_sequence_length: 4096
+  include_bias: false
+  bias_for_layer_norm: false
+  scale_logits: false
   vocab_size: 100278
   embedding_size: 100352
+  weight_tying: false
   eos_token_id: 100257
   pad_token_id: 100277
-  init_device: meta
+  init_device: cuda
   init_fn: normal
   init_std: 0.02
-  init_cutoff_factor: 3
+  init_cutoff_factor: 3.0
+  precision: amp_bf16
+  scale_emb_init: false
+  emb_init_std: null
+  norm_after: true
 
 softmax_auxiliary_loss: true
 auxiliary_loss_multiplier: 1e-5
@@ -79,7 +127,8 @@ sharded_checkpointer: olmo_core
 save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
-load_path: /oe-eval-default/davidh/base/checkpoints/OLMo-small/peteish1/step1907359
+# load_path: /oe-eval-default/davidh/base/checkpoints/OLMo-small/peteish1/step1907359
+load_path: /oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-rerun-370M-1xC/step9452-unsharded
 
 restore_dataloader: false
 no_pre_train_checkpoint: true
@@ -104,7 +153,7 @@ no_pre_train_checkpoint: true
 # global_train_batch_size: 512
 # device_train_microbatch_size: 2
 
-# 200M tokens (full dataset 100x duplicated) -- very very slow setup
+# 200M tokens (full dataset 100x duplicated) -- very very slow setup. 100 steps=6M toks (looks like it learns after 20M toks, or 10 epochs)
 # stop_at: 3052    # round(10e7 / (8 * 4096))
 stop_at: 500    # early stop
 max_duration: 20e7T
@@ -201,40 +250,121 @@ evaluators:
   # - label: arc_easy_ppl
   #   type: downstream
 
-  - label: mmlu_stem_var
-    type: downstream
+  # - label: mmlu_stem_var
+  #   type: downstream
 
-  - label: mmlu_humanities_var
-    type: downstream
+  # - label: mmlu_humanities_var
+  #   type: downstream
 
-  - label: mmlu_social_sciences_var
-    type: downstream
+  # - label: mmlu_social_sciences_var
+  #   type: downstream
 
-  - label: mmlu_other_var
-    type: downstream
+  # - label: mmlu_other_var
+  #   type: downstream
 
-  - label: mmlu_stem_mc_5shot
-    type: downstream
+  # - label: mmlu_stem_mc_5shot
+  #   type: downstream
 
-  - label: mmlu_humanities_mc_5shot
-    type: downstream
+  # - label: mmlu_humanities_mc_5shot
+  #   type: downstream
 
-  - label: mmlu_social_sciences_mc_5shot
-    type: downstream
+  # - label: mmlu_social_sciences_mc_5shot
+  #   type: downstream
 
-  - label: mmlu_other_mc_5shot
-    type: downstream
+  # - label: mmlu_other_mc_5shot
+  #   type: downstream
 
-  - label: mmlu_stem_mc_5shot_test
-    type: downstream
+  # - label: mmlu_stem_mc_5shot_test
+  #   type: downstream
 
-  - label: mmlu_humanities_mc_5shot_test
-    type: downstream
+  # - label: mmlu_humanities_mc_5shot_test
+  #   type: downstream
 
-  - label: mmlu_social_sciences_mc_5shot_test
-    type: downstream
+  # - label: mmlu_social_sciences_mc_5shot_test
+  #   type: downstream
 
-  - label: mmlu_other_mc_5shot_test
+  # - label: mmlu_other_mc_5shot_test
+  #   type: downstream
+
+  - label: arc_challenge_val_rc_5shot
+    type: downstream
+  - label: arc_challenge_test_rc_5shot
+    type: downstream
+  - label: arc_easy_val_rc_5shot
+    type: downstream
+  - label: arc_easy_test_rc_5shot
+    type: downstream
+  - label: boolq_val_rc_5shot
+    type: downstream
+  - label: csqa_val_rc_5shot
+    type: downstream
+  - label: hellaswag_val_rc_5shot
+    type: downstream
+  - label: openbookqa_val_rc_5shot
+    type: downstream
+  - label: openbookqa_test_rc_5shot
+    type: downstream
+  - label: piqa_val_rc_5shot
+    type: downstream
+  - label: socialiqa_val_rc_5shot
+    type: downstream
+  - label: winogrande_val_rc_5shot
+    type: downstream
+  - label: mmlu_stem_val_rc_5shot
+    type: downstream
+  - label: mmlu_stem_test_rc_5shot
+    type: downstream
+  - label: mmlu_humanities_val_rc_5shot
+    type: downstream
+  - label: mmlu_humanities_test_rc_5shot
+    type: downstream
+  - label: mmlu_social_sciences_val_rc_5shot
+    type: downstream
+  - label: mmlu_social_sciences_test_rc_5shot
+    type: downstream
+  - label: mmlu_other_val_rc_5shot
+    type: downstream
+  - label: mmlu_other_test_rc_5shot
+    type: downstream
+  - label: arc_challenge_val_mc_5shot
+    type: downstream
+  - label: arc_challenge_test_mc_5shot
+    type: downstream
+  - label: arc_easy_val_mc_5shot
+    type: downstream
+  - label: arc_easy_test_mc_5shot
+    type: downstream
+  - label: boolq_val_mc_5shot
+    type: downstream
+  - label: csqa_val_mc_5shot
+    type: downstream
+  - label: hellaswag_val_mc_5shot
+    type: downstream
+  - label: openbookqa_val_mc_5shot
+    type: downstream
+  - label: openbookqa_test_mc_5shot
+    type: downstream
+  - label: piqa_val_mc_5shot
+    type: downstream
+  - label: socialiqa_val_mc_5shot
+    type: downstream
+  - label: winogrande_val_mc_5shot
+    type: downstream
+  - label: mmlu_stem_val_mc_5shot
+    type: downstream
+  - label: mmlu_stem_test_mc_5shot
+    type: downstream
+  - label: mmlu_humanities_val_mc_5shot
+    type: downstream
+  - label: mmlu_humanities_test_mc_5shot
+    type: downstream
+  - label: mmlu_social_sciences_val_mc_5shot
+    type: downstream
+  - label: mmlu_social_sciences_test_mc_5shot
+    type: downstream
+  - label: mmlu_other_val_mc_5shot
+    type: downstream
+  - label: mmlu_other_test_mc_5shot
     type: downstream
 
 data:
