@@ -1,0 +1,1507 @@
+run_name: OLMo2-13B-stage2-seed1110-100B
+seed: 1110
+dry_run: false
+
+model:
+  d_model: 5120
+  n_heads: 40
+  n_layers: 40
+  mlp_hidden_size: 27648
+  weight_tying: false
+  alibi: false
+  rope: true
+  rope_theta: 500000
+  flash_attention: true
+  attention_dropout: 0.0
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  bias_for_layer_norm: false
+  attention_layer_norm: true
+  attention_layer_norm_with_affine: true
+  norm_after: true
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 4096
+  vocab_size: 100278
+  embedding_size: 100352
+  eos_token_id: 100257
+  pad_token_id: 100277
+  init_device: meta
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3
+
+softmax_auxiliary_loss: true
+auxiliary_loss_multiplier: 1e-5
+fused_loss: true
+
+optimizer:
+  name: adamw
+  learning_rate: 9e-5
+  weight_decay: 0.1
+  eps: 1e-8
+  decay_norm_and_bias: true
+  decay_embeddings: false
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 1
+
+scheduler:
+  units: steps
+  name: linear_with_warmup
+  t_warmup: 0
+  alpha_f: 0
+
+tokenizer:
+  identifier: tokenizers/allenai_dolma2.json
+  truncate_direction: right
+
+save_interval: 1000
+save_num_checkpoints_to_keep: -1
+sharded_checkpointer: olmo_core
+
+save_interval_unsharded: null
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: https://olmo-checkpoints.org/ai2-llm/peteish13/step596057-unsharded
+
+restore_dataloader: false
+no_pre_train_checkpoint: true
+
+max_duration: 100e9T
+stop_at: 11931                  # round(100e9 / (2048 * 4096)) + 10
+global_train_batch_size: 2048
+device_train_microbatch_size: 2
+
+precision: amp_bf16
+
+fsdp:
+  wrapping_strategy: by_block_and_size
+  precision: mixed
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 1
+
+gen1_gc_interval: 1
+
+eval_interval: 1000
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  # - label: all-small-ppl-validation
+  #   data:
+  #     num_workers: 0
+  #     drop_last: true
+  #     # generate_doc_lengths: true
+  #     memmap_dtype: uint32
+  #     datasets:
+  #       c4_en-validation:
+  #         - http://olmo-data.org/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
+  #       dolma_books-validation:
+  #         - http://olmo-data.org/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
+  #       dolma_common-crawl-validation:
+  #         - http://olmo-data.org/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
+  #       dolma_pes2o-validation:
+  #         - http://olmo-data.org/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
+  #       dolma_reddit-validation:
+  #         - http://olmo-data.org/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
+  #       dolma_stack-validation:
+  #         - http://olmo-data.org/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
+  #       dolma_wiki-validation:
+  #         - http://olmo-data.org/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
+  #       ice-validation:
+  #         - http://olmo-data.org/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
+  #       m2d2_s2orc-validation:
+  #         - http://olmo-data.org/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
+  #       pile-validation:
+  #         - http://olmo-data.org/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
+  #       wikitext_103-validation:
+  #         - http://olmo-data.org/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
+
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: mmlu_stem_mc_5shot
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot
+    type: downstream
+
+  - label: mmlu_other_mc_5shot
+    type: downstream
+
+  - label: arc_challenge_mc_5shot
+    type: downstream
+
+  - label: arc_challenge_mc_5shot_bpb
+    type: downstream
+
+  - label: arc_easy_mc_5shot
+    type: downstream
+
+  - label: arc_easy_mc_5shot_bpb
+    type: downstream
+
+  - label: boolq_mc_5shot
+    type: downstream
+
+  - label: boolq_mc_5shot_bpb
+    type: downstream
+
+  - label: csqa_mc_5shot
+    type: downstream
+
+  - label: csqa_mc_5shot_bpb
+    type: downstream
+
+  - label: hellaswag_mc_5shot
+    type: downstream
+
+  - label: hellaswag_mc_5shot_bpb
+    type: downstream
+
+  - label: openbookqa_mc_5shot
+    type: downstream
+
+  - label: openbookqa_mc_5shot_bpb
+    type: downstream
+
+  - label: piqa_mc_5shot
+    type: downstream
+
+  - label: piqa_mc_5shot_bpb
+    type: downstream
+
+  - label: socialiqa_mc_5shot
+    type: downstream
+
+  - label: socialiqa_mc_5shot_bpb
+    type: downstream
+
+  - label: winogrande_mc_5shot
+    type: downstream
+
+  - label: winogrande_mc_5shot_bpb
+    type: downstream
+
+  - label: basic_arithmetic
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+data:
+  pad_direction: right
+  # generate_doc_lengths: true
+  num_workers: 32
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 8
+  persistent_workers: true
+  memmap_dtype: uint32
+  timeout: 0
+  instance_filter:
+    repetition_max_period: 13
+    repetition_min_period: 1
+    repetition_max_count: 32
+  paths:
+    #SOURCE: http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/ (191.58MT)
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-08-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer (9.03MT)
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-23-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-26-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-28-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-25-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-19-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-31-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-33-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-16-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-21-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-24-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-30-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/gsm8k-synth/resample_v1_6x/dolma2-tokenizer/ (1.08MT)
+    - http://olmo-data.org/preprocessed/gsm8k-synth/resample_v1_6x/dolma2-tokenizer/part-0-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/ (17.06MT)
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-65-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-74-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-77-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-47-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-50-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-83-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-19-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-69-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-70-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-23-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-66-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-88-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-71-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-51-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-75-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-37-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-16-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-82-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-30-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-78-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-38-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-55-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-46-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-67-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-52-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-91-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-73-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-90-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-24-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-59-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-33-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-58-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-68-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-26-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-28-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-53-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-84-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-60-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-63-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-57-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-61-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-25-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-81-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-49-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-56-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-31-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-89-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-80-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-54-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-62-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-64-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-39-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-86-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-40-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-42-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-43-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-48-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-36-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-45-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-79-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-72-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-76-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-41-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-87-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-21-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-85-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/gsm8k/v0_main_train/allenai/dolma2-tokenizer/ (1.23MT)
+    - http://olmo-data.org/preprocessed/gsm8k/v0_main_train/allenai/dolma2-tokenizer/part-0-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/gsm8k/v0_socratic_train/allenai/dolma2-tokenizer/ (1.51MT)
+    - http://olmo-data.org/preprocessed/gsm8k/v0_socratic_train/allenai/dolma2-tokenizer/part-0-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/owm-filtered-math/metamath/ (84.22MT)
+    - http://olmo-data.org/preprocessed/owm-filtered-math/metamath/part-0-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/basic_math_mj/multiadd/dolma2-tokenizer/ (2.21MT)
+    - http://olmo-data.org/preprocessed/basic_math_mj/multiadd/dolma2-tokenizer/part-0-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/multiadd/dolma2-tokenizer/part-5-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/multiadd/dolma2-tokenizer/part-4-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/multiadd/dolma2-tokenizer/part-3-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/multiadd/dolma2-tokenizer/part-2-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/multiadd/dolma2-tokenizer/part-1-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/ (782.58MT)
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-00-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/ (3.09BT)
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-40-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-36-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-66-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-26-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-61-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-19-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-88-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-84-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-63-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-80-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-28-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-83-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-76-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-43-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-69-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-45-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-49-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-48-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-77-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-71-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-64-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-87-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-67-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-55-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-39-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-52-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-73-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-68-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-51-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-57-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-46-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-38-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-89-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-60-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-86-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-24-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-23-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-50-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-91-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-25-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-58-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-85-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-37-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-54-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-30-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-65-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-74-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-75-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-78-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-56-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-82-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-33-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-21-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-41-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-47-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-81-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-16-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-53-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-70-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-72-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-90-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-31-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-62-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-59-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-42-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-79-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/ (3.06BT)
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-70-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-55-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-89-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-45-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-38-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-79-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-87-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-81-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-74-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-85-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-77-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-53-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-78-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-52-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-86-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-88-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-36-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-43-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-54-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-26-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-46-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-21-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-40-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-50-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-59-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-62-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-71-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-16-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-82-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-68-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-61-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-69-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-58-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-48-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-65-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-80-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-64-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-23-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-57-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-25-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-47-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-73-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-83-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-75-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-30-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-66-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-19-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-72-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-56-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-49-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-37-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-60-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-91-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-90-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-31-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-67-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-28-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-41-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-39-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-42-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-63-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-51-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-84-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-76-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-33-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-24-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/tinyGSM/mind-2students/ (3.41BT)
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-24-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-45-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-19-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-42-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-62-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-36-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-65-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-51-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-47-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-75-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-64-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-68-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-52-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-83-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-67-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-63-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-71-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-59-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-74-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-43-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-87-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-78-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-25-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-69-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-58-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-76-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-60-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-77-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-41-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-40-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-31-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-88-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-46-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-61-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-73-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-26-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-54-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-82-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-57-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-50-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-37-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-56-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-90-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-79-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-91-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-16-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-66-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-80-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-38-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-30-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-21-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-33-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-53-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-28-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-81-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-84-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-39-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-23-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-49-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-55-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-70-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-89-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-86-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-85-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-72-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-48-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-14-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/ (1.26BT)
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-00-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/olmo-mix/danyh-compiled-v1_7/documents/wiki/allenai/dolma2-tokenizer/ (3.66BT)
+    - http://olmo-data.org/preprocessed/olmo-mix/danyh-compiled-v1_7/documents/wiki/allenai/dolma2-tokenizer/part-1-00000.npy
+    - http://olmo-data.org/preprocessed/olmo-mix/danyh-compiled-v1_7/documents/wiki/allenai/dolma2-tokenizer/part-0-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/tulu-3-sft-personas-math-grade/dolma2-tokenizer/ (21.80MT)
+    - http://olmo-data.org/preprocessed/tulu-3-sft-personas-math-grade/dolma2-tokenizer/part-1-00000.npy
+    - http://olmo-data.org/preprocessed/tulu-3-sft-personas-math-grade/dolma2-tokenizer/part-4-00000.npy
+    - http://olmo-data.org/preprocessed/tulu-3-sft-personas-math-grade/dolma2-tokenizer/part-3-00000.npy
+    - http://olmo-data.org/preprocessed/tulu-3-sft-personas-math-grade/dolma2-tokenizer/part-0-00000.npy
+    - http://olmo-data.org/preprocessed/tulu-3-sft-personas-math-grade/dolma2-tokenizer/part-2-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/tulu_v3.9_personahub_math_interm_algebra_20k/dolma2-tokenizer/ (19.74MT)
+    - http://olmo-data.org/preprocessed/tulu_v3.9_personahub_math_interm_algebra_20k/dolma2-tokenizer/part-1-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_v3.9_personahub_math_interm_algebra_20k/dolma2-tokenizer/part-0-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/ (191.58MT)
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/part-10-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer (9.03MT)
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-28-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-33-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-30-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-31-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-23-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-19-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-16-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-26-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-21-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-25-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-24-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/dolma2-tokenizer/part-08-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/gsm8k-synth/resample_v1_6x/dolma2-tokenizer/ (1.08MT)
+    - http://olmo-data.org/preprocessed/gsm8k-synth/resample_v1_6x/dolma2-tokenizer/part-0-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/ (17.06MT)
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-19-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-78-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-48-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-69-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-51-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-79-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-91-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-21-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-16-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-53-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-73-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-84-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-87-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-31-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-67-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-41-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-65-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-71-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-58-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-33-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-50-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-37-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-28-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-54-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-57-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-42-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-86-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-74-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-23-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-76-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-56-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-83-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-39-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-25-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-89-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-82-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-63-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-43-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-24-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-75-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-30-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-64-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-77-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-80-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-62-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-26-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-46-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-68-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-38-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-45-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-47-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-36-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-55-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-81-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-66-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-72-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-40-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-59-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-85-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-88-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-61-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-70-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-49-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-52-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-90-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/gsm_MIND/clean_stop/dolma2-tokenizer/part-60-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/gsm8k/v0_main_train/allenai/dolma2-tokenizer/ (1.23MT)
+    - http://olmo-data.org/preprocessed/gsm8k/v0_main_train/allenai/dolma2-tokenizer/part-0-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/gsm8k/v0_socratic_train/allenai/dolma2-tokenizer/ (1.51MT)
+    - http://olmo-data.org/preprocessed/gsm8k/v0_socratic_train/allenai/dolma2-tokenizer/part-0-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/owm-filtered-math/metamath/ (84.22MT)
+    - http://olmo-data.org/preprocessed/owm-filtered-math/metamath/part-0-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/basic_math_mj/multiadd/dolma2-tokenizer/ (2.21MT)
+    - http://olmo-data.org/preprocessed/basic_math_mj/multiadd/dolma2-tokenizer/part-5-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/multiadd/dolma2-tokenizer/part-4-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/multiadd/dolma2-tokenizer/part-0-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/multiadd/dolma2-tokenizer/part-3-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/multiadd/dolma2-tokenizer/part-2-00000.npy
+    - http://olmo-data.org/preprocessed/basic_math_mj/multiadd/dolma2-tokenizer/part-1-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/ (782.58MT)
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/ajibawa-2023/dolma2-tokenizer/part-02-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/ (3.09BT)
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-47-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-36-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-53-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-78-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-26-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-70-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-74-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-83-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-63-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-40-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-88-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-51-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-89-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-25-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-71-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-46-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-81-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-76-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-19-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-33-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-61-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-43-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-65-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-80-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-54-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-38-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-42-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-57-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-77-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-52-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-31-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-91-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-55-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-85-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-41-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-58-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-79-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-30-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-59-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-68-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-86-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-82-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-49-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-69-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-72-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-48-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-24-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-66-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-50-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-37-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-73-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-16-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-90-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-39-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-56-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-87-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-67-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-64-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-21-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-75-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-84-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-60-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-23-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-62-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-45-00000.npy
+    - http://olmo-data.org/preprocessed/mathcoder2-synthmath/mathcoder2-synthmath/filtered-math/dolma2-tokenizer/part-28-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/ (3.06BT)
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-86-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-51-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-69-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-48-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-75-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-77-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-41-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-84-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-63-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-65-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-60-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-55-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-31-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-62-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-45-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-43-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-90-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-16-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-49-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-81-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-58-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-21-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-67-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-91-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-42-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-72-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-30-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-71-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-26-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-56-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-80-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-78-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-59-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-23-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-87-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-52-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-83-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-61-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-24-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-73-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-54-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-50-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-88-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-74-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-47-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-33-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-39-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-70-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-36-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-76-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-38-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-53-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-85-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-25-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-66-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-28-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-19-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-64-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-57-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-68-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-79-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-40-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-46-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-89-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-37-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind/dolma2-tokenizer/part-82-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/tinyGSM/mind-2students/ (3.41BT)
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-53-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-48-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-71-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-70-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-65-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-86-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-62-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-24-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-23-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-31-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-78-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-55-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-89-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-73-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-83-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-52-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-64-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-68-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-38-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-74-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-16-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-43-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-50-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-67-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-46-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-61-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-66-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-58-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-75-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-59-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-26-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-45-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-57-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-19-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-87-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-25-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-84-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-47-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-72-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-81-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-40-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-91-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-36-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-69-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-77-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-56-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-42-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-33-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-21-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-60-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-41-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-30-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-51-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-54-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-37-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-80-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-79-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-39-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-88-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-28-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-82-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-76-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-85-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-90-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-63-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-49-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/ (1.26BT)
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/stackexchange/v1_dedupe/allenai/dolma2-tokenizer/part-03-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/olmo-mix/danyh-compiled-v1_7/documents/wiki/allenai/dolma2-tokenizer/ (3.66BT)
+    - http://olmo-data.org/preprocessed/olmo-mix/danyh-compiled-v1_7/documents/wiki/allenai/dolma2-tokenizer/part-1-00000.npy
+    - http://olmo-data.org/preprocessed/olmo-mix/danyh-compiled-v1_7/documents/wiki/allenai/dolma2-tokenizer/part-0-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/tulu-3-sft-personas-math-grade/dolma2-tokenizer/ (21.80MT)
+    - http://olmo-data.org/preprocessed/tulu-3-sft-personas-math-grade/dolma2-tokenizer/part-1-00000.npy
+    - http://olmo-data.org/preprocessed/tulu-3-sft-personas-math-grade/dolma2-tokenizer/part-4-00000.npy
+    - http://olmo-data.org/preprocessed/tulu-3-sft-personas-math-grade/dolma2-tokenizer/part-3-00000.npy
+    - http://olmo-data.org/preprocessed/tulu-3-sft-personas-math-grade/dolma2-tokenizer/part-2-00000.npy
+    - http://olmo-data.org/preprocessed/tulu-3-sft-personas-math-grade/dolma2-tokenizer/part-0-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/tulu_v3.9_personahub_math_interm_algebra_20k/dolma2-tokenizer/ (19.74MT)
+    - http://olmo-data.org/preprocessed/tulu_v3.9_personahub_math_interm_algebra_20k/dolma2-tokenizer/part-1-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_v3.9_personahub_math_interm_algebra_20k/dolma2-tokenizer/part-0-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/ (17.08BT)
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-54-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-04-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-47-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-52-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-88-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-48-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-73-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-87-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-71-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-82-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-72-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-16-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-77-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-81-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-53-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-83-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-42-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-24-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-61-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-84-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-37-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-91-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-49-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-45-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-65-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-59-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-19-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-33-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-38-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-43-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-40-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-85-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-30-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-46-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-26-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-89-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-28-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-64-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-68-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-90-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-39-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-25-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-80-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-70-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-79-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-58-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-36-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-50-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-55-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-78-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-41-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-76-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-62-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-51-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-21-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-23-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-74-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-31-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-69-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-63-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-60-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-67-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-66-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-86-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-57-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-56-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-75-00000.npy
+    - http://olmo-data.org/preprocessed/tulu_flan/v1-FULLDECON-HARD-TRAIN-60M-shots_all-upweight_1-dialog_false-sep_rulebased/allenai/dolma2-tokenizer/part-11-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/pes2o/allenai/dolma2-tokenizer/ (9.76BT)
+    - http://olmo-data.org/preprocessed/pes2o/allenai/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/pes2o/allenai/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/pes2o/allenai/dolma2-tokenizer/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/pes2o/allenai/dolma2-tokenizer/part-15-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/tinyGSM/mind-2students/ (3.41BT)
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-40-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-16-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-79-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-25-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-64-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-87-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-91-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-23-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-68-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-41-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-54-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-86-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-36-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-57-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-66-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-89-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-52-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-45-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-56-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-38-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-47-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-73-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-19-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-60-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-31-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-70-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-46-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-71-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-26-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-69-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-33-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-78-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-24-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-49-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-58-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-50-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-72-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-51-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-81-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-62-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-90-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-21-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-55-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-30-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-76-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-83-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-42-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-84-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-63-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-67-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-75-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-88-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-85-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-37-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-61-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-77-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-59-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-53-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-80-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-74-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-65-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-48-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-39-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-82-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-43-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-28-00000.npy
+    - http://olmo-data.org/preprocessed/tinyGSM/mind-2students/dolma2-tokenizer/part-04-00000.npy
+    #SOURCE: http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2 (51.47BT)
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0019/part-24-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0009/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0023/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0022/part-33-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0017/part-38-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0020/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0015/part-26-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0002/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0006/part-59-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0017/part-46-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0014/part-63-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0011/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0027/part-60-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0029/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0005/part-61-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0004/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0011/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0001/part-61-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0021/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0010/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0008/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0029/part-23-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0000/part-54-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0023/part-62-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0001/part-00-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0011/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0005/part-19-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0008/part-13-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0011/part-43-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0013/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0012/part-56-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0015/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0028/part-53-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0025/part-37-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0023/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0022/part-21-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0029/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0000/part-42-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0020/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0000/part-47-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0003/part-55-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0001/part-23-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0010/part-54-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0019/part-39-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0006/part-46-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0025/part-48-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0002/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0004/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0016/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0030/part-36-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0029/part-10-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0006/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0000/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0007/part-30-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0008/part-37-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0025/part-50-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0024/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0018/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0009/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0014/part-49-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0001/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0004/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0017/part-09-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0011/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0021/part-41-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0023/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0007/part-46-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0012/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0022/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0014/part-28-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0019/part-16-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0023/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0011/part-55-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0019/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0020/part-02-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0016/part-45-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0002/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0020/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0005/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0029/part-54-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0002/part-2-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0015/part-25-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0026/part-50-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0030/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0011/part-07-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0014/part-52-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0003/part-16-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0026/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0004/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0023/part-55-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0007/part-42-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0014/part-01-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0005/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0001/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0010/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0002/part-03-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0022/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0017/part-26-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0010/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0029/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0030/part-41-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0020/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0010/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0023/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0027/part-14-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0011/part-34-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0018/part-15-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0007/part-06-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0025/part-35-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0030/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0007/part-05-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0021/part-11-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0025/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0004/part-32-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0026/part-37-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0009/part-25-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0004/part-44-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0018/part-18-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0018/part-52-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0016/part-56-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0007/part-12-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0001/part-08-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0018/part-49-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0016/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0030/part-47-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0005/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0005/part-59-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0008/part-30-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0000/part-27-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0019/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0013/part-17-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0025/part-22-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0002/part-48-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0010/part-29-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0018/part-24-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0023/part-20-00000.npy
+    - http://olmo-data.org/preprocessed/dclm/v0_rep32_ft7percentile_fw2/documents/allenai/dolma2-tokenizer/0016/part-18-00000.npy

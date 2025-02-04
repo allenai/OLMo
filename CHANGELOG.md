@@ -7,7 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Add GSM8K to in-loop evals (BPB over correct continuation)
+- Support for specifying custom dataset objects in the `data` section of the config file.
 - Added support for safetensors in `hf_olmo` conversion script.
+
+
+## [v0.6.0](https://github.com/allenai/OLMo/releases/tag/v0.6.0) - 2024-12-17
+
+### Added
+
+- A bunch of annealing configs
+- `constant_with_warmup` learning rate schedule
+- `one_in_eight` configuration for activation checkpointing
+- New tokenizer in the source instead of from huggingface
+- Improved support for GCS
+- `torch.compile()` now only compiles each block, not the whole model.
+- Support for `torch.compile()` with `dynamic=True`
+- Resetting the `torch.compile()` after every evaluation, because evaluation messes with the compiled versions
+- Added more in-loop evaluation tasks to pick from, mostly for scaling law.
+
 
 ## [v0.5.1](https://github.com/allenai/OLMo/releases/tag/v0.5.1) - 2024-10-17
 
@@ -15,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added ability to try loading latest checkpoint from save folder using `--try_load_latest_save`.
 - Added support for flash attention and gradient checkpointing to `hf_olmo`.
+- Added to `scripts.compare_wandb_configs.py` the ability to more easily compare differences in data mixes and evaluation tasks.
 - Added `effective_n_kv_heads` to OLMoConfig for hacky VLLM support.
 
 ## [v0.5.0](https://github.com/allenai/OLMo/releases/tag/v0.5.0) - 2024-08-26

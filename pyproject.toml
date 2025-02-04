@@ -14,7 +14,7 @@ requires-python = ">=3.8"
 license = { file = "LICENSE" }
 dependencies = [
     "numpy<2",
-    "torch>=2.1,<2.5",
+    "torch>=2.1",
     "ai2-olmo-core==0.1.0",
     "omegaconf",
     "rich",
@@ -53,6 +53,9 @@ train = [
 ]
 all = [
     "ai2-olmo[dev,train]",
+]
+figures = [
+    "matplotlib",
 ]
 
 [project.urls]
