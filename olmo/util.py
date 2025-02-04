@@ -565,6 +565,13 @@ def _get_s3_endpoint_url(scheme: str) -> Optional[str]:
 
 
 @cache
+def _get_gcs_client():
+    from google.cloud import storage as gcs
+
+    return gcs.Client()
+
+
+@cache
 def _get_s3_client(scheme: str):
     session = boto3.Session(profile_name=_get_s3_profile_name(scheme))
     return session.client(
@@ -698,7 +705,11 @@ def _http_file_size(scheme: str, host_name: str, path: str) -> int:
     import requests
 
     response = requests.head(f"{scheme}://{host_name}/{path}", allow_redirects=True)
-    return int(response.headers.get("content-length"))
+
+    if (content_length := response.headers.get("content-length")) is not None:
+        return int(content_length)
+
+    raise OLMoNetworkError(f"Failed to get {scheme} file size")
 
 
 def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: int, num_bytes: int) -> bytes:
@@ -708,9 +719,10 @@ def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: i
         f"{scheme}://{host_name}/{path}", headers={"Range": f"bytes={bytes_start}-{bytes_start+num_bytes-1}"}
     )
     result = response.content
-    assert (
-        len(result) == num_bytes
-    ), f"expected {num_bytes} bytes, got {len(result)}"  # Some web servers silently ignore range requests and send everything
+
+    # Some web servers silently ignore range requests and send everything
+    assert len(result) == num_bytes, f"expected {num_bytes} bytes, got {len(result)}"
+
     return result
 
 
