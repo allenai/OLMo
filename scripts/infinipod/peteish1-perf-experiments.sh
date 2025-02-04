@@ -41,6 +41,7 @@ export LD_LIBRARY_PATH=/usr/local/nvidia/lib64:/usr/lib/x86_64-linux-gnu:"$LD_LI
 # export NCCL_TUNER_PLUGIN="none"
 export NCCL_TUNER_CONFIG_PATH="/usr/local/nvidia/lib64/a3plus_tuner_config_ll128.textproto"
 export NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE="/usr/local/nvidia/lib64/a3plus_guest_config_ll128.textproto"
+export NCCL_PROTO="^LL"
 export NVIDIA_PYTORCH_VERSION=24.03
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
