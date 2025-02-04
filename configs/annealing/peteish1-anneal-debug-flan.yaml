@@ -128,7 +128,7 @@ save_interval_unsharded: null
 save_num_unsharded_checkpoints_to_keep: -1
 
 # load_path: /oe-eval-default/davidh/base/checkpoints/OLMo-small/peteish1/step1907359
-load_path: /oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-rerun-370M-1xC/step9452-unsharded
+load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-rerun-370M-1xC/step9452-unsharded
 
 restore_dataloader: false
 no_pre_train_checkpoint: true
