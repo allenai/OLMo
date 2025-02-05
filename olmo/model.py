@@ -1753,7 +1753,7 @@ class OLMo(nn.Module):
         if checkpoint_type == CheckpointType.unsharded:
             # Initialize model (always on CPU to start with so we don't run out of GPU memory).
             model_config.init_device = "cpu"
-            model = OLMo(model_config).to(device)
+            model = OLMo(model_config)
 
             # Load state dict directly to target device.
             state_dict_path = resource_path(checkpoint_dir, "model.pt")

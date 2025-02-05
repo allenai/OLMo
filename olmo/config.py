@@ -853,11 +853,9 @@ class SingleGPUConfig(BaseConfig):
             else:
                 return torch.device("cpu")
         elif self.device == "mps" and not torch.backends.mps.is_available():
-            print("MPS not available.")
-            return torch.device("cpu")
+            raise OLMoConfigurationError("MPS not available.")
         elif self.device == "cuda" and not torch.cuda.is_available():
-            print("CUDA not available.")
-            return torch.device("cpu")
+            raise OLMoConfigurationError("CUDA not available.")
         else:
             return torch.device(self.device)
 

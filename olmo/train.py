@@ -432,10 +432,16 @@ class Trainer:
         random.setstate(rng_state["python"])
         np.random.set_state(rng_state["numpy"])
         torch.set_rng_state(rng_state["torch"])
-        if rng_state["cuda"] is not None:
-            torch.cuda.set_rng_state(rng_state["cuda"])
-        if rng_state["mps"] is not None:
-            torch.mps.set_rng_state(rng_state["mps"])
+        if torch.cuda.is_available():
+            if rng_state["cuda"] is not None:
+                torch.cuda.set_rng_state(rng_state["cuda"])
+            else:
+                print("Warning: CUDA is available, but no RNG state was provided.")
+        if torch.backends.mps.is_available():
+            if rng_state["mps"] is not None:
+                torch.mps.set_rng_state(rng_state["mps"])
+            else:    
+                print("Warning: MPS is available, but no RNG state was provided.")
 
     def _save_checkpoint(
         self, checkpointer: Checkpointer, checkpoint_type: CheckpointType
@@ -801,7 +807,8 @@ class Trainer:
             output_hooks += self._setup_module_output_save_hooks(micro_batch_idx)
 
             with grad_sync_context():
-                with torch.autocast("mps", enabled=True, dtype=self.cfg.autocast_precision):
+                autocast_device = "mps" if self.device.type == "mps" else "cuda"
+                with torch.autocast(autocast_device, enabled=True, dtype=self.cfg.autocast_precision):
                     # Run forward pass.
                     loss, ce_loss, z_loss = self.train_micro_batch(micro_batch, batch_size_in_tokens)
 

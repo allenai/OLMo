@@ -75,7 +75,7 @@ def move_to_device(o: T, device: torch.device) -> T:
     elif isinstance(o, tuple):
         return tuple((move_to_device(x, device) for x in o))  # type: ignore[return-value]
     else:
-        return o.to(device)  # type: ignore
+        return o  # type: ignore
 
 
 def ensure_finite_(x: torch.Tensor, check_neg_inf: bool = True, check_pos_inf: bool = False):

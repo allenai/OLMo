@@ -646,7 +646,7 @@ class FullCheckpointer(Checkpointer):
                     self._write_optim_dict(
                         optim_state_dict, checkpoint_dir, upload_to, save_overwrite=self.cfg.save_overwrite
                     )
-            elif isinstance(dist_model, DDP) or isinstance(dist_model, SingleAccelerator):
+            elif isinstance(dist_model, (DDP, SingleAccelerator)):
                 # _write_model_dict and _write_optim_dict only write checkpoints for rank 0
                 # First, get the model state dict from DDP wrapped model
                 model_state_dict = dist_model.module.state_dict()
@@ -758,7 +758,7 @@ class FullCheckpointer(Checkpointer):
                             torch.cuda.empty_cache()
                         barrier()
                     del optim_state_dict_to_load
-        elif isinstance(dist_model, DDP) or isinstance(dist_model, SingleAccelerator):
+        elif isinstance(dist_model, (DDP, SingleAccelerator)):
             # Load model state.
             with torch.no_grad():
                 state_dict_to_load = load_state_dict(

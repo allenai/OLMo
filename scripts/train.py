@@ -137,7 +137,7 @@ def main(cfg: TrainConfig) -> None:
 
     # Initialize the model.
     log.info("Building model...")
-    olmo_model = OLMo(cfg.model).to(device)
+    olmo_model = OLMo(cfg.model)
     log.info(f"Total number of parameters: {olmo_model.num_params():,d}")
     log.info(f"Number of non-embedding parameters: {olmo_model.num_params(include_embedding=False):,d}")
     log.info(f"Peak GPU Memory (MB) before {cfg.distributed_strategy}: {int(peak_gpu_memory() or 0)}")
@@ -220,6 +220,8 @@ def main(cfg: TrainConfig) -> None:
         )
     elif cfg.distributed_strategy == DistributedStrategy.single:
         param_init_fn = None
+        if olmo_model is None:
+            raise OLMoConfigurationError("Model initialization failed.")
         olmo_model = olmo_model.to(device)
         dist_model = SingleAccelerator(olmo_model)
 
@@ -383,7 +385,6 @@ if __name__ == "__main__":
     except RuntimeError as e:
         print(f"failed to set multiprocessing start method: {e}")
     log.info(f"Multiprocessing start method set to '{mp.get_start_method()}'")
-    mps_device = False
     if torch.cuda.is_available():
         # Set CUDA device.
         torch.cuda.set_device(f"cuda:{get_local_rank()}")
@@ -397,7 +398,6 @@ if __name__ == "__main__":
             backend="nccl", timeout=timedelta(minutes=30), device_id=torch.device(device_as_string)
         )
     elif torch.backends.mps.is_available():
-        mps_device = True
         if not os.getenv("RANK"):
             os.environ["RANK"] = "0"
         if not os.getenv("WORLD_SIZE"):
@@ -424,8 +424,12 @@ if __name__ == "__main__":
         raise OLMoCliError(f"Usage: {sys.argv[0]} [CONFIG_PATH] [OPTIONS]")
 
     cfg = TrainConfig.load(yaml_path, [clean_opt(s) for s in args_list])
-    if mps_device:
+    if torch.device("mps"):
         log.info("Device is MPS. Updating config...")
         cfg.model.init_device = "mps"
         cfg.distributed_strategy = "single"  # type: ignore
+
+    if torch.device("cpu"):
+        log.info("Device is CPU. Updating config...")
+        cfg.model.init_device = "cpu"
     main(cfg)
