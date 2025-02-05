@@ -8,7 +8,7 @@ wandb:
   project: olmo-rc-mc
   group: ${run_name}
 
-# peteish1 config
+# # peteish1 config
 # model:
 #   d_model: 2048
 #   n_heads: 16
@@ -43,50 +43,84 @@ wandb:
 #   init_cutoff_factor: 3
 
 # 370M config
+# model:
+#   d_model: 1024
+#   n_heads: 16
+#   n_kv_heads: null
+#   clip_qkv: null
+#   n_layers: 16
+#   mlp_ratio: 8
+#   mlp_hidden_size: null
+#   activation_type: swiglu
+#   block_type: sequential
+#   block_group_size: 1
+#   alibi: false
+#   alibi_bias_max: 8.0
+#   rope: true
+#   rope_full_precision: true
+#   rope_theta: 500000
+#   flash_attention: true
+#   attention_dropout: 0.0
+#   multi_query_attention: null
+#   attention_layer_norm: true
+#   residual_dropout: 0.0
+#   embedding_dropout: 0.0
+#   embedding_layer_norm: false
+#   layer_norm_type: rms
+#   layer_norm_with_affine: true
+#   layer_norm_eps: 1.0e-06
+#   attention_layer_norm_with_affine: true
+#   max_sequence_length: 4096
+#   include_bias: false
+#   bias_for_layer_norm: false
+#   scale_logits: false
+#   vocab_size: 100278
+#   embedding_size: 100352
+#   weight_tying: false
+#   eos_token_id: 100257
+#   pad_token_id: 100277
+#   init_device: cuda
+#   init_fn: normal
+#   init_std: 0.02
+#   init_cutoff_factor: 3.0
+#   precision: amp_bf16
+#   scale_emb_init: false
+#   emb_init_std: null
+#   norm_after: true
+
+
 model:
   d_model: 1024
   n_heads: 16
-  n_kv_heads: null
-  clip_qkv: null
   n_layers: 16
   mlp_ratio: 8
-  mlp_hidden_size: null
-  activation_type: swiglu
-  block_type: sequential
-  block_group_size: 1
+  weight_tying: false
   alibi: false
-  alibi_bias_max: 8.0
   rope: true
-  rope_full_precision: true
   rope_theta: 500000
   flash_attention: true
   attention_dropout: 0.0
-  multi_query_attention: null
-  attention_layer_norm: true
-  residual_dropout: 0.0
-  embedding_dropout: 0.0
-  embedding_layer_norm: false
+  include_bias: false
+  block_type: sequential
   layer_norm_type: rms
   layer_norm_with_affine: true
-  layer_norm_eps: 1.0e-06
-  attention_layer_norm_with_affine: true
-  max_sequence_length: 4096
-  include_bias: false
+  layer_norm_eps: 1e-6
   bias_for_layer_norm: false
-  scale_logits: false
+  attention_layer_norm: true
+  attention_layer_norm_with_affine: true
+  norm_after: true
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 4096
   vocab_size: 100278
   embedding_size: 100352
-  weight_tying: false
   eos_token_id: 100257
   pad_token_id: 100277
-  init_device: cuda
+  init_device: meta
   init_fn: normal
   init_std: 0.02
-  init_cutoff_factor: 3.0
-  precision: amp_bf16
-  scale_emb_init: false
-  emb_init_std: null
-  norm_after: true
+  init_cutoff_factor: 3
 
 softmax_auxiliary_loss: true
 auxiliary_loss_multiplier: 1e-5
@@ -96,8 +130,8 @@ compile: null
 
 optimizer:
   name: adamw
-  # learning_rate: 7.448728958032132e-05
-  learning_rate: 0.0007785480791584576
+  learning_rate: 7.448728958032132e-05
+  # learning_rate: 0.0007785480791584576
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
