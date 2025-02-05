@@ -54,9 +54,10 @@ optimizer:
   betas:
   - 0.9
   - 0.95
-  metrics_log_interval: 1
+  metrics_log_interval: 10
   record_update_metrics: true
-  num_eigenvalues: 50
+  num_lanczos_itr: 10
+  preconditioned_hvp: false
 
 scheduler:
   name: cosine_with_warmup
@@ -81,7 +82,7 @@ load_path: null
 max_duration: 10485760000T # 10B tokens
 stop_at: 406_934
 global_train_batch_size: 512
-device_train_microbatch_size: 64
+device_train_microbatch_size: 32
 
 precision: fp32
 distributed_strategy: ddp

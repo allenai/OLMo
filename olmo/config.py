@@ -533,9 +533,14 @@ class OptimizerConfig(BaseConfig):
     of the update with AdamW.
     """
 
-    num_eigenvalues: int = 10
+    num_lanczos_itr: int = 20
     """
-    Number of eigenvalues to log from the hessian of a batch
+    Number of iterations for Lanczos algorithm to estimate the eigenvalues of the Hessian.
+    """
+
+    preconditioned_hvp: bool = False
+    """
+    Compute the eigenvalues of Hessian-vector product (HVP) for P^(-1) * HV.
     """
 
     def __post_init__(self):

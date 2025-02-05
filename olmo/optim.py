@@ -36,80 +36,126 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 
-# def hessian_vector_product(params, grad, v):
-#     """
-#     Compute the Hessian-vector product Hv at point x in the direction v using PyTorch autograd.
-    
-#     Parameters:
-#     - params: model to get hessian wrt each parameter
-#     - grad: gradient of the model from backprop
-#     - v: torch.Tensor of shape (n,), the vector to multiply with the Hessian.
-    
-#     Returns:
-#     - hvp: torch.Tensor of shape (n,), the Hessian-vector product Hv.
-#     """
-#     ################################################################
-
-#     import ipdb
-#     ipdb.set_trace()
-
-#     # TODO: handle grad being a list of None for each param or one of the grads (wte) being None
-
-#     # TODO: replace x with model.parameters in the right form
-#     # TODO: grad_output flag should be set, why [0]
-#     Hv = 
-
-#     return Hv.detach()
-
-
-def arnoldi_iteration_hvp(params, grad, k):
+def get_optim_preconditioner(optimizer) -> torch.Tensor:
     """
-    Perform the Arnoldi iteration to approximate eigenvalues using Hessian-vector products.
-    
-    Parameters:
-    - params: NN parameters.
-    - grad: first order gradient of model parameters from backprop.
-    - k: Integer, the number of Arnoldi iterations to perform.
-    
-    Returns:
-    - eigenvalues: torch.Tensor of approximated eigenvalues.
+    Right now, works only for AdamW. TODO: add support for other optimizers.
     """
-    n = params.numel()
-    Q = torch.zeros((n, k + 1)).to(params.device)
-    H = torch.zeros((k + 1, k)).to(params.device)
+    second_moment_tensors = []
+    for group in optimizer.param_groups:
+        for p in group['params']:
+            state = optimizer.state[p]
+            second_moment_tensors.append(state['exp_avg_sq'].view(-1))
 
-    # embedding layer will have NaN grads
-    grad = torch.nan_to_num(grad, nan=0.)
-    
-    # Start with a random unit vector
-    q = torch.randn(n).to(params.device)
-    q /= torch.norm(q)
-    Q[:, 0] = q
-    
-    for j in range(k):
-        # Compute Hessian-vector product
-        v = torch.autograd.grad(grad, params, grad_outputs=Q[:, j], retain_graph=True)[0].detach()
-        v = torch.nan_to_num(v, nan=0.)
-        # v = hessian_vector_product(params, grad, Q[:, j])
+    return torch.cat(second_moment_tensors)
 
-        # Modified Gram-Schmidt orthogonalization
-        for i in range(j + 1):
-            H[i, j] = torch.dot(Q[:, i], v)
-            v -= H[i, j] * Q[:, i]
-        
-        H[j + 1, j] = torch.norm(v)
-        if H[j + 1, j] > 1e-10:
-            Q[:, j + 1] = v / H[j + 1, j]
-        else:
-            # Convergence achieved
-            break
-    
-    # Truncate H to the correct size
-    H_reduced = H[:j + 1, :j + 1]
-    # Compute eigenvalues of the Hessenberg matrix H
-    eigenvalues = torch.linalg.eigvals(H_reduced)
 
-    return eigenvalues
+class MicrobatchLanczosAlgorithm:
+    def __init__(self, num_iterations=20, tol=1e-6):
+        self.num_iterations = num_iterations
+        self.tol = tol
+
+    # TODO: add reset for resetting v, for preconditioned eigenlist
+    # TODO: clean state function after function call
+    # TODO: this wont work with DDP, DDP will probably need some sync
+    # TODO: maybe loss.backward() and wait for all buckets to sync
+    def hvp(self, micro_batch_fn, batch, params, v, preconditioner=None):
+        # if preconditioner is not None, we need to compute P^(-1/2) * v
+        if preconditioner is not None:
+            v = v / (preconditioner.sqrt() + 1e-8)
+
+        # this accumulates the Hessian-vector product over the microbatch
+        hvp = micro_batch_fn(batch, params, v)
+
+        # if preconditioner is not None, we need to compute P^(-1/2) * hv
+        if preconditioner is not None:
+            hvp = hvp / (preconditioner.sqrt() + 1e-8)
+
+        return hvp
+
+    def __call__(self, model, micro_batch_fn, batch, preconditioner=None):
+        """
+        Runs the Lanczos algorithm to get extreme eigenvalues of the Hessian.
+        https://iclr-blogposts.github.io/2024/blog/bench-hvp/
+        """
+        params = list(model.parameters())
+        num_params = sum(p.numel() for p in params)
+        device = params[0].device
+
+        # variables
+        q_vectors = []
+        alpha_list = []
+        beta_list = []
+
+        # Initialize the first Lanczos vector (normalized random vector)
+        v = torch.randn(num_params, device=device)
+        v = v / torch.norm(v)
+
+        # initialize the 0-th iteration of Lanczos's algorithm
+        w = self.hvp(micro_batch_fn, batch, params, v, preconditioner)
+        alpha = torch.dot(v, w)
+        w = w - alpha * v
+
+        # we start collecting from alpha_0
+        q_vectors.append(v)
+        alpha_list.append(alpha.item())
+
+        for i in range(1, self.num_iterations):
+            beta = torch.norm(w)
+            v = w / beta
+
+            w = self.hvp(micro_batch_fn, batch, params, v, preconditioner)
+            alpha = torch.dot(v, w)
+            w = w - alpha * v - beta * q_vectors[i - 1]
+
+            # after accessing q_vectors[i - 1], we add current itrerations v to q_vectors
+            # here we collect alpha_i and beta_i
+            q_vectors.append(v)
+            alpha_list.append(alpha.item())
+            beta_list.append(beta.item())
+
+            # if beta is less than tolerance in the 1st iteration, we need a minimum of 2x2 T matrix
+            if beta < self.tol:
+                break
+
+        # Construct the tridiagonal matrix T
+        T = torch.diag(torch.tensor(alpha_list, device=device))
+        for i in range(len(beta_list)):
+            # above the diagonal
+            T[i, i + 1] = beta_list[i]
+
+            # below the diagonal
+            T[i + 1, i] = beta_list[i]
+
+        # Compute eigenvalues of T
+        eigenvalues, eigenvectors = torch.linalg.eigh(T)
+
+        # Recover Ritz vectors from Q and eigenvectors of T
+        Q = torch.stack(q_vectors, dim=1)
+        largest_index = torch.argmax(eigenvalues)
+        smallest_index = torch.argmin(eigenvalues)
+
+        largest_eigenvalue = eigenvalues[largest_index]
+        smallest_eigenvalue = eigenvalues[smallest_index]
+
+        largest_ritz_vector = Q @ eigenvectors[:, largest_index]
+        smallest_ritz_vector = Q @ eigenvectors[:, smallest_index]
+
+        # get the eigenvalue spectrum density of the Hessian
+        eigen_list = eigenvalues.tolist()
+        weight_list = torch.pow(eigenvectors[0,:], 2).tolist()
+
+        # TODO: angle between grad, ritz vectors, update vector
+        # TODO: make sure optimization follows the same path in fp32
+        # TODO: how close are Hessians across batches? is it a good approximation of the full-batch Hessian?
+
+        return (
+            largest_eigenvalue,
+            smallest_eigenvalue,
+            largest_ritz_vector,
+            smallest_ritz_vector,
+            eigen_list,
+            weight_list
+        )
 
 
 class Optimizer(OptimizerBase):
@@ -219,20 +265,27 @@ class Optimizer(OptimizerBase):
                         per_param_grad_state_2_tensors.extend([torch.zeros_like(p)])
                     get_norm(state['exp_avg_sq'], per_param_grad_state_2_norm)
 
-        assert (
-            len(per_param_grad_names)
-            == len(per_param_grad_tensors)
-            == len(per_param_grad_norm)
-            == len(per_param_param_names)
-            == len(per_param_param_tensors)
-            == len(per_param_param_norm)
-            == len(per_param_grad_state_1_names)
-            == len(per_param_grad_state_1_tensors)
-            == len(per_param_grad_state_1_norm)
-            == len(per_param_grad_state_2_names)
-            == len(per_param_grad_state_2_tensors)
-            == len(per_param_grad_state_2_norm)
-        )
+        if collect_param_metrics:
+            assert (
+                len(per_param_grad_names)
+                == len(per_param_grad_tensors)
+                == len(per_param_grad_norm)
+                == len(per_param_param_names)
+                == len(per_param_param_tensors)
+                == len(per_param_param_norm)
+                == len(per_param_grad_state_1_names)
+                == len(per_param_grad_state_1_tensors)
+                == len(per_param_grad_state_1_norm)
+                == len(per_param_grad_state_2_names)
+                == len(per_param_grad_state_2_tensors)
+                == len(per_param_grad_state_2_norm)
+            )
+        else:
+            assert (
+                len(per_param_grad_names)
+                == len(per_param_grad_tensors)
+                == len(per_param_grad_norm)
+            )
 
         #######################################################################
         # part 2: reduce metrics over ranks
@@ -265,6 +318,9 @@ class Optimizer(OptimizerBase):
         for metric_name, metric, _tensor in zip(per_param_grad_names, per_param_grad_norm, per_param_grad_tensors):
             all_metrics[metric_name] = metric.squeeze(0)
             all_metrics[metric_name.replace('grad/', 'grad_tensors/')] = torch.nan_to_num(_tensor, nan=0)
+
+        if collect_param_metrics:
+            all_metrics["all_grad_tensors"] = torch.cat([g.flatten() for g in per_param_grad_tensors])
 
         #######################################################################
         # part 3: clip grads
@@ -637,10 +693,8 @@ class LionW(Optimizer):
 
 
 class AdamW(torch.optim.AdamW, Optimizer):
-    def __init__(self, *args, num_eigenvalues: int = 1, record_update_metrics: bool = False, selective_updates: bool = False, **kwargs):
+    def __init__(self, *args, record_update_metrics: bool = False, selective_updates: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self._num_eigenvalues = num_eigenvalues
 
         # Need to set these here just like in our base `Optimizer` class since our `Optimizer.__init__`
         # won't be called.
@@ -806,14 +860,7 @@ class AdamW(torch.optim.AdamW, Optimizer):
 
                 metrics[f"update_tensors/{update_name.replace('update/', '')}"] = torch.nan_to_num(update_tensor, nan=0)
 
-            eigenvalues = arnoldi_iteration_hvp(
-                nn.utils.parameters_to_vector(self._param_tensors),
-                nn.utils.parameters_to_vector(self._grad_tensors),
-                k=self._num_eigenvalues
-            )
-
-            # eigenvalues might be complex due to numerical errors, take the real part
-            metricss["hessian_eigenvals"] = eigenvalues.real
+            metrics["all_update_tensors"] = torch.cat([u.flatten() for u in self._update_tensors])
 
             # TODO: move param, optim stats plotting to post step metrics (grads are updated before optim step, but other things are not)
             # TODO: this is neater, everything in pre-step metrics always gets called and things in post_step metrics get called when we want to log
@@ -1226,7 +1273,6 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
             record_update_metrics=cfg.optimizer.record_update_metrics,
             selective_updates=cfg.optimizer.selective_updates,
             eps=cfg.optimizer.eps,
-            num_eigenvalues=cfg.optimizer.num_eigenvalues,
         )
     else:
         raise NotImplementedError

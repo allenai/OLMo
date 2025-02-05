@@ -44,7 +44,7 @@ from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OLMoConfigurationError
 from .model import OLMo
-from .optim import Optimizer, Scheduler
+from .optim import Optimizer, Scheduler, get_optim_preconditioner, MicrobatchLanczosAlgorithm
 from .torch_util import (
     barrier,
     gc_cuda,
@@ -768,7 +768,7 @@ class Trainer:
 
         return loss, ce_loss, z_loss
 
-    def train_batch(self, batch: Dict[str, Any], should_log_optim_metrics_this_step: bool = False) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    def train_batch(self, batch: Dict[str, Any]) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         # Split into micro-batches.
         micro_batches = self.split_batch(batch)
         batch_size_in_tokens = batch["input_ids"].numel()
@@ -808,17 +808,51 @@ class Trainer:
                         assert z_batch_loss is not None
                         z_batch_loss += z_loss.detach()
 
-                # Run backward pass.
-                if should_log_optim_metrics_this_step:
-                    loss.backward(retain_graph=True)
-                else:
-                    loss.backward()
+                loss.backward()
 
             # Remove output hooks
             for hook in output_hooks:
                 hook.remove()
 
         return ce_batch_loss, z_batch_loss
+
+    def train_batch_lanczos(self, batch, params, v) -> torch.Tensor:
+        """
+        Imp: this function skips calling loss.backward() and instead returns the loss.
+        TODO: This function does not do z_loss or work with DDP right now.
+
+        No need to divide gradients by number of micro-batches as we are simulating a bigger batch
+        """
+        # Split into micro-batches.
+        micro_batches = self.split_batch(batch)
+        hvp = None
+
+        for micro_batch_idx, micro_batch in enumerate(micro_batches):
+            ce_loss, z_loss, logits = self.model_forward(micro_batch, compute_z_loss=False, loss_reduction="sum")
+
+            # TODO: divide later as batch_size in tokens is large and most grads become super small or 0
+            ce_loss = ce_loss / micro_batch["input_ids"].numel()
+
+            grad_params = torch.autograd.grad(ce_loss, params, create_graph=True)
+            grad_params = torch.cat([g.flatten() for g in grad_params])
+
+            grad_v_prod = torch.sum(grad_params * v)
+            microbatch_hvp = torch.autograd.grad(grad_v_prod, params, retain_graph=True)
+            microbatch_hvp = torch.cat([g.flatten() for g in microbatch_hvp])
+
+            if hvp is None:
+                hvp = microbatch_hvp.detach()
+            else:
+                hvp += microbatch_hvp.detach()
+
+            del micro_batch
+            del logits
+            del ce_loss
+            del grad_params
+            del grad_v_prod
+            torch.cuda.empty_cache()
+
+        return hvp / len(micro_batches)
 
     def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
         metrics: Dict[str, float] = {}
@@ -832,16 +866,35 @@ class Trainer:
         if (instance_mask := batch.get("instance_mask")) is not None:
             metrics["train/masked_instances_local_rank"] = (~instance_mask).sum().item()
 
-        should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
-
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
 
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
 
+        # track hessian eigenvalues
+        should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
+
+        if should_log_optim_metrics_this_step:
+            if isinstance(self.dist_model, FSDP):
+                raise NotImplementedError("FSDP not supported for eigenvalue tracking")
+
+            lanczos = MicrobatchLanczosAlgorithm(num_iterations=self.cfg.optimizer.num_lanczos_itr)
+            largest_eigenvalue, smallest_eigenvalue, largest_ritz_vector, smallest_ritz_vector, eigen_list, weight_list =\
+              lanczos(self.dist_model.module if isinstance(self.dist_model, DDP) else self.dist_model, self.train_batch_lanczos, batch)
+
+            if self.cfg.optimizer.preconditioned_hvp:
+                if self.global_step > 1:
+                    preconditioner = get_optim_preconditioner(self.optim)
+                    preconditioned_lanczos = MicrobatchLanczosAlgorithm(num_iterations=self.cfg.optimizer.num_lanczos_itr)
+                    prec_largest_eigenvalue, prec_smallest_eigenvalue, prec_largest_ritz_vector, prec_smallest_ritz_vector, prec_eigen_list, prec_weight_list =\
+                      lanczos(self.dist_model.module if isinstance(self.dist_model, DDP) else self.dist_model, self.train_batch_lanczos, batch, preconditioner)
+
+            metrics["optim/largest_eigenvalue"] = largest_eigenvalue.item()
+            metrics["optim/smallest_eigenvalue"] = smallest_eigenvalue.item()
+
         # Run forward-backward pass.
-        ce_batch_loss, z_batch_loss = self.train_batch(batch, should_log_optim_metrics_this_step)
+        ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
         # Collect loss, potentially reducing over all ranks.
         if reduce_global_loss:
@@ -859,6 +912,10 @@ class Trainer:
             # HYBRID sharding.
             process_group=self.dist_model.process_group,
         )
+
+        if should_log_optim_metrics_this_step:
+            metrics["optim/grad_ritz_vec_angle"] = self.optim.get_angle_between_vecs(largest_ritz_vector, optim_metrics['all_grad_tensors']).item()
+            del optim_metrics['all_grad_tensors']
 
         exclude_key_list = [
             'param', 'grad', 'first_moment', 'second_moment', 'clip_stats',
@@ -912,6 +969,10 @@ class Trainer:
             optim_metrics = self.optim.get_post_step_metrics(
                 self.dist_model, process_group=self.dist_model.process_group
             )
+
+            # TODO: collect update_tensors and plot angle between largest ritz vector and grad
+            metrics["optim/update_ritz_vec_angle"] = self.optim.get_angle_between_vecs(largest_ritz_vector, optim_metrics['all_update_tensors']).item()
+            del optim_metrics['all_update_tensors']
 
             # eigenvalue plot, or distribution plot should go under optim
             exclude_key_list = ['update_norm', 'grad_update_angle', 'update_tensors']
