@@ -107,4 +107,5 @@ torchrun \
       --optimizer.metrics_log_interval=10 \
       --data.prefetch_factor=8 \
       --torch_profiling \
+      --module_outputs_save_steps="[584451,584452]" \
       ${@}
