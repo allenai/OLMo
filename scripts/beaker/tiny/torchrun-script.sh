@@ -34,4 +34,5 @@ torchrun \
       --wandb.group=$TASK_NAME \
       --wandb.project=olmo-optimizers \
       --optimizer.learning_rate=1e-5 \
+      --device_train_microbatch_size=16 \
       --save_overwrite

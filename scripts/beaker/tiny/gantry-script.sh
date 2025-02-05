@@ -11,10 +11,10 @@ gantry run \
   --workspace ai2/OLMo-optimizers \
   --task-name ${TASK_NAME} \
   --description "OLMo optimizer runs" \
-  --priority high \
+  --priority normal \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/ceres-cirrascale \
+  --cluster ai2/neptune-cirrascale \
   --gpus 1 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
