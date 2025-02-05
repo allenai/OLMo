@@ -2,20 +2,20 @@
 
 set -ex
 
-NUM_NODES=8
-TASK_NAME=tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd
-CONFIG_PATH=configs/tiny/OLMo-300M.yaml
+NUM_NODES=1
+TASK_NAME=olmo-7M-optimizer-adamw-lr-1e-5
+CONFIG_PATH=configs/optimizers/OLMo-7M.yaml
 
 gantry run \
   --allow-dirty \
-  --workspace ai2/OLMo-tiny \
+  --workspace ai2/OLMo-optimizers \
   --task-name ${TASK_NAME} \
-  --description "Tiny OLMo runs" \
+  --description "OLMo optimizer runs" \
   --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/jupiter-cirrascale-2 \
-  --gpus 8 \
+  --cluster ai2/ceres-cirrascale \
+  --gpus 1 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \

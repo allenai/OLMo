@@ -23,7 +23,7 @@ export HF_DATASETS_OFFLINE=1
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
-  --nproc-per-node 8 \
+  --nproc-per-node 1 \
   --rdzv_id=101 \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
@@ -32,8 +32,6 @@ torchrun \
       --run_name=$TASK_NAME \
       --wandb.name=$TASK_NAME \
       --wandb.group=$TASK_NAME \
-      --wandb.project=olmo-tiny \
-      --optimizer.learning_rate=6e-4 \
-      --optimizer.decay_embeddings=true \
-      '--load_path=${path.last_checkpoint:s3://ai2-llm/checkpoints/olmo-tiny/tiny-olmo-300M-rms-norm-adam-eps-1e-8-lr-6e-4-emb-wd}' \
+      --wandb.project=olmo-optimizers \
+      --optimizer.learning_rate=1e-5 \
       --save_overwrite
