@@ -524,7 +524,7 @@ class OLMoBlock(nn.Module):
         elif bias.device.type == "cpu" and torch.is_autocast_cpu_enabled():
             target_dtype = torch.get_autocast_cpu_dtype()
         elif bias.device.type == "mps":
-            target_dtype = torch.float32
+            target_dtype = torch.get_autocast_dtype("mps")
         if bias.dtype != target_dtype:
             bias = bias.to(target_dtype)
             ensure_finite_(bias, check_neg_inf=True, check_pos_inf=False)
