@@ -622,6 +622,7 @@ class DataConfig(BaseConfig):
     timeout: int = 0
     seed: Optional[int] = None
     instance_filter: Optional[InstanceFilterConfig] = None
+    custom_dataset: Optional[CustomDatasetConfig] = None
 
     @property
     def effective_memmap_dtype(self):
@@ -632,6 +633,34 @@ class DataConfig(BaseConfig):
         except (AttributeError, TypeError) as e:
             raise TypeError(f"Value {self.memmap_dtype} is not a valid numpy type") from e
         return dtype
+
+
+@dataclass
+class CustomDatasetCollatorConfig(BaseConfig):
+    input_id_field: str = "input_ids"  #: The field in the dataset items that contains the input token IDs.
+    attention_mask_field: Optional[str] = None  #: The field in the dataset items that contains the attention mask.
+    attention_bias_field: Optional[str] = None  #: The field in the dataset items that contains the attention bias.
+    label_mask_field: Optional[str] = None  #: The field in the dataset items that contains the label mask.
+    index_field: Optional[str] = None  #: The field in the dataset items that contains the index of the item.
+    instance_mask_field: Optional[str] = None  #: The field in the dataset items that contains the instance mask.
+    doc_lens_field: Optional[str] = None  #: The field in the dataset items that contains the document lengths.
+    metadata_field: Optional[str] = None  #: The field in the dataset items that contains the metadata.
+
+
+@dataclass
+class CustomDatasetConfig(BaseConfig):
+    name: str  #: The name of the custom dataset class or function that will be used to load the dataset.
+    module: Optional[
+        str
+    ] = None  #: The module where the custom dataset class is defined. If not set, the module will be inferred from the class name.
+    args: Optional[Dict[str, Any]] = None  #: The arguments to pass to the custom dataset class or function
+    collate_fn: Optional[
+        str
+    ] = None  #: The name of the collate function to use for the custom dataset. Assumes the collate function is defined in the same module as the custom dataset class unless specified otherwise using the full object path.
+    token_field: Optional[str] = None  #: The field in the dataset items that contains the tokenized text.
+    collate_config: Optional[CustomDatasetCollatorConfig] = field(
+        default_factory=CustomDatasetCollatorConfig
+    )  #: The configuration for the collate function to use for the custom dataset.
 
 
 class EvaluatorType(StrEnum):
