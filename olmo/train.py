@@ -876,10 +876,10 @@ class Trainer:
 
         # Collect metrics and check for NaN loss.
         # NOTE: this involves a bunch of host-device syncs so we wait until the last moment to do this.
-        # if torch.isnan(ce_batch_loss):
-        #     raise ValueError("nan loss encountered")
-        # if z_batch_loss is not None and torch.isnan(z_batch_loss):
-        #     raise ValueError("nan loss encountered")
+        if torch.isnan(ce_batch_loss):
+            raise ValueError("nan loss encountered")
+        if z_batch_loss is not None and torch.isnan(z_batch_loss):
+            raise ValueError("nan loss encountered")
         for key, value in optim_metrics.items():
             metrics[f"optim/{key}"] = value.item()
         self.cur_train_loss = ce_batch_loss.item()
