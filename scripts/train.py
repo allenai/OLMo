@@ -432,4 +432,5 @@ if __name__ == "__main__":
     if torch.device("cpu"):
         log.info("Device is CPU. Updating config...")
         cfg.model.init_device = "cpu"
+        cfg.distributed_strategy = "single"  # type: ignore
     main(cfg)

@@ -436,12 +436,12 @@ class Trainer:
             if rng_state["cuda"] is not None:
                 torch.cuda.set_rng_state(rng_state["cuda"])
             else:
-                print("Warning: CUDA is available, but no RNG state was provided.")
+                log.info("Warning: CUDA is available, but no RNG state was provided.")
         if torch.backends.mps.is_available():
             if rng_state["mps"] is not None:
                 torch.mps.set_rng_state(rng_state["mps"])
             else:
-                print("Warning: MPS is available, but no RNG state was provided.")
+                log.info("Warning: MPS is available, but no RNG state was provided.")
 
     def _save_checkpoint(
         self, checkpointer: Checkpointer, checkpoint_type: CheckpointType
