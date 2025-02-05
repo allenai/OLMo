@@ -440,7 +440,7 @@ class Trainer:
         if torch.backends.mps.is_available():
             if rng_state["mps"] is not None:
                 torch.mps.set_rng_state(rng_state["mps"])
-            else:    
+            else:
                 print("Warning: MPS is available, but no RNG state was provided.")
 
     def _save_checkpoint(
