@@ -1140,7 +1140,7 @@ class Trainer:
         if self.cfg.torch_profiling and get_global_rank() == 0:
             from torch.profiler import schedule
 
-            profiling_schedule = schedule(wait=0, warmup=0, active=3, repeat=1)
+            profiling_schedule = schedule(wait=1, warmup=5, active=3, repeat=1)
 
             def on_trace_ready(p):
                 profiler_output_dir = Path(self.cfg.save_folder) / "profiler"
