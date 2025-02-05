@@ -33,5 +33,5 @@ torchrun \
       --wandb.name=$TASK_NAME \
       --wandb.group=$TASK_NAME \
       --wandb.project=olmo-optimizers \
-      --optimizer.learning_rate=1e-4 \
+      --optimizer.learning_rate=5e-4 \
       --save_overwrite
