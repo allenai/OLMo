@@ -57,6 +57,29 @@ def grad_chinchilla_flops_fit(x, p):
     return [grad_a, grad_alpha, grad_E]
 
 
+# x = flops
+# p[0] = a = log(A), p[1] = alpha
+def chinchilla_flops_2_param_fit(x, p):
+    # return e**a / x**alpha
+    return np.exp(p[0]) / x ** p[1]
+
+def grad_chinchilla_flops_2_param_fit(x, p):
+    grad_a = np.exp(p[0]) / x ** p[1]
+    grad_alpha = np.exp(p[0]) * (-np.log(x)) / x ** p[1]
+    return [grad_a, grad_alpha]
+
+
+def chinchilla_flops_negated_fit(x, p):
+    # return e**a / x**alpha + E
+    return -(np.exp(p[0]) / x ** p[1]) + p[2]
+
+def grad_chinchilla_flops_negated_fit(x, p):
+    grad_a = -(np.exp(p[0]) / x ** p[1])
+    grad_alpha = -(np.exp(p[0]) * (-np.log(x))) / x ** p[1]
+    grad_E = 1
+    return [grad_a, grad_alpha, grad_E]
+
+
 # x[0] = d, x[1] = h
 # p[0] = b = log100(B), p[1] = beta, p[2] = E, p[3] = F
 def chinchilla_d_lr_fit(x, p):
@@ -118,6 +141,28 @@ def grad_combined_fit(x, p):
     grad_beta = grad_step1 * np.exp(p[1]) * (-np.log(x[1])) / x[1] ** p[3]
     grad_E = grad_step1 * 1
     return [grad_a, grad_b, grad_alpha, grad_beta, grad_E, grad_p, grad_q]
+
+
+def combined_flops_sigmoid_fit(x, p):
+    step1 = np.exp(p[0]) / x ** p[1] + p[2]  # chinchilla_flops_fit
+    step2 = p[3] / (1 + np.exp(-p[4] * (step1 - p[5]))) + p[6]  # sigmoid_fit
+    step2 = max(1e-6, step2)
+    return step2
+
+
+def grad_combined_flops_sigmoid_fit(x, p):
+    step1 = np.exp(p[0]) / x ** p[1] + p[2]
+    exp_term = np.exp(-p[4] * (step1 - p[5]))
+    denom = 1 + exp_term
+    grad_k = p[3] * (step1 - p[5]) * exp_term / (denom**2)
+    grad_x0 = p[3] * p[4] * exp_term / (denom**2)
+    grad_p = 1 / denom
+    grad_q = 1
+    grad_a = grad_x0 * np.exp(p[0]) / x ** p[1]
+    grad_alpha = grad_x0 * np.exp(p[0]) * (-np.log(x)) / x ** p[1]
+    grad_E = grad_x0 * 1
+    return [grad_a, grad_alpha, grad_E, grad_p, grad_x0, grad_k, grad_q]
+
 
 
 # x[0] = n, x[1] = d

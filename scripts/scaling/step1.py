@@ -190,17 +190,20 @@ def plot_step1(
     # plot the actual and predicted data
     unsigned_rel_errors = []
     num_eval_annotation = 0
+
     for name, data in data_by_name.items():
         config = configs[name]
         predicted_data = predicted_data_by_name[name]
 
-        for i, (d, x, l) in enumerate(zip(data["ds"], data["xs"], data["ls"])):
+        # for i, (d, x, l) in enumerate(zip(data["ds"], data["xs"], data["ls"])):
+        for i, (d, x) in enumerate(zip(data["ds"], data["xs"])): # data["ls"]
             if x != 0:
                 ax.scatter(
                     d,
                     x,
                     color=config.color,
-                    marker=MARKERS[l] if config.mode == "train" else "o",
+                    # marker=MARKERS[l] if config.mode == "train" else "o",
+                    marker="v" if config.mode == "train" else "o",
                     s=50 if config.mode == "train" else 20,
                     label=f"{config.label} (target)" if config.mode == "eval" else None,
                 )
@@ -245,7 +248,9 @@ def plot_step1(
         "rc_soft_log": "TaskCE",
     }[y_metric]
     ax.set_ylabel(y_label_name, fontsize=FONTSIZE)
-    display_name = tasks[task_name].display_name if task_name in tasks else task_name
+    display_name = ""
+    if isinstance(task_name, str):
+        display_name = tasks[task_name].display_name if task_name in tasks else task_name
     ax.set_title(
         f"{display_name} (Fitting error: {avg_unsigned_rel_error * 100:.2f}%)",
         fontsize=FONTSIZE,

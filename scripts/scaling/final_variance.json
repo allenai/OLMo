@@ -1,7 +1,7 @@
 {
     "1.3B": {
         "paths": [
-            "scripts/scaling/data/peteish-moreeval/1B-10xC.csv"
+            "scripts/scaling/data/peteish-moreeval/1B-5xC.csv"
         ],
         "mode": "eval",
         "n": 1279395840,

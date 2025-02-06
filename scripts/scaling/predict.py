@@ -130,8 +130,8 @@ def plot_chained(
             data["ds"],
             data["ys"],
             color=config.color,
+            alpha=0.7 if config.color != 'grey' else 0.3,
             linestyle="--",
-            alpha=0.7,
             linewidth=1.5,
             label=f"{config.label} (fitted)" if config.mode == "train" else None,
         )
@@ -142,13 +142,16 @@ def plot_chained(
         config = configs[name]
         predicted_data = predicted_data_by_name[name]
 
-        for i, (d, y, l) in enumerate(zip(data["ds"], data["xs"], data["ls"])):
+        # for i, (d, y, l) in enumerate(zip(data["ds"], data["xs"], data["ls"])):
+        for i, (d, y) in enumerate(zip(data["ds"], data["xs"])):
             if y != 0:
                 ax.scatter(
                     d,
                     y,
                     color=config.color,
-                    marker=MARKERS[l] if config.mode == "train" else "o",
+                    # alpha=0 if config.color != 'grey' else 0.3,
+                    # marker=MARKERS[l] if config.mode == "train" else "o",
+                    marker=MARKERS['5xC'] if config.mode == "train" else "o",
                     s=50 if config.mode == "train" else 20,
                     label=f"{config.label} (target)" if config.mode == "eval" else None,
                 )

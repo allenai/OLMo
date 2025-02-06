@@ -54,7 +54,7 @@ def parse_args():
     return args
 
 
-def fit_step2(data_by_name, task_name, y_metric, _min=None, _max=None, use_log_sigmoid=False):
+def fit_step2(data_by_name, task_name, y_metric, _min=None, _max=None, use_log_sigmoid=False, use_helper_points=True):    
     train_xs, train_ys = [], []
     for name, data in data_by_name.items():
         if data["mode"] == "train":
@@ -64,39 +64,97 @@ def fit_step2(data_by_name, task_name, y_metric, _min=None, _max=None, use_log_s
             data["xs"] = data["xs"][-1:]
             data["ys"] = data["ys"][-1:]
 
-    if _max is None: _max = tasks[task_name].task_maximum
-    if _min is None: _min = tasks[task_name].task_minimum
+    if _max is None and use_helper_points: _max = tasks[task_name].task_maximum
+    if _min is None and use_helper_points: _min = tasks[task_name].task_minimum
 
     # add ideal points (these are not plotted)
-    if not use_log_sigmoid:
+    if not use_log_sigmoid and use_helper_points:
         train_xs.append(0.0)
         train_ys.append(_max)
         # train_xs.append(max(train_xs))
         # train_ys.append(tasks[task_name].task_minimum)
 
-    # fit the parameters
-    if use_log_sigmoid:
-        coefficients, cov = get_coefficients(
-            train_xs,
-            train_ys,
-            log_sigmoid,
-            p0=[-0.1, 0.9, 3.0],
-            bounds=([-np.inf, 0.0, 0.0], [0.0, np.inf, np.inf]),
-            disp=False,
-            return_cov=True,
-        )
+    # for Ian's project, I need to disable the bounds
+    if not use_helper_points:
+        # p0=[-0.7, 0.6, 7.0, 1]
+        # p0=[-0.7, 1.4, 3.2, 1.3] # piqa total_prob_per_char
+        p0=[-2.7, 1.4, 3.2, 1.3]
+        bounds=None
     else:
-        coefficients, cov = get_coefficients(
-            train_xs,
-            train_ys,
-            sigmoid,
-            p0=[_min - 1.0, 0.9, 3.0, _max],
-            bounds=([-1.0, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0]),
-            # bounds=([tasks[task_name].task_minimum - 1.0, 0.0, 0.0, tasks[task_name].task_maximum - 0.0001], [tasks[task_name].task_minimum - 0.9999, np.inf, np.inf, tasks[task_name].task_maximum]),
-            disp=False,
-            return_cov=True,
-        )
+        p0=[-0.7, 0.6, 7.0, 1]
+        bounds=([-1.0, 0.0, 0.0, 0.0], [0.0, np.inf, np.inf, 1.0])
 
+    import warnings
+    from scipy.optimize import OptimizeWarning
+
+    # # fit the parameters
+    # if use_log_sigmoid:
+    #     coefficients, cov = get_coefficients(
+    #         train_xs,
+    #         train_ys,
+    #         log_sigmoid,
+    #         p0=[-0.1, 0.9, 3.0],
+    #         bounds=([-np.inf, 0.0, 0.0], [0.0, np.inf, np.inf]),
+    #         disp=False,
+    #         return_cov=True,
+    #     )
+    # else:
+    #     coefficients, cov = get_coefficients(
+    #         train_xs,
+    #         train_ys,
+    #         sigmoid,
+    #         p0=p0,
+    #         # bounds=bounds,
+    #         disp=False,
+    #         return_cov=True,
+    #     )
+    # return coefficients, cov
+
+    if use_log_sigmoid:
+        p0s = [[-0.1, 0.9, 3.0]]
+        # initial_bounds = ([-np.inf, 0.0, 0.0], [0.0, np.inf, np.inf])
+        fit_function = log_sigmoid
+    else:
+        p0s = [
+            [-0.7, 0.6, 7.0, 1],
+            [-0.7, 1.4, 3.2, 1.3], # piqa total_prob_per_char
+            [-2.7, 1.4, 3.2, 1.3],
+            [-0.09, 0.6, 6.5, 0.1], # arc_easy correct_prob
+            [-0.64, -0.41, 12.7, 1.05], # csqa
+            [-2.15771768e-02, 1.39273020e+00, -5.85129498e+01, 4.54084320e-01],
+            [-1.60006552e+00, 1.36001561e+00, -4.95252012e+02, 4.10217043e-01]
+        ]
+        # initial_bounds = bounds
+        fit_function = sigmoid
+
+    try_idx = 0
+    while try_idx < len(p0s):
+        try_p0 = p0s[try_idx]
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always", OptimizeWarning)
+
+            try:
+                coefficients, cov = get_coefficients(
+                    train_xs,
+                    train_ys,
+                    fit_function,
+                    p0=try_p0,
+                    # bounds=initial_bounds,
+                    disp=False,
+                    return_cov=True,
+                )
+                
+                # Check if an OptimizeWarning was raised
+                if not any(issubclass(warning.category, OptimizeWarning) for warning in w):
+                    # print(task_name, coefficients)
+                    return coefficients, cov
+            except RuntimeError as e:
+                print(f'Optimization error for step 2 on {task_name}')
+                pass
+            
+            try_idx += 1
+
+    print(f'Failed to optimize step 2 on {task_name}')
     return coefficients, cov
 
 
@@ -190,9 +248,11 @@ def plot_step2(
                 data["ys"],
                 color=config.color,
                 marker="o" if config.mode == "train" else "x",
-                s=10,
+                # s=3, # ian
+                s=5,
                 edgecolors="none" if config.mode == "train" else None,
-                alpha=0.5 if config.mode == "train" else 1.0,
+                # alpha=0.3 if config.mode == "train" else 1.0, # ian
+                alpha=0.7 if config.mode == "train" else 1.0,
                 label=f"{config.label} ({'fitted' if config.mode == 'train' else 'target'})",
             )
         for i, (x, y, y_pred) in enumerate(zip(data["xs"], data["ys"], predicted_data["ys"])):
@@ -201,41 +261,43 @@ def plot_step2(
             if config.mode == "train":
                 unsigned_rel_errs.append(abs(rel_error))
             else:
-                if i == 0:                    
-                    if x != 0:
-                        ax.scatter(
-                            x,
-                            y,
+                # if i != 0:
+                #   continue
+                if x == 0:
+                    continue
+                ax.scatter(
+                    x,
+                    y,
+                    color=config.color,
+                    marker="x",
+                    s=20,
+                    label=f"{config.label} ({'target'})",
+                )
+                if eval_points < 5 or config.label in ['7B-4T', '13B-5T']:
+                    ax.scatter(
+                        x,
+                        y_pred,
+                        color=config.color,
+                        marker="o",
+                        s=20,
+                        label=f"{config.label} ({'predicted'})",
+                    )
+                    if rel_error != float('inf'):
+                        ax.annotate(
+                            f"{np.abs(rel_error) * 100:.1f}%",
+                            (x, y),
+                            textcoords="offset points",
+                            xytext=(8 - 40 * num_eval_annotation, -7 + eval_num * 2),
+                            ha="left",
+                            va="bottom",
+                            fontsize=FONTSIZE,
                             color=config.color,
-                            marker="x",
-                            s=20,
-                            label=f"{config.label} ({'target'})",
                         )
-                        if eval_points < 5:
-                            ax.scatter(
-                                x,
-                                y_pred,
-                                color=config.color,
-                                marker="o",
-                                s=20,
-                                label=f"{config.label} ({'predicted'})",
-                            )
-                            if rel_error != float('inf'):
-                                ax.annotate(
-                                    f"{np.abs(rel_error) * 100:.1f}%",
-                                    (x, y),
-                                    textcoords="offset points",
-                                    xytext=(8 - 40 * num_eval_annotation, -7 + eval_num * 2),
-                                    ha="left",
-                                    va="bottom",
-                                    fontsize=FONTSIZE,
-                                    color=config.color,
-                                )
-                    num_eval_annotation += 1
-                    if add_texts:
-                        texts += [ax.text(
-                            x, y, config.label, fontsize=6, alpha=0.8, ha='center', va='center'
-                        )]
+                        num_eval_annotation += 1
+                if add_texts:
+                    texts += [ax.text(
+                        x, y, config.label, fontsize=6, alpha=0.8, ha='center', va='center'
+                    )]
                 else:
                     pass
     avg_unsigned_rel_err = np.mean(unsigned_rel_errs)
@@ -244,12 +306,14 @@ def plot_step2(
     ax.plot(
         plotted_predicted_data["xs"],
         plotted_predicted_data["ys"],
-        color="black",
-        linestyle="--",
-        linewidth=1.5,
+        # color=config.color, # ian
+        color='k',
+        linestyle="-",
+        linewidth=1,
+        alpha=0.3
     )
 
-    ax.fill_between(plotted_predicted_data["xs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
+    # ax.fill_between(plotted_predicted_data["xs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
 
     if len(texts) > 0:
         # Adjust text annotations to not overlap with each other
@@ -274,8 +338,8 @@ def plot_step2(
             expand_points=(1.5, 1.5),
             ax=ax
         )
-
-    ax.legend(loc="upper right", ncols=1, fontsize=FONTSIZE)
+    else:
+        ax.legend(loc="upper right", ncols=1, fontsize=FONTSIZE)
     x_label_name = {
         "rc_bpb": "Task loss",
         "c4": "C4 loss",
@@ -289,8 +353,8 @@ def plot_step2(
     }[y_metric]
     ax.set_ylabel(y_label_name, fontsize=FONTSIZE)
 
-    ylim = ax.get_ylim()
-    ax.set_ylim(ylim[0], min(1.0, ylim[1]))
+    # ylim = ax.get_ylim() # disabled for Ian's project
+    # ax.set_ylim(ylim[0], min(1.0, ylim[1]))
     display_name = tasks[task_name].display_name if task_name in tasks else task_name
     ax.set_title(
         f"{display_name} (Fitting error: {avg_unsigned_rel_err * 100:.2f}%)",

@@ -8,8 +8,12 @@ import seaborn as sns
 
 from olmo.scaling.scaling_laws.fitting_functions import (
     chinchilla_flops_fit,
+    chinchilla_flops_negated_fit,
     get_coefficients_huber,
     grad_chinchilla_flops_fit,
+    grad_chinchilla_flops_negated_fit,
+    chinchilla_flops_2_param_fit,
+    grad_chinchilla_flops_2_param_fit,
 )
 from olmo.scaling.scaling_laws.utils import (
     get_final_configs,
@@ -41,7 +45,7 @@ def parse_args():
     return args
 
 
-def fit_step1(data_by_name, y_metric):
+def fit_step1(data_by_name, y_metric, use_two_param=False):
     train_fs, train_xs = [], []
     for name, data in data_by_name.items():
         if data["mode"] == "train":
@@ -49,19 +53,49 @@ def fit_step1(data_by_name, y_metric):
             train_xs += data["xs"]
 
     if y_metric == "rc_bpb":
-        p0 = [3.0, 0.1, 1.0]
-        bounds = [(0, None), (0, 1.0), (0, None)]
+        # p0 = [3.0, 0.1, 1.0]
+
+        if use_two_param:
+            p0 = [10.0, 0.4] # for 2 param fit
+            bounds = [(0, None), (0, 1.0)]
+        else:
+            p0 = [10.0, 0.4, 0.5] # changed for Ian's project!
+            bounds = [(0, None), (0, 1.0), (0, None)]
+
+        if use_two_param:
+            fit_f, fit_grad = chinchilla_flops_2_param_fit, grad_chinchilla_flops_2_param_fit
+        else:
+            fit_f, fit_grad = chinchilla_flops_fit, grad_chinchilla_flops_fit
+
         coefficients, cov = get_coefficients_huber(
             train_fs,
             train_xs,
-            chinchilla_flops_fit,
-            grad_chinchilla_flops_fit,
+            fit_f,
+            fit_grad,
             p0=p0,
             bounds=bounds,
             max_iter=1000000,
             disp=False,
             return_cov=True,
         )
+    elif y_metric == "rc_acc":
+        # p0 = [2.0, 2.0, 0.2, 0.2, 1.0]
+        p0 = [-1.0, 0.1, 0.5] # changed for Ian's project!
+        # bounds = [(0, None), (0, 1.0), (0, None)]
+        bounds = [(None, None), (None, None), (None, None)]
+        coefficients, cov = get_coefficients_huber(
+            train_fs,
+            train_xs,
+            chinchilla_flops_negated_fit,
+            grad_chinchilla_flops_negated_fit,
+            p0=p0,
+            bounds=bounds,
+            max_iter=1000000,
+            disp=False,
+            return_cov=True,
+        )
+        raise RuntimeError('hi its david dont be here, not sure about correctness')
+        # print(coefficients)
     else:
         raise ValueError(f"Unknown y_metric: {y_metric}")
 
@@ -79,19 +113,24 @@ def scale_data_by_name(data_by_name):
     return data_by_name
 
 
-def predict_step1(configs, data_by_name, coefficients, y_metric):
+def predict_step1(configs, data_by_name, coefficients, y_metric, use_two_param=False):
     predicted_data_by_name = {}
     plotted_predicted_data_by_name = {}
 
     unsigned_rel_errors = []
+    rel_error = float('inf')
 
     fmin = 0.8 * min([min(data["fs"]) for data in data_by_name.values()])
     fmax = 1.5 * max([max(data["fs"]) for data in data_by_name.values()])
 
     if y_metric == "rc_bpb":
-        func = chinchilla_flops_fit
+        if use_two_param:
+            func = chinchilla_flops_2_param_fit
+        else:
+            func = chinchilla_flops_fit
     elif y_metric == "rc_acc":
         func = chinchilla_flops_fit
+        raise RuntimeError('david says no')
     else:
         raise ValueError(f"Unknown y_metric: {y_metric}")
 
@@ -120,9 +159,14 @@ def predict_step1(configs, data_by_name, coefficients, y_metric):
 
 
 def str_chinchilla_flops_fit(coefficients):
-    a, alpha, E = coefficients
-    A = np.exp(a)
-    return f"L(F) = {A:.2f} / F^{alpha:.2f} + {E:.2f}"
+    if len(coefficients) == 3:
+        a, alpha, E = coefficients
+        A = np.exp(a)
+        return f"L(F) = {A:.2f} / F^{alpha:.2f} + {E:.2f}"
+    elif len(coefficients) == 2:
+        a, alpha = coefficients
+        A = np.exp(a)
+        return f"L(F) = {A:.2f} / F^{alpha:.2f}"
 
 
 def plot_step1(
@@ -159,17 +203,19 @@ def plot_step1(
     # plotted_y_upper = plotted_predicted_data["ys"] + 1.96 * std_errors
 
     # ax.fill_between(plotted_predicted_data["fs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
-
+    
     # plot the fitted curve
     for name, data in plotted_predicted_data_by_name.items():
         config = configs[name]
         ax.plot(
             data["fs"],
             data["xs"],
-            color="black",
-            linestyle="--",
-            alpha=0.7,
-            linewidth=1.5,
+            # color="black",
+            color=config.color,
+            linestyle="-",
+            alpha=0.5,
+            # linewidth=1.5,
+            linewidth=1,
             # label=f'{config.label} ({"fitted" if config.mode == "train" else "predicted"})',
         )
         break
@@ -177,19 +223,24 @@ def plot_step1(
     # plot the actual and predicted data
     unsigned_rel_errors = []
     num_eval_annotation = 0
-    for name, data in data_by_name.items():
+    for size_idx, (name, data) in enumerate(data_by_name.items()):
         config = configs[name]
         predicted_data = predicted_data_by_name[name]
+
+        # print(data)
+        # print(predicted_data)
 
         for i, (f, y) in enumerate(zip(data["fs"], data["xs"])):
             ax.scatter(
                 f,
                 y,
                 color=config.color,
-                marker=MARKERS[i] if config.mode == "train" else "o",
-                s=50 if config.mode == "train" else 20,
+                marker=MARKERS[size_idx] if config.mode == "train" else "o",
+                # s=50 if config.mode == "train" else 20,
+                s=20 if config.mode == "train" else 20,
                 label=f"{config.label} (target)" if config.mode == "eval" else None,
             )
+            # print(f, y)
 
         for f, y, y_pred in zip(data["fs"], data["xs"], predicted_data["xs"]):
             rel_error = (y_pred - y) / y
@@ -204,21 +255,22 @@ def plot_step1(
                     s=20,
                     label=f"{config.label} ({'predicted'})",
                 )
-                ax.annotate(
-                    f"{abs(100 * rel_error):.1f}%",
-                    (f, y_pred),
-                    textcoords="offset points",
-                    xytext=(10, 1 - 10 * num_eval_annotation),
-                    ha="left",
-                    va="bottom",
-                    fontsize=FONTSIZE,
-                    color=config.color,
-                )
+                # ax.annotate(
+                #     f"{abs(100 * rel_error):.1f}%",
+                #     (f, y_pred),
+                #     textcoords="offset points",
+                #     xytext=(10, 1 - 10 * num_eval_annotation),
+                #     ha="left",
+                #     va="bottom",
+                #     fontsize=FONTSIZE,
+                #     color=config.color,
+                # )
                 num_eval_annotation += 1
+            # print(f, y)
     avg_unsigned_rel_error = np.mean(unsigned_rel_errors)
 
     ax.set_xscale("log")
-    ax.legend(loc="upper right", ncols=1, fontsize=FONTSIZE)
+    ax.legend(loc="lower left", ncols=1, fontsize=FONTSIZE)
     ax.set_xlabel("Flops (C)", fontsize=FONTSIZE)
     if y_metric == "rc_bpb":
         ax.set_ylabel("Task loss", fontsize=FONTSIZE)
@@ -232,6 +284,7 @@ def plot_step1(
         fontsize=FONTSIZE,
         fontweight="bold",
     )
+    # ax.text(0.95, 0.95, fit_str, transform=ax.transAxes, ha='right', va='top')
 
 
 def main():
