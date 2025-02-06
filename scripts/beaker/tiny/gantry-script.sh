@@ -3,7 +3,7 @@
 set -ex
 
 NUM_NODES=1
-TASK_NAME=olmo-7M-optimizer-adamw-lr-5e-4-warmup-1000
+TASK_NAME=olmo-7M-optimizer-adamw-lr-5e-4-warmup-5000
 CONFIG_PATH=configs/optimizers/OLMo-7M.yaml
 
 gantry run \
