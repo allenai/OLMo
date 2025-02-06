@@ -7,8 +7,8 @@ NUM_NODES=2
 gantry run \
   --allow-dirty \
   --workspace ai2/OLMo-tiny \
-  --task-name peteish1-taller \
-  --description "Pete-ish 1B, taller" \
+  --task-name peteish1-normbefore \
+  --description "Pete-ish 1B, norm before" \
   --priority high \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
@@ -58,9 +58,9 @@ gantry run \
         --rdzv_conf 'read_timeout=420' \
         scripts/train.py \
             configs/peteish1-weka.yaml \
-            --run_name="peteish1-taller" \
+            --run_name="peteish1-normbefore" \
             --save_interval_ephemeral=null \
             --save_overwrite \
             --load_path=\\\${path.last_checkpoint:\\\${save_folder}} \
-            --model.n_layers=24 --model.mlp_ratio=4 --max_duration=12202 \
+            --model.norm_after=false \
     "
