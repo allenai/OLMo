@@ -1768,7 +1768,7 @@ class OLMo(nn.Module):
                 )
 
                 model_config.init_device = device
-                model = OLMo(model_config).to(device)
+                model = OLMo(model_config)
                 load_model_and_optim_state(checkpoint_dir, model)
             else:
                 # train_config.sharded_checkpointer == ShardedCheckpointerType.torch_new
@@ -1777,7 +1777,7 @@ class OLMo(nn.Module):
                 # Initialize model on target device. In this case the state dict is loaded in-place
                 # so it's not necessary to start on CPU if the target device is a GPU.
                 model_config.init_device = device
-                model = OLMo(model_config).to(device)
+                model = OLMo(model_config)
 
                 # Load state dict in place.
                 load_model_state(checkpoint_dir, model)
