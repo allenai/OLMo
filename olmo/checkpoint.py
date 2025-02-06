@@ -50,6 +50,7 @@ from olmo import util
 from .aliases import PathOrStr
 from .config import BaseConfig, ShardedCheckpointerType, TrainConfig
 from .exceptions import OLMoCheckpointError
+from .model import OLMo
 from .optim import Optimizer, fix_optim_state_dict
 from .safetensors_util import safetensors_file_to_state_dict
 from .torch_util import (
@@ -658,6 +659,17 @@ class FullCheckpointer(Checkpointer):
                 self._write_optim_dict(
                     optim_state_dict, checkpoint_dir, upload_to, save_overwrite=self.cfg.save_overwrite
                 )
+            elif isinstance(dist_model, OLMo):
+                model_state_dict = dist_model.state_dict()
+                self._write_model_dict(
+                    model_state_dict, checkpoint_dir, upload_to, save_overwrite=self.cfg.save_overwrite
+                )
+
+                # Then get the optimizer state dict
+                optim_state_dict = optim.state_dict()
+                self._write_optim_dict(
+                    optim_state_dict, checkpoint_dir, upload_to, save_overwrite=self.cfg.save_overwrite
+                )
             else:
                 log.info(
                     "`FullCheckpointer.save_checkpoint` only supported for FSDP and DDP distributed strategies!"
@@ -775,6 +787,19 @@ class FullCheckpointer(Checkpointer):
             gc.collect()
             torch.cuda.empty_cache()
             barrier()
+        elif isinstance(dist_model, OLMo):
+            with torch.no_grad():
+                state_dict_to_load = load_state_dict(
+                    load_path, "model.pt", local_cache=local_cache, map_location="cpu"
+                )
+            dist_model.load_state_dict(state_dict_to_load)
+
+            # Load optimizer state.
+            if load_optimizer_state:
+                optim_state_dict_to_load = load_state_dict(
+                    load_path, "optim.pt", local_cache=local_cache, map_location="cpu"
+                )
+                optim.load_state_dict(optim_state_dict_to_load)
         else:
             raise NotImplementedError(
                 "`FullCheckpointer.restore_checkpoint` only supported for FSDP and DDP distributed strategies!"
