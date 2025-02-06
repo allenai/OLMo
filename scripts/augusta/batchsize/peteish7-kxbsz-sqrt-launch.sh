@@ -11,8 +11,8 @@ shift
 
 gantry run \
   --workspace ai2/13B \
-  --task-name peteish7-2xbsz-sqrt \
-  --description "Peteish7 with twice the batch size and square root LR" \
+  --task-name peteish7-kxbsz-sqrt \
+  --description "Peteish7 with k batch size and sqrt(k) LR" \
   --priority high \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
