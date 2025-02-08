@@ -77,7 +77,11 @@ MODEL_CONFIG_150M = ModelConfig(
 )
 
 MODEL_CONFIGS = {
-    "150M": MODEL_CONFIG_150M,
+    "4M": MODEL_CONFIG_150M.update_with(d_model=64, n_heads=8, n_layers=8, mlp_ratio=8), # 3_744_832
+    "20M": MODEL_CONFIG_150M.update_with(d_model=192, n_heads=8, n_layers=16, mlp_ratio=8), # 19_101_888
+    "60M": MODEL_CONFIG_150M.update_with(d_model=384, n_heads=12, n_layers=16, mlp_ratio=8), # 57_078_144
+    "90M": MODEL_CONFIG_150M.update_with(d_model=516, n_heads=12, n_layers=16, mlp_ratio=8), # 94_135_428
+    "150M": MODEL_CONFIG_150M, # d_model=768, n_heads=12
     "300M": MODEL_CONFIG_150M.update_with(d_model=1024, n_heads=16, n_layers=16, mlp_ratio=8),
     "530M": MODEL_CONFIG_150M.update_with(d_model=1344, n_heads=16, n_layers=16, mlp_ratio=8),
     "750M": MODEL_CONFIG_150M.update_with(d_model=1536, n_heads=16, n_layers=16, mlp_ratio=8),
@@ -104,6 +108,19 @@ def parse_size(size: str) -> int:
         model_size *= 1000000000
     else:
         raise ValueError(f"Could not parse model name '{args.model}'")
+    
+    # Good ol' hard-coded magic numbers (@davidh)
+    if size == '4M':
+        model_size = 3_744_832
+    elif size == '20M':
+        model_size = 19_101_888
+    elif size == '60M':
+        model_size = 57_078_144
+    elif size == '90M':
+        model_size = 94_135_428
+    else:
+        raise ValueError('no @davidh')
+    
     return model_size
 
 
@@ -138,7 +155,9 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         permanent_data_prefix = "s3://ai2-llm"
     permanent_data_prefix.rstrip("/")
 
-    remote_save_folder = f"s3://ai2-llm/checkpoints/OLMo-ladder/benb/{run_name}"
+    # remote_save_folder = f"s3://ai2-llm/checkpoints/OLMo-ladder/benb/{run_name}"
+    remote_save_folder = f"s3://ai2-llm/checkpoints/OLMo-ladder/davidh/{run_name}"
+    # remote_save_folder = f"/oe-eval-default/ai2-llm/checkpoints/OLMo-ladder/davidh/{run_name}"
     load_path = args.load_path
     if load_path is None:
         load_path = find_latest_checkpoint(remote_save_folder)
@@ -152,6 +171,10 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # We don't want the global batch size depend on the device batch size, because we might have to change the
     # device batch size based on the hardware we're running on.
     device_batch_size = {
+        "4M": 32,
+        "20M": 64,
+        "60M": 48,
+        "90M": 32,
         "150M": 32,
         "300M": 10,
         "530M": 8,
