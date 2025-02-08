@@ -46,7 +46,3 @@ gantry run \
   --yes \
   --timeout=0 \
   -- /bin/bash -c "${COMMAND}"
-
-  # --cluster ai2/pluto-cirrascale \
-  # --cluster ai2/allennlp-cirrascale \
-  #
