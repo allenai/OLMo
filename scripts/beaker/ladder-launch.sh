@@ -27,6 +27,8 @@ gantry run \
   --cluster ai2/jupiter-cirrascale-2 \
   --cluster ai2/saturn-cirrascale \
   --cluster ai2/ceres-cirrascale \
+  --weka=oe-training-default:/weka/oe-training-default \
+  --weka=oe-eval-default:/oe-eval-default \
   $MORE_CLUSTER_NODES \
   --gpus 8 \
   --allow-dirty \
@@ -47,4 +49,4 @@ gantry run \
 
   # --cluster ai2/pluto-cirrascale \
   # --cluster ai2/allennlp-cirrascale \
-  #--weka=oe-training-default:/weka/oe-training-default \
+  #
