@@ -13,14 +13,16 @@ else
   COMMAND="scripts/beaker/ladder.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK $*"
 fi
 
+# --cluster ai2/jupiter-cirrascale-2 \
+
 gantry run \
-  --workspace ai2/ladder-evals \
+  --workspace ai2/cheap_decisions \
   --task-name ladder \
   --description "OLMo ladder with $*" \
-  --priority normal \
+  --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/jupiter-cirrascale-2 \
+  --cluster ai2/ceres-cirrascale \
   --weka=oe-training-default:/weka/oe-training-default \
   --weka=oe-eval-default:/oe-eval-default \
   --gpus 8 \
@@ -37,4 +39,5 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
+  --allow-dirty \
   -- /bin/bash -c "${COMMAND}"
