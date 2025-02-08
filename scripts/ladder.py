@@ -80,7 +80,7 @@ MODEL_CONFIGS = {
     "4M": MODEL_CONFIG_150M.update_with(d_model=64, n_heads=8, n_layers=8, mlp_ratio=8), # 3_744_832
     "20M": MODEL_CONFIG_150M.update_with(d_model=192, n_heads=8, n_layers=16, mlp_ratio=8), # 19_101_888
     "60M": MODEL_CONFIG_150M.update_with(d_model=384, n_heads=12, n_layers=16, mlp_ratio=8), # 57_078_144
-    "90M": MODEL_CONFIG_150M.update_with(d_model=516, n_heads=12, n_layers=16, mlp_ratio=8), # 94_135_428
+    "90M": MODEL_CONFIG_150M.update_with(d_model=528, n_heads=12, n_layers=16, mlp_ratio=8), # 97_946_640
     "150M": MODEL_CONFIG_150M, # d_model=768, n_heads=12
     "300M": MODEL_CONFIG_150M.update_with(d_model=1024, n_heads=16, n_layers=16, mlp_ratio=8),
     "530M": MODEL_CONFIG_150M.update_with(d_model=1344, n_heads=16, n_layers=16, mlp_ratio=8),
@@ -117,7 +117,7 @@ def parse_size(size: str) -> int:
     elif size == '60M':
         model_size = 57_078_144
     elif size == '90M':
-        model_size = 94_135_428
+        model_size = 97_946_640
     else:
         raise ValueError('no @davidh')
     
