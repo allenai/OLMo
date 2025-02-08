@@ -40,6 +40,21 @@ model:
   init_std: 0.02
   init_cutoff_factor: 3
 
+# copied from 370M config file
+distributed_strategy: ddp
+fsdp:
+  use_orig_params: true
+  sharding_strategy: SHARD_GRAD_OP
+  wrapping_strategy: by_block_and_size
+  precision: mixed
+  hybrid_sharding_num_model_replicas: null
+ddp:
+  grad_sync_mode: batch
+  find_unused_params: false
+# fsdp:
+#   wrapping_strategy: by_block_and_size
+#   precision: mixed
+
 softmax_auxiliary_loss: true
 auxiliary_loss_multiplier: 1e-5
 fused_loss: true
@@ -90,10 +105,6 @@ global_train_batch_size: 8
 device_train_microbatch_size: 2
 
 precision: amp_bf16
-
-fsdp:
-  wrapping_strategy: by_block_and_size
-  precision: mixed
 
 activation_checkpointing: one_in_four
 
