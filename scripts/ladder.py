@@ -230,7 +230,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
         stop_at=args.stop_at,
         global_train_batch_size=global_batch_size,
         tokenizer=TokenizerConfig(identifier="tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json"),
-        save_folder=f"runs/{run_name}",
+        save_folder=f"/oe-eval-default/ai2-llm/checkpoints/OLMo-ladder/davidh/{run_name}",
         remote_save_folder=remote_save_folder,
         save_overwrite=args.save_overwrite,
         save_interval_unsharded=save_interval,
