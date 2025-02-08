@@ -107,13 +107,13 @@ def parse_size(size: str) -> int:
         raise ValueError(f"Could not parse model size unit '{model_size_unit}'")
 
     # Good ol' hard-coded magic numbers (@davidh)
-    if model_size == '4M':
+    if size == '4M':
         model_size = 3_744_832
-    elif model_size == '20M':
+    elif size == '20M':
         model_size = 19_101_888
-    elif model_size == '60M':
+    elif size == '60M':
         model_size = 57_078_144
-    elif model_size == '90M':
+    elif size == '90M':
         model_size = 94_135_428
     else:
         raise ValueError('no @davidh')
