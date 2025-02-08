@@ -14,7 +14,7 @@ else
 fi
 
 gantry run \
-  --workspace ai2/OLMo-training \
+  --workspace ai2/ladder-evals \
   --task-name ladder \
   --description "OLMo ladder with $*" \
   --priority normal \
@@ -22,14 +22,15 @@ gantry run \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
   --weka=oe-training-default:/weka/oe-training-default \
+  --weka=oe-eval-default:/oe-eval-default \
   --gpus 8 \
   $MULTI_NODE_ARGS \
-  --budget ai2/oe-training \
+  --budget ai2/oe-eval \
   --no-nfs \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
-  --env-secret WANDB_API_KEY=DIRKG_WANDB_API_KEY \
+  --env-secret WANDB_API_KEY=DAVIDH_WANDB_API_KEY \
   --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
   --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
   --shared-memory 10GiB \
