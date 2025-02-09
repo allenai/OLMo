@@ -114,7 +114,7 @@ fsdp:
   wrapping_strategy: by_block_and_size
 fused_loss: true
 gen1_gc_interval: 10
-global_train_batch_size: 8
+global_train_batch_size: 2
 load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-3B-2xC/latest-unsharded
 max_duration: 20e7T
 max_grad_norm: 1.0
@@ -182,7 +182,7 @@ sharded_checkpointer: olmo_core
 softmax_auxiliary_loss: true
 speed_monitor:
   window_size: 1
-stop_at: 500
+stop_at: 2000
 tokenizer:
   identifier: tokenizers/allenai_dolma2.json
   truncate_direction: right
