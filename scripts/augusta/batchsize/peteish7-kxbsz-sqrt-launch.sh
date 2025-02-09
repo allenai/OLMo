@@ -7,11 +7,12 @@ shift
 
 K=$1
 echo "Increasing batch size by factor of $K..."
+NAME="peteish7-${K}xbsz-sqrt"
 shift
 
-gantry run \
+echo $NAME | gantry run \
   --workspace ai2/13B \
-  --task-name peteish7-${K}xbsz-sqrt \
+  --task-name $NAME \
   --description "Peteish7 with ${K}x batch size and sqrt(${K})x LR" \
   --priority high \
   --preemptible \
