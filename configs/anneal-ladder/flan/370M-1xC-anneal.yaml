@@ -1,8 +1,9 @@
 seed: 7201
 dry_run: false
 
-run_name: ladder-370M-1xC-anneal-from-9452-2B-initial-flan
-load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-rerun-370M-1xC/step9452-unsharded
+# (make sure to change size and xC multiplier)
+run_name: ladder-370M-1xC-anneal-from-latest-2B-initial-flan
+load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-rerun-370M-1xC/latest-unsharded
 
 wandb:
   name: ${run_name}
