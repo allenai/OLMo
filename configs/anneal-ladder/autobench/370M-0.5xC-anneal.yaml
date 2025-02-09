@@ -1,11 +1,9 @@
 seed: 7201
 dry_run: false
 
-mult: 0.5xC # (only need to change these values) 
-size: 370M # (only need to change these values) 
-
-run_name: ladder-${size}-${mult}-anneal-from-latest-200M-initial-autobench
-load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-${size}-${mult}/latest-unsharded
+# (make sure to change size and xC multiplier)
+run_name: ladder-370M-0.5xC-anneal-from-latest-200M-initial-autobench
+load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-370M-0.5xC/latest-unsharded
 
 wandb:
   name: ${run_name}
