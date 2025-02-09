@@ -1,0 +1,192 @@
+activation_checkpointing: one_in_four
+auxiliary_loss_multiplier: 1e-5
+compile: null
+data:
+  drop_last: true
+  instance_filter:
+    repetition_max_count: 32
+    repetition_max_period: 13
+    repetition_min_period: 1
+  memmap_dtype: uint32
+  num_workers: 32
+  pad_direction: right
+  paths:
+  - /weka/oe-training-default/ai2-llm/preprocessed/synthetic_mcqa/v0/dolma2-tokenizer/part-0-00000.npy
+  persistent_workers: true
+  pin_memory: true
+  prefetch_factor: 8
+  timeout: 0
+ddp:
+  find_unused_params: false
+  grad_sync_mode: batch
+device_eval_batch_size: 10
+device_train_microbatch_size: 2
+distributed_strategy: ddp
+dry_run: false
+eval_interval: 25
+eval_subset_num_batches: -1
+evaluators:
+- label: arc_challenge_val_rc_5shot
+  type: downstream
+- label: arc_challenge_test_rc_5shot
+  type: downstream
+- label: arc_easy_val_rc_5shot
+  type: downstream
+- label: arc_easy_test_rc_5shot
+  type: downstream
+- label: boolq_val_rc_5shot
+  type: downstream
+- label: csqa_val_rc_5shot
+  type: downstream
+- label: hellaswag_val_rc_5shot
+  type: downstream
+- label: openbookqa_val_rc_5shot
+  type: downstream
+- label: openbookqa_test_rc_5shot
+  type: downstream
+- label: piqa_val_rc_5shot
+  type: downstream
+- label: socialiqa_val_rc_5shot
+  type: downstream
+- label: winogrande_val_rc_5shot
+  type: downstream
+- label: mmlu_stem_val_rc_5shot
+  type: downstream
+- label: mmlu_stem_test_rc_5shot
+  type: downstream
+- label: mmlu_humanities_val_rc_5shot
+  type: downstream
+- label: mmlu_humanities_test_rc_5shot
+  type: downstream
+- label: mmlu_social_sciences_val_rc_5shot
+  type: downstream
+- label: mmlu_social_sciences_test_rc_5shot
+  type: downstream
+- label: mmlu_other_val_rc_5shot
+  type: downstream
+- label: mmlu_other_test_rc_5shot
+  type: downstream
+- label: arc_challenge_val_mc_5shot
+  type: downstream
+- label: arc_challenge_test_mc_5shot
+  type: downstream
+- label: arc_easy_val_mc_5shot
+  type: downstream
+- label: arc_easy_test_mc_5shot
+  type: downstream
+- label: boolq_val_mc_5shot
+  type: downstream
+- label: csqa_val_mc_5shot
+  type: downstream
+- label: hellaswag_val_mc_5shot
+  type: downstream
+- label: openbookqa_val_mc_5shot
+  type: downstream
+- label: openbookqa_test_mc_5shot
+  type: downstream
+- label: piqa_val_mc_5shot
+  type: downstream
+- label: socialiqa_val_mc_5shot
+  type: downstream
+- label: winogrande_val_mc_5shot
+  type: downstream
+- label: mmlu_stem_val_mc_5shot
+  type: downstream
+- label: mmlu_stem_test_mc_5shot
+  type: downstream
+- label: mmlu_humanities_val_mc_5shot
+  type: downstream
+- label: mmlu_humanities_test_mc_5shot
+  type: downstream
+- label: mmlu_social_sciences_val_mc_5shot
+  type: downstream
+- label: mmlu_social_sciences_test_mc_5shot
+  type: downstream
+- label: mmlu_other_val_mc_5shot
+  type: downstream
+- label: mmlu_other_test_mc_5shot
+  type: downstream
+fsdp:
+  hybrid_sharding_num_model_replicas: null
+  precision: mixed
+  sharding_strategy: SHARD_GRAD_OP
+  use_orig_params: true
+  wrapping_strategy: by_block_and_size
+fused_loss: true
+gen1_gc_interval: 10
+global_train_batch_size: 8
+load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-3B-10xC/latest-unsharded
+max_duration: 20e7T
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+model:
+  activation_type: swiglu
+  alibi: false
+  attention_dropout: 0.0
+  attention_layer_norm: true
+  attention_layer_norm_with_affine: true
+  bias_for_layer_norm: false
+  block_type: sequential
+  d_model: 3328
+  embedding_dropout: 0.0
+  embedding_size: 100352
+  eos_token_id: 100257
+  flash_attention: true
+  include_bias: false
+  init_cutoff_factor: 3
+  init_device: cuda
+  init_fn: normal
+  init_std: 0.02
+  layer_norm_eps: 1e-6
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  max_sequence_length: 4096
+  mlp_ratio: 8
+  n_heads: 16
+  n_layers: 16
+  norm_after: true
+  pad_token_id: 100277
+  residual_dropout: 0.0
+  rope: true
+  rope_theta: 500000
+  vocab_size: 100278
+  weight_tying: false
+no_pre_train_checkpoint: true
+optimizer:
+  betas:
+  - 0.9
+  - 0.95
+  decay_embeddings: false
+  decay_norm_and_bias: true
+  eps: 1e-8
+  learning_rate: 7.448728958032132e-05
+  metrics_log_interval: 1
+  name: adamw
+  weight_decay: 0.1
+precision: amp_bf16
+restore_dataloader: false
+run_name: ladder-3B-10xC-anneal-from-latest-200M-initial-autobench
+save_folder: /oe-eval-default/davidh/base/checkpoints/olmo-rc-mc/${run_name}
+save_interval: 1000
+save_interval_ephemeral: 1000
+save_interval_unsharded: null
+save_num_checkpoints_to_keep: -1
+save_num_unsharded_checkpoints_to_keep: -1
+save_overwrite: false
+scheduler:
+  alpha_f: 0
+  name: linear_with_warmup
+  t_warmup: 0
+seed: 7201
+sharded_checkpointer: olmo_core
+softmax_auxiliary_loss: true
+speed_monitor:
+  window_size: 1
+stop_at: 500
+tokenizer:
+  identifier: tokenizers/allenai_dolma2.json
+  truncate_direction: right
+wandb:
+  group: ${run_name}
+  name: ${run_name}
+  project: olmo-rc-mc
