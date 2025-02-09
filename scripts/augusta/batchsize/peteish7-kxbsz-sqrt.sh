@@ -13,7 +13,7 @@ shift
 K=$1
 BSIZE=$((K * 1024))
 NSTEPS=$((512/K))
-LR=$((K * 0.0003))
+LR=$(echo $K | awk '{print sqrt($1) * 0.0003}')
 
 # augusta specific environment
 export LD_LIBRARY_PATH="/var/lib/tcpxo/lib64:${LD_LIBRARY_PATH}"
