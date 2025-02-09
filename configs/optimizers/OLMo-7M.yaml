@@ -56,8 +56,6 @@ optimizer:
   - 0.95
   metrics_log_interval: 10
   record_update_metrics: true
-  num_lanczos_itr: 10
-  preconditioned_hvp: false
 
 scheduler:
   name: cosine_with_warmup

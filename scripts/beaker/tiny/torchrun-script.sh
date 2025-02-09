@@ -23,7 +23,7 @@ export HF_DATASETS_OFFLINE=1
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
-  --nproc-per-node 1 \
+  --nproc-per-node 4 \
   --rdzv_id=101 \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
@@ -33,6 +33,5 @@ torchrun \
       --wandb.name=$TASK_NAME \
       --wandb.group=$TASK_NAME \
       --wandb.project=olmo-optimizers \
-      --optimizer.learning_rate=5e-4 \
-      --scheduler.t_warmup=5000 \
+      --optimizer.learning_rate=6e-4 \
       --save_overwrite

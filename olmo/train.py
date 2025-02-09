@@ -44,7 +44,7 @@ from .data import IterableDataset
 from .eval import Evaluator
 from .exceptions import OLMoConfigurationError
 from .model import OLMo
-from .optim import Optimizer, Scheduler, get_optim_preconditioner, MicrobatchLanczosAlgorithm
+from .optim import Optimizer, Scheduler
 from .torch_util import (
     barrier,
     gc_cuda,
@@ -808,6 +808,7 @@ class Trainer:
                         assert z_batch_loss is not None
                         z_batch_loss += z_loss.detach()
 
+                # Run backward pass.
                 loss.backward()
 
             # Remove output hooks
@@ -815,44 +816,6 @@ class Trainer:
                 hook.remove()
 
         return ce_batch_loss, z_batch_loss
-
-    def train_batch_lanczos(self, batch, params, v) -> torch.Tensor:
-        """
-        Imp: this function skips calling loss.backward() and instead returns the loss.
-        TODO: This function does not do z_loss or work with DDP right now.
-
-        No need to divide gradients by number of micro-batches as we are simulating a bigger batch
-        """
-        # Split into micro-batches.
-        micro_batches = self.split_batch(batch)
-        hvp = None
-
-        for micro_batch_idx, micro_batch in enumerate(micro_batches):
-            ce_loss, z_loss, logits = self.model_forward(micro_batch, compute_z_loss=False, loss_reduction="sum")
-
-            # TODO: divide later as batch_size in tokens is large and most grads become super small or 0
-            ce_loss = ce_loss / micro_batch["input_ids"].numel()
-
-            grad_params = torch.autograd.grad(ce_loss, params, create_graph=True)
-            grad_params = torch.cat([g.flatten() for g in grad_params])
-
-            grad_v_prod = torch.sum(grad_params * v)
-            microbatch_hvp = torch.autograd.grad(grad_v_prod, params, retain_graph=True)
-            microbatch_hvp = torch.cat([g.flatten() for g in microbatch_hvp])
-
-            if hvp is None:
-                hvp = microbatch_hvp.detach()
-            else:
-                hvp += microbatch_hvp.detach()
-
-            del micro_batch
-            del logits
-            del ce_loss
-            del grad_params
-            del grad_v_prod
-            torch.cuda.empty_cache()
-
-        return hvp / len(micro_batches)
 
     def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
         metrics: Dict[str, float] = {}
@@ -872,27 +835,6 @@ class Trainer:
         # Move tensors to the right device.
         batch = move_to_device(batch, self.device)
 
-        # track hessian eigenvalues
-        should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
-
-        if should_log_optim_metrics_this_step:
-            if isinstance(self.dist_model, FSDP):
-                raise NotImplementedError("FSDP not supported for eigenvalue tracking")
-
-            lanczos = MicrobatchLanczosAlgorithm(num_iterations=self.cfg.optimizer.num_lanczos_itr)
-            largest_eigenvalue, smallest_eigenvalue, largest_ritz_vector, smallest_ritz_vector, eigen_list, weight_list =\
-              lanczos(self.dist_model.module if isinstance(self.dist_model, DDP) else self.dist_model, self.train_batch_lanczos, batch)
-
-            if self.cfg.optimizer.preconditioned_hvp:
-                if self.global_step > 1:
-                    preconditioner = get_optim_preconditioner(self.optim)
-                    preconditioned_lanczos = MicrobatchLanczosAlgorithm(num_iterations=self.cfg.optimizer.num_lanczos_itr)
-                    prec_largest_eigenvalue, prec_smallest_eigenvalue, prec_largest_ritz_vector, prec_smallest_ritz_vector, prec_eigen_list, prec_weight_list =\
-                      lanczos(self.dist_model.module if isinstance(self.dist_model, DDP) else self.dist_model, self.train_batch_lanczos, batch, preconditioner)
-
-            metrics["optim/largest_eigenvalue"] = largest_eigenvalue.item()
-            metrics["optim/smallest_eigenvalue"] = smallest_eigenvalue.item()
-
         # Run forward-backward pass.
         ce_batch_loss, z_batch_loss = self.train_batch(batch)
 
@@ -905,6 +847,7 @@ class Trainer:
                 z_batch_loss.div_(get_world_size())
 
         # Clip gradient norms and collect param/gradient/optim metrics.
+        should_log_optim_metrics_this_step = self.should_log_optim_metrics_this_step()
         optim_metrics = self.optim.clip_grads_and_collect_metrics(
             self.global_step,
             collect_param_metrics=should_log_optim_metrics_this_step,
@@ -912,25 +855,6 @@ class Trainer:
             # HYBRID sharding.
             process_group=self.dist_model.process_group,
         )
-
-        if should_log_optim_metrics_this_step:
-            metrics["optim/grad_ritz_vec_angle"] = self.optim.get_angle_between_vecs(largest_ritz_vector, optim_metrics['all_grad_tensors']).item()
-            del optim_metrics['all_grad_tensors']
-
-        exclude_key_list = [
-            'param', 'grad', 'first_moment', 'second_moment', 'clip_stats',
-            'param_tensors', 'grad_tensors', 'first_moment_tensors', 'second_moment_tensors'
-        ]
-
-        # collect pre-step optimizer specific metrics
-        for key, value in optim_metrics.items():
-            if key.split('/')[0] in exclude_key_list:
-                if value.numel() > 1:
-                    metrics[key] = value
-                else:
-                    metrics[key] = value.item()
-            else:
-                metrics[f"optim/{key}"] = value.item()
 
         # Adjust the learning rate.
         for group in self.optim.param_groups:
@@ -948,7 +872,6 @@ class Trainer:
             )
 
         # Optimizer step.
-        # self._collecting_metrics flag set in clip_grads_and_collect_metrics also works for optim.step()
         self.optim.step()
 
         # Collect metrics and check for NaN loss.
@@ -957,7 +880,8 @@ class Trainer:
             raise ValueError("nan loss encountered")
         if z_batch_loss is not None and torch.isnan(z_batch_loss):
             raise ValueError("nan loss encountered")
-
+        for key, value in optim_metrics.items():
+            metrics[f"optim/{key}"] = value.item()
         self.cur_train_loss = ce_batch_loss.item()
         self.min_train_loss = min(self.min_train_loss, self.cur_train_loss)
         metrics["train/CrossEntropyLoss"] = self.cur_train_loss
@@ -965,29 +889,13 @@ class Trainer:
         if z_batch_loss is not None:
             metrics["train/ZLoss"] = z_batch_loss.item()
 
+        # Maybe collect post-step optimizer-specific metrics.
         if should_log_optim_metrics_this_step:
             optim_metrics = self.optim.get_post_step_metrics(
                 self.dist_model, process_group=self.dist_model.process_group
             )
-
-            # TODO: collect update_tensors and plot angle between largest ritz vector and grad
-            metrics["optim/update_ritz_vec_angle"] = self.optim.get_angle_between_vecs(largest_ritz_vector, optim_metrics['all_update_tensors']).item()
-            del optim_metrics['all_update_tensors']
-
-            # eigenvalue plot, or distribution plot should go under optim
-            exclude_key_list = ['update_norm', 'grad_update_angle', 'update_tensors']
-
             for key, value in optim_metrics.items():
-                if key.split('/')[0] in exclude_key_list:
-                    if value.numel() > 1:
-                        metrics[key] = value
-                    else:
-                        metrics[key] = value.item()
-                else:
-                    if value.numel() > 1:
-                        metrics[f"optim/{key}"] = value
-                    else:
-                        metrics[f"optim/{key}"] = value.item()
+                metrics[f"optim/{key}"] = value.item()
 
         return metrics
 
@@ -1063,19 +971,7 @@ class Trainer:
                     f"    {name}={format_float(value)}"
                     for name, value in metrics.items()
                     if name == "optim/total_grad_norm"
-                    or (not name.startswith("optim/")
-                        and not name.startswith("param/")
-                        and not name.startswith("grad/")
-                        and not name.startswith("first_moment/")
-                        and not name.startswith("second_moment/")
-                        and not name.startswith("update_norm/")
-                        and not name.startswith("grad_update_angle/")
-                        and not name.startswith("param_tensors/")
-                        and not name.startswith("grad_tensors/")
-                        and not name.startswith("first_moment_tensors/")
-                        and not name.startswith("second_moment_tensors/")
-                        and not name.startswith("update_tensors/")
-                    )  # there's too many optimizer metrics
+                    or not name.startswith("optim/")  # there's too many optimizer metrics
                 ]
             )
         )
@@ -1139,6 +1035,10 @@ class Trainer:
             self.log_metrics_to_console(f"{evaluator.label}", metrics)
 
             del eval_batches
+
+        # Eval compiles a bunch more versions, and the result is terrible. This way we get back to zero.
+        if self.cfg.compile is not None:
+            torch.compiler.reset()
 
         return eval_metrics
 
@@ -1338,23 +1238,7 @@ class Trainer:
                         and self.cfg.wandb is not None
                         and self.global_step % self.cfg.wandb.log_interval == 0
                     ):
-                        tensor_metrics = {}
-                        tensor_metrics_keys = []
-
-                        # we separate metrics which are tensors and plot histograms for them
-                        for key, val in metrics.items():
-                            if isinstance(val, torch.Tensor):
-                                tensor_metrics[key] = val
-                                tensor_metrics_keys.append(key)
-
-                        for key in tensor_metrics_keys:
-                            del metrics[key]
-
                         wandb.log(metrics, step=self.global_step)
-
-                        # log tensor metrics as histograms over time and lineplots
-                        for key, val in tensor_metrics.items():
-                            wandb.log({key: wandb.Histogram(val.cpu().numpy())}, step=self.global_step)
 
                     # Check if/when run should be canceled.
                     if not cancel_initiated and self.global_step % self.cfg.canceled_check_interval == 0:

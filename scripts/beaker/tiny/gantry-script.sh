@@ -3,19 +3,19 @@
 set -ex
 
 NUM_NODES=1
-TASK_NAME=olmo-7M-optimizer-adamw-lr-5e-4-warmup-5000
-CONFIG_PATH=configs/optimizers/OLMo-7M.yaml
+TASK_NAME=olmo-150M-optimizer-adamw-lr-6e-4
+CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
 
 gantry run \
   --allow-dirty \
-  --workspace ai2/OLMo-optimizers \
+  --workspace ai2/OLMo-tiny \
   --task-name ${TASK_NAME} \
   --description "OLMo optimizer runs" \
-  --priority normal \
+  --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/ceres-cirrascale \
-  --gpus 1 \
+  --gpus 4 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
