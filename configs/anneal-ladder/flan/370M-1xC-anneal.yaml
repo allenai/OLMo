@@ -1,7 +1,7 @@
 seed: 7201
 dry_run: false
 
-run_name: ladder-370M-1xC-anneal-from-9452-2B-debug-flan
+run_name: ladder-370M-1xC-anneal-from-9452-2B-initial-flan
 load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-rerun-370M-1xC/step9452-unsharded
 
 wandb:
@@ -113,7 +113,7 @@ speed_monitor:
 
 gen1_gc_interval: 10
 
-eval_interval: 25
+eval_interval: 100
 eval_subset_num_batches: -1
 device_eval_batch_size: 10 # ${device_train_microbatch_size}
 evaluators:
