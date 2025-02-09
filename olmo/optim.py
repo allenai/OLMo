@@ -32,6 +32,13 @@ __all__ = [
     "build_scheduler",
 ]
 
+# TODO: commit Lanczos code from edge of stability stuff to self repo
+# edit: optim.py, train.py, scripts/train.py, config.py, and 7M, 20M configs, ie bring back evals and stuff
+# TODO: reset tiny olmo back to OG state
+# TODO: start adamw: LR, warmup, beta1, beta2 experiments (warmup and cosine for batch size 4M)
+# TODO: add muon and schedule free adamW, start experiments for adamw, schedule free and muon
+# TODO: add ademamix, adan
+
 
 log = logging.getLogger(__name__)
 
