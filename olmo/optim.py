@@ -32,7 +32,7 @@ __all__ = [
     "build_scheduler",
 ]
 
-# TODO: start adamw: warmup, beta1, beta2 experiments (warmup and cosine for batch size 4M)
+# TODO: start adamw: beta1, beta2 experiments (warmup and cosine for batch size 4M)
 # TODO: add muon and schedule free adamW, start experiments for adamw, schedule free and muon
 # TODO: add ademamix, adan
 # TODO: read schedule free paper, surprising agreement papers, ch 1-4 optimization course
