@@ -204,8 +204,10 @@ fsdp:
   use_orig_params: true
   wrapping_strategy: by_block_and_size
 fused_loss: true
-gen1_gc_interval: 10
+gen1_gc_interval: 2
 global_train_batch_size: 8
+device_train_batch_size: 1
+device_train_grad_accum: 1
 load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-rerun-3B-1xC/latest-unsharded
 max_duration: 50e9T
 max_grad_norm: 1.0
