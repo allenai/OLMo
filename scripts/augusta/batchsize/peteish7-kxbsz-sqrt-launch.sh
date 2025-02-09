@@ -10,10 +10,15 @@ echo "Increasing batch size by factor of $K..."
 NAME="peteish7-${K}xbsz-sqrt"
 shift
 
+START_STEP=${START_STEP:-"477000"}
+if [ "$START_STEP" != "477000" ]; then
+  NAME="${NAME}-from${START_STEP}"
+fi
+
 echo $NAME | gantry run \
   --workspace ai2/13B \
   --task-name $NAME \
-  --description "Peteish7 with ${K}x batch size and sqrt(${K})x LR" \
+  --description "Peteish7 with ${K}x batch size and sqrt(${K})x LR from $START_STEP" \
   --priority high \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
@@ -31,6 +36,7 @@ echo $NAME | gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
+  --env START_STEP=$START_STEP \
   --env-secret WANDB_API_KEY=DIRKG_WANDB_API_KEY \
   --env-secret AWS_ACCESS_KEY_ID=DIRKG_AWS_ACCESS_KEY_ID \
   --env-secret AWS_SECRET_ACCESS_KEY=DIRKG_AWS_SECRET_ACCESS_KEY \

@@ -9,6 +9,10 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+# This ranges roughly up to 900000
+START_STEP=${START_STEP:-"477000"}
+echo "START_STEP: $START_STEP"
+
 # Compute everything in terms of this factor.
 K=$1
 BSIZE=$((K * 1024))
@@ -80,7 +84,7 @@ torchrun \
       --save_folder=$SAVE_FOLDER \
       --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/$NAME/" \
       --save_overwrite \
-      --load_path=gs://ai2-llm/checkpoints/OLMo-medium/peteish7/step477000/ \
+      --load_path=gs://ai2-llm/checkpoints/OLMo-medium/peteish7/step$START_STEP/ \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=2 \
       --activation_checkpointing=one_in_four \
