@@ -83,8 +83,8 @@ load_path: /oe-eval-default/davidh/base/checkpoints/OLMo-small/peteish1/step1907
 restore_dataloader: false
 no_pre_train_checkpoint: true
 
-# 50B tokens
-stop_at: 23852  # round(50e9 / (512 * 4096)) + 10
+# 50B tokens (early stop at 2B toks)
+stop_at: 974  # round(2e9 / (512 * 4096)) + 10
 max_duration: 50e9T
 
 # # 10B tokens

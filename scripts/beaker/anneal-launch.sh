@@ -14,10 +14,10 @@ else
 fi
 
 gantry run \
-  --workspace ai2/ladder-evals \
+  --workspace ai2/cheap_decisions \
   --task-name mc-microanneal \
   --description "OLMo microanneal with $*" \
-  --priority normal \
+  --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.3-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
