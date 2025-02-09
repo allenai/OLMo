@@ -11,9 +11,9 @@ shift
 
 # Compute everything in terms of this factor.
 K=$1
-BSIZE=$(echo $K | awk '{print $1 * 1024}')
-NSTEPS=$(echo $K | awk '{print 500 / $1}')
-LR=$(echo $K | awk '{print sqrt($1) * 0.0003}')
+BSIZE=$((K * 1024))
+NSTEPS=$((512/K))
+LR=$((K * 0.0003))
 
 # augusta specific environment
 export LD_LIBRARY_PATH="/var/lib/tcpxo/lib64:${LD_LIBRARY_PATH}"
