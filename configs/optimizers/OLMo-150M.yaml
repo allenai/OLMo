@@ -93,7 +93,7 @@ max_grad_norm_ratio: null
 speed_monitor:
   window_size: 20
 
-eval_interval: 5000
+eval_interval: 250
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:
@@ -128,81 +128,81 @@ evaluators:
   ##########################
   # Downstream evaluations #
   ##########################
-  - label: piqa
-    type: downstream
+  # - label: piqa
+  #   type: downstream
 
-  - label: hellaswag
-    type: downstream
+  # - label: hellaswag
+  #   type: downstream
 
-  - label: winogrande
-    type: downstream
+  # - label: winogrande
+  #   type: downstream
 
-  - label: openbook_qa
-    type: downstream
+  # - label: openbook_qa
+  #   type: downstream
  
-  - label: sciq
-    type: downstream
+  # - label: sciq
+  #   type: downstream
 
-  - label: arc_easy
-    type: downstream
+  # - label: arc_easy
+  #   type: downstream
 
-  - label: commonsense_qa
-    type: downstream
+  # - label: commonsense_qa
+  #   type: downstream
 
-  - label: social_iqa
-    type: downstream
+  # - label: social_iqa
+  #   type: downstream
 
-  # Doesn't work from cache.
+  # # Doesn't work from cache.
+  # # - label: basic_arithmetic
+  # #   type: downstream
+
+  # - label: mmlu_stem_var
+  #   type: downstream
+
+  # - label: mmlu_humanities_var
+  #   type: downstream
+
+  # - label: mmlu_social_sciences_var
+  #   type: downstream
+
+  # - label: mmlu_other_var
+  #   type: downstream
+
+  # - label: mmlu_stem_mc_5shot
+  #   type: downstream
+
+  # - label: mmlu_humanities_mc_5shot
+  #   type: downstream
+
+  # - label: mmlu_social_sciences_mc_5shot
+  #   type: downstream
+
+  # - label: mmlu_other_mc_5shot
+  #   type: downstream
+
+  # - label: mmlu_stem_mc_5shot_test
+  #   type: downstream
+
+  # - label: mmlu_humanities_mc_5shot_test
+  #   type: downstream
+
+  # - label: mmlu_social_sciences_mc_5shot_test
+  #   type: downstream
+
+  # - label: mmlu_other_mc_5shot_test
+  #   type: downstream
+
   # - label: basic_arithmetic
   #   type: downstream
 
-  - label: mmlu_stem_var
-    type: downstream
+  # - label: trivia_qa_wiki_ppl
+  #   type: downstream
 
-  - label: mmlu_humanities_var
-    type: downstream
+  # - label: natural_qs_open_ppl
+  #   type: downstream
 
-  - label: mmlu_social_sciences_var
-    type: downstream
-
-  - label: mmlu_other_var
-    type: downstream
-
-  - label: mmlu_stem_mc_5shot
-    type: downstream
-
-  - label: mmlu_humanities_mc_5shot
-    type: downstream
-
-  - label: mmlu_social_sciences_mc_5shot
-    type: downstream
-
-  - label: mmlu_other_mc_5shot
-    type: downstream
-
-  - label: mmlu_stem_mc_5shot_test
-    type: downstream
-
-  - label: mmlu_humanities_mc_5shot_test
-    type: downstream
-
-  - label: mmlu_social_sciences_mc_5shot_test
-    type: downstream
-
-  - label: mmlu_other_mc_5shot_test
-    type: downstream
-
-  - label: basic_arithmetic
-    type: downstream
-
-  - label: trivia_qa_wiki_ppl
-    type: downstream
-
-  - label: natural_qs_open_ppl
-    type: downstream
-
-  - label: arc_easy_ppl
-    type: downstream
+  # - label: arc_easy_ppl
+  #   type: downstream
 
 data:
   pad_direction: right
