@@ -10,10 +10,16 @@ echo "Increasing batch size by factor of $K..."
 NAME="peteish7-${K}xbsz-sqrt"
 shift
 
+# Get start step.
 START_STEP=${START_STEP:-"477000"}
 if [ "$START_STEP" != "477000" ]; then
   NAME="${NAME}-from${START_STEP}"
 fi
+
+# Compute as function of k.
+BSIZE=$((K * 1024))
+NSTEPS=$((512/K))
+LR=$(echo $K | awk '{print sqrt($1) * 0.0003}')
 
 echo $NAME | gantry run \
   --workspace ai2/13B \
@@ -37,6 +43,9 @@ echo $NAME | gantry run \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
   --env START_STEP=$START_STEP \
+  --env BSIZE=$BSIZE \
+  --env NSTEPS=$NSTEPS \
+  --env LR=$LR \
   --env-secret WANDB_API_KEY=DIRKG_WANDB_API_KEY \
   --env-secret AWS_ACCESS_KEY_ID=DIRKG_AWS_ACCESS_KEY_ID \
   --env-secret AWS_SECRET_ACCESS_KEY=DIRKG_AWS_SECRET_ACCESS_KEY \
@@ -45,4 +54,4 @@ echo $NAME | gantry run \
   --timeout=-1 \
   --allow-dirty \
   --retries 10 \
-  -- /bin/bash -c "scripts/augusta/batchsize/peteish7-kxbsz-sqrt.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK $K"
+  -- /bin/bash -c "scripts/augusta/batchsize/peteish7-branch.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK"

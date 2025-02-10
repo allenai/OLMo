@@ -9,15 +9,11 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
-# This ranges roughly up to 900000
-START_STEP=${START_STEP:-"477000"}
+# These should be set as environment variables.
 echo "START_STEP: $START_STEP"
-
-# Compute everything in terms of this factor.
-K=$1
-BSIZE=$((K * 1024))
-NSTEPS=$((512/K))
-LR=$(echo $K | awk '{print sqrt($1) * 0.0003}')
+echo "NSTEPS: $NSTEPS"
+echo "BSIZE: $BSIZE"
+echo "LR: $LR"
 
 # augusta specific environment
 export LD_LIBRARY_PATH="/var/lib/tcpxo/lib64:${LD_LIBRARY_PATH}"
