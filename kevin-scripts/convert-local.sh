@@ -6,7 +6,7 @@ check_local_path() {
 }
 
 # might need to export path here
-CHECKPOINT="/weka/oe-training-default/kevinf/checkpoints/OLMo-medium/peteish7-medlr/step477000"
+CHECKPOINT="/weka/oe-training-default/kevinf/checkpoints/private-olmo/peteish7-medlr-anneal-from-477000-10B-mjdata/latest"
 
 # Check if the provided path exists
 if check_local_path "$CHECKPOINT"; then
@@ -22,5 +22,3 @@ python hf_olmo/convert_olmo_to_hf.py \
     --destination-dir ${CHECKPOINT}-hf \
     --keep-olmo-artifact \
     --tokenizer allenai/dolma2-tokenizer
-
-done
