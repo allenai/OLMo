@@ -72,7 +72,6 @@ __all__ = [
     "OLMoGenerateOutput",
 ]
 
-
 log = logging.getLogger(__name__)
 
 
@@ -121,7 +120,12 @@ def _non_meta_init_device(config: ModelConfig) -> torch.device:
     if config.init_device is not None and config.init_device != "meta":
         return torch.device(config.init_device)
     else:
-        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if torch.backends.mps.is_available():
+            return torch.device("mps")
+        elif torch.cuda.is_available():
+            return torch.device("cuda")
+        else:
+            return torch.device("cpu")
 
 
 class Dropout(nn.Dropout):
@@ -519,6 +523,8 @@ class OLMoBlock(nn.Module):
             target_dtype = torch.get_autocast_gpu_dtype()
         elif bias.device.type == "cpu" and torch.is_autocast_cpu_enabled():
             target_dtype = torch.get_autocast_cpu_dtype()
+        elif bias.device.type == "mps":
+            target_dtype = torch.get_autocast_dtype("mps")
         if bias.dtype != target_dtype:
             bias = bias.to(target_dtype)
             ensure_finite_(bias, check_neg_inf=True, check_pos_inf=False)

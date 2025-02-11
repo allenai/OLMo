@@ -56,6 +56,7 @@ __all__ = [
     "FSDPPrecision",
     "FSDPWrapStrategy",
     "FSDPConfig",
+    "SingleGPUConfig",
     "CheckpointType",
 ]
 
@@ -748,6 +749,11 @@ class DistributedStrategy(StrEnum):
     Wrap OLMo in torch.distributed.fsdp.FullyShardedDataParallel to train across ranks.
     """
 
+    single = "single"
+    """
+    Train on a single device, i.e., do not distribute training. For development and debugging.
+    """
+
 
 class DDPGradSyncMode(StrEnum):
     batch = "batch"
@@ -858,6 +864,29 @@ class FSDPConfig(BaseConfig):
     a model instance is used per node (as determined by ``get_world_size() // get_local_world_size()``).
     PyTorch's default HSDP behavior matches this default behavior.
     """
+
+
+@dataclass
+class SingleGPUConfig(BaseConfig):
+    device: str = "auto"
+    """
+    Device to run single-device training.
+    """
+
+    def get_device(self):
+        if self.device == "auto":
+            if torch.backends.mps.is_available():
+                return torch.device("mps")
+            elif torch.cuda.is_available():
+                return torch.device("cuda")
+            else:
+                return torch.device("cpu")
+        elif self.device == "mps" and not torch.backends.mps.is_available():
+            raise OLMoConfigurationError("MPS not available.")
+        elif self.device == "cuda" and not torch.cuda.is_available():
+            raise OLMoConfigurationError("CUDA not available.")
+        else:
+            return torch.device(self.device)
 
 
 class CheckpointType(StrEnum):
@@ -1205,6 +1234,11 @@ class TrainConfig(BaseConfig):
     ddp: Optional[DDPConfig] = None
     """
     DDP settings.
+    """
+
+    single: SingleGPUConfig = field(default_factory=lambda: SingleGPUConfig(device="auto"))
+    """
+    Single device settings for GPU/CPU/MPS. Defaults to auto-detect the best device.
     """
 
     softmax_auxiliary_loss: bool = False
