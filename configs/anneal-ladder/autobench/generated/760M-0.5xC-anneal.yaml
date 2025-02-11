@@ -159,13 +159,13 @@ optimizer:
   decay_embeddings: false
   decay_norm_and_bias: true
   eps: 1e-8
-  learning_rate: 7.448728958032132e-05
+  learning_rate: 0.0007
   metrics_log_interval: 1
   name: adamw
   weight_decay: 0.1
 precision: amp_bf16
 restore_dataloader: false
-run_name: ladder-760M-0.5xC-anneal-from-latest-200M-initial-autobench
+run_name: ladder-760M-0.5xC-anneal-from-latest-200M-v1-autobench
 save_folder: /oe-eval-default/davidh/base/checkpoints/olmo-rc-mc/${run_name}
 save_interval: 1000
 save_interval_ephemeral: 1000

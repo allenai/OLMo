@@ -36,6 +36,8 @@ gantry run \
   --shared-memory 10GiB \
   --venv base \
   --yes \
-  --timeout=-1 \
   --allow-dirty \
   -- /bin/bash -c "${COMMAND}"
+
+# Stream output logs
+# --timeout=-1 \

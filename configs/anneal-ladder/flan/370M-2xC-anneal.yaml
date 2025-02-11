@@ -2,7 +2,7 @@ seed: 7201
 dry_run: false
 
 # (make sure to change size and xC multiplier)
-run_name: ladder-370M-2xC-anneal-from-latest-2B-initial-flan
+run_name: ladder-370M-2xC-anneal-from-latest-2B-v1-flan
 load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-370M-2xC/latest-unsharded
 
 wandb:
@@ -63,7 +63,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 7.448728958032132e-05
+  learning_rate: 7e-03
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
