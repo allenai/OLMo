@@ -26,7 +26,7 @@ torchrun \
   --nproc-per-node 4 \
   --rdzv_id=101 \
   --rdzv_backend=c10d \
-  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29403 \
+  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29404 \
   scripts/train.py \
     $CONFIG_PATH \
       --run_name=$TASK_NAME \
@@ -34,5 +34,5 @@ torchrun \
       --wandb.group=$TASK_NAME \
       --wandb.project=olmo-optimizers \
       --optimizer.learning_rate=6e-4 \
-      --optimizer.betas=[0.85,0.999] \
+      --optimizer.betas=[0.85,0.97] \
       --save_overwrite
