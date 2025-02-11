@@ -10,7 +10,7 @@ echo "Increasing batch size by factor of $K..."
 NAME="peteish7-${K}xbsz-sqrt"
 shift
 
-TOTAL_STEPS={TOTAL_STEPS:-512}
+TOTAL_STEPS=${TOTAL_STEPS:-512}
 
 # Compute as function of k.
 BSIZE=$((K * 1024))
