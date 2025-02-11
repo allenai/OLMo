@@ -73,8 +73,15 @@ The training configs below refer to training data that gets streamed in live ove
 To reproduce at large scale, we recommend downloading the files locally and changing the paths to point to your
 local file system.
 
-*Note*: Some of the files that the training configs refer to are still being uploaded (as of 2024-11-27).
-They should all appear in the next few days as the uploads complete.
+#### To run on Mac silicon devices:
+```bash
+python scripts/train.py {path_to_train_config}
+```
+Example:
+```bash
+python scripts/train.py configs/tiny/OLMo-20M.yaml --save_overwrite
+```
+Note: You need to upgrade PyTorch to 2.5.x to run.
 
 ### Stage 1
 
