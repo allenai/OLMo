@@ -56,7 +56,8 @@ ddp:
 
 softmax_auxiliary_loss: true
 auxiliary_loss_multiplier: 1e-5
-fused_loss: true
+# fused_loss: true
+fused_loss: null
 
 compile: null
 
