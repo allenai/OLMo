@@ -3,7 +3,7 @@
 set -ex
 
 NUM_NODES=1
-TASK_NAME=olmo-150M-optimizer-adamw-lr-6e-4-beta1-0.95-beta2-0.9
+TASK_NAME=olmo-150M-optimizer-adamw-lr-6e-4-beta1-0.9-beta2-0.999
 CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
 
 gantry run \
@@ -14,7 +14,7 @@ gantry run \
   --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/ceres-cirrascale \
+  --cluster ai2/jupiter-cirrascale-2 \
   --gpus 4 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
