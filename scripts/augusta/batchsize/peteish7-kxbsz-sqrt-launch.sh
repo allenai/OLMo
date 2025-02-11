@@ -10,16 +10,15 @@ echo "Increasing batch size by factor of $K..."
 NAME="peteish7-${K}xbsz-sqrt"
 shift
 
-# Get start step.
-START_STEP=${START_STEP:-"477000"}
-if [ "$START_STEP" != "477000" ]; then
-  NAME="${NAME}-from${START_STEP}"
-fi
+TOTAL_STEPS={TOTAL_STEPS:-512}
 
 # Compute as function of k.
 BSIZE=$((K * 1024))
-NSTEPS=$((512/K))
+NSTEPS=$((TOTAL_STEPS/K))
 LR=$(echo $K | awk '{print sqrt($1) * 0.0003}')
+
+# Get the checkpoint that we should load from.
+LOAD_PATH=${LOAD_PATH:-"gs://ai2-llm/checkpoints/OLMo-medium/peteish7/step477000/"}
 
 echo $NAME | gantry run \
   --workspace ai2/13B \
@@ -42,13 +41,13 @@ echo $NAME | gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
-  --env START_STEP=$START_STEP \
+  --env LOAD_PATH=$LOAD_PATH \
   --env BSIZE=$BSIZE \
   --env NSTEPS=$NSTEPS \
   --env LR=$LR \
-  --env-secret WANDB_API_KEY=DIRKG_WANDB_API_KEY \
-  --env-secret AWS_ACCESS_KEY_ID=DIRKG_AWS_ACCESS_KEY_ID \
-  --env-secret AWS_SECRET_ACCESS_KEY=DIRKG_AWS_SECRET_ACCESS_KEY \
+  --env-secret WANDB_API_KEY=WILLM_WANDB_API_KEY \
+  --env-secret AWS_ACCESS_KEY_ID=WILLM_AWS_ACCESS_KEY_ID \
+  --env-secret AWS_SECRET_ACCESS_KEY=WILLM_AWS_SECRET_ACCESS_KEY \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \

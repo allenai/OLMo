@@ -10,7 +10,7 @@ BEAKER_REPLICA_RANK=$1
 shift
 
 # These should be set as environment variables.
-echo "START_STEP: $START_STEP"
+echo "LOAD_PATH: $LOAD_PATH"
 echo "NSTEPS: $NSTEPS"
 echo "BSIZE: $BSIZE"
 echo "LR: $LR"
@@ -78,9 +78,9 @@ torchrun \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas=$BEAKER_REPLICA_COUNT \
       --save_folder=$SAVE_FOLDER \
-      --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/$NAME/" \
+      --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/peteish7-batchsize/$NAME/" \
       --save_overwrite \
-      --load_path=gs://ai2-llm/checkpoints/OLMo-medium/peteish7/step$START_STEP/ \
+      --load_path=$LOAD_PATH \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=2 \
       --activation_checkpointing=one_in_four \
