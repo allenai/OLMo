@@ -117,6 +117,32 @@ dry_run: false
 eval_interval: 100
 eval_subset_num_batches: -1
 evaluators:
+- label: mmlu_social_sciences_test_rc_5shot_bpb
+  type: downstream_bpb
+- label: mmlu_humanities_test_rc_5shot_bpb
+  type: downstream_bpb
+- label: mmlu_stem_test_rc_5shot_bpb
+  type: downstream_bpb
+- label: mmlu_other_test_rc_5shot_bpb
+  type: downstream_bpb
+- label: hellaswag_val_rc_5shot_bpb
+  type: downstream_bpb
+- label: arc_challenge_test_rc_5shot_bpb
+  type: downstream_bpb
+- label: arc_easy_test_rc_5shot_bpb
+  type: downstream_bpb
+- label: piqa_val_rc_5shot_bpb
+  type: downstream_bpb
+- label: csqa_val_rc_5shot_bpb
+  type: downstream_bpb
+- label: socialiqa_val_rc_5shot_bpb
+  type: downstream_bpb
+- label: openbookqa_test_rc_5shot_bpb
+  type: downstream_bpb
+- label: arc_challenge_val_rc_5shot
+  type: downstream
+- label: arc_challenge_test_rc_5shot
+  type: downstream
 - label: arc_challenge_val_rc_5shot
   type: downstream
 - label: arc_challenge_test_rc_5shot
@@ -256,7 +282,7 @@ optimizer:
   weight_decay: 0.1
 precision: amp_bf16
 restore_dataloader: false
-run_name: ladder-3B-2xC-anneal-from-latest-2B-v1-flan
+run_name: ladder-3B-2xC-anneal-from-latest-2B-v2-flan
 save_folder: /oe-eval-default/davidh/base/checkpoints/olmo-rc-mc/${run_name}
 save_interval: 1000
 save_interval_ephemeral: 1000
@@ -273,7 +299,7 @@ sharded_checkpointer: olmo_core
 softmax_auxiliary_loss: true
 speed_monitor:
   window_size: 1
-stop_at: 974
+stop_at: 487
 tokenizer:
   identifier: tokenizers/allenai_dolma2.json
   truncate_direction: right

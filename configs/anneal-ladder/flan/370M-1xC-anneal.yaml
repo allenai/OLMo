@@ -2,7 +2,7 @@ seed: 7201
 dry_run: false
 
 # (make sure to change size and xC multiplier)
-run_name: ladder-370M-1xC-anneal-from-latest-2B-v1-flan
+run_name: ladder-370M-1xC-anneal-from-latest-2B-v2-flan
 load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-rerun-370M-1xC/latest-unsharded
 
 wandb:
@@ -63,7 +63,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 7e-03
+  learning_rate: 7e-05
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
@@ -97,7 +97,7 @@ restore_dataloader: false
 no_pre_train_checkpoint: true
 
 # 50B tokens (early stop at 2B toks)
-stop_at: 974  # round(2e9 / (512 * 4096)) + 10
+stop_at: 1948  # round(2e9 / (512 * 4096)) + 10
 max_duration: 50e9T
 global_train_batch_size: 512
 device_train_microbatch_size: 2
@@ -121,6 +121,54 @@ evaluators:
   ##########################
   # Downstream evaluations #
   ##########################
+  - label: mmlu_social_sciences_test_rc_5shot_bpb
+    type: downstream_bpb
+  - label: mmlu_humanities_test_rc_5shot_bpb
+    type: downstream_bpb
+  - label: mmlu_stem_test_rc_5shot_bpb
+    type: downstream_bpb
+  - label: mmlu_other_test_rc_5shot_bpb
+    type: downstream_bpb
+  - label: hellaswag_val_rc_5shot_bpb
+    type: downstream_bpb
+  - label: arc_challenge_test_rc_5shot_bpb
+    type: downstream_bpb
+  - label: arc_easy_test_rc_5shot_bpb
+    type: downstream_bpb
+  - label: piqa_val_rc_5shot_bpb
+    type: downstream_bpb
+  - label: csqa_val_rc_5shot_bpb
+    type: downstream_bpb
+  - label: socialiqa_val_rc_5shot_bpb
+    type: downstream_bpb
+  - label: openbookqa_test_rc_5shot_bpb
+    type: downstream_bpb
+  - label: arc_challenge_val_rc_5shot
+    type: downstream
+  - label: arc_challenge_test_rc_5shot
+    type: downstream
+  - label: mmlu_social_sciences_test_rc_5shot_bpb
+    type: downstream_bpb
+  - label: mmlu_humanities_test_rc_5shot_bpb
+    type: downstream_bpb
+  - label: mmlu_stem_test_rc_5shot_bpb
+    type: downstream_bpb
+  - label: mmlu_other_test_rc_5shot_bpb
+    type: downstream_bpb
+  - label: hellaswag_val_rc_5shot_bpb
+    type: downstream_bpb
+  - label: arc_challenge_test_rc_5shot_bpb
+    type: downstream_bpb
+  - label: arc_easy_test_rc_5shot_bpb
+    type: downstream_bpb
+  - label: piqa_val_rc_5shot_bpb
+    type: downstream_bpb
+  - label: csqa_val_rc_5shot_bpb
+    type: downstream_bpb
+  - label: socialiqa_val_rc_5shot_bpb
+    type: downstream_bpb
+  - label: openbookqa_test_rc_5shot_bpb
+    type: downstream_bpb
   - label: arc_challenge_val_rc_5shot
     type: downstream
   - label: arc_challenge_test_rc_5shot
