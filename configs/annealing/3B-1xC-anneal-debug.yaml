@@ -97,10 +97,10 @@ restore_dataloader: false
 no_pre_train_checkpoint: true
 
 # 50B tokens (early stop at 2B toks)
-stop_at: 3896 # 974  # round(2e9 / (512 * 4096)) + 10
+stop_at: 974  # round(2e9 / (512 * 4096)) + 10
 max_duration: 50e9T
-global_train_batch_size: 16 # 512
-device_train_microbatch_size: 2 # 2
+global_train_batch_size: 512
+device_train_microbatch_size: 1 # 2
 
 precision: amp_bf16
 
