@@ -112,7 +112,7 @@ ddp:
   grad_sync_mode: batch
 device_eval_batch_size: ${device_train_microbatch_size}
 device_train_microbatch_size: 1
-distributed_strategy: ddp
+distributed_strategy: fsdp
 dry_run: false
 eval_interval: 100
 eval_subset_num_batches: -1
@@ -203,9 +203,9 @@ fsdp:
   sharding_strategy: SHARD_GRAD_OP
   use_orig_params: true
   wrapping_strategy: by_block_and_size
-fused_loss: true
-gen1_gc_interval: 10
-global_train_batch_size: 128
+fused_loss: null
+gen1_gc_interval: 2
+global_train_batch_size: 512
 load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-3B-5xC/latest-unsharded
 max_duration: 50e9T
 max_grad_norm: 1.0
@@ -273,7 +273,7 @@ sharded_checkpointer: olmo_core
 softmax_auxiliary_loss: true
 speed_monitor:
   window_size: 1
-stop_at: 3896
+stop_at: 974
 tokenizer:
   identifier: tokenizers/allenai_dolma2.json
   truncate_direction: right
