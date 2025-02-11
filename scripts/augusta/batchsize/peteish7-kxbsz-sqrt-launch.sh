@@ -7,7 +7,6 @@ shift
 
 K=$1
 echo "Increasing batch size by factor of $K..."
-NAME="peteish7-${K}xbsz-sqrt"
 shift
 
 TOTAL_STEPS=${TOTAL_STEPS:-512}
@@ -19,6 +18,8 @@ LR=$(echo $K | awk '{print sqrt($1) * 0.0003}')
 
 # Get the checkpoint that we should load from.
 LOAD_PATH=${LOAD_PATH:-"gs://ai2-llm/checkpoints/OLMo-medium/peteish7/step477000/"}
+step=$(echo $LOAD_PATH | grep -oP 'step\K\d+')
+NAME="peteish7-${K}xbsz-sqrt-from$step"
 
 echo $NAME | gantry run \
   --workspace ai2/13B \
