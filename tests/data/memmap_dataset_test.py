@@ -8,12 +8,12 @@ from olmo.tokenizer import Tokenizer
 
 
 def test_mmap_dataset(tmp_path: Path):
-    mmap1 = np.memmap(tmp_path / "mmap1.npy", mode="w+", dtype=np.uint16, shape=(16,))
-    mmap1[:] = np.array(list(range(16)), dtype=np.uint16)
+    mmap1 = np.memmap(tmp_path / "mmap1.npy", mode="w+", dtype=np.uint32, shape=(16,))
+    mmap1[:] = np.array(list(range(16)), dtype=np.uint32)
     mmap1.flush()
 
-    mmap2 = np.memmap(tmp_path / "mmap2.npy", mode="w+", dtype=np.uint16, shape=(16,))
-    mmap2[:] = np.array(list(range(16, 32)), dtype=np.uint16)
+    mmap2 = np.memmap(tmp_path / "mmap2.npy", mode="w+", dtype=np.uint32, shape=(16,))
+    mmap2[:] = np.array(list(range(16, 32)), dtype=np.uint32)
     mmap2.flush()
 
     ds = MemMapDataset(tmp_path / "mmap1.npy", tmp_path / "mmap2.npy", chunk_size=4)
@@ -23,8 +23,8 @@ def test_mmap_dataset(tmp_path: Path):
 
 
 def test_mmap_dataset_with_label_mask(tmp_path: Path):
-    mmap1 = np.memmap(tmp_path / "mmap1.npy", mode="w+", dtype=np.uint16, shape=(16,))
-    mmap1[:] = np.array(list(range(16)), dtype=np.uint16)
+    mmap1 = np.memmap(tmp_path / "mmap1.npy", mode="w+", dtype=np.uint32, shape=(16,))
+    mmap1[:] = np.array(list(range(16)), dtype=np.uint32)
     mmap1.flush()
 
     mask1 = [True] * 16
@@ -33,8 +33,8 @@ def test_mmap_dataset_with_label_mask(tmp_path: Path):
     mask_mmap1[:] = np.array(mask1, dtype=np.bool_)
     mask_mmap1.flush()
 
-    mmap2 = np.memmap(tmp_path / "mmap2.npy", mode="w+", dtype=np.uint16, shape=(16,))
-    mmap2[:] = np.array(list(range(16, 32)), dtype=np.uint16)
+    mmap2 = np.memmap(tmp_path / "mmap2.npy", mode="w+", dtype=np.uint32, shape=(16,))
+    mmap2[:] = np.array(list(range(16, 32)), dtype=np.uint32)
     mmap2.flush()
 
     mask2 = [True] * 16
@@ -66,7 +66,7 @@ def test_mmap_dataset_with_metadata(tokenizer: Tokenizer, tmp_path: Path, lorem_
 
     # Write tokens to memory-mapped array.
     tokens_fname = tmp_path / "tokens.npy"
-    mmap = np.memmap(tokens_fname, dtype=np.uint16, mode="w+", shape=(len(all_token_ids),))
+    mmap = np.memmap(tokens_fname, dtype=np.uint32, mode="w+", shape=(len(all_token_ids),))
     mmap[:] = all_token_ids
     mmap.flush()
     del mmap
@@ -83,10 +83,10 @@ def test_mmap_dataset_with_metadata(tokenizer: Tokenizer, tmp_path: Path, lorem_
 
 def test_concat_mmap_datasets(tmp_path: Path):
     # Write some data to disk.
-    mmap1 = np.memmap(tmp_path / "tokens1.npy", dtype=np.uint16, mode="w+", shape=(16,))
+    mmap1 = np.memmap(tmp_path / "tokens1.npy", dtype=np.uint32, mode="w+", shape=(16,))
     mmap1[:] = list(range(16))
     mmap1.flush()
-    mmap2 = np.memmap(tmp_path / "tokens2.npy", dtype=np.uint16, mode="w+", shape=(8,))
+    mmap2 = np.memmap(tmp_path / "tokens2.npy", dtype=np.uint32, mode="w+", shape=(8,))
     mmap2[:] = list(range(8))
     mmap2.flush()
     del mmap1, mmap2

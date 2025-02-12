@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - MPS support
 
+### Changed
+
+- Updated `memmap_dtype` to `uint32` for compatibility with OLMo-2-1124.
+
 ## [v0.6.0](https://github.com/allenai/OLMo/releases/tag/v0.6.0) - 2024-12-17
 
 ### Added
