@@ -21,12 +21,11 @@ LR=$(echo $K $BASE_LR | awk '{print sqrt($1) * $2}')
 # Get the checkpoint that we should load from.
 LOAD_PATH=${LOAD_PATH:-"gs://ai2-llm/checkpoints/OLMo-medium/peteish7/step477000/"}
 step=$(echo $LOAD_PATH | grep -oP 'step\K\d+')
-NAME="peteish7-${K}xbsz-sqrt-from$step"
 
-echo $NAME | gantry run \
+gantry run \
   --workspace ai2/13B \
-  --task-name $NAME \
-  --description "${K}x batch size, sqrt(${K})x LR from $START_STEP" \
+  --task-name "peteish7-${K}xbsz-sqrt-from$step" \
+  --description "${K}x batch size, sqrt(${K})x LR from $step" \
   --priority high \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
