@@ -27,27 +27,27 @@ eval_interval: 25
 eval_subset_num_batches: -1
 evaluators:
 - label: mmlu_social_sciences_test_rc_5shot_bpb
-  type: downstream_bpb
+  type: downstream
 - label: mmlu_humanities_test_rc_5shot_bpb
-  type: downstream_bpb
+  type: downstream
 - label: mmlu_stem_test_rc_5shot_bpb
-  type: downstream_bpb
+  type: downstream
 - label: mmlu_other_test_rc_5shot_bpb
-  type: downstream_bpb
+  type: downstream
 - label: hellaswag_val_rc_5shot_bpb
-  type: downstream_bpb
+  type: downstream
 - label: arc_challenge_test_rc_5shot_bpb
-  type: downstream_bpb
+  type: downstream
 - label: arc_easy_test_rc_5shot_bpb
-  type: downstream_bpb
+  type: downstream
 - label: piqa_val_rc_5shot_bpb
-  type: downstream_bpb
+  type: downstream
 - label: csqa_val_rc_5shot_bpb
-  type: downstream_bpb
+  type: downstream
 - label: socialiqa_val_rc_5shot_bpb
-  type: downstream_bpb
+  type: downstream
 - label: openbookqa_test_rc_5shot_bpb
-  type: downstream_bpb
+  type: downstream
 - label: arc_challenge_val_rc_5shot
   type: downstream
 - label: arc_challenge_test_rc_5shot
