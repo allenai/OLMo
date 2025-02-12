@@ -608,7 +608,7 @@ class InstanceFilterConfig(BaseConfig):
 @dataclass
 class DataConfig(BaseConfig):
     paths: Optional[List[str]] = None
-    memmap_dtype: str = "uint16"
+    memmap_dtype: str = "uint32"
     datasets: Optional[Dict[str, List[str]]] = None
     label_mask_paths: Optional[List[str]] = None
     pad_direction: PaddingDirection = PaddingDirection.right

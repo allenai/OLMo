@@ -47,7 +47,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         self,
         *paths: PathOrStr,
         chunk_size: int = 1024,
-        memmap_dtype: Union[Type[np.uint8], Type[np.uint16], Type[np.uint32], Type[np.uint64]] = np.uint16,
+        memmap_dtype: Union[Type[np.uint8], Type[np.uint16], Type[np.uint32], Type[np.uint64]] = np.uint32,
         metadata: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None,
         include_instance_metadata: bool = True,
         generate_attention_mask: bool = False,
