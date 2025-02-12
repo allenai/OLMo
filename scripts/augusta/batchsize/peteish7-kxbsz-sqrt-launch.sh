@@ -10,11 +10,13 @@ echo "Increasing batch size by factor of $K..."
 shift
 
 TOTAL_STEPS=${TOTAL_STEPS:-512}
+BASE_BSIZE=${BASE_BSIZE:-1024}
+BASE_LR=${BASE_LR:-0.0003}
 
 # Compute as function of k.
-BSIZE=$((K * 1024))
-NSTEPS=$((TOTAL_STEPS/K))
-LR=$(echo $K | awk '{print sqrt($1) * 0.0003}')
+NSTEPS=$(echo $K $TOTAL_STEPS | awk '{print int($2 / $1)}')
+BSIZE=$(echo $K $BASE_BSIZE | awk '{print int($1 * $2)}')
+LR=$(echo $K $BASE_LR | awk '{print sqrt($1) * $2}')
 
 # Get the checkpoint that we should load from.
 LOAD_PATH=${LOAD_PATH:-"gs://ai2-llm/checkpoints/OLMo-medium/peteish7/step477000/"}
@@ -24,7 +26,7 @@ NAME="peteish7-${K}xbsz-sqrt-from$step"
 echo $NAME | gantry run \
   --workspace ai2/13B \
   --task-name $NAME \
-  --description "Peteish7 with ${K}x batch size and sqrt(${K})x LR from $START_STEP" \
+  --description "${K}x batch size, sqrt(${K})x LR from $START_STEP" \
   --priority high \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
