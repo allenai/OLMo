@@ -22,10 +22,10 @@ LR=$(echo $K $BASE_LR | awk '{print sqrt($1) * $2}')
 LOAD_PATH=${LOAD_PATH:-"gs://ai2-llm/checkpoints/OLMo-medium/peteish7/step477000/"}
 step=$(echo $LOAD_PATH | grep -oP 'step\K\d+')
 
-gantry run \
+echo "peteish7-${K}xbsz-sqrt-from$step" | gantry run \
   --workspace ai2/13B \
   --task-name "peteish7-${K}xbsz-sqrt-from$step" \
-  --description "${K}x batch size, sqrt(${K})x LR from $step" \
+  --description "${K}x batch size from $step" \
   --priority high \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
