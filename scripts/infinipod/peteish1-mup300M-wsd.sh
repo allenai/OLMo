@@ -76,7 +76,6 @@ torchrun \
       --run_name=$RUN_NAME \
       --wandb.group=$BASE_RUN_NAME \
       --optimizer.learning_rate=$LR \
-      --scheduler.units=steps \
       --scheduler.alpha_f=1.0 \
       --eval_interval=1000 \
       --fsdp.sharding_strategy=HYBRID_SHARD \
