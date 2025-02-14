@@ -57,7 +57,7 @@ RUN_NAME=$BASE_RUN_NAME-$(date -u +"%Y%m%d_%H%M%S")
 export OLMO_SHARED_FS=1
 # # Tell OLMo all ranks do NOT share the same filesystem for checkpoints.
 # unset OLMO_SHARED_FS
-SAVE_FOLDER=/mnt/checkpoints/shanea/checkpoints/OLMo-small/$ANNEAL_NAME
+SAVE_FOLDER=/mnt/checkpoints/shanea/checkpoints/OLMo-small/$BASE_RUN_NAME
 mkdir -p $SAVE_FOLDER
 
 # Set the temp dir
