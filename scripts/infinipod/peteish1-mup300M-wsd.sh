@@ -52,7 +52,7 @@ export PYTHONFAULTHANDLER=1
 # fi
 
 # Job details
-RUN_NAME=$BASE_RUN_NAME-$(date -u +"%Y%m%d_%H%M%S"))
+RUN_NAME=$BASE_RUN_NAME-$(date -u +"%Y%m%d_%H%M%S")
 # Tell OLMo all ranks DO share the same filesystem for checkpoints.
 export OLMO_SHARED_FS=1
 # # Tell OLMo all ranks do NOT share the same filesystem for checkpoints.
