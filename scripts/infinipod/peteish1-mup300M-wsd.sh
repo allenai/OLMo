@@ -60,9 +60,9 @@ export OLMO_SHARED_FS=1
 SAVE_FOLDER=/mnt/checkpoints/shanea/checkpoints/OLMo-300M/$BASE_RUN_NAME
 mkdir -p $SAVE_FOLDER
 
-# Set the temp dir
-export TMPDIR=/mnt/localdisk/tmp
-mkdir -p $TMPDIR
+# # Set the temp dir
+# export TMPDIR=/mnt/localdisk/tmp
+# mkdir -p $TMPDIR
 
 torchrun \
   --nnodes $SLURM_NNODES \
