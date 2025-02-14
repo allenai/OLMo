@@ -83,6 +83,7 @@ torchrun \
       --fsdp.hybrid_sharding_num_model_replicas="${SLURM_NNODES}" \
       --fsdp.wrapping_strategy=by_block_and_size \
       --save_folder=$SAVE_FOLDER \
+      --load_path=/mnt/checkpoints/shanea/checkpoints/OLMo-300M/peteish1-mup300M-1.56e-2/step0 \
       --save_interval=5000 \
       --save_interval_ephemeral=1000 \
       --remote_save_folder=null \
