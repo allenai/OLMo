@@ -37,6 +37,7 @@ gantry run \
   --venv base \
   --yes \
   --allow-dirty \
+  --timeout=-1 \
   -- /bin/bash -c "${COMMAND}"
 
 # Stream output logs
