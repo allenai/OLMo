@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
+import numpy as np
 from torch.utils.data import DataLoader, DistributedSampler
 
 from ..aliases import PathOrStr
@@ -38,10 +39,15 @@ def build_memmap_dataset(
             metadata.extend([{"label": label}] * len(label_paths))
     else:
         raise OLMoConfigurationError("One of DataConfig.paths or DataConfig.datasets is required")
+
+    if train_config.model.vocab_size >= 2**16:
+        optimal_memmap_dtype = np.uint32
+    else:
+        optimal_memmap_dtype = np.uint16
     return MemMapDataset(
         *paths,
         chunk_size=train_config.model.max_sequence_length,
-        memmap_dtype=data_config.effective_memmap_dtype,
+        memmap_dtype=optimal_memmap_dtype,
         metadata=metadata,
         include_instance_metadata=include_instance_metadata,
         pad_token_id=train_config.model.pad_token_id,

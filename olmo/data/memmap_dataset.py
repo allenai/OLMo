@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
@@ -10,7 +12,7 @@ from torch.utils.data import Dataset
 from olmo.exceptions import OLMoEnvironmentError
 
 from ..aliases import PathOrStr
-from ..config import InstanceFilterConfig
+from ..config import InstanceFilterConfig, TrainConfig
 from ..util import _get_s3_client, file_size, get_bytes_range
 from .util import find_periodic_sequences, get_document_lengths
 
@@ -47,7 +49,7 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
         self,
         *paths: PathOrStr,
         chunk_size: int = 1024,
-        memmap_dtype: Union[Type[np.uint8], Type[np.uint16], Type[np.uint32], Type[np.uint64]] = np.uint32,
+        memmap_dtype: Union[Type[np.uint8], Type[np.uint16], Type[np.uint32], Type[np.uint64]] = np.uint16,
         metadata: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None,
         include_instance_metadata: bool = True,
         generate_attention_mask: bool = False,
