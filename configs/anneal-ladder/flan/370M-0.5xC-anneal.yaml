@@ -2,8 +2,8 @@ seed: 7201
 dry_run: false
 
 # (make sure to change size and xC multiplier)
-run_name: ladder-370M-5xC-anneal-from-latest-2B-v2-flan
-load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-370M-5xC/latest-unsharded
+run_name: ladder-370M-0.5xC-anneal-from-latest-2B-v2-flan
+load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-ladder/peteish-moreeval-370M-0.5xC/latest-unsharded
 
 wandb:
   name: ${run_name}
@@ -96,8 +96,8 @@ save_num_unsharded_checkpoints_to_keep: -1
 restore_dataloader: false
 no_pre_train_checkpoint: true
 
-# 50B tokens (early stop at 2B toks)
-stop_at: 1948  # round(2e9 / (512 * 4096)) + 10
+# 50B tokens (early stop at 10B toks)
+stop_at: 4778  # round(10e9 / (512 * 4096)) + 10
 max_duration: 50e9T
 global_train_batch_size: 512
 device_train_microbatch_size: 2
