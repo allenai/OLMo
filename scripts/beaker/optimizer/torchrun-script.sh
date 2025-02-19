@@ -38,7 +38,7 @@ torchrun \
   --nproc-per-node 4 \
   --rdzv_id=101 \
   --rdzv_backend=c10d \
-  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
+  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29401 \
   scripts/train.py \
     $CONFIG_PATH \
       --run_name=$TASK_NAME \
