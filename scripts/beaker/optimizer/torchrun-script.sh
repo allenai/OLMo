@@ -17,6 +17,15 @@ shift
 OPTIMIZER=$1
 shift
 
+MUON_LR=$1
+shift
+
+MUON_WEIGHT_DECAY=$1
+shift
+
+MUON_MOMENTUM=$1
+shift
+
 # Warm HF cache
 mkdir -p /root/.cache
 pushd /root/.cache
@@ -38,5 +47,7 @@ torchrun \
       --wandb.project=olmo-optimizers \
       --optimizer.name=$OPTIMIZER \
       --optimizer.learning_rate=3e-3 \
-      --optimizer.betas=[0.85,0.9] \
+      --optimizer.muon_lr=$MUON_LR \
+      --optimizer.muon_weight_decay=$MUON_WEIGHT_DECAY \
+      --optimizer.muon_momentum=$MUON_MOMENTUM \
       --save_overwrite

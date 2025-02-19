@@ -3,9 +3,13 @@
 set -ex
 
 NUM_NODES=1
-TASK_NAME=olmo-150M-optimizer-muon
+TASK_NAME=olmo-150M-optimizer-muon-lr-1e-2-wd-0.1-momentum-0.95
 CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
+
 OPTIMIZER=muon
+MUON_LR=
+MUON_WEIGHT_DECAY=0.1
+MUON_MOMENTUM=0.95
 
 gantry run \
   --allow-dirty \
@@ -15,7 +19,7 @@ gantry run \
   --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/jupiter-cirrascale-2 \
+  --cluster ai2/saturn-cirrascale \
   --gpus 4 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
@@ -34,4 +38,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/tiny/torchrun-script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${TASK_NAME} ${CONFIG_PATH} ${OPTIMIZER}"
+  -- /bin/bash -c "scripts/beaker/tiny/torchrun-script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${TASK_NAME} ${CONFIG_PATH} ${OPTIMIZER} ${MUON_LR} ${MUON_WEIGHT_DECAY} ${MUON_MOMENTUM}"

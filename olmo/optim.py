@@ -571,6 +571,10 @@ class MuonAdamW(Optimizer):
                 handle = None
                 params_world = None
 
+                if update_buffer.device != params[0].device:
+                    update_buffer = update_buffer.to(params[0].device)
+                    update_buffer_views = [b.to(params[0].device) for b in update_buffer_views]
+
                 def update_prev():
                     handle.wait()
                     for p_world, g_world in zip(params_world, update_buffer_views):
@@ -582,7 +586,10 @@ class MuonAdamW(Optimizer):
                     if base_i + self.rank < len(params):
                         p = params[base_i + self.rank]
                         g = p.grad
+
                         assert g is not None
+                        assert not g.is_sparse
+
                         state = self.state[p]
                         if "momentum_buffer" not in state:
                             state["momentum_buffer"] = torch.zeros_like(g)
