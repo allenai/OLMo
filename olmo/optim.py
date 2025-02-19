@@ -12,6 +12,11 @@ from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.optim.optimizer import Optimizer as OptimizerBase
 
+try:
+    from torch.optim.optimizer import ParamsT
+except ImportError:
+    ParamsT : TypeAlias = Union[Iterable[torch.Tensor], Iterable[Dict[str, Any]]]
+
 from . import LayerNormBase, RMSLayerNorm
 from .config import OptimizerType, SchedulerConfig, SchedulerType, TrainConfig
 from .torch_util import get_default_device, is_distributed
