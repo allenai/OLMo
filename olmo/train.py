@@ -831,7 +831,7 @@ class Trainer:
             metrics["train/masked_instances_local_rank"] = (~instance_mask).sum().item()
 
         # added for schedule-free adamw
-        if self.cfg.optimizer == OptimizerType.schedule_free_adamw:
+        if self.cfg.optimizer.name == OptimizerType.schedule_free_adamw:
             self.optim.train()
 
         # Zero-gradients.
@@ -1007,7 +1007,7 @@ class Trainer:
         self.dist_model.eval()
 
         # added for schedule-free adamw
-        if self.cfg.optimizer == OptimizerType.schedule_free_adamw:
+        if self.cfg.optimizer.name == OptimizerType.schedule_free_adamw:
             self.optim.eval()
 
         eval_metrics = {}
@@ -1258,7 +1258,7 @@ class Trainer:
                     # Maybe save sharded checkpoint.
                     if self.cfg.distributed_strategy != DistributedStrategy.ddp:
                         # added for schedule-free adamw
-                        if self.cfg.optimizer == OptimizerType.schedule_free_adamw:
+                        if self.cfg.optimizer.name == OptimizerType.schedule_free_adamw:
                             self.optim.eval()
 
                         if save_checkpoints and (
@@ -1303,7 +1303,7 @@ class Trainer:
                         and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
                     ):
                         # added for schedule-free adamw
-                        if self.cfg.optimizer == OptimizerType.schedule_free_adamw:
+                        if self.cfg.optimizer.name == OptimizerType.schedule_free_adamw:
                             self.optim.eval()
 
                         log.info("Saving unsharded checkpoint...")
@@ -1365,7 +1365,7 @@ class Trainer:
         # Save final checkpoint.
         if save_checkpoints:
             # added for schedule-free adamw
-            if self.cfg.optimizer == OptimizerType.schedule_free_adamw:
+            if self.cfg.optimizer.name == OptimizerType.schedule_free_adamw:
                 self.optim.eval()
 
             if (
