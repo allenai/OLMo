@@ -17,10 +17,13 @@ shift
 OPTIMIZER=$1
 shift
 
-LR=$1
+MUON_LR=$1
 shift
 
-WD=$1
+MUON_WEIGHT_DECAY=$1
+shift
+
+MUON_MOMENTUM=$1
 shift
 
 # Warm HF cache
@@ -35,7 +38,7 @@ torchrun \
   --nproc-per-node 4 \
   --rdzv_id=101 \
   --rdzv_backend=c10d \
-  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29400 \
+  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29407 \
   scripts/train.py \
     $CONFIG_PATH \
       --run_name=$TASK_NAME \
@@ -43,6 +46,8 @@ torchrun \
       --wandb.group=$TASK_NAME \
       --wandb.project=olmo-optimizers \
       --optimizer.name=$OPTIMIZER \
-      --optimizer.learning_rate=$LR \
-      --optimizer.weight_decay=$WD \
+      --optimizer.learning_rate=3e-3 \
+      --optimizer.muon_lr=$MUON_LR \
+      --optimizer.muon_weight_decay=$MUON_WEIGHT_DECAY \
+      --optimizer.muon_momentum=$MUON_MOMENTUM \
       --save_overwrite
