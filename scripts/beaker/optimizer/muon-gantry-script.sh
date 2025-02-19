@@ -38,4 +38,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/tiny/torchrun-script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${TASK_NAME} ${CONFIG_PATH} ${OPTIMIZER} ${MUON_LR} ${MUON_WEIGHT_DECAY} ${MUON_MOMENTUM}"
+  -- /bin/bash -c "scripts/beaker/optimizer/torchrun-script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${TASK_NAME} ${CONFIG_PATH} ${OPTIMIZER} ${MUON_LR} ${MUON_WEIGHT_DECAY} ${MUON_MOMENTUM}"

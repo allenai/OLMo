@@ -2,12 +2,13 @@
 
 set -ex
 
+SOCKET=29400
 NUM_NODES=1
-TASK_NAME=olmo-150M-optimizer-schedule-free-adamw-lr-6e-3-wd-0.1
+TASK_NAME=olmo-150M-optimizer-schedule-free-adamw-lr-6e-4-wd-0
 CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
 
 OPTIMIZER=schedule_free_adamw
-LR=6e-3
+LR=6e-4
 WD=0.1
 
 gantry run \
@@ -18,7 +19,7 @@ gantry run \
   --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/ceres-cirrascale \
+  --cluster ai2/jupiter-cirrascale-2 \
   --gpus 4 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
@@ -37,4 +38,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/tiny/torchrun-script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} ${TASK_NAME} ${CONFIG_PATH} ${OPTIMIZER} ${LR} ${WD}"
+  -- /bin/bash -c "scripts/beaker/optimizer/torchrun-script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${SOCKET} ${NUM_NODES} ${TASK_NAME} ${CONFIG_PATH} ${OPTIMIZER} ${LR} ${WD}"
