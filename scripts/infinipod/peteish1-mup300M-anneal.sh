@@ -59,7 +59,7 @@ RUN_NAME=$ANNEAL_NAME-$(date -u +"%Y%m%d_%H%M%S")
 export OLMO_SHARED_FS=1
 # # Tell OLMo all ranks do NOT share the same filesystem for checkpoints.
 # unset OLMO_SHARED_FS
-SAVE_FOLDER=/mnt/checkpoints/shanea/checkpoints/OLMo-300M/$BASE_RUN_NAME
+SAVE_FOLDER=/mnt/checkpoints/shanea/checkpoints/OLMo-300M/$ANNEAL_NAME
 mkdir -p $SAVE_FOLDER
 
 MAX_STEPS=$(($ANNEAL_STEPS + $LOAD_STEP))
