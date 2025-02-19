@@ -39,6 +39,7 @@ from .config import (
     ShardedCheckpointerType,
     SpeedMonitorConfig,
     TrainConfig,
+    OptimizerType,
 )
 from .data import IterableDataset
 from .eval import Evaluator
@@ -829,6 +830,10 @@ class Trainer:
         if (instance_mask := batch.get("instance_mask")) is not None:
             metrics["train/masked_instances_local_rank"] = (~instance_mask).sum().item()
 
+        # added for schedule-free adamw
+        if self.cfg.optimizer == OptimizerType.schedule_free_adamw:
+            self.optim.train()
+
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
 
@@ -1000,6 +1005,10 @@ class Trainer:
         # Zero gradients and set model to 'eval' mode.
         self.optim.zero_grad(set_to_none=True)
         self.dist_model.eval()
+
+        # added for schedule-free adamw
+        if self.cfg.optimizer == OptimizerType.schedule_free_adamw:
+            self.optim.eval()
 
         eval_metrics = {}
         for evaluator in self.evaluators:
@@ -1248,6 +1257,10 @@ class Trainer:
 
                     # Maybe save sharded checkpoint.
                     if self.cfg.distributed_strategy != DistributedStrategy.ddp:
+                        # added for schedule-free adamw
+                        if self.cfg.optimizer == OptimizerType.schedule_free_adamw:
+                            self.optim.eval()
+
                         if save_checkpoints and (
                             cancel_initiated
                             or (
@@ -1289,6 +1302,10 @@ class Trainer:
                         and self.global_step % self.cfg.save_interval_unsharded == 0
                         and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
                     ):
+                        # added for schedule-free adamw
+                        if self.cfg.optimizer == OptimizerType.schedule_free_adamw:
+                            self.optim.eval()
+
                         log.info("Saving unsharded checkpoint...")
                         checkpoint_path, _ = self.save_checkpoint(CheckpointType.unsharded)
                         log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
@@ -1347,6 +1364,10 @@ class Trainer:
 
         # Save final checkpoint.
         if save_checkpoints:
+            # added for schedule-free adamw
+            if self.cfg.optimizer == OptimizerType.schedule_free_adamw:
+                self.optim.eval()
+
             if (
                 self.cfg.save_interval_unsharded is not None
                 and self.last_unsharded_checkpoint_step != self.global_step
