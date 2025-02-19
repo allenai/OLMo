@@ -7,7 +7,7 @@ TASK_NAME=olmo-150M-optimizer-muon-lr-1e-2-wd-0.1-momentum-0.95
 CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
 
 OPTIMIZER=muon
-MUON_LR=
+MUON_LR=1e-2
 MUON_WEIGHT_DECAY=0.1
 MUON_MOMENTUM=0.95
 
