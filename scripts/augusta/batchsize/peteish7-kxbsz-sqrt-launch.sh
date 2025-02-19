@@ -3,12 +3,13 @@
 set -ex
 
 NUM_NODES=$1
-NUM_GPUS=$NUM_NODES  # Is this right?
 shift
 
 K=$1
 echo "Increasing batch size by factor of $K..."
 shift
+
+NUM_GPUS=${NUM_GPUS:-8}
 
 TOTAL_STEPS=${TOTAL_STEPS:-512}
 BASE_BSIZE=${BASE_BSIZE:-1024}
@@ -25,8 +26,9 @@ LOAD_PATH=${LOAD_PATH:-"gs://ai2-llm/checkpoints/OLMo-medium/peteish7/step477000
 step=$(echo $LOAD_PATH | grep -oP 'step\K\d+')
 name="$PREFIX-${K}xbsz-sqrt-from$step"
 
-echo $name | gantry run \
+gantry run \
   --workspace ai2/13B \
+  --name $name \
   --task-name $name \
   --description "${K}x batch size from $step" \
   --priority high \
@@ -34,7 +36,7 @@ echo $name | gantry run \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
   --cluster ai2/augusta-google-1 \
   --gpus $NUM_GPUS \
-  --replicas "${NUM_NODES}" \
+  --replicas $NUM_NODES \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
