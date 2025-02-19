@@ -498,6 +498,7 @@ class ModelConfig(BaseConfig):
 class OptimizerType(StrEnum):
     lionw = "lionw"
     adamw = "adamw"
+    muon = "muon"
 
 
 @dataclass
@@ -531,6 +532,15 @@ class OptimizerConfig(BaseConfig):
     """
     Whether to record detailed metrics about the optimizer's parameter updates, like the norm and max
     of the update with AdamW.
+    """
+
+    muon_lr: float = 1.0e-2
+    muon_weight_decay: float = 0.01
+    muon_momentum: float = 0.95
+    nesterov: bool = True
+    ns_steps: int = 5
+    """
+    Config for Muon optimizer.
     """
 
     def __post_init__(self):

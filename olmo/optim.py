@@ -12,7 +12,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.optim.optimizer import Optimizer as OptimizerBase
 
-from . import LayerNormBase
+from . import LayerNormBase, RMSLayerNorm
 from .config import OptimizerType, SchedulerConfig, SchedulerType, TrainConfig
 from .torch_util import get_default_device, is_distributed
 
@@ -403,14 +403,148 @@ class ScheduleFreeSGD(Optimizer):
         pass
 
 
-class Muon(Optimizer):
+class MuonAdamW(Optimizer):
     """
         Muon is intended to optimize only the internal ≥2D parameters of a network. Embeddings, classifier heads,
         and scalar or vector parameters should be optimized using AdamW instead. Muon provides an internal AdamW
         for this so you don't have to use an extra optimizer.
+
+        Codebase designed to handle single optimizer, merging muon and adamw here for different param groups.
+        Will probably fail at checkpointing, restoring and logging a bunch of optimizer states.
+
+        Code taken and modified from: https://github.com/KellerJordan/Muon/blob/master/muon.py
     """
-    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
-        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+    def __init__(
+        self,
+        params,
+        muon_lr=0.02,
+        muon_weight_decay=0.01,
+        muon_momentum=0.95,
+        nesterov=True,
+        ns_steps=5,
+        rank=0,
+        world_size=1,
+        adam_lr=1e-3,
+        adam_betas=(0.9, 0.999),
+        eps=1e-8,
+        adam_weight_decay=0.01,
+        amsgrad=False,
+        vocab_size=50304,
+        *args,
+        record_update_metrics = False,
+        selective_updates = False,
+        **kwargs
+    ):
+        self.rank = rank
+        self.world_size = world_size
+
+        muon_defaults = dict(
+            lr=muon_lr,
+            weight_decay=muon_weight_decay,
+            momentum=muon_momentum,
+            nesterov=nesterov,
+            ns_steps=ns_steps,
+            optimizer_type='muon',
+        )
+        adamw_defaults = dict(
+            lr=adam_lr,
+            betas=adam_betas,
+            eps=eps,
+            weight_decay=adam_weight_decay,
+            amsgrad=amsgrad,
+            optimizer_type='adamw',
+        )
+
+        param_groups = []
+
+        for old_group in params:
+            if 'weight_decay' in old_group:
+                del adamw_defaults['weight_decay']
+                param_groups.append({**old_group, **adamw_defaults})
+            else:
+                # for each old_group, split into muon and adamw params
+                adamw_params = {'params': [], 'param_names': []}
+                muon_params = {'params': [], 'param_names': []}
+
+                # TODO: create different groups for the same sized params for efficient distributed communication
+                for pn, p in zip(old_group['param_names'], old_group['params']):
+                    if p.ndim < 2 or p.shape[0] == vocab_size or p.shape[1] == vocab_size:
+                        adamw_params['params'].append(p)
+                        adamw_params['param_names'].append(pn)
+                    else:
+                        muon_params['params'].append(p)
+                        muon_params['param_names'].append(pn)
+
+                adamw_params = {
+                    **adamw_params,
+                    **adamw_defaults,
+                    'sharded': old_group['sharded'],
+                    'max_grad_norm': old_group['max_grad_norm'],
+                    'max_grad_norm_ratio': old_group['max_grad_norm_ratio'],
+                }
+                param_groups.append(adamw_params)
+
+                # for each old_group, split muon_params further based on size for distributed setting
+                if muon_params['params']:
+                    unique_sizes = {p.numel() for p in muon_params['params']}
+                    device = muon_params['params'][0].device
+
+                    for size in unique_sizes:
+                        params_of_size = []
+                        param_names_of_size = []
+
+                        for p, pn in zip(muon_params['params'], muon_params['param_names']):
+                            if p.numel() == size:
+                                params_of_size.append(p)
+                                param_names_of_size.append(pn)
+
+                        b = torch.empty(world_size, size, dtype=torch.bfloat16, device=device)
+                        muon_params_group = {
+                            'params': params_of_size,
+                            'param_names': param_names_of_size,
+                            'update_buffer': b,
+                            'update_buffer_views': [b[i] for i in range(world_size)],
+                            'sharded': old_group['sharded'],
+                            'max_grad_norm': old_group['max_grad_norm'],
+                            'max_grad_norm_ratio': old_group['max_grad_norm_ratio'],
+                            **muon_defaults,
+                        }
+
+                        param_groups.append(muon_params_group)
+
+        del params
+        super(MuonAdamW, self).__init__(
+            param_groups, {}, *args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs
+        )
+
+    def zeropower_via_newtonschulz5(self, G: torch.Tensor, steps: int) -> torch.Tensor:
+        """
+        Newton-Schulz iteration to compute the zeroth power / orthogonalization of G. We opt to use a
+        quintic iteration whose coefficients are selected to maximize the slope at zero. For the purpose
+        of minimizing steps, it turns out to be empirically effective to keep increasing the slope at
+        zero even beyond the point where the iteration no longer converges all the way to one everywhere
+        on the interval. This iteration therefore does not produce UV^T but rather something like US'V^T
+        where S' is diagonal with S_{ii}' ~ Uniform(0.5, 1.5), which turns out not to hurt model
+        performance at all relative to UV^T, where USV^T = G is the SVD.
+        """
+        assert G.ndim >= 2 # batched Muon implementation by @scottjmaddox, and put into practice in the record by @YouJiacheng
+        a, b, c = (3.4445, -4.7750,  2.0315)
+        X = G.bfloat16()
+        if G.size(-2) > G.size(-1):
+            X = X.mT
+
+        # Ensure spectral norm is at most 1
+        X = X / (X.norm(dim=(-2, -1), keepdim=True) + 1e-7)
+        # Perform the NS iterations
+        for _ in range(steps):
+            A = X @ X.mT
+            B = b * A + c * A @ A # quintic computation strategy adapted from suggestion by @jxbz, @leloykun, and @YouJiacheng
+            X = a * X + B @ X
+        
+        if G.size(-2) > G.size(-1):
+            X = X.mT
+
+        return X
 
     def get_post_step_metrics(self, module, process_group = None):
         return super().get_post_step_metrics(module, process_group)
@@ -420,7 +554,107 @@ class Muon(Optimizer):
 
     @torch.no_grad()
     def step(self, closure=None) -> None:
-        pass
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        for group in self.param_groups:
+            optimizer_type = group['optimizer_type']
+
+            if optimizer_type == 'muon':
+                update_buffer: Tensor = group["update_buffer"]
+                update_buffer_views: list[Tensor] = group["update_buffer_views"]
+
+                # generate weight updates in distributed fashion
+                params: list[Tensor] = group["params"]
+                handle = None
+                params_world = None
+
+                def update_prev():
+                    handle.wait()
+                    for p_world, g_world in zip(params_world, update_buffer_views):
+                        p_world.mul_(1 - group["lr"] * group["weight_decay"])
+                        scale = group["lr"] * max(1, p_world.size(-2) / p_world.size(-1)) ** 0.5
+                        p_world.add_(g_world.view_as(p_world), alpha=-scale)
+
+                for base_i in range(len(params))[::self.world_size]:
+                    if base_i + self.rank < len(params):
+                        p = params[base_i + self.rank]
+                        g = p.grad
+                        assert g is not None
+                        state = self.state[p]
+                        if "momentum_buffer" not in state:
+                            state["momentum_buffer"] = torch.zeros_like(g)
+                        buf: Tensor = state["momentum_buffer"]
+                        buf.lerp_(g, 1 - group["momentum"])
+                        g = g.lerp_(buf, group["momentum"]) if group["nesterov"] else buf
+                        if g.ndim == 4: # for the case of conv filters
+                            g = g.view(len(g), -1)
+                        g = self.zeropower_via_newtonschulz5(g, steps=group["ns_steps"]).flatten()
+                    else:
+                        g = update_buffer_views[self.rank]
+
+                    if base_i > 0:
+                        update_prev()
+
+                    handle = dist.all_gather_into_tensor(update_buffer, g, async_op=True)
+                    params_world = params[base_i : base_i + self.world_size]
+
+                if handle is not None:
+                    update_prev()
+            elif optimizer_type == 'adamw':
+                for p in group['params']:
+                    if p.grad is None:
+                        continue
+
+                    # Perform stepweight decay
+                    p.mul_(1 - group['lr'] * group['weight_decay'])
+
+                    # Perform optimization step
+                    grad = p.grad
+                    if grad.is_sparse:
+                        raise RuntimeError('AdamW does not support sparse gradients')
+                    amsgrad = group['amsgrad']
+
+                    state = self.state[p]
+
+                    # State initialization
+                    if len(state) == 0:
+                        state['step'] = 0
+                        # Exponential moving average of gradient values
+                        state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                        # Exponential moving average of squared gradient values
+                        state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                        if amsgrad:
+                            # Maintains max of all exp. moving avg. of sq. grad. values
+                            state['max_exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+
+                    exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
+                    if amsgrad:
+                        max_exp_avg_sq = state['max_exp_avg_sq']
+                    beta1, beta2 = group['betas']
+
+                    state['step'] += 1
+                    bias_correction1 = 1 - beta1 ** state['step']
+                    bias_correction2 = 1 - beta2 ** state['step']
+
+                    # Decay the first and second moment running average coefficient
+                    exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
+                    exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+                    if amsgrad:
+                        # Maintains the maximum of all 2nd moment running avg. till now
+                        torch.maximum(max_exp_avg_sq, exp_avg_sq, out=max_exp_avg_sq)
+                        # Use the max. for normalizing running avg. of gradient
+                        denom = (max_exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(group['eps'])
+                    else:
+                        denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(group['eps'])
+
+                    step_size = group['lr'] / bias_correction1
+
+                    p.addcdiv_(exp_avg, denom, value=-step_size)
+
+        return loss
 
 
 class Adafactor(Optimizer):
@@ -1016,7 +1250,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                     no_decay.add(fpn)
             elif pn.endswith("weight") and isinstance(m, nn.Linear):
                 decay.add(fpn)
-            elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm)):
+            elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm, RMSLayerNorm)):
                 if cfg.optimizer.decay_norm_and_bias:
                     decay.add(fpn)
                 else:
@@ -1096,7 +1330,7 @@ def fix_optim_state_dict(optimizer: Optimizer, state_dict: Dict[str, Any]) -> Di
     return state_dict
 
 
-def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
+def build_optimizer(cfg: TrainConfig, model: nn.Module, world_size: int, rank: int) -> Optimizer:
     param_groups = get_param_groups(cfg, model)
     log.info(f"Constructing optimizer with {len(param_groups)} param groups")
     if cfg.optimizer.name == OptimizerType.lionw:
@@ -1117,6 +1351,24 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
             record_update_metrics=cfg.optimizer.record_update_metrics,
             selective_updates=cfg.optimizer.selective_updates,
             eps=cfg.optimizer.eps,
+        )
+    elif cfg.optimizer.name == OptimizerType.muon:
+        return MuonAdamW(
+            param_groups,
+            muon_lr=cfg.optimizer.muon_lr,
+            muon_weight_decay=cfg.optimizer.muon_weight_decay,
+            muon_momentum=cfg.optimizer.muon_momentum,
+            nesterov=cfg.optimizer.nesterov,
+            ns_steps=cfg.optimizer.ns_steps,
+            rank=rank,
+            world_size=world_size,
+            adam_lr=cfg.optimizer.learning_rate,
+            adam_betas=cfg.optimizer.betas,
+            adam_weight_decay=cfg.optimizer.weight_decay,
+            record_update_metrics=cfg.optimizer.record_update_metrics,
+            selective_updates=cfg.optimizer.selective_updates,
+            eps=cfg.optimizer.eps,
+            vocab_size=cfg.model.embedding_size,
         )
     else:
         raise NotImplementedError

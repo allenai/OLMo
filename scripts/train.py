@@ -223,7 +223,7 @@ def main(cfg: TrainConfig) -> None:
     log.info(dist_model)
 
     # Construct optimizer and learning rate scheduler.
-    optim = build_optimizer(cfg, dist_model)
+    optim = build_optimizer(cfg, dist_model, get_world_size(), get_global_rank())
     scheduler = build_scheduler(cfg)
 
     # Data indices file.
