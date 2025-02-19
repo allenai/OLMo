@@ -3,11 +3,11 @@
 set -ex
 
 NUM_NODES=1
-TASK_NAME=olmo-150M-optimizer-schedule-free-adamw-lr-6e-4-wd-0.1
+TASK_NAME=olmo-150M-optimizer-schedule-free-adamw-lr-1.2e-3-wd-0.1
 CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
 
 OPTIMIZER=schedule_free_adamw
-LR=6e-4
+LR=1.2e-3
 WD=0.1
 
 gantry run \
