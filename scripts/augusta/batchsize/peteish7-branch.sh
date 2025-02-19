@@ -9,8 +9,11 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+CONFIG=${CONFIG:-"configs/peteish7-google.yaml"}
+
 # These should be set as environment variables.
 echo "LOAD_PATH: $LOAD_PATH"
+echo "CONFIG: $CONFIG"
 echo "NSTEPS: $NSTEPS"
 echo "BSIZE: $BSIZE"
 echo "LR: $LR"
@@ -69,7 +72,7 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/peteish7-google.yaml \
+    $CONFIG \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
       --save_interval_ephemeral=5000 \

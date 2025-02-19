@@ -46,6 +46,7 @@ echo $name | gantry run \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
   --env LOAD_PATH=$LOAD_PATH \
+  --env CONFIG=configs/$PREFIX-google.yaml \
   --env BSIZE=$BSIZE \
   --env NSTEPS=$NSTEPS \
   --env LR=$LR \
