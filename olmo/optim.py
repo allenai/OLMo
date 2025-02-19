@@ -2,7 +2,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, replace
 from math import cos, pi, sqrt
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import math
 import torch
