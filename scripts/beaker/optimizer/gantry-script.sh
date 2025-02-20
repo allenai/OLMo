@@ -2,7 +2,7 @@
 
 set -ex
 
-SOCKET=29404
+SOCKET=29405
 NUM_NODES=1
 TASK_NAME=olmo-150M-optimizer-schedule-free-adamw-lr-1.2e-3-wd-0.001
 CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
