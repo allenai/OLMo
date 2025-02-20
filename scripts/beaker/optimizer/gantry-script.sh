@@ -2,14 +2,14 @@
 
 set -ex
 
-SOCKET=29413
+SOCKET=29400
 NUM_NODES=1
-TASK_NAME=olmo-150M-optimizer-schedule-free-adamw-lr-1e-2-wd-0.2
+TASK_NAME=olmo-150M-optimizer-schedule-free-adamw-lr-1e-2-wd-0.1
 CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
 
 OPTIMIZER=schedule_free_adamw
 LR=1e-2
-WD=0.2
+WD=0.1
 
 gantry run \
   --allow-dirty \
@@ -19,7 +19,7 @@ gantry run \
   --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/jupiter-cirrascale-2 \
+  --cluster ai2/ceres-cirrascale \
   --gpus 4 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
