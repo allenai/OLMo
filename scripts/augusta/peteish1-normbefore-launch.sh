@@ -10,6 +10,7 @@ gantry run \
   --task-name peteish1-normbefore-augusta \
   --description "Peteish1, norm before, run on augusta" \
   --priority high \
+  --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
   --cluster ai2/augusta-google-1 \
   --gpus 8 \
