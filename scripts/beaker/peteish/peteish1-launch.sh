@@ -8,7 +8,7 @@ gantry run \
   --workspace ai2/OLMo-pretraining-stability \
   --task-name peteish1 \
   --description "Pete-ish 1B" \
-  --priority urgent \
+  --priority normal \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/jupiter-cirrascale-2 \
@@ -37,4 +37,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/peteish/peteish1.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/beaker/peteish/peteish1.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${@}"
