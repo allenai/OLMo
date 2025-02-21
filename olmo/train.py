@@ -405,15 +405,16 @@ class Trainer:
             self.dataset.start_index = self.global_train_examples_seen_this_epoch
 
         # Reset learning rate and weight decay to the values from the config, not the checkpoint.
-        log.info("Resetting learning rate...")
-        new_learning_rate = self.scheduler.get_lr(
-            self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
-        )
-        for group in self.optim.param_groups:
-            group["lr"] = new_learning_rate
-            group["initial_lr"] = self.cfg.optimizer.learning_rate
-            if "weight_decay" in group and group["weight_decay"] > 0.0:
-                group["weight_decay"] = self.cfg.optimizer.weight_decay
+        if self.cfg.optimizer.name != OptimizerType.schedule_free_adamw:
+            log.info("Resetting learning rate...")
+            new_learning_rate = self.scheduler.get_lr(
+                self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
+            )
+            for group in self.optim.param_groups:
+                group["lr"] = new_learning_rate
+                group["initial_lr"] = self.cfg.optimizer.learning_rate
+                if "weight_decay" in group and group["weight_decay"] > 0.0:
+                    group["weight_decay"] = self.cfg.optimizer.weight_decay
 
         # RNG states.
         if "rng" in state_dict and state_dict.get("world_size", get_world_size()) == get_world_size():
@@ -861,20 +862,21 @@ class Trainer:
             process_group=self.dist_model.process_group,
         )
 
-        # Adjust the learning rate.
-        for group in self.optim.param_groups:
-            # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
-            # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
-            # the corresponding values from `self.cfg`.
-            group["lr"] = self.scheduler.get_lr(
-                self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
-            )
-            group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm, self.scheduler_current, self.scheduler_max
-            )
-            group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm_ratio, self.scheduler_current, self.scheduler_max
-            )
+        if self.cfg.optimizer.name != OptimizerType.schedule_free_adamw:
+            # Adjust the learning rate.
+            for group in self.optim.param_groups:
+                # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
+                # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
+                # the corresponding values from `self.cfg`.
+                group["lr"] = self.scheduler.get_lr(
+                    self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
+                )
+                group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
+                    self.cfg.max_grad_norm, self.scheduler_current, self.scheduler_max
+                )
+                group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
+                    self.cfg.max_grad_norm_ratio, self.scheduler_current, self.scheduler_max
+                )
 
         # Optimizer step.
         self.optim.step()

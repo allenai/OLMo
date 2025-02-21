@@ -48,4 +48,5 @@ torchrun \
       --optimizer.name=$OPTIMIZER \
       --optimizer.learning_rate=$LR \
       --optimizer.weight_decay=$WD \
+      --save_interval_unsharded=500000 \  # avoid saving checkpoints with schedule-free adamw
       --save_overwrite
