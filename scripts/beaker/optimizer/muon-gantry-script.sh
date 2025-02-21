@@ -2,13 +2,13 @@
 
 set -ex
 
-SOCKET=29405
+SOCKET=29406
 NUM_NODES=1
-TASK_NAME=olmo-150M-optimizer-muon-lr-1e-3-wd-0.01-momentum-0.95
+TASK_NAME=olmo-150M-optimizer-muon-lr-5e-3-wd-0.01-momentum-0.95
 CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
 
 OPTIMIZER=muon
-MUON_LR=1e-3
+MUON_LR=5e-3
 MUON_WEIGHT_DECAY=0.01
 MUON_MOMENTUM=0.95
 
