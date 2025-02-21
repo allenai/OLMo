@@ -1122,7 +1122,7 @@ class AdamWScheduleFree(Optimizer):
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
-        
+
         for group in self.param_groups:
             eps = group['eps']
             beta1, beta2 = group['betas']
@@ -1131,18 +1131,18 @@ class AdamWScheduleFree(Optimizer):
             r = group['r']
             warmup_steps = group['warmup_steps']
             weight_lr_power = group['weight_lr_power']
-            
+
             if k < warmup_steps:
               sched = (k+1) / warmup_steps
             else:
               sched = 1.0
-            
+
             bias_correction2 = 1 - beta2 ** (k+1)
             lr = group['lr']*sched
             group['scheduled_lr'] = lr # For logging purposes
-            
+
             lr_max = group['lr_max'] = max(lr, group['lr_max'])
-            
+
             weight = ((k+1)**r) * (lr_max**weight_lr_power)
             weight_sum = group['weight_sum'] = group['weight_sum'] + weight
 
@@ -1152,7 +1152,7 @@ class AdamWScheduleFree(Optimizer):
                 ckp1 = 0
 
             active_p = [p for p in group['params'] if p.grad is not None]
-            
+
             for p in active_p:
                 if 'z' not in self.state[p]:
                     self.state[p]['z'] = torch.clone(p, memory_format=torch.preserve_format)
