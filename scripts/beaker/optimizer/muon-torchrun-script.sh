@@ -5,6 +5,9 @@ IFS=$'\n\t'
 BEAKER_LEADER_REPLICA_HOSTNAME=$1
 shift
 
+SOCKET=$1
+shift
+
 NUM_NODES=$1
 shift
 
@@ -38,7 +41,7 @@ torchrun \
   --nproc-per-node 4 \
   --rdzv_id=101 \
   --rdzv_backend=c10d \
-  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29407 \
+  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:$SOCKET \
   scripts/train.py \
     $CONFIG_PATH \
       --run_name=$TASK_NAME \
