@@ -84,7 +84,7 @@ gantry run \
     --priority normal \
     --gpus 0 \
     --preemptible \
-    --cluster ai2/jupiter-cirrascale-2 \
+    --cluster ai2/neptune-cirrascale \
     --budget ai2/oe-eval \
     --env-secret AWS_ACCESS_KEY_ID=JENA_AWS_ACCESS_KEY_ID \
     --env-secret AWS_SECRET_ACCESS_KEY=JENA_AWS_SECRET_ACCESS_KEY \
