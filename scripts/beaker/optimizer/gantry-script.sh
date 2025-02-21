@@ -2,14 +2,14 @@
 
 set -ex
 
-SOCKET=29401
+SOCKET=29400
 NUM_NODES=1
-TASK_NAME=olmo-150M-optimizer-schedule-free-adamw-lr-1e-2-wd-0.2
+TASK_NAME=olmo-150M-optimizer-schedule-free-adamw-lr-6e-4-wd-0.1
 CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
 
 OPTIMIZER=schedule_free_adamw
-LR=1e-2
-WD=0.2
+LR=6e-4
+WD=0.1
 
 gantry run \
   --allow-dirty \
