@@ -90,7 +90,7 @@ def _patch_config(cfg, max_norm):
         "test_fixtures/c4-sample.02.json.gz",
         "test_fixtures/c4-sample.03.json.gz",
     ]
-    cfg.model.vocab_size = 2**16  # some tokens in sample files are upto 65k
+    cfg.model.vocab_size = 2**32  # some tokens in sample files are upto 65k
     cfg.model.embedding_size = cfg.model.vocab_size  # this gives an error without this
     cfg.model.weight_tying = False
     cfg.model.rope = True
