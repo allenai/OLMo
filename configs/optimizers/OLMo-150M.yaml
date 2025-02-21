@@ -72,7 +72,7 @@ remote_save_folder: s3://ai2-llm/checkpoints/olmo-optimizers/${run_name}
 save_overwrite: false
 
 # Unsharded checkpoints (for ddp)
-save_interval_unsharded: 5000
+save_interval_unsharded: 500000
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
