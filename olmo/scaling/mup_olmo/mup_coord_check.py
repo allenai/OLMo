@@ -40,6 +40,7 @@ def coord_check(
         def f():
             config = ModelConfig.load(config_path, key="model")
             config.d_model = d_model
+            config.init_device = "cuda" if cuda else "cpu"
             model = load_mu_model(config)
 
             if standparam:
