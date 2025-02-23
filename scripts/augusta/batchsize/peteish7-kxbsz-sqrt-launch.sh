@@ -26,6 +26,14 @@ LOAD_PATH=${LOAD_PATH:-"gs://ai2-llm/checkpoints/OLMo-medium/peteish7/step477000
 step=$(echo $LOAD_PATH | grep -oP 'step\K\d+')
 name="$PREFIX-${K}xbsz-sqrt-from$step"
 
+# This flag can only appear with multiple nodes.
+if [[ $NUM_NODES > 1 ]]; then
+  synchronous_flag="--synchronized-start-timeout 15m"
+else
+  synchronous_flag=""
+fi
+
+# Removed --no-nfs flag beacause it's not supported anymore.
 gantry run \
   --workspace ai2/13B \
   --name $name \
@@ -40,10 +48,8 @@ gantry run \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
-  --no-nfs \
   --propagate-failure \
-  --propagate-preemption \
-  --synchronized-start-timeout 15m \
+  --propagate-preemption $synchronous_flag \
   --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
