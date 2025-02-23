@@ -2,14 +2,14 @@
 
 set -ex
 
-SOCKET=29401
+SOCKET=29400
 NUM_NODES=1
-TASK_NAME=olmo-150M-optimizer-muon-lr-6e-3-wd-0.1
+TASK_NAME=olmo-150M-optimizer-muon-lr-6e-4-wd-0.05
 CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
 
 OPTIMIZER=muon
-MUON_LR=6e-3
-MUON_WEIGHT_DECAY=0.1
+MUON_LR=6e-4
+MUON_WEIGHT_DECAY=0.05
 
 gantry run \
   --allow-dirty \
@@ -38,4 +38,4 @@ gantry run \
   --venv base \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "scripts/beaker/optimizer/torchrun-script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${SOCKET} ${NUM_NODES} ${TASK_NAME} ${CONFIG_PATH} ${OPTIMIZER} ${MUON_LR} ${MUON_WEIGHT_DECAY}"
+  -- /bin/bash -c "scripts/beaker/optimizer/muon-torchrun-script.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${SOCKET} ${NUM_NODES} ${TASK_NAME} ${CONFIG_PATH} ${OPTIMIZER} ${MUON_LR} ${MUON_WEIGHT_DECAY}"
