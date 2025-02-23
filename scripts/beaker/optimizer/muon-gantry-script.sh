@@ -2,14 +2,14 @@
 
 set -ex
 
-SOCKET=29408
+SOCKET=29409
 NUM_NODES=1
-TASK_NAME=olmo-150M-optimizer-muon-lr-1e-2-wd-0.05
+TASK_NAME=olmo-150M-optimizer-muon-lr-1e-2-wd-0.1
 CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
 
 OPTIMIZER=muon
 MUON_LR=1e-2
-MUON_WEIGHT_DECAY=0.05
+MUON_WEIGHT_DECAY=0.1
 
 gantry run \
   --allow-dirty \
