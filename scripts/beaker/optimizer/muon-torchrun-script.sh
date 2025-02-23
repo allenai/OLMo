@@ -26,9 +26,6 @@ shift
 MUON_WEIGHT_DECAY=$1
 shift
 
-MUON_MOMENTUM=$1
-shift
-
 # Warm HF cache
 mkdir -p /root/.cache
 pushd /root/.cache
@@ -52,5 +49,7 @@ torchrun \
       --optimizer.learning_rate=3e-3 \
       --optimizer.muon_lr=$MUON_LR \
       --optimizer.muon_weight_decay=$MUON_WEIGHT_DECAY \
-      --optimizer.muon_momentum=$MUON_MOMENTUM \
+      --optimizer.muon_momentum=0.95 \
+      --optimizer.nesterov=true \
+      --optimizer.ns_steps=5 \
       --save_overwrite
