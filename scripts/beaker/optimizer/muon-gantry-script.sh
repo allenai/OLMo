@@ -2,7 +2,7 @@
 
 set -ex
 
-SOCKET=29401
+SOCKET=29402
 NUM_NODES=1
 TASK_NAME=olmo-150M-optimizer-muon-lr-1.2e-3-wd-0.05
 CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
