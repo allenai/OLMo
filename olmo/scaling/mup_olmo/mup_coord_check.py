@@ -5,7 +5,7 @@ from typing import List, Optional
 from mup.coord_check import plot_coord_data
 from torch.utils.data import DataLoader
 
-from olmo.config import ModelConfig, TrainConfig
+from olmo.config import ActivationCheckpointingStrategy, ModelConfig, TrainConfig
 from olmo.data import build_train_dataloader
 from olmo.model import OLMo
 from olmo.scaling.mup_olmo.coord_check import get_coord_data
@@ -55,6 +55,7 @@ def coord_check(
                 config.mup_base_shapes = load_base_shapes
                 model.set_base_shapes()
 
+            model.set_activation_checkpointing(ActivationCheckpointingStrategy.whole_layer)
             model.reset_parameters()  # to apply mup init
             return model
 
