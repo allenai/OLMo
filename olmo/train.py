@@ -407,14 +407,17 @@ class Trainer:
         # Reset learning rate and weight decay to the values from the config, not the checkpoint.
         if self.cfg.optimizer.name != OptimizerType.schedule_free_adamw:
             log.info("Resetting learning rate...")
-            new_learning_rate = self.scheduler.get_lr(
-                self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
-            )
             for group in self.optim.param_groups:
+                # if we want constant LR for Muon, this will skip the scheduler for Muon optimizer
                 if not self.cfg.optimizer.muon_schedule and 'optimizer_type' in group and group['optimizer_type'] == 'muon':
                     continue
 
-                group["lr"] = new_learning_rate
+                if 'optimizer_type' in group and group['optimizer_type'] == 'muon':
+                    initial_lr = self.cfg.optimizer.muon_lr
+                else:
+                    initial_lr = self.cfg.optimizer.learning_rate
+
+                group["lr"] = self.scheduler.get_lr(initial_lr, self.scheduler_current, self.scheduler_max)
                 group["initial_lr"] = self.cfg.optimizer.learning_rate
                 if "weight_decay" in group and group["weight_decay"] > 0.0:
                     group["weight_decay"] = self.cfg.optimizer.weight_decay
@@ -871,11 +874,18 @@ class Trainer:
                 # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
                 # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
                 # the corresponding values from `self.cfg`.
+
+                # if we want constant LR for Muon, this will skip the scheduler for Muon optimizer
                 if not self.cfg.optimizer.muon_schedule and 'optimizer_type' in group and group['optimizer_type'] == 'muon':
                     continue
 
+                if 'optimizer_type' in group and group['optimizer_type'] == 'muon':
+                    initial_lr = self.cfg.optimizer.muon_lr
+                else:
+                    initial_lr = self.cfg.optimizer.learning_rate
+
                 group["lr"] = self.scheduler.get_lr(
-                    self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
+                    initial_lr, self.scheduler_current, self.scheduler_max
                 )
                 group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
                     self.cfg.max_grad_norm, self.scheduler_current, self.scheduler_max
