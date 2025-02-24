@@ -55,7 +55,7 @@ def coord_check(
                 config.mup_base_shapes = load_base_shapes
                 model.set_base_shapes()
 
-            model.set_activation_checkpointing(ActivationCheckpointingStrategy.whole_layer)
+            # model.set_activation_checkpointing(ActivationCheckpointingStrategy.whole_layer)
             model.reset_parameters()  # to apply mup init
             return model
 
