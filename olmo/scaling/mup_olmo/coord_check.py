@@ -108,55 +108,62 @@ def _get_coord_data(
 
     import torch
 
-    # for i in range(nseeds):
-    #     torch.manual_seed(i)
-    #     for width, model in models.items():
-    for width, model_ in models.items():
-        for i in range(nseeds):
-            torch.manual_seed(i)
-            model = model_()
-            model = model.train()
-            if cuda:
-                model = model.cuda()
-            optimizer = optcls(model)
-            for batch_idx, batch in enumerate(dataloader, 1):
-                remove_hooks = []
-                # add hooks
-                for name, module in model.named_modules():
-                    if filter_module_by_name and not filter_module_by_name(name):
-                        continue
-                    remove_hooks.append(
-                        module.register_forward_hook(
-                            _record_coords(
-                                coordinates,
-                                width,
-                                name,
-                                batch_idx,
-                                output_fdict=output_fdict,
-                                input_fdict=input_fdict,
-                                param_fdict=param_fdict,
+    torch.cuda.memory._record_memory_history(max_entries=100000)
+
+    try:
+        # for i in range(nseeds):
+        #     torch.manual_seed(i)
+        #     for width, model in models.items():
+        for width, model_ in models.items():
+            for i in range(nseeds):
+                torch.manual_seed(i)
+                model = model_()
+                model = model.train()
+                if cuda:
+                    model = model.cuda()
+                optimizer = optcls(model)
+                for batch_idx, batch in enumerate(dataloader, 1):
+                    remove_hooks = []
+                    # add hooks
+                    for name, module in model.named_modules():
+                        if filter_module_by_name and not filter_module_by_name(name):
+                            continue
+                        remove_hooks.append(
+                            module.register_forward_hook(
+                                _record_coords(
+                                    coordinates,
+                                    width,
+                                    name,
+                                    batch_idx,
+                                    output_fdict=output_fdict,
+                                    input_fdict=input_fdict,
+                                    param_fdict=param_fdict,
+                                )
                             )
                         )
-                    )
-                if cuda:
-                    for k, v in batch.items():
-                        if isinstance(v, torch.Tensor):
-                            batch[k] = v.cuda()
+                    if cuda:
+                        for k, v in batch.items():
+                            if isinstance(v, torch.Tensor):
+                                batch[k] = v.cuda()
 
-                loss = get_batch_loss(model, batch, lossfn, compute_z_loss)
+                    loss = get_batch_loss(model, batch, lossfn, compute_z_loss)
 
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
 
-                # remove hooks
-                for handle in remove_hooks:
-                    handle.remove()
+                    # remove hooks
+                    for handle in remove_hooks:
+                        handle.remove()
 
-                if batch_idx == nsteps:
-                    break
-            if show_progress:
-                pbar.update(1)
+                    if batch_idx == nsteps:
+                        break
+                if show_progress:
+                    pbar.update(1)
+    except Exception as e:
+        torch.cuda.memory._dump_snapshot("memory.pickle")
+        raise e
+
     if show_progress:
         pbar.close()
     import pandas as pd
