@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 
 from olmo.config import ModelConfig, TrainConfig
 from olmo.data import build_train_dataloader
+from olmo.model import OLMo
 from olmo.scaling.mup_olmo.coord_check import get_coord_data
 from olmo.scaling.mup_olmo.mup_utils import load_mu_model, save_base_shapes
 from olmo.torch_util import seed_all
@@ -43,13 +44,13 @@ def coord_check(
             config = ModelConfig.load(config_path, key="model")
             config.d_model = d_model
             config.init_device = "cuda" if cuda else "cpu"
-            model = load_mu_model(config)
 
             if standparam:
                 config.use_mup = False
                 config.mup_base_shapes = None
+                model = OLMo(config, init_params=False)
             else:
-                config.use_mup = True
+                model = load_mu_model(config)
                 assert load_base_shapes, "load_base_shapes needs to be nonempty"
                 config.mup_base_shapes = load_base_shapes
                 model.set_base_shapes()
