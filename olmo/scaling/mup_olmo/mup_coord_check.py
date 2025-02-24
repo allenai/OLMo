@@ -20,6 +20,7 @@ def get_dataloader(cfg: TrainConfig, batch_size: int) -> DataLoader:
     cfg.global_train_batch_size = batch_size
     cfg.device_train_batch_size = batch_size // 1  # TODO: assuming single GPU for now
     cfg.data.num_workers = 0  # Avoid multiprocessing/prefetch
+    cfg.save_overwrite = True
     train_loader = build_train_dataloader(cfg)
     return train_loader
 
