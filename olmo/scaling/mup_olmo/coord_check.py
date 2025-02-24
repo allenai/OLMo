@@ -148,10 +148,10 @@ def _get_coord_data(
 
                     loss = get_batch_loss(model, batch, lossfn, compute_z_loss)
 
-                    optimizer.zero_grad()
+                    optimizer.zero_grad(set_to_none=True)
                     loss.backward()
                     optimizer.step()
-                    optimizer.zero_grad()
+                    optimizer.zero_grad(set_to_none=True)
 
                     # remove hooks
                     for handle in remove_hooks:
