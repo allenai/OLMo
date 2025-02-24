@@ -151,6 +151,7 @@ def _get_coord_data(
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
+                    optimizer.zero_grad()
 
                     # remove hooks
                     for handle in remove_hooks:
