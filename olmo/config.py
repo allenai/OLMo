@@ -540,6 +540,7 @@ class OptimizerConfig(BaseConfig):
     muon_momentum: float = 0.95
     nesterov: bool = True
     ns_steps: int = 5
+    muon_schedule: bool = False
     """
     Config for Muon optimizer.
     """

@@ -2,13 +2,13 @@
 
 set -ex
 
-SOCKET=29409
+SOCKET=29400
 NUM_NODES=1
-TASK_NAME=olmo-150M-optimizer-muon-lr-1e-2-wd-0.1
+TASK_NAME=olmo-150M-optimizer-muon-lr-6e-4-wd-0.1-cosine
 CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
 
 OPTIMIZER=muon
-MUON_LR=1e-2
+MUON_LR=6e-4
 MUON_WEIGHT_DECAY=0.1
 
 gantry run \
@@ -19,7 +19,7 @@ gantry run \
   --priority high \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/jupiter-cirrascale-2 \
+  --cluster ai2/ceres-cirrascale \
   --gpus 4 \
   --replicas "${NUM_NODES}" \
   --leader-selection \

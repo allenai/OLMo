@@ -52,4 +52,5 @@ torchrun \
       --optimizer.muon_momentum=0.95 \
       --optimizer.nesterov=true \
       --optimizer.ns_steps=5 \
+      --optimizer.muon_schedule=true \
       --save_overwrite

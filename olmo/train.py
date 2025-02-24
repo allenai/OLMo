@@ -411,8 +411,7 @@ class Trainer:
                 self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
             )
             for group in self.optim.param_groups:
-                # no LR warmup/schedule for muon right now
-                if 'optimizer_type' in group and group['optimizer_type'] == 'muon':
+                if not self.cfg.optimizer.muon_schedule and 'optimizer_type' in group and group['optimizer_type'] == 'muon':
                     continue
 
                 group["lr"] = new_learning_rate
@@ -872,9 +871,7 @@ class Trainer:
                 # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
                 # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
                 # the corresponding values from `self.cfg`.
-
-                # no LR warmup/schedule for muon right now
-                if 'optimizer_type' in group and group['optimizer_type'] == 'muon':
+                if not self.cfg.optimizer.muon_schedule and 'optimizer_type' in group and group['optimizer_type'] == 'muon':
                     continue
 
                 group["lr"] = self.scheduler.get_lr(
