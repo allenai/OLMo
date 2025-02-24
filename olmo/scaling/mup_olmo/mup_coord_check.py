@@ -52,8 +52,8 @@ def coord_check(
                 config.use_mup = True
                 assert load_base_shapes, "load_base_shapes needs to be nonempty"
                 config.mup_base_shapes = load_base_shapes
+                model.set_base_shapes()
 
-            model.set_base_shapes()
             model.reset_parameters()  # to apply mup init
             return model
 
