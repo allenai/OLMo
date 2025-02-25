@@ -33,7 +33,7 @@ else
   synchronous_flag=""
 fi
 
-# Removed --no-nfs flag beacause it's not supported anymore.
+# Can add --timeout -1 to hang in console.
 gantry run \
   --workspace ai2/13B \
   --name $name \
@@ -64,7 +64,6 @@ gantry run \
   --env-secret AWS_SECRET_ACCESS_KEY=WILLM_AWS_SECRET_ACCESS_KEY \
   --shared-memory 10GiB \
   --yes \
-  --timeout=-1 \
   --allow-dirty \
   --retries 10 \
   -- /bin/bash -c "scripts/augusta/batchsize/peteish7-branch.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK"
