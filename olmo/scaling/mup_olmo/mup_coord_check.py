@@ -3,13 +3,14 @@ import os
 from typing import List, Optional
 
 from mup.coord_check import plot_coord_data
+import torch
 from torch.utils.data import DataLoader
 
-from olmo.config import ActivationCheckpointingStrategy, ModelConfig, TrainConfig
+from olmo.config import DistributedStrategy, ModelConfig, TrainConfig
 from olmo.data import build_train_dataloader
 from olmo.model import OLMo
 from olmo.scaling.mup_olmo.coord_check import get_coord_data
-from olmo.scaling.mup_olmo.mup_utils import load_mu_model, save_base_shapes
+from olmo.scaling.mup_olmo.mup_utils import load_model, load_mu_model, save_base_shapes
 from olmo.torch_util import seed_all
 from olmo.train import cross_entropy_loss
 
@@ -33,7 +34,7 @@ def coord_check(
     batch_size: int,
     nsteps: int,
     nseeds: int,
-    cuda: bool = False,
+    distributed_strategy: Optional[DistributedStrategy] = None,
     output_dir: str = "",
     load_base_shapes: Optional[str] = None,
     legend: str = "brief",
@@ -43,20 +44,15 @@ def coord_check(
         def f():
             config = ModelConfig.load(config_path, key="model")
             config.d_model = d_model
-            config.init_device = "cuda" if cuda else "cpu"
 
             if standparam:
                 config.use_mup = False
                 config.mup_base_shapes = None
-                model = OLMo(config, init_params=False)
             else:
-                model = load_mu_model(config)
                 assert load_base_shapes, "load_base_shapes needs to be nonempty"
                 config.mup_base_shapes = load_base_shapes
-                model.set_base_shapes()
 
-            # model.set_activation_checkpointing(ActivationCheckpointingStrategy.whole_layer)
-            model.reset_parameters()  # to apply mup init
+            model = load_mu_model(config, distributed_strategy=distributed_strategy)
             return model
 
         return f
@@ -78,7 +74,7 @@ def coord_check(
         nseeds=nseeds,
         nsteps=nsteps,
         lossfn=cross_entropy_loss,
-        cuda=cuda,
+        cuda=torch.cuda.is_available(),
         compute_z_loss=train_config.softmax_auxiliary_loss,
         show_progress=True,
     )
@@ -115,7 +111,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=20, metavar="N", help="batch size")
     parser.add_argument("--widths", type=int, nargs="+", default=[2 ** i for i in range(5, 12)], help="widths to use for coord check")
 
-    parser.add_argument("--cuda", action="store_true", help="use CUDA")
+    parser.add_argument("--distributed_strategy", type=DistributedStrategy, help="Distributed strategy (e.g. FSDP)")
     parser.add_argument("--legend", type=str, help="'auto', 'brief', 'full', or False. This is passed to `seaborn.lineplot`.")
 
     parser.add_argument(
@@ -161,7 +157,7 @@ if __name__ == "__main__":
                 batch_size=args.batch_size,
                 nsteps=args.coord_check_nsteps,
                 nseeds=args.coord_check_nseeds,
-                cuda=args.cuda,
+                distributed_strategy=args.distributed_strategy,
                 output_dir=args.coord_check_save_path,
                 legend=args.legend,
                 load_base_shapes=args.load_base_shapes,

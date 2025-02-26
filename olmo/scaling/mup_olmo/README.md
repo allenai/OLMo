@@ -34,19 +34,12 @@ aws s3 cp --endpoint-url=https://a198dc34621661a1a66a02d6eb7c4dc3.r2.cloudflares
 
 3. Run coord check:
 
-Temporary workaround for olmo's distributed code:
-```commandline
-export RANK=0
-```
-
 ```commandline
 python olmo/scaling/mup_olmo/mup_coord_check.py test_fixtures/mup_train_tiny.yaml \
-    --coord_check \
-    --lr 0.001  \
+   --coord_check \
    --load_base_shapes tiny-olmo-base-shapes.bsh   \
    --coord_check_nsteps 5    \
    --coord_check_nseeds 3 \
-   --cuda \
-   --batch_size 10 \
-   --optimizer muadamw
+   --distributed_strategy FSDP \
+   --batch_size 10
 ```

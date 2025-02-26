@@ -1,15 +1,83 @@
+import logging
 from typing import List, Optional, Union
 
 from mup import get_shapes, make_base_shapes
+import torch
 
-from olmo.config import ModelConfig
+from olmo.config import DistributedStrategy, FSDPWrapStrategy, ModelConfig
 from olmo.model import OLMo
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import MixedPrecision, ShardingStrategy
+from torch.nn.parallel import DistributedDataParallel as DDP
+from olmo.torch_util import get_default_device, get_local_rank
 
 
-def load_mu_model(config: ModelConfig):
+log = logging.getLogger(__name__)
+
+
+def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[DistributedStrategy] = None):
+    if torch.cuda.is_available():
+        torch.cuda.set_device(f"cuda:{get_local_rank()}")
+    device = get_default_device()
+
+    olmo_model = OLMo(model_cfg, init_params=False)
+
+    if model_cfg.use_mup:
+        olmo_model.set_base_shapes()
+
+    if distributed_strategy == DistributedStrategy.ddp:
+        log.info("Wrapping model with DDP...")
+
+        if not torch.cuda.is_available():
+            raise RuntimeError("DDP cannot run without `cuda`.")
+
+        model_cfg.init_device = "cuda"
+        # move to cuda before calling ddp
+        dist_model = DDP(olmo_model.to(device))
+    elif distributed_strategy == DistributedStrategy.fsdp:
+        # Wrap the model in FSDP.
+        log.info("Wrapping model with FSDP...")
+
+        if not torch.cuda.is_available():
+            raise RuntimeError("FSDP cannot run without `cuda`.")
+
+        wrap_policy = olmo_model.get_fsdp_wrap_policy(FSDPWrapStrategy.by_block)
+
+        # This prevents any parameters from being initialized twice
+        def dummy_init_fn(module: torch.nn.Module) -> None:
+            module.to_empty(device=device)
+
+        param_init_fn = dummy_init_fn
+
+        # Set up device mesh for hybrid sharding in order to specify which nodes are assoicated to a given model replica
+        dist_model = FSDP(
+            olmo_model,
+            sharding_strategy=ShardingStrategy.FULL_SHARD,
+            mixed_precision=MixedPrecision(
+                param_dtype=torch.bfloat16,
+                reduce_dtype=torch.float32,
+                buffer_dtype=torch.bfloat16,
+            ),
+            auto_wrap_policy=wrap_policy,
+            use_orig_params=True,  # needed for compile, mup and some of our optimizer/parameter metrics
+            limit_all_gathers=True,
+            device_id=get_local_rank(),
+            param_init_fn=param_init_fn,
+        )
+    else:
+        if distributed_strategy is not None:
+            raise NotImplementedError(distributed_strategy)
+
+        dist_model = olmo_model
+
+    olmo_model.reset_parameters()
+
+    return dist_model
+
+
+def load_mu_model(config: ModelConfig, distributed_strategy: Optional[DistributedStrategy] = None):
     config.use_mup = True
-    model = OLMo(config, init_params=False)
-    return model
+    return load_model(config, distributed_strategy=distributed_strategy)
 
 
 def save_base_shapes(
