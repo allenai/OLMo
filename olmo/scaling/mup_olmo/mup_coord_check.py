@@ -181,3 +181,6 @@ if __name__ == "__main__":
                 legend=args.legend,
                 load_base_shapes=args.load_base_shapes,
             )
+
+    if torch.cuda.is_available():
+        dist.destroy_process_group()
