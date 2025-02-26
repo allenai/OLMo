@@ -32,9 +32,9 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
         infshapes = zip_infshapes(model_cfg.mup_base_shapes, olmo_model)
         # olmo_model.set_base_shapes()
 
-    for name, p in olmo_model.named_parameters():
-        if not hasattr(p, "infshape"):
-            log.info("DEBUG: unwrapped model. name %s missing infshapes", name)
+    # for name, p in olmo_model.named_parameters():
+    #     if not hasattr(p, "infshape"):
+    #         log.info("DEBUG: unwrapped model. name %s missing infshapes", name)
 
     if distributed_strategy == DistributedStrategy.ddp:
         log.info("Wrapping model with DDP...")
@@ -81,19 +81,19 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
 
         dist_model = olmo_model
 
-    for name, p in dist_model.named_parameters():
-        if not hasattr(p, "infshape"):
-            log.info("DEBUG: wrapped model. name %s missing infshapes", name)
-    log.info("DEBUG: wrapped model. name %s, has_infshape %s", "transformer.ff_out (mureadout)", hasattr(dist_model.transformer.ff_out.weight, "infshape"))
+    # for name, p in dist_model.named_parameters():
+    #     if not hasattr(p, "infshape"):
+    #         log.info("DEBUG: wrapped model. name %s missing infshapes", name)
+    # log.info("DEBUG: wrapped model. name %s, has_infshape %s", "transformer.ff_out (mureadout)", hasattr(dist_model.transformer.ff_out.weight, "infshape"))
 
     if infshapes is not None:
         apply_infshapes(dist_model, infshapes)
         olmo_model.reset_parameters()
 
-    for name, p in dist_model.named_parameters():
-        if not hasattr(p, "infshape"):
-            log.info("DEBUG: wrapped model. name %s missing infshapes", name)
-    log.info("DEBUG: wrapped model. name %s, has_infshape %s", "transformer.ff_out (mureadout)", hasattr(dist_model.transformer.ff_out.weight, "infshape"))
+    # for name, p in dist_model.named_parameters():
+    #     if not hasattr(p, "infshape"):
+    #         log.info("DEBUG: wrapped model. name %s missing infshapes", name)
+    # log.info("DEBUG: wrapped model. name %s, has_infshape %s", "transformer.ff_out (mureadout)", hasattr(dist_model.transformer.ff_out.weight, "infshape"))
 
     log.info("Model:")
     log.info(dist_model)
