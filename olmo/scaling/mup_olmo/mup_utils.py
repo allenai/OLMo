@@ -75,6 +75,9 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
 
         dist_model = olmo_model
 
+    log.info("Model:")
+    log.info(dist_model)
+
     olmo_model.reset_parameters()
 
     return dist_model
