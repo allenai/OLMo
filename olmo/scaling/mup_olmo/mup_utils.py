@@ -27,11 +27,6 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
 
     olmo_model = OLMo(model_cfg, init_params=False)
 
-    infshapes = None
-    if model_cfg.use_mup:
-        infshapes = zip_infshapes(model_cfg.mup_base_shapes, olmo_model)
-        # olmo_model.set_base_shapes()
-
     # for name, p in olmo_model.named_parameters():
     #     if not hasattr(p, "infshape"):
     #         log.info("DEBUG: unwrapped model. name %s missing infshapes", name)
@@ -86,8 +81,8 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
     #         log.info("DEBUG: wrapped model. name %s missing infshapes", name)
     # log.info("DEBUG: wrapped model. name %s, has_infshape %s", "transformer.ff_out (mureadout)", hasattr(dist_model.transformer.ff_out.weight, "infshape"))
 
-    if infshapes is not None:
-        apply_infshapes(dist_model, infshapes)
+    if model_cfg.use_mup:
+        olmo_model.apply_mup_infshapes()
 
     olmo_model.reset_parameters()
 

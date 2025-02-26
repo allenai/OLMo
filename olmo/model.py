@@ -1113,12 +1113,18 @@ class OLMo(nn.Module):
                     "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
                 )
 
-        if self.config.use_mup and self.config.mup_base_shapes is None:
-            import warnings
+        self._mup_infshapes = None
+        if self.config.use_mup:
+            if self.config.mup_base_shapes is not None:
+                from mup import zip_infshapes
+                self._mup_infshapes = zip_infshapes(self.config.mup_base_shapes, self)
+            else:
+                import warnings
 
-            warnings.warn(
-                "`use_mup` is True, but `mup_base_shapes` is not specified; standard parametrization will be applied."
-            )
+                warnings.warn(
+                    "`use_mup` is True, but `mup_base_shapes` is not specified; muP will be turned off and standard parametrization will be applied."
+                )
+                self.config.use_mup = False
 
         self.activation_checkpointing_strategy: Optional[ActivationCheckpointingStrategy] = None
         self._activation_checkpoint_fn: Callable = activation_checkpoint_function(self.config)
@@ -1214,20 +1220,33 @@ class OLMo(nn.Module):
         else:
             return device
 
-    def set_base_shapes(self, *, rescale_params: bool = False):
-        # In case of muP, we need to call set_base_shapes before initializing model weights for the
-        # first time but after FSDP (if relevant) has been applied. The "before initializing model weights"
-        # condition is because we are using mup functions rather torch functions to initialize weights.
-        # If we switch (back) to torch and want to use mup then we should run set_base_shapes _after_
-        # initializing model weights and should set `rescale_params` to True when initializing weights
-        # (and keep it off for loading models from checkpoints).
-        assert self.config.use_mup
+    # def set_base_shapes(self, *, rescale_params: bool = False):
+    #     # In case of muP, we need to call set_base_shapes before initializing model weights for the
+    #     # first time but after FSDP (if relevant) has been applied. The "before initializing model weights"
+    #     # condition is because we are using mup functions rather torch functions to initialize weights.
+    #     # If we switch (back) to torch and want to use mup then we should run set_base_shapes _after_
+    #     # initializing model weights and should set `rescale_params` to True when initializing weights
+    #     # (and keep it off for loading models from checkpoints).
+    #     assert self.config.use_mup
 
-        from mup import set_base_shapes
+    #     from mup import set_base_shapes
 
-        # TODO: make sure that ddp plays nice with this
-        # TODO: add cached_path
-        set_base_shapes(self, self.config.mup_base_shapes, rescale_params=rescale_params)
+    #     # TODO: make sure that ddp plays nice with this
+    #     # TODO: add cached_path
+    #     set_base_shapes(self, self.config.mup_base_shapes, rescale_params=rescale_params)
+
+
+    def apply_mup_infshapes(self):
+        if not self.config.use_mup:
+            raise RuntimeError("Attempting to apply muP infshapes for non-muP model")
+
+        if self._mup_infshapes is None:
+            raise RuntimeError("muP infshapes missing when trying to apply infshapes")
+
+        from mup import apply_infshapes
+
+        return apply_infshapes(self, self._mup_infshapes)
+
 
     def reset_parameters(self):
         log.info("Initializing model parameters...")

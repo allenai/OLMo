@@ -205,7 +205,7 @@ def main(cfg: TrainConfig) -> None:
         raise NotImplementedError("Single accelerator training not implemented yet!")
 
     if cfg.model.use_mup:
-        olmo_model.set_base_shapes()
+        olmo_model.apply_mup_infshapes()
 
     # when param_init_fn is None, FSDP will call reset_parameters() automatically
     if param_init_fn is not None or cfg.distributed_strategy == DistributedStrategy.ddp:
