@@ -1,4 +1,6 @@
 import argparse
+from datetime import timedelta
+import logging
 import os
 from typing import List, Optional
 
@@ -11,8 +13,14 @@ from olmo.data import build_train_dataloader
 from olmo.model import OLMo
 from olmo.scaling.mup_olmo.coord_check import get_coord_data
 from olmo.scaling.mup_olmo.mup_utils import load_model, load_mu_model, save_base_shapes
-from olmo.torch_util import seed_all
+from olmo.torch_util import get_local_rank, seed_all
 from olmo.train import cross_entropy_loss
+import torch.distributed as dist
+
+from olmo.util import prepare_cli_environment
+
+
+log = logging.getLogger(__name__)
 
 
 def get_dataloader(cfg: TrainConfig, batch_size: int) -> DataLoader:
@@ -143,6 +151,16 @@ if __name__ == "__main__":
         import sys
 
         sys.exit()
+
+    # Set CUDA device.
+    torch.cuda.set_device(f"cuda:{get_local_rank()}")
+
+    # Initialize process group.
+    dist.init_process_group(timeout=timedelta(minutes=2))
+    log.info("Process group initialized")
+
+    prepare_cli_environment()
+    log.info("CLI environment prepared")
 
     if args.coord_check:
         print("testing parametrization")
