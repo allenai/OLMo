@@ -101,7 +101,7 @@ torchrun \
     --wandb.project=olmo-mup \
     --save_folder=$SAVE_FOLDER \
     --model.use_mup \
-    --model.mup_query_zero_init=true \
+    --model.mup_query_zero_init=false \
     --model.mup_base_shapes=configs/mup/peteish1-base-shapes.bsh \
     --model.mup_base_n_heads=16 \
     --model.d_model=$D_MODEL \
