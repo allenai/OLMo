@@ -152,8 +152,8 @@ def _get_coord_data(
 
                     for name, p in model.named_parameters():
                         if not hasattr(p, "infshape"):
-                            log.info("DEBUG: wrapped model. name %s missing infshapes", name)
-                    log.info("DEBUG: wrapped model. name %s, has_infshape %s", "transformer.ff_out (mureadout)", hasattr(model.transformer.ff_out.weight, "infshape"))
+                            log.info("DEBUG: model of width %d. name %s missing infshapes", width, name)
+                    log.info("DEBUG: model of width %d. name %s, has_infshape %s", width, "transformer.ff_out (mureadout)", hasattr(model.transformer.ff_out.weight, "infshape"))
 
                     loss = get_batch_loss(model, batch, lossfn, compute_z_loss)
 
