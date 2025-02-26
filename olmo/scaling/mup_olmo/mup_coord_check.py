@@ -152,7 +152,7 @@ if __name__ == "__main__":
 
         sys.exit()
 
-    if args.cuda:
+    if torch.cuda.is_available():
         # Set CUDA device.
         torch.cuda.set_device(f"cuda:{get_local_rank()}")
 
