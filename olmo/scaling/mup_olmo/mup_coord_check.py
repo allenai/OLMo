@@ -152,15 +152,16 @@ if __name__ == "__main__":
 
         sys.exit()
 
-    # Set CUDA device.
-    torch.cuda.set_device(f"cuda:{get_local_rank()}")
+    if args.cuda:
+        # Set CUDA device.
+        torch.cuda.set_device(f"cuda:{get_local_rank()}")
 
-    # Initialize process group.
-    dist.init_process_group(timeout=timedelta(minutes=2))
-    log.info("Process group initialized")
+        # Initialize process group.
+        dist.init_process_group(timeout=timedelta(minutes=2))
+        log.info("Process group initialized")
 
-    prepare_cli_environment()
-    log.info("CLI environment prepared")
+        prepare_cli_environment()
+        log.info("CLI environment prepared")
 
     if args.coord_check:
         print("testing parametrization")
