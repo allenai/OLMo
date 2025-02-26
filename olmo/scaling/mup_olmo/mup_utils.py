@@ -95,8 +95,8 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
     #         log.info("DEBUG: wrapped model. name %s missing infshapes", name)
     # log.info("DEBUG: wrapped model. name %s, has_infshape %s", "transformer.ff_out (mureadout)", hasattr(dist_model.transformer.ff_out.weight, "infshape"))
 
-    log.info("Model:")
-    log.info(dist_model)
+    # log.info("Model:")
+    # log.info(dist_model)
 
     return dist_model
 
