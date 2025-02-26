@@ -32,10 +32,6 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
         infshapes = zip_infshapes(model_cfg.mup_base_shapes, olmo_model)
         # olmo_model.set_base_shapes()
 
-    if infshapes is not None:
-        apply_infshapes(olmo_model, infshapes)
-        olmo_model.reset_parameters()
-
     for name, p in olmo_model.named_parameters():
         log.info("DEBUG: unwrapped model. name %s, has_infshape %s", name, hasattr(p, "infshape") or hasattr(p, "weight_infshape"))
 
@@ -83,6 +79,17 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
             raise NotImplementedError(distributed_strategy)
 
         dist_model = olmo_model
+
+    for name, p in dist_model.named_parameters():
+        log.info("DEBUG: wrapped model. name %s, has_infshape %s", name, hasattr(p, "infshape") or hasattr(p, "weight_infshape"))
+
+    with FSDP.summon_full_params(dist_model):
+        for name, p in dist_model.named_parameters():
+            log.info("DEBUG: wrapped with full params model. name %s, has_infshape %s", name, hasattr(p, "infshape") or hasattr(p, "weight_infshape"))
+
+    if infshapes is not None:
+        apply_infshapes(dist_model, infshapes)
+        olmo_model.reset_parameters()
 
     for name, p in dist_model.named_parameters():
         log.info("DEBUG: wrapped model. name %s, has_infshape %s", name, hasattr(p, "infshape") or hasattr(p, "weight_infshape"))
