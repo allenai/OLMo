@@ -33,7 +33,7 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
         # olmo_model.set_base_shapes()
 
     for name, p in olmo_model.named_parameters():
-        log.info("DEBUG: unwrapped model. name %s, has_infshape %s", name, hasattr(p, "infshape") or hasattr(p, "weight_infshape"))
+        log.info("DEBUG: unwrapped model. name %s, has_infshape %s", name, hasattr(p, "infshape"))
 
     if distributed_strategy == DistributedStrategy.ddp:
         log.info("Wrapping model with DDP...")
@@ -81,22 +81,22 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
         dist_model = olmo_model
 
     for name, p in dist_model.named_parameters():
-        log.info("DEBUG: wrapped model. name %s, has_infshape %s", name, hasattr(p, "infshape") or hasattr(p, "weight_infshape"))
+        log.info("DEBUG: wrapped model. name %s, has_infshape %s", name, hasattr(p, "infshape"))
 
     with FSDP.summon_full_params(dist_model):
         for name, p in dist_model.named_parameters():
-            log.info("DEBUG: wrapped with full params model. name %s, has_infshape %s", name, hasattr(p, "infshape") or hasattr(p, "weight_infshape"))
+            log.info("DEBUG: wrapped with full params model. name %s, has_infshape %s", name, hasattr(p, "infshape"))
 
     if infshapes is not None:
         apply_infshapes(dist_model, infshapes)
         olmo_model.reset_parameters()
 
     for name, p in dist_model.named_parameters():
-        log.info("DEBUG: wrapped model. name %s, has_infshape %s", name, hasattr(p, "infshape") or hasattr(p, "weight_infshape"))
+        log.info("DEBUG: wrapped model. name %s, has_infshape %s", name, hasattr(p, "infshape"))
 
     with FSDP.summon_full_params(dist_model):
         for name, p in dist_model.named_parameters():
-            log.info("DEBUG: wrapped with full params model. name %s, has_infshape %s", name, hasattr(p, "infshape") or hasattr(p, "weight_infshape"))
+            log.info("DEBUG: wrapped with full params model. name %s, has_infshape %s", name, hasattr(p, "infshape"))
 
     log.info("Model:")
     log.info(dist_model)
