@@ -1,8 +1,12 @@
+import logging
 from typing import List
 
 from mup.coord_check import _record_coords
 
 from olmo.train import get_labels
+
+
+log = logging.getLogger(__name__)
 
 
 def get_batch_loss(model, batch, lossfn, compute_z_loss):
@@ -145,6 +149,11 @@ def _get_coord_data(
                         for k, v in batch.items():
                             if isinstance(v, torch.Tensor):
                                 batch[k] = v.cuda()
+
+                    for name, p in model.named_parameters():
+                        if not hasattr(p, "infshape"):
+                            log.info("DEBUG: wrapped model. name %s missing infshapes", name)
+                    log.info("DEBUG: wrapped model. name %s, has_infshape %s", "transformer.ff_out (mureadout)", hasattr(model.transformer.ff_out.weight, "infshape"))
 
                     loss = get_batch_loss(model, batch, lossfn, compute_z_loss)
 
