@@ -87,6 +87,10 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
     for name, p in dist_model.named_parameters():
         log.info("DEBUG: wrapped model. name %s, has_infshape %s", name, hasattr(p, "infshape") or hasattr(p, "weight_infshape"))
 
+    with FSDP.summon_full_params(dist_model):
+        for name, p in dist_model.named_parameters():
+            log.info("DEBUG: wrapped with full params model. name %s, has_infshape %s", name, hasattr(p, "infshape") or hasattr(p, "weight_infshape"))
+
     log.info("Model:")
     log.info(dist_model)
 
