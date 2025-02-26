@@ -31,7 +31,7 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
         olmo_model.set_base_shapes()
 
     if distributed_strategy == DistributedStrategy.ddp:
-        log.debug("Wrapping model with DDP...")
+        log.info("Wrapping model with DDP...")
 
         if not torch.cuda.is_available():
             raise RuntimeError("DDP cannot run without `cuda`.")
@@ -41,7 +41,7 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
         dist_model = DDP(olmo_model.to(device))
     elif distributed_strategy == DistributedStrategy.fsdp:
         # Wrap the model in FSDP.
-        log.debug("Wrapping model with FSDP...")
+        log.info("Wrapping model with FSDP...")
 
         if not torch.cuda.is_available():
             raise RuntimeError("FSDP cannot run without `cuda`.")
@@ -75,8 +75,8 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
 
         dist_model = olmo_model
 
-    log.debug("Model:")
-    log.debug(dist_model)
+    log.info("Model:")
+    log.info(dist_model)
 
     olmo_model.reset_parameters()
 
