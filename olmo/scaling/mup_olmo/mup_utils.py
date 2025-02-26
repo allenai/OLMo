@@ -78,7 +78,8 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
         dist_model = olmo_model
 
     if infshapes is not None:
-        apply_infshapes(dist_model, infshapes)
+        with FSDP.summon_full_params(dist_model):
+            apply_infshapes(dist_model, infshapes)
 
     log.info("Model:")
     log.info(dist_model)
