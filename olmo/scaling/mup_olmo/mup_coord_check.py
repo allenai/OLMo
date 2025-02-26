@@ -57,10 +57,11 @@ def coord_check(
                 config.use_mup = False
                 config.mup_base_shapes = None
             else:
+                config.use_mup = True
                 assert load_base_shapes, "load_base_shapes needs to be nonempty"
                 config.mup_base_shapes = load_base_shapes
 
-            model = load_mu_model(config, distributed_strategy=distributed_strategy)
+            model = load_model(config, distributed_strategy=distributed_strategy)
             return model
 
         return f
