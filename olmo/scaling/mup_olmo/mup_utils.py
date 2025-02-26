@@ -53,7 +53,6 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
         # This prevents any parameters from being initialized twice
         def dummy_init_fn(module: torch.nn.Module) -> None:
             module.to_empty(device=device)
-            module.weight.infshape = module.weight_infshape
 
         param_init_fn = dummy_init_fn
 
