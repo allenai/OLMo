@@ -88,7 +88,8 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
 
     if infshapes is not None:
         apply_infshapes(dist_model, infshapes)
-        olmo_model.reset_parameters()
+
+    olmo_model.reset_parameters()
 
     # for name, p in dist_model.named_parameters():
     #     if not hasattr(p, "infshape"):
