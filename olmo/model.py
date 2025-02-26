@@ -1113,19 +1113,6 @@ class OLMo(nn.Module):
                     "Embedding size is not a multiple of 128! This could hurt throughput performance.", UserWarning
                 )
 
-        self._mup_infshapes = None
-        if self.config.use_mup:
-            if self.config.mup_base_shapes is not None:
-                from mup import zip_infshapes
-                self._mup_infshapes = zip_infshapes(self.config.mup_base_shapes, self)
-            else:
-                import warnings
-
-                warnings.warn(
-                    "`use_mup` is True, but `mup_base_shapes` is not specified; muP will be turned off and standard parametrization will be applied."
-                )
-                self.config.use_mup = False
-
         self.activation_checkpointing_strategy: Optional[ActivationCheckpointingStrategy] = None
         self._activation_checkpoint_fn: Callable = activation_checkpoint_function(self.config)
 
@@ -1189,6 +1176,19 @@ class OLMo(nn.Module):
 
         if config.embedding_layer_norm:
             self.transformer.update({"emb_norm": LayerNorm.build(config)})
+
+        self._mup_infshapes = None
+        if self.config.use_mup:
+            if self.config.mup_base_shapes is not None:
+                from mup import zip_infshapes
+                self._mup_infshapes = zip_infshapes(self.config.mup_base_shapes, self)
+            else:
+                import warnings
+
+                warnings.warn(
+                    "`use_mup` is True, but `mup_base_shapes` is not specified; muP will be turned off and standard parametrization will be applied."
+                )
+                self.config.use_mup = False
 
         # When `init_device="meta"` FSDP will call `reset_parameters()` to initialize weights.
         if init_params and self.config.init_device != "meta":
