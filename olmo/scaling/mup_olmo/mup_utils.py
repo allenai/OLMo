@@ -37,7 +37,7 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
     #         log.info("DEBUG: unwrapped model. name %s missing infshapes", name)
 
     if distributed_strategy == DistributedStrategy.ddp:
-        log.info("Wrapping model with DDP...")
+        # log.info("Wrapping model with DDP...")
 
         if not torch.cuda.is_available():
             raise RuntimeError("DDP cannot run without `cuda`.")
@@ -47,7 +47,7 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
         dist_model = DDP(olmo_model.to(device))
     elif distributed_strategy == DistributedStrategy.fsdp:
         # Wrap the model in FSDP.
-        log.info("Wrapping model with FSDP...")
+        # log.info("Wrapping model with FSDP...")
 
         if not torch.cuda.is_available():
             raise RuntimeError("FSDP cannot run without `cuda`.")
