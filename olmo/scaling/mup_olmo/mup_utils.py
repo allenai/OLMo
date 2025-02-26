@@ -20,6 +20,11 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
         torch.cuda.set_device(f"cuda:{get_local_rank()}")
     device = get_default_device()
 
+    if distributed_strategy == DistributedStrategy.fsdp:
+        model_cfg.init_device = "meta"
+    else:
+        model_cfg.init_device = "cuda" if torch.cuda.is_available() else "cpu"
+
     olmo_model = OLMo(model_cfg, init_params=False)
 
     if model_cfg.use_mup:
