@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional, Union
 
-from mup import get_shapes, make_base_shapes
+from mup import apply_infshapes, get_shapes, make_base_shapes, zip_infshapes
 import torch
 
 from olmo.config import DistributedStrategy, FSDPWrapStrategy, ModelConfig
@@ -27,8 +27,10 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
 
     olmo_model = OLMo(model_cfg, init_params=False)
 
+    infshapes = None
     if model_cfg.use_mup:
-        olmo_model.set_base_shapes()
+        infshapes = zip_infshapes(model_cfg.mup_base_shapes, olmo_model)
+        # olmo_model.set_base_shapes()
 
     if distributed_strategy == DistributedStrategy.ddp:
         log.info("Wrapping model with DDP...")
@@ -75,6 +77,9 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
             raise NotImplementedError(distributed_strategy)
 
         dist_model = olmo_model
+
+    if infshapes is not None:
+        apply_infshapes(dist_model, infshapes)
 
     log.info("Model:")
     log.info(dist_model)
