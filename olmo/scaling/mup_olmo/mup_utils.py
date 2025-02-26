@@ -32,6 +32,10 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
         infshapes = zip_infshapes(model_cfg.mup_base_shapes, olmo_model)
         # olmo_model.set_base_shapes()
 
+    if infshapes is not None:
+        apply_infshapes(olmo_model, infshapes)
+        olmo_model.reset_parameters()
+
     if distributed_strategy == DistributedStrategy.ddp:
         log.info("Wrapping model with DDP...")
 
@@ -77,13 +81,8 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
 
         dist_model = olmo_model
 
-    if infshapes is not None:
-        apply_infshapes(dist_model, infshapes)
-
     log.info("Model:")
     log.info(dist_model)
-
-    olmo_model.reset_parameters()
 
     return dist_model
 
