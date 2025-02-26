@@ -13,7 +13,7 @@ from olmo.data import build_train_dataloader
 from olmo.model import OLMo
 from olmo.scaling.mup_olmo.coord_check import get_coord_data
 from olmo.scaling.mup_olmo.mup_utils import load_model, load_mu_model, save_base_shapes
-from olmo.torch_util import get_local_rank, seed_all
+from olmo.torch_util import get_local_rank, get_world_size, seed_all
 from olmo.train import cross_entropy_loss
 import torch.distributed as dist
 
@@ -28,7 +28,7 @@ def get_dataloader(cfg: TrainConfig, batch_size: int) -> DataLoader:
     seed_all(cfg.seed)
 
     cfg.global_train_batch_size = batch_size
-    cfg.device_train_batch_size = batch_size // 1  # TODO: assuming single GPU for now
+    cfg.device_train_batch_size = batch_size // get_world_size()  # TODO: assuming single GPU for now
     cfg.data.num_workers = 0  # Avoid multiprocessing/prefetch
     cfg.save_overwrite = True
     train_loader = build_train_dataloader(cfg)
