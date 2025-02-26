@@ -36,6 +36,9 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
         apply_infshapes(olmo_model, infshapes)
         olmo_model.reset_parameters()
 
+    for name, p in olmo_model.named_parameters():
+        log.info("DEBUG: unwrapped model. name %s, has_infshape %s", name, hasattr(p, "infshape") or hasattr(p, "weight_infshape"))
+
     if distributed_strategy == DistributedStrategy.ddp:
         log.info("Wrapping model with DDP...")
 
@@ -80,6 +83,9 @@ def load_model(model_cfg: ModelConfig, distributed_strategy: Optional[Distribute
             raise NotImplementedError(distributed_strategy)
 
         dist_model = olmo_model
+
+    for name, p in dist_model.named_parameters():
+        log.info("DEBUG: wrapped model. name %s, has_infshape %s", name, hasattr(p, "infshape") or hasattr(p, "weight_infshape"))
 
     log.info("Model:")
     log.info(dist_model)
