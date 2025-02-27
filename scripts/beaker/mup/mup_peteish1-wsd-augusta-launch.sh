@@ -18,7 +18,7 @@ gantry run \
   --workspace ai2/OLMo-mup \
   --task-name mup-peteish1 \
   --description "Search for a good LR for OLMo peteish 1B using mup" \
-  --priority high \
+  --priority normal \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
   --cluster ai2/augusta-google-1 \
