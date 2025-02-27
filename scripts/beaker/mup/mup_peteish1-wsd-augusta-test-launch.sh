@@ -31,7 +31,7 @@ gantry run \
   --propagate-failure \
   --propagate-preemption \
   --no-logs \
-  --timeout=0 \
+  --timeout 0 \
   --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
