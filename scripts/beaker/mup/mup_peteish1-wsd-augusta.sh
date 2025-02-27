@@ -117,7 +117,7 @@ torchrun \
     --fsdp.wrapping_strategy=by_block_and_size \
     --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-mup/${GROUP_NAME}/${RUN_NAME}" \
     --sharded_checkpointer=olmo_core \
-    --device_train_microbatch_size=4 \
+    --device_train_microbatch_size=8 \
     --device_eval_batch_size=8 \
     --compile.fullgraph=false \
     --fused_loss=false \
