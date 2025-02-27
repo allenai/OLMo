@@ -112,7 +112,7 @@ torchrun \
     --scheduler.units=steps \
     --scheduler.alpha_f=1.0 \
     --eval_interval=1000 \
-    --fsdp.sharding_strategy=HYBRID_SHARD \
+    --fsdp.sharding_strategy=FULL_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
     --fsdp.wrapping_strategy=by_block_and_size \
     --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-mup/${GROUP_NAME}/${RUN_NAME}" \
