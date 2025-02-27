@@ -27,7 +27,6 @@ gantry run \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
-  --no-nfs \
   --propagate-failure \
   --propagate-preemption \
   --no-logs \
