@@ -30,6 +30,7 @@ gantry run \
   --no-nfs \
   --propagate-failure \
   --propagate-preemption \
+  --no-logs \
   --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
