@@ -15,6 +15,12 @@
   <a href="https://arxiv.org/pdf/2501.00656.pdf">
     <img alt="Paper URL" src="https://img.shields.io/badge/arxiv-2402.00838-blue">
   </a>
+  <a href="https://playground.allenai.org">
+    <img alt="Playground" src="https://img.shields.io/badge/Ai2-Playground-F0529C">
+  </a>
+  <a href="https://discord.gg/sZq3jTNVNG">
+    <img alt="Discord" src="https://img.shields.io/badge/Discord%20-%20blue?style=flat&logo=discord&label=Ai2&color=%235B65E9">
+  </a>
 </p>
 
 OLMo is a repository for training and using AI2's state-of-the-art open language models. It is designed by scientists, for scientists.
@@ -44,11 +50,10 @@ In the second stage, we train on a smaller amount of high-quality, targeted data
 You can find *all* the checkpoints, at minimum every 1000 training steps in OLMo core and Hugging Face format:
 
 
-| Variant          | OLMo Format                                                                                          | Hugging Face Format                                                               |
-|------------------|-----------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
-| **OLMo 7B**      | [OLMo 7B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-7B.csv)       | [Hugging Face for the 7B variant](https://huggingface.co/allenai/OLMo-2-1124-7B)  |
-| **OLMo 13B**     | [OLMo 13B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B.csv)     | [Hugging Face for the 13B variant](https://huggingface.co/allenai/OLMo-2-1124-13B) |
-
+| Variant         | OLMo Format (Stage 1)                                                                                         | OLMo Format (Stage 2) | Hugging Face Format                                                               |
+|----------------|-----------------------------------------------------------------------------------------------------|--------|----------------------------------------------------------------------------------|
+| **OLMo-2 7B**  | [OLMo-2 7B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-7B.csv)     | [OLMo-2 7B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-7B-stage2.csv)      | [Hugging Face for the 7B variant](https://huggingface.co/allenai/OLMo-2-1124-7B)  |
+| **OLMo-2 13B** | [OLMo-2 13B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B.csv)   | [OLMo-2 13B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B-stage2.csv)       | [Hugging Face for the 13B variant](https://huggingface.co/allenai/OLMo-2-1124-13B) |
 ### Steps to reproduce
 
 To reproduce any of the training processes described below, run this:
