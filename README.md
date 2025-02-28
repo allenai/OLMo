@@ -50,11 +50,10 @@ In the second stage, we train on a smaller amount of high-quality, targeted data
 You can find *all* the checkpoints, at minimum every 1000 training steps in OLMo core and Hugging Face format:
 
 
-| Variant          | OLMo Format                                                                                          | Hugging Face Format                                                               |
-|------------------|-----------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
-| **OLMo-2 7B**      | [OLMo-2 7B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-7B.csv)       | [Hugging Face for the 7B variant](https://huggingface.co/allenai/OLMo-2-1124-7B)  |
-| **OLMo-2 13B**     | [OLMo-2 13B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B.csv)     | [Hugging Face for the 13B variant](https://huggingface.co/allenai/OLMo-2-1124-13B) |
-
+| Variant         | OLMo Format (Stage 1)                                                                                         | OLMo Format (Stage 2) | Hugging Face Format                                                               |
+|----------------|-----------------------------------------------------------------------------------------------------|--------|----------------------------------------------------------------------------------|
+| **OLMo-2 7B**  | [OLMo-2 7B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-7B.csv)     | [OLMo-2 7B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-7B-stage2.csv)      | [Hugging Face for the 7B variant](https://huggingface.co/allenai/OLMo-2-1124-7B)  |
+| **OLMo-2 13B** | [OLMo-2 13B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B.csv)   | [OLMo-2 13B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B-stage2.csv)       | [Hugging Face for the 13B variant](https://huggingface.co/allenai/OLMo-2-1124-13B) |
 ### Steps to reproduce
 
 To reproduce any of the training processes described below, run this:
@@ -87,7 +86,7 @@ Example:
 ```bash
 python scripts/train.py configs/tiny/OLMo-20M.yaml --save_overwrite
 ```
-Note: You need to upgrade PyTorch to 2.5.x to run. OLMo-2-1124 uses `uint32` for `memmap_dtype`, whereas OLMo-0724 uses `uint16`.
+Note: You need to upgrade PyTorch to 2.5.x to run.
 
 ### Stage 1
 
