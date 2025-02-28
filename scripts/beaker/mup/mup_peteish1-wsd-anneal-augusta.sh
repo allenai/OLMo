@@ -121,6 +121,7 @@ torchrun \
     --scheduler.t_warmup=$LOAD_STEP \
     --scheduler.name=linear_with_warmup \
     --scheduler.alpha_f=0 \
+    --scheduler.units=steps \
     --scheduler.t_max=$MAX_STEPS \
     --stop_at=$(($MAX_STEPS + 101)) \
     --eval_interval=1000 \
