@@ -127,7 +127,7 @@ torchrun \
     --fsdp.sharding_strategy=FULL_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
     --fsdp.wrapping_strategy=by_block_and_size \
-    --load_path="gs://ai2-llm/checkpoints/OLMo-mup/${GROUP_NAME}/${BASE_RUN_NAME}" \
+    --load_path="gs://ai2-llm/checkpoints/OLMo-mup/${GROUP_NAME}/${BASE_RUN_NAME}/step${LOAD_STEP}" \
     --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-mup/${GROUP_NAME}/${ANNEAL_NAME}" \
     --sharded_checkpointer=olmo_core \
     --device_train_microbatch_size=8 \
