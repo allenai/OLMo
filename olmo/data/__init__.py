@@ -40,7 +40,7 @@ def build_memmap_dataset(
     else:
         raise OLMoConfigurationError("One of DataConfig.paths or DataConfig.datasets is required")
 
-    optimal_memmap_dtype = np.uint32 if train_config.model.vocab_size >= 2**16 else np.uint16
+    optimal_memmap_dtype = np.uint32 if train_config.model.vocab_size > 2**16 else np.uint16
     return MemMapDataset(
         *paths,
         chunk_size=train_config.model.max_sequence_length,

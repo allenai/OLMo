@@ -194,7 +194,6 @@ class MemMapDataset(Dataset[Dict[str, Any]]):
 
         # Read the data from file.
         input_ids = self._read_chunk_from_memmap(self._memmap_paths[memmap_index], memmap_local_index)
-        input_ids = input_ids % (2**16)
         out: Dict[str, Any] = {"input_ids": input_ids}
         if self.instance_filter_config is not None:
             out["instance_mask"] = self._validate_instance(input_ids)
