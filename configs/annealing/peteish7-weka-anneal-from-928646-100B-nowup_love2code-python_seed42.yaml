@@ -1,0 +1,1149 @@
+run_name: peteish7-weka-anneal-from-928646-50B-nowup_love2code-python_seed42
+seed: 42
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: olmo-medium
+  group: ${run_name}
+
+model:
+  d_model: 4096
+  n_heads: 32
+  n_layers: 32
+  mlp_hidden_size: 22016
+  weight_tying: false
+  alibi: false
+  rope: true
+  rope_theta: 500000
+  flash_attention: true
+  attention_dropout: 0.0
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  bias_for_layer_norm: false
+  attention_layer_norm: true
+  attention_layer_norm_with_affine: true
+  norm_after: true
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 4096
+  vocab_size: 100278
+  embedding_size: 100352
+  eos_token_id: 100257
+  pad_token_id: 100277
+  init_device: meta
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3
+
+softmax_auxiliary_loss: true
+auxiliary_loss_multiplier: 1e-5
+fused_loss: true
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 0.000061499
+  weight_decay: 0.1
+  eps: 1e-8
+  decay_norm_and_bias: true
+  decay_embeddings: false
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 1
+
+scheduler:
+  name: linear_with_warmup
+  t_warmup: 0
+  alpha_f: 0
+
+tokenizer:
+  identifier: tokenizers/allenai_dolma2.json
+  truncate_direction: right
+
+save_folder: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/${run_name}
+save_overwrite: false
+
+save_interval: 1000
+save_interval_ephemeral: 250
+save_num_checkpoints_to_keep: -1
+sharded_checkpointer: olmo_core
+
+save_interval_unsharded: null
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: /weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646
+
+restore_dataloader: false
+no_pre_train_checkpoint: true
+
+max_duration: 100e9T
+stop_at: 23852                  # round(50e9 / (1024 * 4096)) + 10
+global_train_batch_size: 1024
+device_train_microbatch_size: 2
+
+precision: amp_bf16
+
+fsdp:
+  wrapping_strategy: by_block_and_size
+  precision: mixed
+
+activation_checkpointing: one_in_four
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 1
+
+gen1_gc_interval: 1
+
+eval_interval: 1000
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  # - label: all-small-ppl-validation
+  #   data:
+  #     num_workers: 0
+  #     drop_last: true
+  #     # generate_doc_lengths: true
+  #     memmap_dtype: uint32
+  #     datasets:
+  #       c4_en-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
+  #       dolma_books-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
+  #       dolma_common-crawl-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
+  #       dolma_pes2o-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
+  #       dolma_reddit-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
+  #       dolma_stack-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
+  #       dolma_wiki-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
+  #       ice-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
+  #       m2d2_s2orc-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
+  #       pile-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
+  #       wikitext_103-validation:
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
+
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: piqa
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+  - label: winogrande
+    type: downstream
+
+  - label: openbook_qa
+    type: downstream
+
+  - label: boolq
+    type: downstream
+
+  - label: sciq
+    type: downstream
+
+  - label: arc_easy
+    type: downstream
+
+  - label: arc_challenge
+    type: downstream
+
+  - label: copa
+    type: downstream
+
+  #- label: rte
+  #  type: downstream
+
+  #- label: commitment_bank
+  #  type: downstream
+
+  #- label: sst2
+  #  type: downstream
+
+  - label: commonsense_qa
+    type: downstream
+
+  - label: social_iqa
+    type: downstream
+
+  - label: mmlu_stem_var
+    type: downstream
+
+  - label: mmlu_humanities_var
+    type: downstream
+
+  - label: mmlu_social_sciences_var
+    type: downstream
+
+  - label: mmlu_other_var
+    type: downstream
+
+  - label: mmlu_stem_mc_5shot
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot
+    type: downstream
+
+  - label: mmlu_other_mc_5shot
+    type: downstream
+
+  - label: mmlu_stem_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_other_mc_5shot_test
+    type: downstream
+
+  - label: basic_arithmetic
+    type: downstream
+
+  - label: trivia_qa_wiki_ppl
+    type: downstream
+
+  - label: natural_qs_open_ppl
+    type: downstream
+
+  - label: arc_easy_ppl
+    type: downstream
+
+data:
+  pad_direction: right
+  # generate_doc_lengths: true
+  num_workers: 32
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 8
+  persistent_workers: true
+  memmap_dtype: uint32
+  timeout: 0
+  instance_filter:
+    repetition_max_period: 13
+    repetition_min_period: 1
+    repetition_max_count: 32
+  paths:
+    #SOURCE: s3://ai2-llm/preprocessed/personahub_math_v5_regen_149960/dolma2-tokenizer/ (191.58MT)
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-006-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-116-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-050-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-115-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-043-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-051-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-098-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-029-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-012-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-026-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-071-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-049-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-002-00010.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-080-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-077-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-016-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-105-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-092-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-085-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-112-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-082-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-021-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-042-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-102-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-038-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-026-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-063-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-024-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-036-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-002-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-091-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-093-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-037-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-079-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-032-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-066-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-101-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-075-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-039-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-093-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-061-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-118-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-051-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-106-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-027-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-042-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-065-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-038-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-057-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-046-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-001-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-074-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-080-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-090-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-102-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-039-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-025-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-045-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-096-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-061-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-034-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-007-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-011-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-110-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-087-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-007-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-025-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-041-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-074-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-092-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-001-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-064-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-119-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-053-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-067-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-070-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-071-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-064-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-073-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-091-00010.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-019-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-042-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-057-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-095-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-013-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-106-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-003-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-030-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-028-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-098-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-034-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-010-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-076-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-040-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-094-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-011-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-099-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-049-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-021-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-091-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-024-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-030-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-028-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-015-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-094-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-037-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-042-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-108-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-012-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-013-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-070-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-029-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-022-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-081-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-020-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-057-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-000-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-023-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-071-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-013-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-099-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-106-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-077-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-002-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-080-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-001-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-108-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-107-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-025-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-048-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-087-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-091-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-074-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-039-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-000-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-115-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-021-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-058-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-058-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-019-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-032-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-006-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-023-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-076-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-102-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-023-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-006-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-067-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-103-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-064-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-063-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-090-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-113-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-004-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-018-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-117-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-062-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-007-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-048-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-117-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-089-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-118-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-099-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-030-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-100-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-067-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-067-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-031-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-052-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-076-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-024-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-101-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-086-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-099-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-028-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-093-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-050-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-018-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-086-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-024-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-008-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-031-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-072-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-092-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-084-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-007-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-025-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-054-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-054-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-029-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-032-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-041-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-035-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-095-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-087-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-022-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-006-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-013-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-081-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-053-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-055-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-067-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-034-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-092-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-002-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-054-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-072-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-099-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-106-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-068-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-057-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-109-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-110-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-119-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-092-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-080-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-051-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-090-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-091-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-107-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-003-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-065-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-008-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-114-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-109-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-058-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-035-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-075-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-047-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-095-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-065-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-082-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-054-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-052-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-017-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-104-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-006-00010.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-017-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-045-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-039-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-029-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-098-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-052-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-055-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-077-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-055-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-109-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-039-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-078-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-093-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-002-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-096-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-107-00011.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-066-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-041-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-013-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-000-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-072-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-115-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-003-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-067-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-103-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-040-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-082-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-005-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-089-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-009-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-063-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-017-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-061-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-027-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-070-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-068-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-010-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-112-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-104-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-049-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-004-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-051-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-056-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-086-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-088-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-086-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-030-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-005-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-046-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-017-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-099-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-109-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-075-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-111-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-061-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-023-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-017-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-058-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-008-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-065-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-039-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-115-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-116-00010.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-007-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-016-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-119-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-039-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-030-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-070-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-031-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-055-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-073-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-052-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-016-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-100-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-062-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-102-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-006-00013.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-048-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-108-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-089-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-094-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-083-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-058-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-047-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-053-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-079-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-027-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-113-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-097-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-053-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-036-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-111-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-010-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-088-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-049-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-082-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-056-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-090-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-002-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-050-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-001-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-011-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-091-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-098-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-107-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-062-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-036-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-112-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-039-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-040-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-100-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-053-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-000-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-105-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-029-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-035-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-034-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-020-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-035-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-103-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-085-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-111-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-088-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-040-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-090-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-005-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-019-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-036-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-085-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-023-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-082-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-097-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-008-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-048-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-044-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-054-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-102-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-062-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-111-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-042-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-011-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-118-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-042-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-097-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-048-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-084-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-074-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-084-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-028-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-002-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-005-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-033-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-114-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-112-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-107-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-023-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-048-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-044-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-113-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-109-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-083-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-047-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-041-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-013-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-048-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-119-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-060-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-070-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-053-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-017-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-058-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-050-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-057-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-115-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-026-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-108-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-061-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-076-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-004-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-038-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-021-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-087-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-085-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-115-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-066-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-007-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-056-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-001-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-089-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-103-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-031-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-070-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-063-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-009-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-006-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-005-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-043-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-016-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-086-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-033-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-056-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-004-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-113-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-045-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-014-00010.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-116-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-038-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-078-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-096-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-073-00010.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-096-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-087-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-119-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-058-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-017-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-109-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-008-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-027-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-043-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-116-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-032-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-086-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-095-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-112-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-050-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-003-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-053-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-079-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-021-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-032-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-056-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-035-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-049-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-098-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-069-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-003-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-083-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-034-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-009-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-040-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-052-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-075-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-020-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-044-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-101-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-003-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-080-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-022-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-047-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-038-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-077-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-059-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-043-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-118-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-006-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-074-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-018-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-066-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-069-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-051-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-020-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-010-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-015-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-113-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-111-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-107-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-104-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-060-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-038-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-014-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-021-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-117-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-066-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-089-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-024-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-041-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-052-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-107-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-117-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-106-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-117-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-023-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-078-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-044-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-070-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-001-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-079-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-045-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-072-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-032-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-048-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-041-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-067-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-015-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-065-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-021-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-059-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-025-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-098-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-069-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-073-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-076-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-036-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-040-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-094-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-003-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-010-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-083-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-049-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-060-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-054-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-049-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-064-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-111-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-078-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-042-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-014-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-009-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-026-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-057-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-081-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-079-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-101-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-028-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-050-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-035-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-088-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-117-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-071-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-047-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-046-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-045-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-113-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-055-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-012-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-062-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-119-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-107-00010.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-002-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-097-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-037-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-047-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-079-00010.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-039-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-080-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-114-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-101-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-044-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-004-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-019-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-024-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-112-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-043-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-094-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-109-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-044-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-044-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-119-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-000-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-090-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-018-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-029-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-117-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-085-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-032-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-012-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-005-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-077-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-003-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-048-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-060-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-080-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-095-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-043-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-015-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-026-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-113-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-012-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-078-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-052-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-098-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-103-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-081-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-010-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-107-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-032-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-007-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-112-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-072-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-095-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-057-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-069-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-022-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-104-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-091-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-059-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-020-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-102-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-027-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-068-00010.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-011-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-087-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-101-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-071-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-035-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-116-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-104-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-073-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-104-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-084-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-000-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-113-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-027-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-115-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-035-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-103-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-050-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-087-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-064-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-060-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-026-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-084-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-049-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-065-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-073-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-090-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-008-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-012-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-054-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-116-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-002-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-069-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-094-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-032-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-058-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-024-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-004-00010.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-022-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-037-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-031-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-012-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-034-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-100-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-102-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-100-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-081-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-004-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-035-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-047-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-023-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-054-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-116-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-045-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-055-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-084-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-015-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-059-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-084-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-075-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-066-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-089-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-036-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-015-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-067-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-016-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-046-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-106-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-062-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-015-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-015-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-059-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-101-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-051-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-033-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-070-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-093-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-081-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-029-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-059-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-046-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-015-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-020-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-109-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-081-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-072-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-006-00012.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-068-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-060-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-056-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-065-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-060-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-114-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-084-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-064-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-100-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-029-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-075-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-056-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-031-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-022-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-063-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-076-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-042-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-020-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-012-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-107-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-041-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-014-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-009-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-092-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-066-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-047-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-023-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-068-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-051-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-095-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-107-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-017-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-057-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-082-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-018-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-095-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-096-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-074-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-106-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-001-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-066-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-013-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-096-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-042-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-004-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-071-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-057-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-100-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-022-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-085-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-092-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-088-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-088-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-014-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-104-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-093-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-025-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-059-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-086-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-115-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-019-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-041-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-091-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-030-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-033-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-046-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-004-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-013-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-029-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-018-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-007-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-018-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-076-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-028-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-102-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-065-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-000-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-064-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-078-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-066-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-105-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-110-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-077-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-061-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-105-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-024-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-046-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-076-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-050-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-072-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-114-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-038-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-115-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-091-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-037-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-068-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-104-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-044-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-022-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-088-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-099-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-004-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-094-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-088-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-058-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-114-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-118-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-105-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-075-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-093-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-009-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-053-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-071-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-028-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-074-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-112-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-006-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-116-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-080-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-044-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-003-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-004-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-019-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-035-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-068-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-054-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-047-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-061-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-108-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-093-00003.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-014-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-119-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-099-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-110-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-108-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-016-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-068-00009.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-034-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-116-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-078-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-086-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-011-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-110-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-031-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-090-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-119-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-105-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-083-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-116-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-061-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-089-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-117-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-118-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-049-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-018-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-048-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-111-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-096-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-068-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-071-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-096-00002.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-088-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-005-00008.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-097-00006.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-085-00001.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-010-00004.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-037-00007.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-027-00000.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-057-00005.npy
+    - s3://ai2-llm/pretraining-data/sources/learn2code/minhash_metadata/love2code-baseline-filtered-20250218_004_minhashed/scratch/python-only-tokens/part-009-00001.npy
+    # CODEPROSE
+    - s3://ai2-llm/preprocessed/dclm/raw_love2code_codeprose/dolma2-tokenizer/part-32-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/raw_love2code_codeprose/dolma2-tokenizer/part-05-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/raw_love2code_codeprose/dolma2-tokenizer/part-25-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/raw_love2code_codeprose/dolma2-tokenizer/part-77-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/raw_love2code_codeprose/dolma2-tokenizer/part-06-00000.npy
