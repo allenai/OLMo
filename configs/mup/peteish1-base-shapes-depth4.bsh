@@ -1,0 +1,91 @@
+# This is a base shape file encoded in yaml
+# - `null` indicates a dimension is "finite", i.e. a non-"width" dimension
+# - a number indicates the base dimension of an "infinite" dimension, i.e. some notion of "width"
+transformer.blocks.0.att_proj.weight:
+- 6144
+- 2048
+transformer.blocks.0.attn_norm.weight:
+- 2048
+transformer.blocks.0.attn_out.weight:
+- 2048
+- 2048
+transformer.blocks.0.ff_norm.weight:
+- 2048
+transformer.blocks.0.ff_out.weight:
+- 2048
+- 8192
+transformer.blocks.0.ff_proj.weight:
+- 16384
+- 2048
+transformer.blocks.0.k_norm.weight:
+- 2048
+transformer.blocks.0.q_norm.weight:
+- 2048
+transformer.blocks.1.att_proj.weight:
+- 6144
+- 2048
+transformer.blocks.1.attn_norm.weight:
+- 2048
+transformer.blocks.1.attn_out.weight:
+- 2048
+- 2048
+transformer.blocks.1.ff_norm.weight:
+- 2048
+transformer.blocks.1.ff_out.weight:
+- 2048
+- 8192
+transformer.blocks.1.ff_proj.weight:
+- 16384
+- 2048
+transformer.blocks.1.k_norm.weight:
+- 2048
+transformer.blocks.1.q_norm.weight:
+- 2048
+transformer.blocks.2.att_proj.weight:
+- 6144
+- 2048
+transformer.blocks.2.attn_norm.weight:
+- 2048
+transformer.blocks.2.attn_out.weight:
+- 2048
+- 2048
+transformer.blocks.2.ff_norm.weight:
+- 2048
+transformer.blocks.2.ff_out.weight:
+- 2048
+- 8192
+transformer.blocks.2.ff_proj.weight:
+- 16384
+- 2048
+transformer.blocks.2.k_norm.weight:
+- 2048
+transformer.blocks.2.q_norm.weight:
+- 2048
+transformer.blocks.3.att_proj.weight:
+- 6144
+- 2048
+transformer.blocks.3.attn_norm.weight:
+- 2048
+transformer.blocks.3.attn_out.weight:
+- 2048
+- 2048
+transformer.blocks.3.ff_norm.weight:
+- 2048
+transformer.blocks.3.ff_out.weight:
+- 2048
+- 8192
+transformer.blocks.3.ff_proj.weight:
+- 16384
+- 2048
+transformer.blocks.3.k_norm.weight:
+- 2048
+transformer.blocks.3.q_norm.weight:
+- 2048
+transformer.ff_out.weight:
+- null
+- 2048
+transformer.ln_f.weight:
+- 2048
+transformer.wte.weight:
+- null
+- 2048
