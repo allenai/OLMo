@@ -49,4 +49,4 @@ gantry run \
   --env-secret WANDB_API_KEY=SHANEA_WANDB_API_KEY \
   --shared-memory 10GiB \
   --yes \
-  -- /bin/bash -c "scripts/beaker/mup/mup_peteish1-wsd-augusta.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${SIZE} ${D_MODEL} ${LR} ${@}"
+  -- /bin/bash -c "scripts/beaker/mup/mup_peteish1-wsd-augusta.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${SIZE} ${D_MODEL} ${LR} $*"
