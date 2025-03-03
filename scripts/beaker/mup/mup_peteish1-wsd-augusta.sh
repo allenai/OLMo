@@ -20,6 +20,8 @@ shift
 LR=$1
 shift
 
+echo "${@}"
+
 # augusta specific environment
 export LD_LIBRARY_PATH="/var/lib/tcpxo/lib64:${LD_LIBRARY_PATH}"
 export NCCL_CROSS_NIC=0
