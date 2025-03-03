@@ -96,7 +96,7 @@ torchrun \
   --node_rank=$BEAKER_REPLICA_RANK \
   scripts/train.py configs/mup/peteish1-augusta.yaml \
     --run_name=$RUN_NAME \
-    --wandb.name=$NAME \
+    --wandb.name=$RUN_NAME \
     --wandb.group=$GROUP_NAME \
     --wandb.project=olmo-mup \
     --save_folder=$SAVE_FOLDER \
