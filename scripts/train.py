@@ -424,12 +424,12 @@ if __name__ == "__main__":
         raise OLMoCliError(f"Usage: {sys.argv[0]} [CONFIG_PATH] [OPTIONS]")
 
     cfg = TrainConfig.load(yaml_path, [clean_opt(s) for s in args_list])
-    if torch.device("mps"):
+    if torch.backends.mps.is_available():
         log.info("Device is MPS. Updating config...")
         cfg.model.init_device = "mps"
         cfg.distributed_strategy = "single"  # type: ignore
 
-    if torch.device("cpu"):
+    if not torch.cuda.is_available() and not torch.backends.mps.is_available():
         log.info("Device is CPU. Updating config...")
         cfg.model.init_device = "cpu"
         cfg.distributed_strategy = "single"  # type: ignore
