@@ -116,27 +116,27 @@ evaluators:
   #     memmap_dtype: uint32
   #     datasets:
   #       c4_en-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/starcoder1/c4_en/val/part-0-00000.npy
   #       dolma_books-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/starcoder1/dolma_books/val/part-0-00000.npy
   #       dolma_common-crawl-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/starcoder1/dolma_common-crawl/val/part-0-00000.npy
   #       dolma_pes2o-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/starcoder1/dolma_pes2o/val/part-0-00000.npy
   #       dolma_reddit-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/starcoder1/dolma_reddit/val/part-0-00000.npy
   #       dolma_stack-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/starcoder1/dolma_stack/val/part-0-00000.npy
   #       dolma_wiki-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/starcoder1/dolma_wiki/val/part-0-00000.npy
   #       ice-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/starcoder1/ice/val/part-0-00000.npy
   #       m2d2_s2orc-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/starcoder1/m2d2_s2orc/val/part-0-00000.npy
   #       pile-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/starcoder1/pile/val/part-0-00000.npy
   #       wikitext_103-validation:
-  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
+  #         - /weka/oe-training-default/ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/starcoder1/wikitext_103/val/part-0-00000.npy
 
   ##########################
   # Downstream evaluations #
@@ -247,40 +247,40 @@ data:
     repetition_max_count: 32
   paths:
     # STARCODER1
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-22-00001.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-28-00001.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-15-00001.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-33-00001.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-25-00001.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-03-00001.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-35-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-36-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-33-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-14-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-37-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-27-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-12-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-12-00001.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-23-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-41-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-32-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-42-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-15-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-25-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-06-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-07-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-35-00001.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-26-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-06-00001.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-13-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-43-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-44-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-19-00001.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-20-00000.npy
-    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/part-24-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-22-00001.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-28-00001.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-15-00001.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-33-00001.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-25-00001.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-03-00001.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-35-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-36-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-33-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-14-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-37-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-27-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-12-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-12-00001.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-23-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-41-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-32-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-42-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-15-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-25-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-06-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-07-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-35-00001.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-26-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-06-00001.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-13-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-43-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-44-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-19-00001.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-20-00000.npy
+    - gs://ai2-llm/preprocessed/starcoder/v0_decontaminated_doc_only/allenai/dolma2-tokenizer/starcoder1/part-24-00000.npy
     # CODEPROSE
-    - gs://ai2-llm/preprocessed/dclm/love2code_codeprose/part-32-00000.npy
-    - gs://ai2-llm/preprocessed/dclm/love2code_codeprose/part-05-00000.npy
-    - gs://ai2-llm/preprocessed/dclm/love2code_codeprose/part-25-00000.npy
-    - gs://ai2-llm/preprocessed/dclm/love2code_codeprose/part-77-00000.npy
-    - gs://ai2-llm/preprocessed/dclm/love2code_codeprose/part-06-00000.npy
+    - gs://ai2-llm/preprocessed/dclm/love2code_codeprose/codeprose/part-32-00000.npy
+    - gs://ai2-llm/preprocessed/dclm/love2code_codeprose/codeprose/part-05-00000.npy
+    - gs://ai2-llm/preprocessed/dclm/love2code_codeprose/codeprose/part-25-00000.npy
+    - gs://ai2-llm/preprocessed/dclm/love2code_codeprose/codeprose/part-77-00000.npy
+    - gs://ai2-llm/preprocessed/dclm/love2code_codeprose/codeprose/part-06-00000.npy
