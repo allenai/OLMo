@@ -54,5 +54,6 @@ gantry run \
   --env-secret AWS_CREDENTIALS=SHANEA_AWS_CREDENTIALS \
   --env-secret WANDB_API_KEY=SHANEA_WANDB_API_KEY \
   --shared-memory 10GiB \
+  --retries 3 \
   --yes \
   -- /bin/bash -c "scripts/beaker/mup/mup_peteish1-wsd-anneal-augusta.sh \$BEAKER_LEADER_REPLICA_HOSTNAME ${NUM_NODES} \$BEAKER_REPLICA_RANK ${SIZE} ${D_MODEL} ${LR} ${LOAD_STEP} ${ANNEAL_STEPS} $*"
