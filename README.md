@@ -54,6 +54,7 @@ You can find *all* the checkpoints, at minimum every 1000 training steps in OLMo
 |----------------|-----------------------------------------------------------------------------------------------------|--------|----------------------------------------------------------------------------------|
 | **OLMo-2 7B**  | [OLMo-2 7B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-7B.csv)     | [OLMo-2 7B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-7B-stage2.csv)      | [Hugging Face for the 7B variant](https://huggingface.co/allenai/OLMo-2-1124-7B)  |
 | **OLMo-2 13B** | [OLMo-2 13B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B.csv)   | [OLMo-2 13B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B-stage2.csv)       | [Hugging Face for the 13B variant](https://huggingface.co/allenai/OLMo-2-1124-13B) |
+| **OLMo-2 32B** | [OLMo-2 32B](https://github.com/allenai/OLMo/blob/main/configs/official-0325/OLMo-2-0325-32B.csv)   | [OLMo-2 32B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B-stage2.csv)       | [Hugging Face for the 32B variant](https://huggingface.co/allenai/OLMo-2-0325-32B) |
 ### Steps to reproduce
 
 To reproduce any of the training processes described below, run this:
@@ -92,12 +93,13 @@ Note: You need to upgrade PyTorch to 2.5.x to run.
 
 Stage 1 is the biggest stage, where we train on 4T or 5T tokens on largely web-based data. 
 
-|                 | OLMo2 7B                                                                                                          | OLMo2 13B                                                                                                          |
-|-----------------|-------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
-| Number of tokens| 4 Trillion                                                                                                        | 5 Trillion                                                                                                         |
-| Checkpoint      | [stage1-step928646-tokens3896B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage1-step928646-tokens3896B) | [stage1-step596057-tokens5001B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage1-step596057-tokens5001B) | 
-| Training config | [OLMo2-7B-stage1.yaml](configs/official-1124/OLMo2-7B-stage1.yaml)      | [OLMo2-13B-stage1.yaml](configs/official-1124/OLMo2-13B-stage1.yaml)     |
-| WandB           | [wandb.ai/OLMo2-7B](https://wandb.ai/ai2-llm/OLMo-2-1124-7B/reports/OLMo-2-7B-Nov-2024--VmlldzoxMDUzMzE1OA)                                                                                | [wandb.ai/OLMo2-13B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg)                                                                                |
+|                 | OLMo2 7B                                                                                                          | OLMo2 13B                                                                                                          | OLMo2 32B                                                                                                          |
+|-----------------|-------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| Number of tokens| 4 Trillion                                                                                                        | 5 Trillion                                                                                                         | 6 Trillion                                                                                                         |
+| Checkpoint      | [stage1-step928646-tokens3896B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage1-step928646-tokens3896B) | [stage1-step596057-tokens5001B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage1-step596057-tokens5001B) | [stage1-step721901-tokens6056B](https://huggingface.co/allenai/OLMo-2-0325-32B/tree/stage1-step721901-tokens6056B)       |
+| Training config | [OLMo2-7B-stage1.yaml](configs/official-1124/OLMo2-7B-stage1.yaml)                                                | [OLMo2-13B-stage1.yaml](configs/official-1124/OLMo2-13B-stage1.yaml)                                               | [OLMo2-32B-stage1.yaml](configs/official-1124/OLMo2-32B-stage1.yaml)                                               |
+| WandB           | [wandb.ai/OLMo2-7B](https://wandb.ai/ai2-llm/OLMo-2-1124-7B/reports/OLMo-2-7B-Nov-2024--VmlldzoxMDUzMzE1OA)       | [wandb.ai/OLMo2-13B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg)      | [wandb.ai/OLMo2-32B](https://wandb.ai/ai2-llm/OLMo-2-1124-32B/reports/OLMo-2-32B-Nov-2024--VmlldzoxXXXXXXX)       |
+
 
 ### Stage 2 for the 7B
 
@@ -127,11 +129,26 @@ on 300B high quality tokens. Then we average ("soup") the models.
 
 The training configs linked here are set up to download the latest checkpoint after stage 1, and start training from there.
 
+### Stage 2 for the 32B
+
+For the 32B model, we train three times with different data order on 300B high quality tokens, and one more time on 300B high quality tokens. Then we average ("soup") the models.
+
+|                        | Checkpoint                                                                                                                             | Training config                                                                                  | WandB       |
+|------------------------|----------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|-------------|
+| random seed 1110, 100B | [stage2-ingredient1-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient1-step11931-tokens100B) | [OLMo2-32B-stage2-seed1110-100B.yaml](configs/official-1124/OLMo2-13B-stage2-seed1110-100B.yaml) | [wandb.ai/OLMo2-32B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg) |
+| random seed 2662, 100B | [stage2-ingredient2-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient2-step11931-tokens100B) | [OLMo2-32B-stage2-seed2662-100B.yaml](configs/official-1124/OLMo2-13B-stage2-seed2662-100B.yaml) | [wandb.ai/OLMo2-32B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg) |
+| random seed 6209, 100B | [stage2-ingredient3-step11931-tokens100B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient3-step11931-tokens100B) | [OLMo2-32B-stage2-seed6209-100B.yaml](configs/official-1124/OLMo2-13B-stage2-seed6209-100B.yaml) | [wandb.ai/OLMo2-32B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg) |
+| random seed 2662, 300B | [stage2-ingredient4-step11931-tokens300B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient4-step35773-tokens300B) | [OLMo2-32B-stage2-seed2662-300B.yaml](configs/official-1124/OLMo2-13B-stage2-seed2662-300B.yaml) | [wandb.ai/OLMo2-32B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg) |
+| **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/main)                                                                       | no config, we just averaged the weights in Python                                                | |
+
+The training configs linked here are set up to download the latest checkpoint after stage 1, and start training from there.
+
 ## Instruction tuned variants
 
 For instruction tuned variants of these models, go to
  * [OLMo2 7B Instruct](https://huggingface.co/allenai/OLMo-2-1124-7B-Instruct)
  * [OLMo2 13B Instruct](https://huggingface.co/allenai/OLMo-2-1124-13B-Instruct)
+ * [OLMo2 32B Instruct](https://huggingface.co/allenai/OLMo-2-0325-32B-Instruct)
 
 ## Inference
 
