@@ -1403,7 +1403,6 @@ class OLMo(nn.Module):
                         max_doc_len=max_doc_len,
                         cu_doc_lens=cu_doc_lens,
                     )
-
                 if attn_key_values is not None:
                     assert cache is not None
                     attn_key_values.append(cache)
@@ -1572,6 +1571,7 @@ class OLMo(nn.Module):
 
         # embedding table is just a lookup in the forward pass
         n_params = self.num_params(include_embedding=False)
+
         # the number of parameters is approximately the number of multiply-accumulates (MAC) in the network
         # each MAC has 2 FLOPs - we multiply by 2 ie 2 * n_param
         # this gets us FLOPs / token

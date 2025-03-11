@@ -2,8 +2,9 @@ import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, replace
 from math import cos, pi, sqrt
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+import math
 import torch
 import torch.distributed as dist
 import torch.nn as nn
@@ -11,7 +12,12 @@ from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.optim.optimizer import Optimizer as OptimizerBase
 
-from . import LayerNormBase
+try:
+    from torch.optim.optimizer import ParamsT
+except ImportError:
+    ParamsT : TypeAlias = Union[Iterable[torch.Tensor], Iterable[Dict[str, Any]]]
+
+from . import LayerNormBase, RMSLayerNorm
 from .config import OptimizerType, SchedulerConfig, SchedulerType, TrainConfig
 from .torch_util import get_default_device, is_distributed
 
@@ -30,6 +36,11 @@ __all__ = [
     "build_optimizer",
     "build_scheduler",
 ]
+
+# TODO: start adamw: beta1, beta2 experiments (warmup and cosine for batch size 4M)
+# TODO: add muon and schedule free adamW, start experiments for adamw, schedule free and muon
+# TODO: add ademamix, adan
+# TODO: read schedule free paper, surprising agreement papers, ch 1-4 optimization course
 
 
 log = logging.getLogger(__name__)
@@ -362,6 +373,329 @@ class Optimizer(OptimizerBase):
         return {}
 
 
+class SGD(Optimizer):
+    """
+        Option to add Polyak and Nesterov momentum.
+    """
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
+
+
+class ScheduleFreeSGD(Optimizer):
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
+
+
+def zeropower_via_newtonschulz5(G, steps):
+    """
+    Newton-Schulz iteration to compute the zeroth power / orthogonalization of G. We opt to use a
+    quintic iteration whose coefficients are selected to maximize the slope at zero. For the purpose
+    of minimizing steps, it turns out to be empirically effective to keep increasing the slope at
+    zero even beyond the point where the iteration no longer converges all the way to one everywhere
+    on the interval. This iteration therefore does not produce UV^T but rather something like US'V^T
+    where S' is diagonal with S_{ii}' ~ Uniform(0.5, 1.5), which turns out not to hurt model
+    performance at all relative to UV^T, where USV^T = G is the SVD.
+    """
+    assert len(G.shape) == 2
+    a, b, c = (3.4445, -4.7750, 2.0315)
+    X = G.bfloat16()
+    if G.size(0) > G.size(1):
+        X = X.T
+    # Ensure spectral norm is at most 1
+    X = X / (X.norm() + 1e-7)
+    # Perform the NS iterations
+    for _ in range(steps):
+        A = X @ X.T
+        B = (
+            b * A + c * A @ A
+        )  # adapted from suggestion by @jxbz, @leloykun, and @YouJiacheng
+        X = a * X + B @ X
+
+    if G.size(0) > G.size(1):
+        X = X.T
+    return X
+
+
+class MuonAdamW(Optimizer):
+    """
+        Muon is intended to optimize only the internal ≥2D parameters of a network. Embeddings, classifier heads,
+        and scalar or vector parameters should be optimized using AdamW instead. Muon provides an internal AdamW
+        for this so you don't have to use an extra optimizer.
+
+        Codebase designed to handle single optimizer, merging muon and adamw here for different param groups.
+        Will probably fail at checkpointing, restoring and logging a bunch of optimizer states.
+
+        Code taken and modified from: https://github.com/KellerJordan/Muon/blob/master/muon.py
+    """
+    def __init__(
+        self,
+        params,
+        muon_lr=0.02,
+        muon_weight_decay=0.01,
+        muon_momentum=0.95,
+        nesterov=True,
+        ns_steps=5,
+        rank=0,
+        world_size=1,
+        adam_lr=1e-3,
+        adam_betas=(0.9, 0.999),
+        eps=1e-8,
+        adam_weight_decay=0.01,
+        amsgrad=False,
+        vocab_size=50304,
+        *args,
+        record_update_metrics = False,
+        selective_updates = False,
+        **kwargs
+    ):
+        self.rank = rank
+        self.world_size = world_size
+        self.eps = eps
+
+        muon_defaults = dict(
+            lr=muon_lr,
+            weight_decay=muon_weight_decay,
+            momentum=muon_momentum,
+            nesterov=nesterov,
+            ns_steps=ns_steps,
+            optimizer_type='muon',
+        )
+        adamw_defaults = dict(
+            lr=adam_lr,
+            betas=adam_betas,
+            eps=eps,
+            weight_decay=adam_weight_decay,
+            amsgrad=amsgrad,
+            optimizer_type='adamw',
+        )
+
+        param_groups = []
+
+        for old_group in params:
+            if 'weight_decay' in old_group:
+                del adamw_defaults['weight_decay']
+                param_groups.append({**old_group, **adamw_defaults})
+            else:
+                # for each old_group, split into muon and adamw params
+                adamw_params = {'params': [], 'param_names': []}
+                muon_params = {'params': [], 'param_names': []}
+
+                # TODO: create different groups for the same sized params for efficient distributed communication
+                for pn, p in zip(old_group['param_names'], old_group['params']):
+                    if p.ndim < 2 or p.shape[0] == vocab_size or p.shape[1] == vocab_size:
+                        adamw_params['params'].append(p)
+                        adamw_params['param_names'].append(pn)
+                    else:
+                        muon_params['params'].append(p)
+                        muon_params['param_names'].append(pn)
+
+                adamw_params = {
+                    **adamw_params,
+                    **adamw_defaults,
+                    'sharded': old_group['sharded'],
+                    'max_grad_norm': old_group['max_grad_norm'],
+                    'max_grad_norm_ratio': old_group['max_grad_norm_ratio'],
+                }
+
+                muon_params = {
+                    **muon_params,
+                    **muon_defaults,
+                    'sharded': old_group['sharded'],
+                    'max_grad_norm': old_group['max_grad_norm'],
+                    'max_grad_norm_ratio': old_group['max_grad_norm_ratio'],
+                }
+
+                param_groups.append(adamw_params)
+                param_groups.append(muon_params)
+
+                # for each old_group, split muon_params further based on size for distributed setting
+                # if muon_params['params']:
+                #     unique_sizes = {p.numel() for p in muon_params['params']}
+                #     device = muon_params['params'][0].device
+
+                #     for size in unique_sizes:
+                #         params_of_size = []
+                #         param_names_of_size = []
+
+                #         for p, pn in zip(muon_params['params'], muon_params['param_names']):
+                #             if p.numel() == size:
+                #                 params_of_size.append(p)
+                #                 param_names_of_size.append(pn)
+
+                #         b = torch.empty(world_size, size, dtype=torch.bfloat16, device=device)
+                #         muon_params_group = {
+                #             'params': params_of_size,
+                #             'param_names': param_names_of_size,
+                #             'update_buffer': b,
+                #             'update_buffer_views': [b[i] for i in range(world_size)],
+                #             'sharded': old_group['sharded'],
+                #             'max_grad_norm': old_group['max_grad_norm'],
+                #             'max_grad_norm_ratio': old_group['max_grad_norm_ratio'],
+                #             **muon_defaults,
+                #         }
+
+                #         param_groups.append(muon_params_group)
+
+        del params
+        super(MuonAdamW, self).__init__(
+            param_groups, {}, *args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs
+        )
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    def adjust_lr_for_muon(self, lr, param_shape):
+        A, B = param_shape[:2]
+        # We adjust the learning rate and weight decay based on the size of the parameter matrix
+        # as describted in the paper
+        adjusted_ratio = 0.2 * math.sqrt(max(A, B))
+        adjusted_lr = lr * adjusted_ratio
+        return adjusted_lr
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        for group in self.param_groups:
+            optimizer_type = group['optimizer_type']
+
+            if optimizer_type == 'muon':
+                params = [p for p in group["params"]]
+                # import pdb; pdb.set_trace()
+                lr = group["lr"]
+                wd = group["weight_decay"]
+                momentum = group["momentum"]
+
+                # generate weight updates in distributed fashion
+                for p in params:
+                    # sanity check
+                    g = p.grad
+                    if g is None:
+                        continue
+                    if g.ndim > 2:
+                        g = g.view(g.size(0), -1)
+                    assert g is not None
+
+                    # calc update
+                    state = self.state[p]
+                    if "momentum_buffer" not in state:
+                        state["momentum_buffer"] = torch.zeros_like(g)
+
+                    buf = state["momentum_buffer"]
+                    buf.mul_(momentum).add_(g)
+                    if group["nesterov"]:
+                        g = g.add(buf, alpha=momentum)
+                    else:
+                        g = buf
+
+                    u = zeropower_via_newtonschulz5(g, steps=group["ns_steps"])
+
+                    # scale update
+                    adjusted_lr = self.adjust_lr_for_muon(lr, p.shape)
+
+                    # apply weight decay
+                    p.data.mul_(1 - lr * wd)
+
+                    # apply update
+                    p.data.add_(u, alpha=-adjusted_lr)
+            elif optimizer_type == 'adamw':
+                for p in group['params']:
+                    if p.grad is None:
+                        continue
+
+                    # Perform stepweight decay
+                    p.mul_(1 - group['lr'] * group['weight_decay'])
+
+                    # Perform optimization step
+                    grad = p.grad
+                    if grad.is_sparse:
+                        raise RuntimeError('AdamW does not support sparse gradients')
+                    amsgrad = group['amsgrad']
+
+                    state = self.state[p]
+
+                    # State initialization
+                    if len(state) == 0:
+                        state['step'] = 0
+                        # Exponential moving average of gradient values
+                        state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                        # Exponential moving average of squared gradient values
+                        state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                        if amsgrad:
+                            # Maintains max of all exp. moving avg. of sq. grad. values
+                            state['max_exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+
+                    exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
+                    if amsgrad:
+                        max_exp_avg_sq = state['max_exp_avg_sq']
+                    beta1, beta2 = group['betas']
+
+                    state['step'] += 1
+                    bias_correction1 = 1 - beta1 ** state['step']
+                    bias_correction2 = 1 - beta2 ** state['step']
+
+                    # Decay the first and second moment running average coefficient
+                    exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
+                    exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+                    if amsgrad:
+                        # Maintains the maximum of all 2nd moment running avg. till now
+                        torch.maximum(max_exp_avg_sq, exp_avg_sq, out=max_exp_avg_sq)
+                        # Use the max. for normalizing running avg. of gradient
+                        denom = (max_exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(group['eps'])
+                    else:
+                        denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(group['eps'])
+
+                    step_size = group['lr'] / bias_correction1
+
+                    p.addcdiv_(exp_avg, denom, value=-step_size)
+
+        return loss
+
+
+class Adafactor(Optimizer):
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
+
+
 class LionW(Optimizer):
     """
     Adapted from https://github.com/google/automl/blob/master/lion/lion_pytorch.py
@@ -647,6 +981,287 @@ class AdamW(torch.optim.AdamW, Optimizer):
             return metrics
 
 
+class Adan(Optimizer):
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
+
+
+class AdEMAMix(Optimizer):
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
+
+
+class AdamWScheduleFree(Optimizer):
+    r"""
+    Schedule-Free AdamW: adapted for OLMo from: https://github.com/facebookresearch/schedule_free/blob/main/schedulefree/adamw_schedulefree.py
+
+    As the name suggests, no scheduler is needed with this optimizer. 
+    To add warmup, rather than using a learning rate schedule you can just
+    set the warmup_steps parameter.
+    
+    This optimizer requires that .train() and .eval() be called before the
+    beginning of training and evaluation respectively. The optimizer should
+    also be placed in eval mode when saving checkpoints.
+    
+    Arguments:
+        params (iterable): 
+            Iterable of parameters to optimize or dicts defining 
+            parameter groups.
+        lr (float): 
+            Learning rate parameter (default 0.0025)
+        betas (Tuple[float, float], optional): coefficients used for computing
+            running averages of gradient and its square (default: (0.9, 0.999)).
+        eps (float): 
+            Term added to the denominator outside of the root operation to 
+            improve numerical stability. (default: 1e-8).
+        weight_decay (float): 
+            Weight decay, i.e. a L2 penalty (default: 0).
+        warmup_steps (int): Enables a linear learning rate warmup (default 0).
+        r (float): Use polynomial weighting in the average 
+            with power r (default 0).
+        weight_lr_power (float): During warmup, the weights in the average will
+            be equal to lr raised to this power. Set to 0 for no weighting
+            (default 2.0).
+        foreach (bool): Use a foreach-backed implementation of the optimizer.
+            Should be significantly faster, but will have higher peak memory
+            usage (default True if supported in your PyTorch version).
+    """
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+    def __init__(
+        self,
+        params: ParamsT,
+        lr: Union[float, torch.Tensor] = 0.0025,
+        betas: Tuple[float, float] = (0.9, 0.999),
+        eps: float = 1e-8,
+        weight_decay: float = 0,
+        warmup_steps: int = 0,
+        r: float = 0.0,
+        weight_lr_power: float = 2.0,
+        foreach: Optional[bool] = hasattr(torch, "_foreach_mul_"),
+        *args,
+        record_update_metrics = False,
+        selective_updates = False,
+        **kwargs,
+    ):
+        defaults = dict(
+            lr=lr, 
+            betas=betas, 
+            eps=eps,
+            r=r,
+            k=0,
+            warmup_steps=warmup_steps,
+            train_mode=False,
+            weight_sum=0.0,
+            lr_max=-1.0,
+            scheduled_lr=0.0,
+            weight_lr_power=weight_lr_power,
+            weight_decay=weight_decay,
+            foreach=foreach,
+        )
+
+        super().__init__(params, defaults, *args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def eval(self):
+        for group in self.param_groups:
+            train_mode = group['train_mode']
+            beta1, _ = group['betas']
+            if train_mode:
+                for p in group['params']:
+                    state = self.state[p]
+                    if 'z' in state:
+                        # Set p to x
+                        p.lerp_(end=state['z'].to(p.device), weight=1-1/beta1)
+                group['train_mode'] = False
+
+    @torch.no_grad()
+    def train(self):
+        for group in self.param_groups:
+            train_mode = group['train_mode']
+            beta1, _ = group['betas']
+            if not train_mode:
+                for p in group['params']:
+                    state = self.state[p]
+                    if 'z' in state:
+                        # Set p to y
+                        p.lerp_(end=state['z'].to(p.device), weight=1-beta1)
+                group['train_mode'] = True
+
+    @torch.no_grad()
+    def step(self, closure: Optional[Callable[[], float]] = None) -> Optional[float]:
+        """Performs a single optimization step.
+
+        Arguments:
+            closure (callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        if not self.param_groups[0]['train_mode']:
+            raise Exception("Optimizer was not in train mode when step is called. "
+                            "Please insert .train() and .eval() calls on the "
+                            "optimizer. See documentation for details.")
+
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        for group in self.param_groups:
+            eps = group['eps']
+            beta1, beta2 = group['betas']
+            decay = group['weight_decay']
+            k = group['k']
+            r = group['r']
+            warmup_steps = group['warmup_steps']
+            weight_lr_power = group['weight_lr_power']
+
+            if k < warmup_steps:
+              sched = (k+1) / warmup_steps
+            else:
+              sched = 1.0
+
+            bias_correction2 = 1 - beta2 ** (k+1)
+            lr = group['lr']*sched
+            group['scheduled_lr'] = lr # For logging purposes
+
+            lr_max = group['lr_max'] = max(lr, group['lr_max'])
+
+            weight = ((k+1)**r) * (lr_max**weight_lr_power)
+            weight_sum = group['weight_sum'] = group['weight_sum'] + weight
+
+            try:
+                ckp1 = weight / weight_sum
+            except ZeroDivisionError:
+                ckp1 = 0
+
+            active_p = [p for p in group['params'] if p.grad is not None]
+
+            for p in active_p:
+                if 'z' not in self.state[p]:
+                    self.state[p]['z'] = torch.clone(p, memory_format=torch.preserve_format)
+                    self.state[p]['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+
+            if group['foreach'] and len(active_p) > 0:
+                y, grad, exp_avg_sq, z = zip(*[(p, 
+                                                p.grad, 
+                                                self.state[p]['exp_avg_sq'], 
+                                                self.state[p]['z']) 
+                                                for p in active_p])
+
+                # Decay the first and second moment running average coefficient
+                torch._foreach_mul_(exp_avg_sq, beta2)
+                torch._foreach_addcmul_(exp_avg_sq, grad, grad, value=1-beta2)
+                denom = torch._foreach_div(exp_avg_sq, bias_correction2)
+                torch._foreach_sqrt_(denom)
+                torch._foreach_add_(denom, eps)
+
+                # Normalize grad in-place for memory efficiency
+                torch._foreach_div_(grad, denom)
+
+                # Weight decay calculated at y
+                if decay != 0:
+                    torch._foreach_add_(grad, y, alpha=decay)
+
+                # These operations update y in-place,
+                # without computing x explicitly.
+                torch._foreach_lerp_(y, z, weight=ckp1)
+                torch._foreach_add_(y, grad, alpha=lr*(beta1*(1-ckp1)-1))
+
+                # z step
+                torch._foreach_sub_(z, grad, alpha=lr)
+            else:
+                for p in active_p:
+                    y = p # Notation to match theory
+                    grad = p.grad
+
+                    state = self.state[p]
+
+                    z = state['z']
+                    exp_avg_sq = state['exp_avg_sq']
+
+                    exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1-beta2)
+                    denom = exp_avg_sq.div(bias_correction2).sqrt_().add_(eps)
+
+                    # Reuse grad buffer for memory efficiency
+                    grad_normalized = grad.div_(denom)
+
+                    # Weight decay calculated at y
+                    if decay != 0:
+                        grad_normalized.add_(y, alpha=decay)
+
+                    # These operations update y in-place,
+                    # without computing x explicitly.
+                    y.lerp_(end=z, weight=ckp1)
+                    y.add_(grad_normalized, alpha=lr*(beta1*(1-ckp1)-1))
+
+                    # z step
+                    z.sub_(grad_normalized, alpha=lr)
+
+            group['k'] = k+1
+
+        return loss
+
+
+class Soap(Optimizer):
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
+
+
+class Shampoo(Optimizer):
+
+    def __init__(self, *args, record_update_metrics = False, selective_updates = False, **kwargs):
+        super().__init__(*args, record_update_metrics=record_update_metrics, selective_updates=selective_updates, **kwargs)
+
+    def get_post_step_metrics(self, module, process_group = None):
+        return super().get_post_step_metrics(module, process_group)
+
+    def get_state_for_param(self, param):
+        return super().get_state_for_param(param)
+
+    @torch.no_grad()
+    def step(self, closure=None) -> None:
+        pass
+
+
 @dataclass
 class Scheduler(metaclass=ABCMeta):
     # NOTE: these fields are not given default values because otherwise dataclasses complains
@@ -873,7 +1488,7 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                     no_decay.add(fpn)
             elif pn.endswith("weight") and isinstance(m, nn.Linear):
                 decay.add(fpn)
-            elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm)):
+            elif pn.endswith("weight") and isinstance(m, (LayerNormBase, nn.LayerNorm, RMSLayerNorm)):
                 if cfg.optimizer.decay_norm_and_bias:
                     decay.add(fpn)
                 else:
@@ -953,7 +1568,7 @@ def fix_optim_state_dict(optimizer: Optimizer, state_dict: Dict[str, Any]) -> Di
     return state_dict
 
 
-def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
+def build_optimizer(cfg: TrainConfig, model: nn.Module, world_size: int, rank: int) -> Optimizer:
     param_groups = get_param_groups(cfg, model)
     log.info(f"Constructing optimizer with {len(param_groups)} param groups")
     if cfg.optimizer.name == OptimizerType.lionw:
@@ -974,6 +1589,35 @@ def build_optimizer(cfg: TrainConfig, model: nn.Module) -> Optimizer:
             record_update_metrics=cfg.optimizer.record_update_metrics,
             selective_updates=cfg.optimizer.selective_updates,
             eps=cfg.optimizer.eps,
+        )
+    elif cfg.optimizer.name == OptimizerType.muon:
+        return MuonAdamW(
+            param_groups,
+            muon_lr=cfg.optimizer.muon_lr,
+            muon_weight_decay=cfg.optimizer.muon_weight_decay,
+            muon_momentum=cfg.optimizer.muon_momentum,
+            nesterov=cfg.optimizer.nesterov,
+            ns_steps=cfg.optimizer.ns_steps,
+            rank=rank,
+            world_size=world_size,
+            adam_lr=cfg.optimizer.learning_rate,
+            adam_betas=cfg.optimizer.betas,
+            adam_weight_decay=cfg.optimizer.weight_decay,
+            record_update_metrics=cfg.optimizer.record_update_metrics,
+            selective_updates=cfg.optimizer.selective_updates,
+            eps=cfg.optimizer.eps,
+            vocab_size=cfg.model.embedding_size,
+        )
+    elif cfg.optimizer.name == OptimizerType.schedule_free_adamw:
+        return AdamWScheduleFree(
+            param_groups,
+            lr=cfg.optimizer.learning_rate,
+            betas=cfg.optimizer.betas,
+            eps=cfg.optimizer.eps,
+            weight_decay=cfg.optimizer.weight_decay,
+            warmup_steps=cfg.scheduler.t_warmup,
+            record_update_metrics=cfg.optimizer.record_update_metrics,
+            selective_updates=cfg.optimizer.selective_updates,
         )
     else:
         raise NotImplementedError

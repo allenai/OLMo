@@ -39,6 +39,7 @@ from .config import (
     ShardedCheckpointerType,
     SpeedMonitorConfig,
     TrainConfig,
+    OptimizerType,
 )
 from .data import IterableDataset
 from .eval import Evaluator
@@ -404,15 +405,22 @@ class Trainer:
             self.dataset.start_index = self.global_train_examples_seen_this_epoch
 
         # Reset learning rate and weight decay to the values from the config, not the checkpoint.
-        log.info("Resetting learning rate...")
-        new_learning_rate = self.scheduler.get_lr(
-            self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
-        )
-        for group in self.optim.param_groups:
-            group["lr"] = new_learning_rate
-            group["initial_lr"] = self.cfg.optimizer.learning_rate
-            if "weight_decay" in group and group["weight_decay"] > 0.0:
-                group["weight_decay"] = self.cfg.optimizer.weight_decay
+        if self.cfg.optimizer.name != OptimizerType.schedule_free_adamw:
+            log.info("Resetting learning rate...")
+            for group in self.optim.param_groups:
+                # if we want constant LR for Muon, this will skip the scheduler for Muon optimizer
+                if not self.cfg.optimizer.muon_schedule and 'optimizer_type' in group and group['optimizer_type'] == 'muon':
+                    continue
+
+                if 'optimizer_type' in group and group['optimizer_type'] == 'muon':
+                    initial_lr = self.cfg.optimizer.muon_lr
+                else:
+                    initial_lr = self.cfg.optimizer.learning_rate
+
+                group["lr"] = self.scheduler.get_lr(initial_lr, self.scheduler_current, self.scheduler_max)
+                group["initial_lr"] = self.cfg.optimizer.learning_rate
+                if "weight_decay" in group and group["weight_decay"] > 0.0:
+                    group["weight_decay"] = self.cfg.optimizer.weight_decay
 
         # RNG states.
         if "rng" in state_dict and state_dict.get("world_size", get_world_size()) == get_world_size():
@@ -829,6 +837,10 @@ class Trainer:
         if (instance_mask := batch.get("instance_mask")) is not None:
             metrics["train/masked_instances_local_rank"] = (~instance_mask).sum().item()
 
+        # added for schedule-free adamw
+        if self.cfg.optimizer.name == OptimizerType.schedule_free_adamw:
+            self.optim.train()
+
         # Zero-gradients.
         self.optim.zero_grad(set_to_none=True)
 
@@ -856,20 +868,31 @@ class Trainer:
             process_group=self.dist_model.process_group,
         )
 
-        # Adjust the learning rate.
-        for group in self.optim.param_groups:
-            # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
-            # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
-            # the corresponding values from `self.cfg`.
-            group["lr"] = self.scheduler.get_lr(
-                self.cfg.optimizer.learning_rate, self.scheduler_current, self.scheduler_max
-            )
-            group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm, self.scheduler_current, self.scheduler_max
-            )
-            group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
-                self.cfg.max_grad_norm_ratio, self.scheduler_current, self.scheduler_max
-            )
+        if self.cfg.optimizer.name != OptimizerType.schedule_free_adamw:
+            # Adjust the learning rate.
+            for group in self.optim.param_groups:
+                # TODO (epwalsh): if we want to enable different LRs or gradient clipping settings per group
+                # we should pass `group["initial_lr"]` or `group["initial_max_grad_norm"]` here instead of
+                # the corresponding values from `self.cfg`.
+
+                # if we want constant LR for Muon, this will skip the scheduler for Muon optimizer
+                if not self.cfg.optimizer.muon_schedule and 'optimizer_type' in group and group['optimizer_type'] == 'muon':
+                    continue
+
+                if 'optimizer_type' in group and group['optimizer_type'] == 'muon':
+                    initial_lr = self.cfg.optimizer.muon_lr
+                else:
+                    initial_lr = self.cfg.optimizer.learning_rate
+
+                group["lr"] = self.scheduler.get_lr(
+                    initial_lr, self.scheduler_current, self.scheduler_max
+                )
+                group["max_grad_norm"] = self.scheduler.get_max_grad_norm(
+                    self.cfg.max_grad_norm, self.scheduler_current, self.scheduler_max
+                )
+                group["max_grad_norm_ratio"] = self.scheduler.get_max_grad_norm(
+                    self.cfg.max_grad_norm_ratio, self.scheduler_current, self.scheduler_max
+                )
 
         # Optimizer step.
         self.optim.step()
@@ -1000,6 +1023,10 @@ class Trainer:
         # Zero gradients and set model to 'eval' mode.
         self.optim.zero_grad(set_to_none=True)
         self.dist_model.eval()
+
+        # added for schedule-free adamw
+        if self.cfg.optimizer.name == OptimizerType.schedule_free_adamw:
+            self.optim.eval()
 
         eval_metrics = {}
         for evaluator in self.evaluators:
@@ -1248,6 +1275,10 @@ class Trainer:
 
                     # Maybe save sharded checkpoint.
                     if self.cfg.distributed_strategy != DistributedStrategy.ddp:
+                        # added for schedule-free adamw
+                        if self.cfg.optimizer.name == OptimizerType.schedule_free_adamw:
+                            self.optim.eval()
+
                         if save_checkpoints and (
                             cancel_initiated
                             or (
@@ -1289,6 +1320,10 @@ class Trainer:
                         and self.global_step % self.cfg.save_interval_unsharded == 0
                         and self.cfg.save_num_unsharded_checkpoints_to_keep != 0
                     ):
+                        # added for schedule-free adamw
+                        if self.cfg.optimizer.name == OptimizerType.schedule_free_adamw:
+                            self.optim.eval()
+
                         log.info("Saving unsharded checkpoint...")
                         checkpoint_path, _ = self.save_checkpoint(CheckpointType.unsharded)
                         log.info(f"Unsharded checkpoint saved to {checkpoint_path}")
@@ -1347,6 +1382,10 @@ class Trainer:
 
         # Save final checkpoint.
         if save_checkpoints:
+            # added for schedule-free adamw
+            if self.cfg.optimizer.name == OptimizerType.schedule_free_adamw:
+                self.optim.eval()
+
             if (
                 self.cfg.save_interval_unsharded is not None
                 and self.last_unsharded_checkpoint_step != self.global_step

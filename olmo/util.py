@@ -19,6 +19,7 @@ from typing import Any, Callable, Dict, MutableMapping, Optional, Tuple, Union
 import boto3
 import botocore.exceptions as boto_exceptions
 import datasets
+import requests
 import rich
 from botocore.config import Config
 from cached_path.schemes import SchemeClient, add_scheme_client
@@ -427,12 +428,25 @@ def _gcs_is_retriable(exception: Exception) -> bool:
     return False
 
 
+_gcs_retry = GCSRetry(predicate=_gcs_is_retriable, initial=1.0, maximum=10.0, multiplier=2.0, timeout=600.0)
+
+
+def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):
+    from google.cloud import storage as gcs
+
 _gcs_retry = GCSRetry(
     predicate=_gcs_is_retriable,
     initial=1.0,
     maximum=10.0,
     multiplier=2.0,
     timeout=600.0)
+
+def _gcs_is_retriable(exception: Exception) -> bool:
+    if gcs_is_transient_error(exception):
+        return True
+    if isinstance(exception, requests.exceptions.ReadTimeout):
+        return True
+    return False
 
 
 def _gcs_upload(source: Path, bucket_name: str, key: str, save_overwrite: bool = False):

@@ -41,6 +41,7 @@ dev = [
     "build",
 ]
 train = [
+    "tensorboard",
     "wandb",
     "beaker-gantry",
     "click",

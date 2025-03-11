@@ -223,7 +223,7 @@ def main(cfg: TrainConfig) -> None:
     log.info(dist_model)
 
     # Construct optimizer and learning rate scheduler.
-    optim = build_optimizer(cfg, dist_model)
+    optim = build_optimizer(cfg, dist_model, get_world_size(), get_global_rank())
     scheduler = build_scheduler(cfg)
 
     # Data indices file.
@@ -263,21 +263,27 @@ def main(cfg: TrainConfig) -> None:
                 log.info("Setting load path to remote checkpoint %s", checkpoint_dir)
                 cfg.load_path = str(checkpoint_dir)
             if checkpoint_dir is not None and not cfg.restore_dataloader:
-                log.info("You set restore_dataloader=False, but try_load_latest_save=True. If we were to run like "
-                         "this, it would overwrite your previous checkpoints. I will assume you didn't mean that, "
-                         "and set restore_dataloader=True.")
+                log.info(
+                    "You set restore_dataloader=False, but try_load_latest_save=True. If we were to run like "
+                    "this, it would overwrite your previous checkpoints. I will assume you didn't mean that, "
+                    "and set restore_dataloader=True."
+                )
                 cfg.restore_dataloader = True
             if checkpoint_dir is not None and cfg.reset_trainer_state:
-                log.info("You set both reset_trainer_state=True, and try_load_latest_save=True. If we were to "
-                         "run like this, it would reset your trainer state right now even though we're in the "
-                         "middle of a run. I will assume you didn't mean that, and set "
-                         "reset_trainer_state=False.")
+                log.info(
+                    "You set both reset_trainer_state=True, and try_load_latest_save=True. If we were to "
+                    "run like this, it would reset your trainer state right now even though we're in the "
+                    "middle of a run. I will assume you didn't mean that, and set "
+                    "reset_trainer_state=False."
+                )
                 cfg.reset_trainer_state = False
             if checkpoint_dir is not None and cfg.reset_optimizer_state:
-                log.info("You set both reset_optimizer_state=True, and try_load_latest_save=True. If we were to "
-                         "run like this, it would reset your optimizer state right now even though we're in the "
-                         "middle of a run. I will assume you didn't mean that, and set "
-                         "reset_optimizer_state=False.")
+                log.info(
+                    "You set both reset_optimizer_state=True, and try_load_latest_save=True. If we were to "
+                    "run like this, it would reset your optimizer state right now even though we're in the "
+                    "middle of a run. I will assume you didn't mean that, and set "
+                    "reset_optimizer_state=False."
+                )
                 cfg.reset_optimizer_state = False
 
         if not cfg.dry_run and not cfg.no_pre_train_checkpoint and cfg.load_path is None:
@@ -360,6 +366,11 @@ if __name__ == "__main__":
     # Set CUDA device.
     torch.cuda.set_device(f"cuda:{get_local_rank()}")
 
+    # Initialize process group.
+    device_as_string = f"cuda:{get_local_rank()}"
+    torch.cuda.set_device(
+        device_as_string
+    )  # Set this early to prevent GPU 0 from picking up a bunch of tensors it shouldn't have.
     # Initialize process group.
     device_as_string = f"cuda:{get_local_rank()}"
     torch.cuda.set_device(device_as_string)   # Set this early to prevent GPU 0 from picking up a bunch of tensors it shouldn't have.

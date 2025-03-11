@@ -5,6 +5,9 @@ IFS=$'\n\t'
 BEAKER_LEADER_REPLICA_HOSTNAME=$1
 shift
 
+SOCKET=$1
+shift
+
 NUM_NODES=$1
 shift
 
@@ -12,6 +15,15 @@ TASK_NAME=$1
 shift
 
 CONFIG_PATH=$1
+shift
+
+OPTIMIZER=$1
+shift
+
+MUON_LR=$1
+shift
+
+MUON_WEIGHT_DECAY=$1
 shift
 
 # Warm HF cache
@@ -26,13 +38,19 @@ torchrun \
   --nproc-per-node 4 \
   --rdzv_id=101 \
   --rdzv_backend=c10d \
-  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:29418 \
+  --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:$SOCKET \
   scripts/train.py \
     $CONFIG_PATH \
       --run_name=$TASK_NAME \
       --wandb.name=$TASK_NAME \
       --wandb.group=$TASK_NAME \
       --wandb.project=olmo-optimizers \
+      --optimizer.name=$OPTIMIZER \
       --optimizer.learning_rate=3e-3 \
-      --optimizer.betas=[0.85,0.9] \
+      --optimizer.muon_lr=$MUON_LR \
+      --optimizer.muon_weight_decay=$MUON_WEIGHT_DECAY \
+      --optimizer.muon_momentum=0.95 \
+      --optimizer.nesterov=true \
+      --optimizer.ns_steps=5 \
+      --optimizer.muon_schedule=true \
       --save_overwrite

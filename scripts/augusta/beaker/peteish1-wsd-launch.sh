@@ -10,8 +10,8 @@ shift
 
 gantry run \
   --workspace ai2/OLMo-mup \
-  --task-name peteish1-wsd-lr${LR} \
-  --description "Peteish1 WSD schedule" \
+  --task-name peteish1-muon-wsd-lr${LR} \
+  --description "Peteish1 Muon WSD schedule" \
   --priority normal \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
@@ -28,9 +28,10 @@ gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
-  --env-secret WANDB_API_KEY=SHANEA_WANDB_API_KEY \
-  --env-secret AWS_CONFIG=SHANEA_AWS_CONFIG \
-  --env-secret AWS_CREDENTIALS=SHANEA_AWS_CREDENTIALS \
+  --env-secret WANDB_API_KEY=WANDB_API_KEY \
+  --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
+  --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
+  --env-secret AWS_SESSION_TOKEN=AWS_SESSION_TOKEN \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
