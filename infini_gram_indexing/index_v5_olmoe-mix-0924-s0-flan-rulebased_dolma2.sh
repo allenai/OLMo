@@ -21,7 +21,7 @@ gantry run \
   --venv base \
   --yes \
   -- /bin/bash -c "cd infini_gram_indexing ; \
-    python u32_reversed_indexing_for_wolf.py --cpus 186 --mem 1912 \
+    python indexing_v5_u32.py --cpus 186 --mem 1912 \
       --data_paths \
         '/weka/oe-training-default/ai2-llm/preprocessed/olmo-mix/danyh-compiled-v1_7/documents/wiki/allenai/dolma2-tokenizer/*.npy' \
         '/weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/*.npy' \

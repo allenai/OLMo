@@ -26,7 +26,7 @@ gantry run \
   --yes \
   -- /bin/bash -c "cd infini_gram_indexing ; \
     if [ \$BEAKER_REPLICA_RANK -eq 0 ]; then \
-      python u32_reversed_indexing_for_wolf.py --cpus 186 --mem 1912 \
+      python indexing_v5_u32.py --cpus 186 --mem 1912 \
         --data_paths \
           '/weka/oe-training-default/ai2-llm/preprocessed/olmo-mix/danyh-compiled-v1_7/documents/wiki/allenai/dolma2-tokenizer/*.npy' \
           '/weka/oe-training-default/ai2-llm/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/*.npy' \
@@ -37,7 +37,7 @@ gantry run \
         --save_dir /weka/oe-training-default/wolf/index/v5_olmoe-mix-0924_dolma2/0 ; \
     else \
       export PREFIX=\$(printf '%02d' \$((10#\$BEAKER_REPLICA_RANK - 1))) ; \
-      python u32_reversed_indexing_for_wolf.py --cpus 186 --mem 1912 \
+      python indexing_v5_u32.py --cpus 186 --mem 1912 \
         --data_paths \
           \"/weka/oe-training-default/ai2-llm/preprocessed/dclm/text_openhermes_reddit_eli5_vs_rw_v2_bigram_200k_train/allenai/dolma2-tokenizer/part-\${PREFIX}*.npy\" \
         --save_dir /weka/oe-training-default/wolf/index/v5_olmoe-mix-0924_dolma2/\$BEAKER_REPLICA_RANK ; \

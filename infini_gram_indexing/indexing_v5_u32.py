@@ -1,5 +1,6 @@
 import argparse
 import glob
+import json
 import numpy as np
 import os
 import resource
@@ -153,7 +154,8 @@ def build_sa(args):
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_paths', type=str, nargs='+', required=True, help='Regex pattern(s) for matching data files. Must be absolute path.')
+    parser.add_argument('--data_paths', type=str, nargs='+', help='Regex pattern(s) for matching data files. Must be absolute path.')
+    parser.add_argument('--data_paths_file', type=str, help='File containing regex patterns for matching data files. Must be absolute path.')
     parser.add_argument('--temp_dir', type=str, default=None, help='Directory where temporary files are stored. Must be absolute path.')
     parser.add_argument('--save_dir', type=str, required=True, help='Directory where the final index files are stored. Must be absolute path.')
     parser.add_argument('--doc_sep_id', type=int, default=2**32-1)
@@ -161,6 +163,9 @@ def main():
     parser.add_argument('--mem', type=int, required=True, help='Amount of memory in GiB available to the program.')
     parser.add_argument('--ulimit', type=int, default=524288, help='Maximum number of open files allowed.')
     args = parser.parse_args()
+    if args.data_paths_file is not None:
+        with open(args.data_paths_file, 'r') as f:
+            args.data_paths = json.load(f)
     if args.temp_dir is None:
         args.temp_dir = args.save_dir
     args.temp_dir = args.temp_dir.rstrip('/')
