@@ -89,7 +89,7 @@ python scripts/train.py configs/tiny/OLMo-20M.yaml --save_overwrite
 ```
 Note: You need to upgrade PyTorch to 2.5.x to run.
 
-### We've trained 32B on new trainer. To train/fine-tune OLMo-2 32B, visit [OLMo-core](https://github.com/allenai/OLMo-core) repository.
+> **❗️❗️ We've trained 32B on new trainer. To train/fine-tune OLMo-2 32B, visit [OLMo-core](https://github.com/allenai/OLMo-core) repository.**
 ### Stage 1
 
 Stage 1 is the biggest stage, where we train on 4T or 5T tokens on largely web-based data. 
