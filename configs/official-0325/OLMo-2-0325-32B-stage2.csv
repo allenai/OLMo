@@ -38,3 +38,4 @@ Ingredient,Step,Checkpoint Directory
 3,11000,https://olmo-checkpoints.org/ai2-llm/peteish32/stage2/olmo-32b-0325_stage2_ingredient3/step11000/
 3,11500,https://olmo-checkpoints.org/ai2-llm/peteish32/stage2/olmo-32b-0325_stage2_ingredient3/step11500/
 3,11921,https://olmo-checkpoints.org/ai2-llm/peteish32/stage2/olmo-32b-0325_stage2_ingredient3/step11921/
+soup,11921,https://olmo-checkpoints.org/ai2-llm/peteish32/stage2/soup/step11921-unsharded/
