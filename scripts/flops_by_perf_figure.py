@@ -23,8 +23,17 @@ CSV file of results should look like:
     Zamba-2-7B,,65.2,92.2,89.4,79.6,68.5,51.7,36.5,55.5,67.2,32.8,78.8
 
 Invocation looks like:
-    
+
     python scripts/flops_by_perf_figure.py /path/to/results.csv output/
+
+
+Intermediate Nums:
+    OLMo-2-32B-4T,7.68E+23,71.60,89.5,88.6,75.6,74.1,75.0,50.8,58.5,75.0,42.05,86.86
+    OLMo-2-32B-5T,9.6E+23,71.74,90.2,84.6,78.1,74.2,75.9,50.8,59.23,75.5,42.34,86.56
+    OLMo-2-32B-6T,1.152E+24,72.24,89.6,89.8,78.1,74.3,74.3,49.4,59.16,78.0,42.37,87.42
+    OLMo-2-32B-6T-Jally,1.152E+24,73.56,91.8,90.9,80.3,75.5,73.9,50.5,60.69,80.0,44.24,87.76
+    OLMo-2-32B-6T-Jally-Soup,1.152E+24,73.75243,91.9,90.7,80.5,76.1,74.4,51.5,60.4609,78.5,45.379,88.0844
+
 
 @kyleclo, @soldni
 
@@ -83,24 +92,38 @@ AI2_GREEN = "#0fcb8c"
 # remove Zamba model (SSM, not a language model)
 df = df[df[MODEL_COLUMN_NAME] != "Zamba-2-7B"]
 
+# remove Mistral, no flops
+df = df[df[MODEL_COLUMN_NAME] != "Mistral-7B-v0.3"]
+df = df[df[MODEL_COLUMN_NAME] != "Mistral-Nemo-Bs-12B"]
+df = df[df[MODEL_COLUMN_NAME] != "Mistral-Small-24B"]
+
+# redundant
+df = df[df[MODEL_COLUMN_NAME] != "Meta-Llama-3-70B"]
+
 model_name_to_open_status = {
     "Amber-7B": "Other fully open",
     "DCLM-7B": "Other fully open",
     "Mistral-7B-v0.3": "Open weights",
     "Mistral-Nemo-Bs-12B": "Open weights",
     "Gemma-2-9B": "Open weights",
+    "Gemma-2-27B": "Open weights",
+    "Gemma-3-27B": "Open weights",
     "Llama-2-13B": "Open weights",
     "Llama-3.1-8B": "Open weights",
+    "Llama-3.1-70B": "Open weights",
     "MAP-Neo-7B": "Other fully open",
     "Zamba-2-7B": "Partially open",
     "OLMo-0424-7B": "Previous OLMo",
+    "OLMo-2-0324-32B": "Latest OLMo",
     "OLMo-2-1124-13B": "Latest OLMo",
     "OLMo-2-1124-7B": "Latest OLMo",
+    "OLMo-2-32B": "Latest OLMo",
     "OLMo-2-13B": "Latest OLMo",
     "OLMo-2-7B": "Latest OLMo",
     "OLMo-7B": "Previous OLMo",
     "Qwen-2.5-14B": "Open weights",
     "Qwen-2.5-7B": "Open weights",
+    "Qwen-2.5-32B": "Open weights",
     "StableLM-2-12B": "Partially open",
 }
 
@@ -127,22 +150,26 @@ category_to_text_color = {
 
 df[COLOR_COLUMN_NAME] = df[CATEGORY_COLUMN_NAME].map(category_to_color)
 
+# left number is x offset, right number is y offset
+# increasing left moves label to the right, increasing right moves label up
 model_name_to_label_offset = {
     "Amber-7B": [10, -2],
+    "OLMo-7B": [10, -2],
+    "MAP-Neo-7B": [10, -2],
+    "OLMo-0424-7B": [-25, -15],
+    "Llama-2-13B": [10, -2],
+    "Llama-3.1-70B": [10, -2],
     "DCLM-7B": [-18, 8],
-    "Mistral-7B-v0.3": [-20, 8],
-    "Mistral-Nemo-Bs-12B": [20, -8],
     "Gemma-2-9B": [-35, -15],
-    "Llama-2-13B": [-5, 7],
-    "Llama-3.1-8B": [-20, -13],
-    "MAP-Neo-7B": [-20, -15],
-    "Zamba-2-7B": [-25, 10],
-    "OLMo-0424-7B": [-35, -15],
+    "Gemma-2-27B": [-15, -15],
+    "Gemma-3-27B": [-35, -10],
+    "Llama-3.1-8B": [10, -2],
+    "OLMo-2-0324-32B": [-20, 10],
     "OLMo-2-1124-13B": [-20, 10],
     "OLMo-2-1124-7B": [-35, 10],
-    "OLMo-7B": [-15, 10],
     "Qwen-2.5-14B": [-40, -15],
     "Qwen-2.5-7B": [-20, -15],
+    "Qwen-2.5-32B": [-20, -15],
     "StableLM-2-12B": [-20, -15],
 }
 
@@ -159,6 +186,7 @@ category_to_marker = {
 
 # Clean up labels
 model_name_to_new_name = {
+    "OLMo-2-0324-32B": "OLMo-2-32B",
     "OLMo-2-1124-13B": "OLMo-2-13B",
     "OLMo-2-1124-7B": "OLMo-2-7B",
 }
@@ -216,7 +244,7 @@ for idx, row in df[df[FLOPS_COLUMN_NAME].notna()].iterrows():
     )
 
 # x axis tick marks
-tick_locations = [4e22, 6e22, 8e22, 1e23, 2e23, 4e23, 6e23, 8e23, 1e24, 2e24]
+tick_locations = [4e22, 6e22, 8e22, 1e23, 2e23, 4e23, 6e23, 8e23, 1e24, 2e24, 4e24, 6e24]
 
 
 def format_scientific(x):
@@ -280,7 +308,17 @@ xmin, xmax = plt.gca().get_xlim()
 ymin, ymax = plt.gca().get_ylim()
 
 # Convert frontier points to polygon vertices
-frontier_models = ["Amber-7B", "OLMo-0424-7B", "DCLM-7B", "OLMo-2-7B", "OLMo-2-13B", "Qwen-2.5-14B"]
+# MODIFIED: Changed "Qwen-2.5-14B" to "OLMo-2-32B" and added "Qwen2.5-32B"
+frontier_models = [
+    "Amber-7B",
+    "OLMo-0424-7B",
+    "DCLM-7B",
+    "OLMo-2-7B",
+    "OLMo-2-13B",
+    "OLMo-2-32B",
+    "Gemma-3-27B",
+    "Qwen-2.5-32B",
+]
 frontier_df = df[df[MODEL_COLUMN_NAME].isin(frontier_models)]
 frontier_df = frontier_df.set_index(MODEL_COLUMN_NAME)
 frontier_df = frontier_df.reindex(frontier_models)
