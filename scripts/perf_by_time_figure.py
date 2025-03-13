@@ -8,7 +8,6 @@ Data looks like:
     Gemma 2 27B,61.3,"Open Weights model, 24-32B",Jun-24
     Qwen2.5-32B,66.5,"Open Weights model, 24-32B",Sep-24
     Mistral Small 24B,67.6,"Open Weights model, 24-32B",Jan-25
-    Qwen QwQ 32B,,"Open Weights model, 24-32B",Mar-25
     Gemma 3 27B,,"Open Weights model, 24-32B",Mar-25
     Qwen 2.5 72B,68.8,"Open Weights model, 70B+",Sep-24
     Llama 3.1 70B,70,"Open Weights model, 70B+",Jul-24
@@ -213,15 +212,33 @@ def main(input_path, output_path, manrope_font_path):
     }
 
     # Model name cleanup for better display
-    model_name_replacements = {
-        "OLMo 2 7B": "OLMo-2-7B",
-        "OLMo 2 13B": "OLMo-2-13B",
-        "OLMo 2 32B": "OLMo-2-32B",
-        "GPT-3.5 Turbo 0125": "GPT-3.5",
-    }
+    model_name_replacements = {}
 
     # Apply model name replacements
     df["DisplayModel"] = df["Model"].replace(model_name_replacements)
+
+    # NEW: Define custom offsets for specific models
+    model_name_to_label_offset = {
+        # Closed API models
+        "GPT 3.5 Turbo 0125": [65, -30],  # GPT-3.5 Turbo 0125
+        "GPT 4o mini 0718": [0, 15],
+        # Open Weights models, 24-32B
+        "Gemma 2 27B": [-15, -35],  # Gemma 2 27B
+        "Qwen 2.5 32B": [0, -35],
+        "Mistral Small 24B": [-35, 15],
+        "Gemma 3 27B": [-35, 20],  # Gemma 3 27B
+        # Open Weights models, 70B+
+        "Qwen 2.5 72B": [0, 20],
+        "Llama 3.1 70B": [-5, 20],
+        "Llama 3.3 70B": [-30, 15],
+        # Fully Open Models
+        "OLMo 2 7B": [-5, 20],  # OLMo 2 7B
+        "OLMo 2 13B": [-5, 20],  # OLMo 2 13B
+        "OLMo 2 32B": [-25, -30],  # OLMo 2 32B (below label)
+    }
+
+    # Default offset if not specified
+    default_offset = [0, 20]
 
     # UPDATED: Increase figure size
     plt.figure(figsize=(12, 10))
@@ -243,11 +260,14 @@ def main(input_path, output_path, manrope_font_path):
 
         # Add model name labels with custom styling
         for _, row in group.iterrows():
-            # UPDATED: Removed bounding box and increased font size
+            # NEW: Get custom offset for this model or use default
+            offset = model_name_to_label_offset.get(row["DisplayModel"], default_offset)
+
+            # UPDATED: Use custom offsets
             plt.annotate(
                 row["DisplayModel"],
                 (row["DateTime"], row["Average"]),
-                xytext=(0, 20),  # UPDATED: Increased offset from 15
+                xytext=(offset[0], offset[1]),  # NEW: Use custom offsets
                 textcoords="offset points",
                 ha="center",
                 fontsize=17,  # UPDATED: Increased from 12
@@ -258,7 +278,7 @@ def main(input_path, output_path, manrope_font_path):
             )
 
     # Adjust y-axis range with some padding
-    ymin = df["Average"].min() - 20  # Add padding below
+    ymin = df["Average"].min() - 10  # Add padding below
     ymax = df["Average"].max() + 10  # Add padding above
     plt.ylim(ymin, ymax)
 
@@ -305,26 +325,34 @@ def main(input_path, output_path, manrope_font_path):
     # UPDATED: Style the tick marks with larger size
     plt.tick_params(axis="both", which="major", width=1.2, length=6, colors="#555555", pad=6)
 
-    # Create custom legend handles
+    # Define the custom order for legend items
+    legend_order = [
+        "Closed API model",
+        "Open Weights model, 24-32B",
+        "Open Weights model, 70B+",
+        "Fully Open Models",
+    ]
+
+    # Create custom legend handles in the specified order
     custom_handles = []
     custom_labels = []
 
-    # Get unique classes and sort them for consistent legend order
-    unique_classes = sorted(df["Class"].unique())
+    for class_name in legend_order:
+        # Skip any class that doesn't exist in our data
+        if class_name not in df["Class"].unique():
+            continue
 
-    # Create custom Line2D objects for the legend
-    for class_name in unique_classes:
-        # UPDATED: Create a custom Line2D object with much larger marker size
+        # Create a custom Line2D object with the appropriate styling
         handle = Line2D(
             [],
             [],
             marker=class_markers.get(class_name, "o"),
             markersize=class_marker_sizes.get(class_name) / 25
             if class_name != "Fully Open Models"
-            else 30,  # UPDATED: Increased sizes
+            else 27,  # UPDATED: Increased sizes
             color=class_colors.get(class_name, "#999999"),
             markeredgecolor="white",
-            markeredgewidth=1.5,  # UPDATED: Increased from 1.0
+            markeredgewidth=1.5,
             linestyle="None",
         )
 
@@ -362,7 +390,7 @@ def main(input_path, output_path, manrope_font_path):
         output_path = os.path.splitext(input_path)[0] + "_scatter_plot.png"
 
     # Save the figure with higher DPI for better quality
-    plt.savefig(output_path, dpi=400, bbox_inches="tight")  # UPDATED: Increased DPI from 300
+    plt.savefig(output_path, dpi=600, bbox_inches="tight")  # UPDATED: Increased DPI from 300
     click.echo(f"\nPlot saved to {output_path}")
 
     click.echo("Done!")
