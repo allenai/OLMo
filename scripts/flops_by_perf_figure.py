@@ -100,6 +100,9 @@ df = df[df[MODEL_COLUMN_NAME] != "Mistral-Small-24B"]
 # redundant
 df = df[df[MODEL_COLUMN_NAME] != "Meta-Llama-3-70B"]
 
+# remove 70B
+df = df[df[MODEL_COLUMN_NAME] != "Llama-3.1-70B"]
+
 model_name_to_open_status = {
     "Amber-7B": "Other fully open",
     "DCLM-7B": "Other fully open",

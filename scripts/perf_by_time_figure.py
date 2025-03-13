@@ -35,6 +35,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import requests
+from matplotlib.lines import Line2D
 
 
 # Function to parse the date string into a datetime object
@@ -189,18 +190,18 @@ def main(input_path, output_path, manrope_font_path):
 
     # Define marker styles for each class
     class_markers = {
-        "Closed API model": "x",  # x
+        "Closed API model": "X",  # Using uppercase X for better visibility
         "Open Weights model, 24-32B": "D",  # diamond
         "Open Weights model, 70B+": "s",  # square
         "Fully Open Models": "*",  # star
     }
 
-    # Define marker sizes for each class
+    # UPDATED: Increase marker sizes significantly
     class_marker_sizes = {
-        "Closed API model": 80,
-        "Open Weights model, 24-32B": 100,
-        "Open Weights model, 70B+": 120,
-        "Fully Open Models": 150,
+        "Closed API model": 300,  # Increased from 150
+        "Open Weights model, 24-32B": 200,  # Increased from 100
+        "Open Weights model, 70B+": 200,  # Increased from 100
+        "Fully Open Models": 500,  # Increased from 350
     }
 
     # Define transparency levels for each class
@@ -230,12 +231,12 @@ def main(input_path, output_path, manrope_font_path):
             class_colors[class_name] = random_color
             class_text_colors[class_name] = random_color
             class_markers[class_name] = "o"  # default marker
-            class_marker_sizes[class_name] = 80  # default size
+            class_marker_sizes[class_name] = 160  # UPDATED: Increased default size
             class_alpha[class_name] = 0.8  # default alpha
             click.echo(f"Assigned random color {random_color} to class {class_name}")
 
-    # Create the plot
-    plt.figure(figsize=(12, 10))  # More square dimensions
+    # UPDATED: Increase figure size
+    plt.figure(figsize=(16, 14))  # Increased from (12, 10)
 
     # Set a higher z-order for the scatter plots to ensure they're above the grid
     for class_name, group in df.groupby("Class"):
@@ -244,49 +245,45 @@ def main(input_path, output_path, manrope_font_path):
             group["Average"],
             color=class_colors.get(class_name, "#999999"),
             label=class_name,
-            s=class_marker_sizes.get(class_name, 100),  # Get custom size or default
-            alpha=class_alpha.get(class_name, 0.8),  # Get custom alpha or default
-            marker=class_markers.get(class_name, "o"),  # Get custom marker or default
-            edgecolors="white",  # Add white edge for better visibility
-            linewidths=0.8,  # Width of marker edge
+            s=class_marker_sizes.get(class_name, 200),  # UPDATED: Increased default
+            alpha=class_alpha.get(class_name, 1.0),
+            marker=class_markers.get(class_name, "o"),
+            edgecolors="white",
+            linewidths=1.5,  # UPDATED: Increased from 0.8
             zorder=3,
         )
 
         # Add model name labels with custom styling
         for _, row in group.iterrows():
+            # UPDATED: Removed bounding box and increased font size
             plt.annotate(
-                row["DisplayModel"],  # Use the cleaned model name
+                row["DisplayModel"],
                 (row["DateTime"], row["Average"]),
-                xytext=(0, 10),  # Offset text by 10 points above
+                xytext=(0, 18),  # UPDATED: Increased offset from 15
                 textcoords="offset points",
                 ha="center",
-                fontsize=10,
+                fontsize=16,  # UPDATED: Increased from 12
                 fontfamily="Manrope",
-                fontweight="medium",
-                color=class_text_colors.get(class_name, "black"),  # Use class-specific text color
-                bbox=dict(
-                    boxstyle="round,pad=0.3",
-                    fc="white",
-                    ec=class_colors.get(class_name, "gray"),  # Use class color for border
-                    alpha=0.9,
-                ),
+                fontweight="bold",  # UPDATED: Changed to bold
+                color=class_text_colors.get(class_name, "black"),
+                # Removed the bbox parameter to eliminate boxes
             )
 
     # Adjust y-axis range with some padding
-    ymin = df["Average"].min() - 2  # Add padding below
-    ymax = df["Average"].max() + 2  # Add padding above
+    ymin = df["Average"].min() - 20  # Add padding below
+    ymax = df["Average"].max() + 10  # Add padding above
     plt.ylim(ymin, ymax)
 
     # Add subtle background grid - vertical only
     plt.grid(True, axis="x", linestyle="--", alpha=0.3, color="#cccccc", zorder=1)
 
-    # Style the axis labels and title
-    plt.xlabel("Date (MM/YY)", fontsize=14, fontfamily="Manrope", fontweight="medium", color="#333333")
+    # UPDATED: Style the axis labels and title with larger font sizes
+    plt.xlabel("Date (MM/YY)", fontsize=18, fontfamily="Manrope", fontweight="bold", color="#333333")
     plt.ylabel(
         "Average Performance (10 benchmarks)",
-        fontsize=14,
+        fontsize=18,
         fontfamily="Manrope",
-        fontweight="medium",
+        fontweight="bold",
         color="#333333",
     )
 
@@ -306,88 +303,77 @@ def main(input_path, output_path, manrope_font_path):
 
     plt.xlim(min_date - padding, max_date + padding)
 
-    # Rotate x-axis labels and style them
-    plt.xticks(rotation=45, ha="right", fontfamily="Manrope", fontweight="medium", fontsize=11, color="#333333")
-    plt.yticks(fontfamily="Manrope", fontweight="medium", fontsize=11, color="#333333")
+    # UPDATED: Rotate x-axis labels and style them with larger font size
+    plt.xticks(rotation=45, ha="right", fontfamily="Manrope", fontweight="bold", fontsize=15, color="#333333")
+    plt.yticks(fontfamily="Manrope", fontweight="bold", fontsize=15, color="#333333")
 
     # Style the spines (borders)
     for spine in plt.gca().spines.values():
-        spine.set_color("#dddddd")  # Lighter border
-        spine.set_linewidth(0.8)  # Thinner border
+        spine.set_color("#dddddd")
+        spine.set_linewidth(1.2)  # UPDATED: Increased from 0.8
 
-    # Style the tick marks
-    plt.tick_params(axis="both", which="major", width=0.8, length=4, colors="#555555", pad=4)
+    # UPDATED: Style the tick marks with larger size
+    plt.tick_params(axis="both", which="major", width=1.2, length=6, colors="#555555", pad=6)
 
-    # Add legend with custom styling
+    # Create custom legend handles
+    custom_handles = []
+    custom_labels = []
+
+    # Get unique classes and sort them for consistent legend order
+    unique_classes = sorted(df["Class"].unique())
+
+    # Create custom Line2D objects for the legend
+    for class_name in unique_classes:
+        # UPDATED: Create a custom Line2D object with much larger marker size
+        handle = Line2D(
+            [],
+            [],
+            marker=class_markers.get(class_name, "o"),
+            markersize=class_marker_sizes.get(class_name, 200) / 8
+            if class_name != "Fully Open Models"
+            else 30,  # UPDATED: Increased sizes
+            color=class_colors.get(class_name, "#999999"),
+            markeredgecolor="white",
+            markeredgewidth=1.5,  # UPDATED: Increased from 1.0
+            linestyle="None",
+        )
+
+        custom_handles.append(handle)
+        custom_labels.append(class_name)
+
+    # UPDATED: Create a new legend with our custom handles and larger font size
     legend = plt.legend(
-        # title="Model Class",
+        custom_handles,
+        custom_labels,
         loc="upper center",
-        bbox_to_anchor=(0.5, 1.15),
-        ncol=len(df["Class"].unique()),
+        bbox_to_anchor=(0.5, 1.05),
+        ncol=len(custom_labels),
         frameon=True,
-        fontsize=11,
+        fontsize=12,  # UPDATED: Increased from 11
         framealpha=0.9,
         edgecolor="#dddddd",
+        handletextpad=0.8,  # UPDATED: Increased space between marker and text
     )
 
     # Apply custom styling to legend
-    legend.get_frame().set_linewidth(0.8)  # Thinner border
-    plt.setp(legend.get_title(), fontfamily="Manrope", fontweight="bold", fontsize=13, color="#333333")
-
-    # Style each legend handle according to its class
-    for i, (text, handle) in enumerate(zip(legend.get_texts(), legend.legend_handles)):
-        class_name = text.get_text()
-
-        # Set text style
-        plt.setp(text, fontfamily="Manrope", fontweight="medium", color="#333333")
-
-        # For PathCollection objects (which scatter plots create), we need to handle differently
-        # than regular Line2D objects
-        if class_name in class_markers:
-            # For scatter plot legend handles (PathCollection objects)
-            if hasattr(handle, "set_paths"):
-                # Get the path for the marker we want
-                from matplotlib.markers import MarkerStyle
-
-                marker = MarkerStyle(class_markers[class_name])
-                path = marker.get_path().transformed(marker.get_transform())
-                handle.set_paths([path])
-
-            # If it's a regular Line2D object (not likely with scatter, but just in case)
-            elif hasattr(handle, "set_marker"):
-                handle.set_marker(class_markers[class_name])
-
-            # Set other properties that should work for both types
-            handle.set_alpha(1.0)  # Always full opacity in legend
-
-            # Set edge color if the method exists
-            if hasattr(handle, "set_edgecolor"):
-                handle.set_edgecolor("white")
-                handle.set_linewidth(0.8)
+    legend.get_frame().set_linewidth(1.2)  # UPDATED: Increased from 0.8
+    plt.setp(legend.get_texts(), fontfamily="Manrope", fontweight="bold", color="#333333")
 
     # Set the figure background color for a cleaner look
     fig = plt.gcf()
     fig.patch.set_facecolor("#ffffff")  # White background
     plt.gca().set_facecolor("#ffffff")  # White plot area
 
-    # Add a subtle text annotation for data source
-    plt.figtext(
-        0.02, 0.02, "Source: Model Evaluation Data", fontsize=8, fontfamily="Manrope", color="#888888", ha="left"
-    )
-
-    # Adjust layout to make room for labels
-    plt.tight_layout(rect=[0, 0.03, 1, 0.90])  # Leave room for title and footer
+    # Adjust layout to reduce whitespace
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     # Determine output file name based on input file if not provided
     if output_path is None:
         output_path = os.path.splitext(input_path)[0] + "_scatter_plot.png"
 
-    # Save the figure
-    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    # Save the figure with higher DPI for better quality
+    plt.savefig(output_path, dpi=400, bbox_inches="tight")  # UPDATED: Increased DPI from 300
     click.echo(f"\nPlot saved to {output_path}")
-
-    # Show the plot
-    plt.show()
 
     click.echo("Done!")
 
