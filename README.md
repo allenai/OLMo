@@ -90,7 +90,7 @@ Example:
 ```bash
 python scripts/train.py configs/tiny/OLMo-20M.yaml --save_overwrite
 ```
-Note: You need to upgrade PyTorch to 2.5.x to run.
+> Note: You need to upgrade PyTorch to 2.5.x to run.
 
 ### Stage 1
 
@@ -132,7 +132,8 @@ on 300B high quality tokens. Then we average ("soup") the models.
 
 The training configs linked here are set up to download the latest checkpoint after stage 1, and start training from there.
 
-Note: You can find all the information about 32B in the [OLMo-core](https://github.com/allenai/OLMo-core) repository.
+> Note: You can find all the information about the 32B in the [OLMo-core](https://github.com/allenai/OLMo-core) repository.
+
 ## Instruction tuned variants
 
 For instruction tuned variants of these models, go to
