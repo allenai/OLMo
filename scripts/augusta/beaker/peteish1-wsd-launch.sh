@@ -21,17 +21,16 @@ gantry run \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
-  --no-nfs \
   --propagate-failure \
   --propagate-preemption \
   --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
-  --env-secret WANDB_API_KEY=WANDB_API_KEY \
-  --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
-  --env-secret AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY \
-  --env-secret AWS_SESSION_TOKEN=AWS_SESSION_TOKEN \
+  --env-secret WANDB_API_KEY=SAURABHS_WANDB_API_KEY \
+  --env-secret AWS_ACCESS_KEY_ID=SAURABHS_AWS_ACCESS_KEY_ID \
+  --env-secret AWS_SECRET_ACCESS_KEY=SAURABHS_AWS_SECRET_ACCESS_KEY \
+  --env-secret AWS_SESSION_TOKEN=SAURABHS_AWS_SESSION_TOKEN \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
