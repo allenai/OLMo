@@ -69,7 +69,7 @@ def parse_date(date_str):
 @click.option(
     "--manrope-font-path",
     help="Path to the Manrope Medium font file",
-    default="https://dolma-artifacts.org/Manrope-Medium.ttf",
+    default="~/Downloads/Manrope\(1\)/static/Manrope-Medium.ttf",
 )
 def main(input_path, output_path, manrope_font_path):
     """Generate a scatter plot from model performance CSV data."""
@@ -90,7 +90,7 @@ def main(input_path, output_path, manrope_font_path):
             click.echo(f"Added Manrope font from local path")
 
         # Set as default font
-        plt.rcParams["font.family"] = "Manrope"
+        plt.rcParams["font.family"] = "Manrope-Medium"
         plt.rcParams["font.weight"] = "medium"
     except Exception as e:
         click.echo(f"Warning: Could not load Manrope font: {e}")
@@ -198,17 +198,17 @@ def main(input_path, output_path, manrope_font_path):
 
     # UPDATED: Increase marker sizes significantly
     class_marker_sizes = {
-        "Closed API model": 300,  # Increased from 150
-        "Open Weights model, 24-32B": 200,  # Increased from 100
-        "Open Weights model, 70B+": 200,  # Increased from 100
-        "Fully Open Models": 500,  # Increased from 350
+        "Closed API model": 500,  # Increased from 150
+        "Open Weights model, 24-32B": 350,  # Increased from 100
+        "Open Weights model, 70B+": 350,  # Increased from 100
+        "Fully Open Models": 1000,  # Increased from 350
     }
 
     # Define transparency levels for each class
     class_alpha = {
-        "Closed API model": 0.7,
-        "Open Weights model, 24-32B": 0.8,
-        "Open Weights model, 70B+": 0.9,
+        "Closed API model": 1.0,
+        "Open Weights model, 24-32B": 1.0,
+        "Open Weights model, 70B+": 1.0,
         "Fully Open Models": 1.0,
     }
 
@@ -223,20 +223,8 @@ def main(input_path, output_path, manrope_font_path):
     # Apply model name replacements
     df["DisplayModel"] = df["Model"].replace(model_name_replacements)
 
-    # Add colors for any classes not in the predefined mapping
-    for class_name in df["Class"].unique():
-        if class_name not in class_colors:
-            # Generate a random color for any class not in our predefined mapping
-            random_color = "#{:06x}".format(np.random.randint(0, 0xFFFFFF))
-            class_colors[class_name] = random_color
-            class_text_colors[class_name] = random_color
-            class_markers[class_name] = "o"  # default marker
-            class_marker_sizes[class_name] = 160  # UPDATED: Increased default size
-            class_alpha[class_name] = 0.8  # default alpha
-            click.echo(f"Assigned random color {random_color} to class {class_name}")
-
     # UPDATED: Increase figure size
-    plt.figure(figsize=(16, 14))  # Increased from (12, 10)
+    plt.figure(figsize=(12, 10))
 
     # Set a higher z-order for the scatter plots to ensure they're above the grid
     for class_name, group in df.groupby("Class"):
@@ -245,7 +233,7 @@ def main(input_path, output_path, manrope_font_path):
             group["Average"],
             color=class_colors.get(class_name, "#999999"),
             label=class_name,
-            s=class_marker_sizes.get(class_name, 200),  # UPDATED: Increased default
+            s=class_marker_sizes.get(class_name, 300),  # UPDATED: Increased default
             alpha=class_alpha.get(class_name, 1.0),
             marker=class_markers.get(class_name, "o"),
             edgecolors="white",
@@ -259,12 +247,12 @@ def main(input_path, output_path, manrope_font_path):
             plt.annotate(
                 row["DisplayModel"],
                 (row["DateTime"], row["Average"]),
-                xytext=(0, 18),  # UPDATED: Increased offset from 15
+                xytext=(0, 20),  # UPDATED: Increased offset from 15
                 textcoords="offset points",
                 ha="center",
-                fontsize=16,  # UPDATED: Increased from 12
-                fontfamily="Manrope",
-                fontweight="bold",  # UPDATED: Changed to bold
+                fontsize=17,  # UPDATED: Increased from 12
+                fontfamily="Manrope-Medium",
+                fontweight="medium",  # UPDATED: Changed to bold
                 color=class_text_colors.get(class_name, "black"),
                 # Removed the bbox parameter to eliminate boxes
             )
@@ -278,12 +266,12 @@ def main(input_path, output_path, manrope_font_path):
     plt.grid(True, axis="x", linestyle="--", alpha=0.3, color="#cccccc", zorder=1)
 
     # UPDATED: Style the axis labels and title with larger font sizes
-    plt.xlabel("Date (MM/YY)", fontsize=18, fontfamily="Manrope", fontweight="bold", color="#333333")
+    # plt.xlabel("Date", fontsize=18, fontfamily="Manrope", fontweight="bold", color="#333333")
     plt.ylabel(
         "Average Performance (10 benchmarks)",
-        fontsize=18,
-        fontfamily="Manrope",
-        fontweight="bold",
+        fontsize=20,
+        fontfamily="Manrope-Medium",
+        fontweight="medium",
         color="#333333",
     )
 
@@ -304,8 +292,10 @@ def main(input_path, output_path, manrope_font_path):
     plt.xlim(min_date - padding, max_date + padding)
 
     # UPDATED: Rotate x-axis labels and style them with larger font size
-    plt.xticks(rotation=45, ha="right", fontfamily="Manrope", fontweight="bold", fontsize=15, color="#333333")
-    plt.yticks(fontfamily="Manrope", fontweight="bold", fontsize=15, color="#333333")
+    plt.xticks(
+        rotation=45, ha="right", fontfamily="Manrope-Medium", fontweight="medium", fontsize=15, color="#333333"
+    )
+    plt.yticks(fontfamily="Manrope-Medium", fontweight="medium", fontsize=15, color="#333333")
 
     # Style the spines (borders)
     for spine in plt.gca().spines.values():
@@ -329,7 +319,7 @@ def main(input_path, output_path, manrope_font_path):
             [],
             [],
             marker=class_markers.get(class_name, "o"),
-            markersize=class_marker_sizes.get(class_name, 200) / 8
+            markersize=class_marker_sizes.get(class_name) / 25
             if class_name != "Fully Open Models"
             else 30,  # UPDATED: Increased sizes
             color=class_colors.get(class_name, "#999999"),
@@ -357,7 +347,7 @@ def main(input_path, output_path, manrope_font_path):
 
     # Apply custom styling to legend
     legend.get_frame().set_linewidth(1.2)  # UPDATED: Increased from 0.8
-    plt.setp(legend.get_texts(), fontfamily="Manrope", fontweight="bold", color="#333333")
+    plt.setp(legend.get_texts(), fontfamily="Manrope-Medium", fontweight="medium", color="#333333")
 
     # Set the figure background color for a cleaner look
     fig = plt.gcf()
