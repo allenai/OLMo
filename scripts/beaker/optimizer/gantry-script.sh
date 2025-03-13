@@ -2,25 +2,25 @@
 
 set -ex
 
-SOCKET=29409
+SOCKET=29400
 NUM_NODES=1
-TASK_NAME=olmo-150M-optimizer-schedule-free-adamw-lr-1e-2-wd-0.05
-CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
+TASK_NAME=olmo-1B-optimizer-adamw-lr-6e-4
+CONFIG_PATH=configs/optimizers/OLMo-1B.yaml
 
-OPTIMIZER=schedule_free_adamw
-LR=1e-2
-WD=0.05
+OPTIMIZER=adamw
+LR=6e-4
+WD=0.1
 
 gantry run \
   --allow-dirty \
   --workspace ai2/OLMo-tiny \
   --task-name ${TASK_NAME} \
   --description "OLMo optimizer runs" \
-  --priority high \
+  --priority urgent \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/ceres-cirrascale \
-  --gpus 4 \
+  --cluster ai2/jupiter-cirrascale \
+  --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \

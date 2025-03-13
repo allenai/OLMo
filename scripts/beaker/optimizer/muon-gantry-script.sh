@@ -2,10 +2,10 @@
 
 set -ex
 
-SOCKET=29404
+SOCKET=29400
 NUM_NODES=1
-TASK_NAME=olmo-150M-optimizer-muon-lr-1e-2-wd-0.1-cosine
-CONFIG_PATH=configs/optimizers/OLMo-150M.yaml
+TASK_NAME=olmo-1B-optimizer-muon-lr-1e-2-wd-0.1-cosine
+CONFIG_PATH=configs/optimizers/OLMo-1B.yaml
 
 OPTIMIZER=muon
 MUON_LR=1e-2
@@ -20,7 +20,7 @@ gantry run \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
   --cluster ai2/ceres-cirrascale \
-  --gpus 4 \
+  --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \

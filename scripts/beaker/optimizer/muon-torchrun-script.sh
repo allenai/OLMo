@@ -35,7 +35,7 @@ export HF_DATASETS_OFFLINE=1
 
 torchrun \
   --nnodes ${NUM_NODES}:${NUM_NODES} \
-  --nproc-per-node 4 \
+  --nproc-per-node 8 \
   --rdzv_id=101 \
   --rdzv_backend=c10d \
   --rdzv_endpoint=$BEAKER_LEADER_REPLICA_HOSTNAME:$SOCKET \
