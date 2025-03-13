@@ -56,6 +56,7 @@ __all__ = [
     "FSDPPrecision",
     "FSDPWrapStrategy",
     "FSDPConfig",
+    "SingleGPUConfig",
     "CheckpointType",
 ]
 
@@ -621,6 +622,7 @@ class DataConfig(BaseConfig):
     timeout: int = 0
     seed: Optional[int] = None
     instance_filter: Optional[InstanceFilterConfig] = None
+    custom_dataset: Optional[CustomDatasetConfig] = None
 
     @property
     def effective_memmap_dtype(self):
@@ -631,6 +633,34 @@ class DataConfig(BaseConfig):
         except (AttributeError, TypeError) as e:
             raise TypeError(f"Value {self.memmap_dtype} is not a valid numpy type") from e
         return dtype
+
+
+@dataclass
+class CustomDatasetCollatorConfig(BaseConfig):
+    input_id_field: str = "input_ids"  #: The field in the dataset items that contains the input token IDs.
+    attention_mask_field: Optional[str] = None  #: The field in the dataset items that contains the attention mask.
+    attention_bias_field: Optional[str] = None  #: The field in the dataset items that contains the attention bias.
+    label_mask_field: Optional[str] = None  #: The field in the dataset items that contains the label mask.
+    index_field: Optional[str] = None  #: The field in the dataset items that contains the index of the item.
+    instance_mask_field: Optional[str] = None  #: The field in the dataset items that contains the instance mask.
+    doc_lens_field: Optional[str] = None  #: The field in the dataset items that contains the document lengths.
+    metadata_field: Optional[str] = None  #: The field in the dataset items that contains the metadata.
+
+
+@dataclass
+class CustomDatasetConfig(BaseConfig):
+    name: str  #: The name of the custom dataset class or function that will be used to load the dataset.
+    module: Optional[
+        str
+    ] = None  #: The module where the custom dataset class is defined. If not set, the module will be inferred from the class name.
+    args: Optional[Dict[str, Any]] = None  #: The arguments to pass to the custom dataset class or function
+    collate_fn: Optional[
+        str
+    ] = None  #: The name of the collate function to use for the custom dataset. Assumes the collate function is defined in the same module as the custom dataset class unless specified otherwise using the full object path.
+    token_field: Optional[str] = None  #: The field in the dataset items that contains the tokenized text.
+    collate_config: Optional[CustomDatasetCollatorConfig] = field(
+        default_factory=CustomDatasetCollatorConfig
+    )  #: The configuration for the collate function to use for the custom dataset.
 
 
 class EvaluatorType(StrEnum):
@@ -717,6 +747,11 @@ class DistributedStrategy(StrEnum):
     fsdp = "fsdp"
     """
     Wrap OLMo in torch.distributed.fsdp.FullyShardedDataParallel to train across ranks.
+    """
+
+    single = "single"
+    """
+    Train on a single device, i.e., do not distribute training. For development and debugging.
     """
 
 
@@ -829,6 +864,29 @@ class FSDPConfig(BaseConfig):
     a model instance is used per node (as determined by ``get_world_size() // get_local_world_size()``).
     PyTorch's default HSDP behavior matches this default behavior.
     """
+
+
+@dataclass
+class SingleGPUConfig(BaseConfig):
+    device: str = "auto"
+    """
+    Device to run single-device training.
+    """
+
+    def get_device(self):
+        if self.device == "auto":
+            if torch.backends.mps.is_available():
+                return torch.device("mps")
+            elif torch.cuda.is_available():
+                return torch.device("cuda")
+            else:
+                return torch.device("cpu")
+        elif self.device == "mps" and not torch.backends.mps.is_available():
+            raise OLMoConfigurationError("MPS not available.")
+        elif self.device == "cuda" and not torch.cuda.is_available():
+            raise OLMoConfigurationError("CUDA not available.")
+        else:
+            return torch.device(self.device)
 
 
 class CheckpointType(StrEnum):
@@ -1176,6 +1234,11 @@ class TrainConfig(BaseConfig):
     ddp: Optional[DDPConfig] = None
     """
     DDP settings.
+    """
+
+    single: SingleGPUConfig = field(default_factory=lambda: SingleGPUConfig(device="auto"))
+    """
+    Single device settings for GPU/CPU/MPS. Defaults to auto-detect the best device.
     """
 
     softmax_auxiliary_loss: bool = False
