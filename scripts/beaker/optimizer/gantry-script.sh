@@ -4,11 +4,11 @@ set -ex
 
 SOCKET=29400
 NUM_NODES=1
-TASK_NAME=olmo-1B-optimizer-adamw-lr-1e-3
+TASK_NAME=olmo-1B-optimizer-adamw-lr-4e-3
 CONFIG_PATH=configs/optimizers/OLMo-1B.yaml
 
 OPTIMIZER=adamw
-LR=1e-3
+LR=4e-3
 WD=0.1
 
 gantry run \
