@@ -101,7 +101,7 @@ Stage 1 is the biggest stage, where we train on 4T or 5T tokens on largely web-b
 | Number of tokens| 4 Trillion                                                                                                        | 5 Trillion                                                                                                         |
 | Checkpoint      | [stage1-step928646-tokens3896B](https://huggingface.co/allenai/OLMo-2-1124-7B/tree/stage1-step928646-tokens3896B) | [stage1-step596057-tokens5001B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage1-step596057-tokens5001B) |
 | Training config | [OLMo2-7B-stage1.yaml](configs/official-1124/OLMo2-7B-stage1.yaml)                                                | [OLMo2-13B-stage1.yaml](configs/official-1124/OLMo2-13B-stage1.yaml)                                               |                                              |
-| WandB/CometML           | [wandb.ai/OLMo2-7B](https://wandb.ai/ai2-llm/OLMo-2-1124-7B/reports/OLMo-2-7B-Nov-2024--VmlldzoxMDUzMzE1OA)       | [wandb.ai/OLMo2-13B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg) |
+| WandB           | [wandb.ai/OLMo2-7B](https://wandb.ai/ai2-llm/OLMo-2-1124-7B/reports/OLMo-2-7B-Nov-2024--VmlldzoxMDUzMzE1OA)       | [wandb.ai/OLMo2-13B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg) |
 
 
 ### Stage 2 for the 7B
