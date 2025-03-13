@@ -55,6 +55,9 @@ You can find *all* the checkpoints, at minimum every 1000 training steps in OLMo
 | **OLMo-2 7B**  | [OLMo-2 7B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-7B.csv)     | [OLMo-2 7B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-7B-stage2.csv)      | [Hugging Face for the 7B variant](https://huggingface.co/allenai/OLMo-2-1124-7B)  |
 | **OLMo-2 13B** | [OLMo-2 13B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B.csv)   | [OLMo-2 13B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B-stage2.csv)       | [Hugging Face for the 13B variant](https://huggingface.co/allenai/OLMo-2-1124-13B) |
 | **OLMo-2 32B** | [OLMo-2 32B](https://github.com/allenai/OLMo/blob/main/configs/official-0325/OLMo-2-0325-32B.csv)   | [OLMo-2 32B](https://github.com/allenai/OLMo/blob/main/configs/official-0325/OLMo-2-0325-32B-stage2.csv)       | [Hugging Face for the 32B variant](https://huggingface.co/allenai/OLMo-2-0325-32B) |
+
+> Note: The 32B variant was trained on our new trainer. To train or fine-tune OLMo-2 32B, visit [OLMo-core](https://github.com/allenai/OLMo-core).
+
 ### Steps to reproduce
 
 To reproduce any of the training processes described below, run this:
@@ -89,7 +92,6 @@ python scripts/train.py configs/tiny/OLMo-20M.yaml --save_overwrite
 ```
 Note: You need to upgrade PyTorch to 2.5.x to run.
 
-> **❗️❗️ We've trained 32B on new trainer. To train/fine-tune OLMo-2 32B, visit [OLMo-core](https://github.com/allenai/OLMo-core) repository.**
 ### Stage 1
 
 Stage 1 is the biggest stage, where we train on 4T or 5T tokens on largely web-based data. 
