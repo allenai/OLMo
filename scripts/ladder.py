@@ -78,6 +78,12 @@ MODEL_CONFIG_150M = ModelConfig(
 
 MODEL_CONFIGS = {
     "4M": MODEL_CONFIG_150M.update_with(d_model=64, n_heads=8, n_layers=8, mlp_ratio=8), # 3_744_832
+    '6M': MODEL_CONFIG_150M.update_with(d_model=96, n_heads=8, n_layers=8, mlp_ratio=8), # 6_010_464
+    '8M': MODEL_CONFIG_150M.update_with(d_model=128, n_heads=8, n_layers=8, mlp_ratio=8), # 8_538_240
+    '10M': MODEL_CONFIG_150M.update_with(d_model=144, n_heads=8, n_layers=8, mlp_ratio=8), # 9_900_432
+    '12M': MODEL_CONFIG_150M.update_with(d_model=168, n_heads=8, n_layers=8, mlp_ratio=8), # 12_066_600
+    '14M': MODEL_CONFIG_150M.update_with(d_model=192, n_heads=8, n_layers=8, mlp_ratio=8), # 14_380_224
+    '16M': MODEL_CONFIG_150M.update_with(d_model=208, n_heads=8, n_layers=8, mlp_ratio=8), # 16_004_560
     "20M": MODEL_CONFIG_150M.update_with(d_model=192, n_heads=8, n_layers=16, mlp_ratio=8), # 19_101_888
     "60M": MODEL_CONFIG_150M.update_with(d_model=384, n_heads=12, n_layers=16, mlp_ratio=8), # 57_078_144
     "90M": MODEL_CONFIG_150M.update_with(d_model=528, n_heads=12, n_layers=16, mlp_ratio=8), # 97_946_640
@@ -118,6 +124,18 @@ def parse_size(size: str) -> int:
         model_size = 57_078_144
     elif size == '90M':
         model_size = 97_946_640
+    elif size == '6M':
+        model_size = 6_010_464
+    elif size == '8M':
+        model_size = 8_538_240
+    elif size == '10M':
+        model_size = 9_900_432
+    elif size == '12M':
+        model_size = 12_066_600
+    elif size == '14M':
+        model_size = 14_380_224
+    elif size == '16M':
+        model_size = 16_004_560
     else:
         raise ValueError('no @davidh')
     
@@ -146,7 +164,7 @@ def config_from_args(args: argparse.Namespace) -> TrainConfig:
     # Construct a config
     args.model = args.model.strip().upper()
     run_name = f"{args.name}-{args.model}-{args.length}"
-    if args.seed != DEFAULT_SEED:
+    if 'seed' in args and args.seed != DEFAULT_SEED:
         run_name += f"-{args.seed}"
     assert "/" not in run_name
 
@@ -436,7 +454,7 @@ if __name__ == "__main__":
 
     size_parser = subparsers.add_parser("size")
     size_parser.set_defaults(func=size_cmd, **no_train_defaults)
-    size_parser.add_argument("--model", type=str, required=True)
+    # size_parser.add_argument("--model", type=str, required=True)
 
     dump_parser = subparsers.add_parser("dump")
     dump_parser.set_defaults(func=dump_cmd)
@@ -446,7 +464,7 @@ if __name__ == "__main__":
     train_parser = subparsers.add_parser("train")
     train_parser.set_defaults(func=train_cmd)
 
-    for subparser in [dump_parser, train_parser]:
+    for subparser in [dump_parser, train_parser, size_parser]:
         subparser.add_argument("--seed", type=int, default=DEFAULT_SEED)
         subparser.add_argument("--model", type=str, required=True)
         subparser.add_argument("--data", type=str, required=True)
