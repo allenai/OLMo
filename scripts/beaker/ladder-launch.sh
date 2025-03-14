@@ -30,13 +30,13 @@ gantry run \
   --weka=oe-training-default:/weka/oe-training-default \
   --weka=oe-eval-default:/oe-eval-default \
   $MORE_CLUSTER_NODES \
-  --gpus 8 \
+  --gpus 1 \
   --allow-dirty \
   $MULTI_NODE_ARGS \
   --budget ai2/oe-eval \
   --no-nfs \
   --env LOG_FILTER_TYPE=local_rank0_only \
-  --env OMP_NUM_THREADS=8 \
+  --env OMP_NUM_THREADS=1 \
   --env OLMO_TASK=model \
   --env-secret WANDB_API_KEY=DAVIDH_WANDB_API_KEY \
   --env-secret AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID \
