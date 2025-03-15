@@ -47,6 +47,7 @@ from olmo.util import (
     log_extra_field,
     prepare_cli_environment,
 )
+import olmo.tensorbard_logger as tblogger
 
 log = logging.getLogger("train")
 
@@ -122,6 +123,11 @@ def main(cfg: TrainConfig) -> None:
             tags=cfg.wandb.tags,
             config=cfg.asdict(exclude=["wandb"]),
         )
+    if cfg.log_to_tensorbard:
+        log_dir = Path(cfg.log_to_tensorbard)
+        log_dir.mkdir(parents=True, exist_ok=True)
+        tblogger.init(log_dir=log_dir)
+        tblogger.write_args_to_tensorboard(cfg.asdict())
 
     barrier()
 
