@@ -4,11 +4,11 @@ set -ex
 
 SOCKET=29400
 NUM_NODES=1
-TASK_NAME=olmo-1B-optimizer-muon-lr-1e-2-wd-0.1-cosine
+TASK_NAME=olmo-1B-optimizer-muon-lr-1e-3-wd-0.1-cosine
 CONFIG_PATH=configs/optimizers/OLMo-1B.yaml
 
 OPTIMIZER=muon
-MUON_LR=1e-2
+MUON_LR=1e-3
 MUON_WEIGHT_DECAY=0.1
 
 gantry run \
@@ -16,10 +16,10 @@ gantry run \
   --workspace ai2/OLMo-tiny \
   --task-name ${TASK_NAME} \
   --description "OLMo optimizer runs" \
-  --priority high \
+  --priority urgent \
   --preemptible \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/ceres-cirrascale \
+  --cluster ai2/jupiter-cirrascale-2 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \

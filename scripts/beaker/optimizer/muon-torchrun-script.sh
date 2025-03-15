@@ -46,7 +46,7 @@ torchrun \
       --wandb.group=$TASK_NAME \
       --wandb.project=olmo-optimizers \
       --optimizer.name=$OPTIMIZER \
-      --optimizer.learning_rate=3e-3 \
+      --optimizer.learning_rate=1e-3 \
       --optimizer.muon_lr=$MUON_LR \
       --optimizer.muon_weight_decay=$MUON_WEIGHT_DECAY \
       --optimizer.muon_momentum=0.95 \
