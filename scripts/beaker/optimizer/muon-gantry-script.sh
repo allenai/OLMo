@@ -4,11 +4,11 @@ set -ex
 
 SOCKET=29400
 NUM_NODES=1
-TASK_NAME=olmo-1B-optimizer-muon-lr-1e-2-wd-0.1-cosine-adamw-1e-3
+TASK_NAME=olmo-1B-optimizer-muon-lr-6e-4-wd-0.1-cosine-adamw-1e-3
 CONFIG_PATH=configs/optimizers/OLMo-1B.yaml
 
 OPTIMIZER=muon
-MUON_LR=1e-2
+MUON_LR=6e-4
 MUON_WEIGHT_DECAY=0.1
 
 gantry run \
