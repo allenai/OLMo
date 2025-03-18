@@ -54,7 +54,7 @@ You can find *all* the checkpoints, at minimum every 1000 training steps in OLMo
 |----------------|-----------------------------------------------------------------------------------------------------|--------|----------------------------------------------------------------------------------|
 | **OLMo-2 7B**  | [OLMo-2 7B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-7B.csv)     | [OLMo-2 7B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-7B-stage2.csv)      | [Hugging Face for the 7B variant](https://huggingface.co/allenai/OLMo-2-1124-7B)  |
 | **OLMo-2 13B** | [OLMo-2 13B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B.csv)   | [OLMo-2 13B](https://github.com/allenai/OLMo/blob/main/configs/official-1124/OLMo-2-1124-13B-stage2.csv)       | [Hugging Face for the 13B variant](https://huggingface.co/allenai/OLMo-2-1124-13B) |
-| **OLMo-2 32B** | [OLMo-2 32B](https://github.com/allenai/OLMo-core/blob/main/src/scripts/official/OLMo2-0325-32B.csv)   |  upload in progress       | [Hugging Face for the 32B variant](https://huggingface.co/allenai/OLMo-2-0325-32B) |
+| **OLMo-2 32B** | [OLMo-2 32B](https://github.com/allenai/OLMo-core/blob/main/src/scripts/official/OLMo2-0325-32B.csv)   | [OLMo-2 32B](https://github.com/allenai/OLMo-core/blob/main/src/scripts/official/OLMo-2-0325-32B-stage2.csv) | [Hugging Face for the 32B variant](https://huggingface.co/allenai/OLMo-2-0325-32B) |
 
 > Note: The 32B variant was trained on our new trainer. To train or fine-tune OLMo-2 32B, visit [OLMo-core](https://github.com/allenai/OLMo-core).
 
