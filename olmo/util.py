@@ -728,7 +728,7 @@ def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: i
 
 
 def save_hf_dataset_to_disk(
-    dataset: datasets.DatasetDict | datasets.Dataset,
+    dataset: Union[datasets.DatasetDict, datasets.Dataset],
     hf_path: str,
     name: Optional[str],
     split: str,
