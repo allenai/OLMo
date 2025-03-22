@@ -123,7 +123,7 @@ torchrun \
     --scheduler.alpha_f=0 \
     --scheduler.units=steps \
     --scheduler.t_max=$MAX_STEPS \
-    --stop_at=$(($MAX_STEPS + 101)) \
+    --stop_at=$(($MAX_STEPS + 111)) \
     --eval_interval=1000 \
     --fsdp.sharding_strategy=FULL_SHARD \
     --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
