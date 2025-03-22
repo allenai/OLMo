@@ -1465,14 +1465,18 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
         dataset_path: str,
         dataset_name: Union[str, Sequence[str], None] = None,
         model_ctx_len: int = 2048,
+        fixed_ctx_len: bool = False,
         split=None,
         metric_type=None,
-        prompts=[None],  # List of prompt variants to use
+        prompts: Optional[List[Optional[str]]] = None,  # List of prompt variants to use
     ):
+        assert prompts is None  # not used
+
         self.tokenizer = tokenizer
         self.dataset_path = dataset_path
         self.dataset_name = dataset_name
         self.model_ctx_len = model_ctx_len
+        self.fixed_ctx_len = fixed_ctx_len
         self.log_instances = 0  # Set to > 0 to log the first few instances as a sanity check
 
         self.samples: List[Dict[str, Any]] = []
@@ -1506,6 +1510,8 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
         # prep examples
         self.prep_examples()
 
+        self._max_sequence_length: Optional[int] = None
+
     def prep_examples(self):
         current_doc_id_offset = 0
         max_doc_id = 0
@@ -1523,6 +1529,7 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
                     max_doc_id = doc_id
                 assert (
                     request["request_type"] == "loglikelihood"
+                    or request["request_type"] == "generate_until_and_loglikelihood"
                 ), f"Unsupported request type: {request['request_type']}"
 
                 # from EAI harness
@@ -1538,7 +1545,9 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
                 label_id = request["label"]
                 cont_id = request["idx"]
                 if self.metric_type in ["ce_loss", "bpb"]:
-                    if label_id != cont_id:
+                    if label_id is None:
+                        label_id = 0
+                    if label_id != cont_id and not isinstance(label_id, str):
                         # Skip non-target continuations for ce_loss and bpb
                         continue
                     else:
@@ -1592,12 +1601,15 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
                 )
 
     def doc_to_text(self, doc) -> str:
+        del doc
         raise NotImplementedError
 
     def doc_to_continuations(self, doc) -> List[str]:
+        del doc
         raise NotImplementedError
 
     def doc_to_label(self, doc) -> int:
+        del doc
         raise NotImplementedError
 
 
