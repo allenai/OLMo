@@ -38,7 +38,7 @@ def download_file(s3_client, bucket_name, s3_key, local_dir):
         return False, f"{s3_key} ({e})"
 
 def parallel_download_s3(bucket_name, prefixes, local_dir, s3_client, num_workers):
-    files_to_download = [f for f in prefixes[:3] if should_download(f, local_dir)]
+    files_to_download = [f for f in prefixes if should_download(f, local_dir)]
 
     print(f"Total files: {len(files_to_download)} | To download: {len(files_to_download)}")
 
