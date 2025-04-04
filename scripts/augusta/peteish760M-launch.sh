@@ -9,7 +9,7 @@ gantry run \
   --workspace ai2/13B \
   --task-name peteish760M \
   --description "Peteish760M" \
-  --priority high \
+  --priority normal \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
   --cluster ai2/augusta-google-1 \

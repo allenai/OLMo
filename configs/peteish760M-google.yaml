@@ -73,7 +73,7 @@ tokenizer:
 save_folder: gs://ai2-llm/checkpoints/OLMo-small/${run_name}
 save_overwrite: false
 
-save_interval: 1000
+save_interval: 10000
 save_interval_ephemeral: 1000
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: olmo_core
