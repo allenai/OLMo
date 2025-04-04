@@ -7,9 +7,9 @@ shift
 
 gantry run \
   --workspace ai2/13B \
-  --task-name peteish1 \
-  --description "Peteish1" \
-  --priority urgent \
+  --task-name peteish760M \
+  --description "Peteish760M" \
+  --priority high \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
   --cluster ai2/augusta-google-1 \
@@ -26,12 +26,12 @@ gantry run \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
-  --env-secret WANDB_API_KEY=DIRKG_WANDB_API_KEY \
-  --env-secret AWS_ACCESS_KEY_ID=DIRKG_AWS_ACCESS_KEY_ID \
-  --env-secret AWS_SECRET_ACCESS_KEY=DIRKG_AWS_SECRET_ACCESS_KEY \
+  --env-secret WANDB_API_KEY=SHANEA_WANDB_API_KEY \
+  --env-secret AWS_ACCESS_KEY_ID=SHANEA_AWS_ACCESS_KEY_ID \
+  --env-secret AWS_SECRET_ACCESS_KEY=SHANEA_AWS_SECRET_ACCESS_KEY \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
   --allow-dirty \
   --retries 10 \
-  -- /bin/bash -c "scripts/augusta/peteish1.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/augusta/peteish760M.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK"

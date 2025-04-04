@@ -13,7 +13,7 @@ shift
 export LD_LIBRARY_PATH="/var/lib/tcpxo/lib64:${LD_LIBRARY_PATH}"
 export NCCL_CROSS_NIC=0
 export NCCL_ALGO=Ring,Tree
-export NCCL_PROTO=Simple
+export NCCL_PROTO=Simple,LL128
 export NCCL_MIN_NCHANNELS=4
 export NCCL_P2P_NET_CHUNKSIZE=524288
 export NCCL_P2P_PCI_CHUNKSIZE=524288
@@ -26,8 +26,8 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 export NCCL_NET_GDR_LEVEL=PIX
 export NCCL_FASTRAK_ENABLE_HOTPATH_LOGGING=0
 export NCCL_TUNER_PLUGIN=libnccl-tuner.so
-export NCCL_TUNER_CONFIG_PATH=/var/lib/tcpxo/lib64/a3plus_tuner_config.textproto
-export NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE=/var/lib/tcpxo/lib64/a3plus_guest_config.textproto
+export NCCL_TUNER_CONFIG_PATH=/var/lib/tcpxo/lib64/a3plus_tuner_config_ll128.textproto
+export NCCL_SHIMNET_GUEST_CONFIG_CHECKER_CONFIG_FILE=/var/lib/tcpxo/lib64/a3plus_guest_config_ll128.textproto
 export NCCL_FASTRAK_PLUGIN_ACCEPT_TIMEOUT_MS=600000
 export NCCL_NVLS_ENABLE=0
 export NCCL_DEBUG=WARN
@@ -63,16 +63,16 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/peteish1-google.yaml \
+    configs/peteish760M-google.yaml \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
       --save_interval_ephemeral=10000 \
-      --eval_interval=10000 \
+      --eval_interval=1000 \
       --fsdp.sharding_strategy=_HYBRID_SHARD_ZERO2 \
       --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
       --fsdp.wrapping_strategy=by_block_and_size \
       --save_folder=$SAVE_FOLDER \
-      --remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/$NAME/" \
+      --remote_save_folder="gs://ai2-llm/shanea/checkpoints/OLMo-760M/$NAME/" \
       --try_load_latest_save \
       --save_overwrite \
       --sharded_checkpointer=olmo_core \
