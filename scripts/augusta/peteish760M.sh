@@ -44,6 +44,11 @@ export NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY=/dev/aperture_devices
 pip install '.[train]'
 pip freeze
 
+# Move AWS credentials from env to relevant files
+mkdir -p ~/.aws
+printenv AWS_CONFIG > ~/.aws/config
+printenv AWS_CREDENTIALS > ~/.aws/credentials
+
 # Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
 # Better error handling from Python
