@@ -77,7 +77,7 @@ torchrun \
       --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
       --fsdp.wrapping_strategy=by_block_and_size \
       --save_folder=$SAVE_FOLDER \
-      --remote_save_folder="gs://ai2-llm/shanea/checkpoints/OLMo-760M/$NAME/" \
+      --remote_save_folder="gs://ai2-llm/checkpoints/shanea/OLMo-760M/$NAME/" \
       --try_load_latest_save \
       --save_overwrite \
       --sharded_checkpointer=olmo_core \

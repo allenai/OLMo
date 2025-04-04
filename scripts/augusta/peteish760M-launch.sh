@@ -7,8 +7,8 @@ shift
 
 gantry run \
   --workspace ai2/13B \
-  --task-name peteish760M \
-  --description "Peteish760M" \
+  --task-name baseline-oldcode-augusta-760M-5xC \
+  --description "Regression investigation" \
   --priority normal \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
