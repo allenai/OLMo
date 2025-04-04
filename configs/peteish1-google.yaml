@@ -139,94 +139,154 @@ evaluators:
   ##########################
   # Downstream evaluations #
   ##########################
-  - label: piqa
+  # - label: piqa
+  #   type: downstream
+
+  # - label: hellaswag
+  #   type: downstream
+
+  # - label: winogrande
+  #   type: downstream
+
+  # - label: openbook_qa
+  #   type: downstream
+
+  # - label: boolq
+  #   type: downstream
+
+  # - label: sciq
+  #   type: downstream
+
+  # - label: arc_easy
+  #   type: downstream
+
+  # - label: arc_challenge
+  #   type: downstream
+
+  # - label: copa
+  #   type: downstream
+
+  # #- label: rte
+  # #  type: downstream
+
+  # #- label: commitment_bank
+  # #  type: downstream
+
+  # #- label: sst2
+  # #  type: downstream
+
+  # - label: commonsense_qa
+  #   type: downstream
+
+  # - label: social_iqa
+  #   type: downstream
+
+  # - label: mmlu_stem_var
+  #   type: downstream
+
+  # - label: mmlu_humanities_var
+  #   type: downstream
+
+  # - label: mmlu_social_sciences_var
+  #   type: downstream
+
+  # - label: mmlu_other_var
+  #   type: downstream
+
+  # - label: mmlu_stem_mc_5shot
+  #   type: downstream
+
+  # - label: mmlu_humanities_mc_5shot
+  #   type: downstream
+
+  # - label: mmlu_social_sciences_mc_5shot
+  #   type: downstream
+
+  # - label: mmlu_other_mc_5shot
+  #   type: downstream
+
+  # - label: mmlu_stem_mc_5shot_test
+  #   type: downstream
+
+  # - label: mmlu_humanities_mc_5shot_test
+  #   type: downstream
+
+  # - label: mmlu_social_sciences_mc_5shot_test
+  #   type: downstream
+
+  # - label: mmlu_other_mc_5shot_test
+  #   type: downstream
+
+  # - label: basic_arithmetic
+  #   type: downstream
+
+  # - label: trivia_qa_wiki_ppl
+  #   type: downstream
+
+  # - label: natural_qs_open_ppl
+  #   type: downstream
+
+  # - label: arc_easy_ppl
+  #   type: downstream
+
+  # OLMES Core 9(-ish) RC
+  - label: arc_challenge_test_rc_5shot
+    type: downstream
+  - label: arc_easy_test_rc_5shot
+    type: downstream
+  - label: hellaswag_rc_5shot # 1K subset of HellaSwag
+    type: downstream
+  - label: winogrande_val_rc_5shot # Helpful after 750M-5xC scale
+    type: downstream
+  - label: csqa_val_rc_5shot
+    type: downstream
+  - label: piqa_val_rc_5shot
+    type: downstream
+  - label: socialiqa_val_rc_5shot
     type: downstream
 
-  - label: hellaswag
+  # MMLU RC
+  - label: mmlu_stem_val_rc_5shot
+    type: downstream
+  - label: mmlu_humanities_val_rc_5shot
+    type: downstream
+  - label: mmlu_social_sciences_val_rc_5shot
+    type: downstream
+  - label: mmlu_other_val_rc_5shot
+    type: downstream
+  - label: mmlu_stem_test_rc_5shot
+    type: downstream
+  - label: mmlu_humanities_test_rc_5shot
+    type: downstream
+  - label: mmlu_social_sciences_test_rc_5shot
+    type: downstream
+  - label: mmlu_other_test_rc_5shot
     type: downstream
 
-  - label: winogrande
+  # Gen tasks BPB
+  - label: gsm8k_gold_bpb_5shot
+    type: downstream
+  - label: minerva_math_algebra_gold_bpb_0shot
+    type: downstream
+  - label: minerva_math_counting_and_probability_gold_bpb_0shot
+    type: downstream
+  - label: minerva_math_geometry_gold_bpb_0shot
+    type: downstream
+  - label: minerva_math_intermediate_algebra_gold_bpb_0shot
+    type: downstream
+  - label: minerva_math_number_theory_gold_bpb_0shot
+    type: downstream
+  - label: minerva_math_prealgebra_gold_bpb_0shot
+    type: downstream
+  - label: minerva_math_precalculus_gold_bpb_0shot
+    type: downstream
+  - label: codex_humaneval_gold_bpb_0shot
+    type: downstream
+  - label: codex_mbpp_gold_bpb_0shot
     type: downstream
 
-  - label: openbook_qa
-    type: downstream
-
-  - label: boolq
-    type: downstream
-
-  - label: sciq
-    type: downstream
-
-  - label: arc_easy
-    type: downstream
-
-  - label: arc_challenge
-    type: downstream
-
-  - label: copa
-    type: downstream
-
-  #- label: rte
-  #  type: downstream
-
-  #- label: commitment_bank
-  #  type: downstream
-
-  #- label: sst2
-  #  type: downstream
-
-  - label: commonsense_qa
-    type: downstream
-
-  - label: social_iqa
-    type: downstream
-
-  - label: mmlu_stem_var
-    type: downstream
-
-  - label: mmlu_humanities_var
-    type: downstream
-
-  - label: mmlu_social_sciences_var
-    type: downstream
-
-  - label: mmlu_other_var
-    type: downstream
-
-  - label: mmlu_stem_mc_5shot
-    type: downstream
-
-  - label: mmlu_humanities_mc_5shot
-    type: downstream
-
-  - label: mmlu_social_sciences_mc_5shot
-    type: downstream
-
-  - label: mmlu_other_mc_5shot
-    type: downstream
-
-  - label: mmlu_stem_mc_5shot_test
-    type: downstream
-
-  - label: mmlu_humanities_mc_5shot_test
-    type: downstream
-
-  - label: mmlu_social_sciences_mc_5shot_test
-    type: downstream
-
-  - label: mmlu_other_mc_5shot_test
-    type: downstream
-
-  - label: basic_arithmetic
-    type: downstream
-
-  - label: trivia_qa_wiki_ppl
-    type: downstream
-
-  - label: natural_qs_open_ppl
-    type: downstream
-
-  - label: arc_easy_ppl
+  # Sanity check for MCQA ability
+  - label: copycolors_10way
     type: downstream
 
 data:
