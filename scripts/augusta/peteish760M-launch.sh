@@ -7,7 +7,7 @@ shift
 
 gantry run \
   --workspace ai2/13B \
-  --task-name baseline-oldcode-augusta-760M-5xC \
+  --task-name baseline-oldcode-augusta-760M-5xC-highlr \
   --description "Regression investigation" \
   --priority normal \
   --preemptible \

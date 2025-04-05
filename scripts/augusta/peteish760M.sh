@@ -80,6 +80,7 @@ torchrun \
       --remote_save_folder="gs://ai2-llm/checkpoints/shanea/OLMo-760M/$NAME/" \
       --try_load_latest_save \
       --save_overwrite \
+      --optimizer.learning_rate=1.23e-3 \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=4 \
       --device_eval_batch_size=8 \
