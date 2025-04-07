@@ -116,14 +116,17 @@ model_name_to_open_status = {
     "Llama-3.1-70B": "Open weights",
     "MAP-Neo-7B": "Other fully open",
     "Zamba-2-7B": "Partially open",
-    "OLMo-0424-7B": "Previous OLMo",
-    "OLMo-2-0324-32B": "Latest OLMo",
-    "OLMo-2-1124-13B": "Latest OLMo",
-    "OLMo-2-1124-7B": "Latest OLMo",
-    "OLMo-2-32B": "Latest OLMo",
-    "OLMo-2-13B": "Latest OLMo",
-    "OLMo-2-7B": "Latest OLMo",
-    "OLMo-7B": "Previous OLMo",
+    "OLMo-0424-7B": "Other fully open",
+    "OLMo-2-0324-32B": "Ours",
+    "OLMo-2-1124-13B": "Ours",
+    "OLMo-2-1124-7B": "Ours",
+    "OLMo-2-32B": "Ours",
+    "OLMo-2-13B": "Ours",
+    "OLMo-2-7B": "Ours",
+    "AnonModel-32B": "Ours",
+    "AnonModel-13B": "Ours",
+    "AnonModel-7B": "Ours",
+    "OLMo-7B": "Other fully open",
     "Qwen-2.5-14B": "Open weights",
     "Qwen-2.5-7B": "Open weights",
     "Qwen-2.5-32B": "Open weights",
@@ -141,6 +144,7 @@ category_to_color = {
     "Other fully open": "#6FE0BA",  # light green
     "Previous OLMo": "#F697C4",  # light pink
     "Latest OLMo": "#F0529C",  # dark pink
+    "Ours": "#F0529C",  # dark pink
 }
 category_to_text_color = {
     "Open weights": AI2_DARK_TEAL,
@@ -148,6 +152,7 @@ category_to_text_color = {
     "Other fully open": AI2_DARK_TEAL,
     "Previous OLMo": AI2_DARK_TEAL,
     "Latest OLMo": "#a51c5c",  # darker pink
+    "Ours": "#a51c5c",  # darker pink
 }
 
 
@@ -163,17 +168,20 @@ model_name_to_label_offset = {
     "Llama-2-13B": [10, -2],
     "Llama-3.1-70B": [10, -2],
     "DCLM-7B": [-18, 8],
-    "Gemma-2-9B": [-25, -15],
-    "Gemma-2-27B": [-15, -15],
-    "Gemma-3-27B": [-35, -10],
+    "Gemma-2-9B": [-25, -10],
+    "Gemma-2-27B": [0, -15],
+    "Gemma-3-27B": [0, -15],
     "Llama-3.1-8B": [10, -2],
     "OLMo-2-0324-32B": [-20, 10],
     "OLMo-2-1124-13B": [-20, 10],
     "OLMo-2-1124-7B": [-35, 10],
+    "AnonModel-32B": [-45, 10],
+    "AnonModel-13B": [-45, 10],
+    "AnonModel-7B": [-45, 10],
     "Qwen-2.5-14B": [-40, -15],
     "Qwen-2.5-7B": [5, -10],
-    "Qwen-2.5-32B": [-20, -15],
-    "StableLM-2-12B": [-20, -15],
+    "Qwen-2.5-32B": [10, -10],
+    "StableLM-2-12B": [-15, -15],
 }
 
 df[OFFSET_COLUMN_NAME] = df[MODEL_COLUMN_NAME].map(model_name_to_label_offset)
@@ -185,13 +193,17 @@ category_to_marker = {
     "Other fully open": "s",
     "Previous OLMo": "P",
     "Latest OLMo": "*",
+    "Ours": "*",
 }
 
 # Clean up labels
 model_name_to_new_name = {
-    "OLMo-2-0324-32B": "OLMo-2-32B",
-    "OLMo-2-1124-13B": "OLMo-2-13B",
-    "OLMo-2-1124-7B": "OLMo-2-7B",
+    # "OLMo-2-0324-32B": "OLMo-2-32B",
+    # "OLMo-2-1124-13B": "OLMo-2-13B",
+    # "OLMo-2-1124-7B": "OLMo-2-7B",
+    "OLMo-2-0324-32B": "AnonModel-32B",
+    "OLMo-2-1124-13B": "AnonModel-13B",
+    "OLMo-2-1124-7B": "AnonModel-7B",
 }
 df[MODEL_COLUMN_NAME] = df[MODEL_COLUMN_NAME].replace(model_name_to_new_name)
 
@@ -202,6 +214,7 @@ category_to_marker_size = {
     "Other fully open": 70,
     "Previous OLMo": 100,
     "Latest OLMo": 150,
+    "Ours": 150,
 }
 
 # alpha
@@ -211,13 +224,21 @@ category_to_alpha = {
     "Other fully open": 1.0,
     "Previous OLMo": 1.0,
     "Latest OLMo": 1.0,
+    "Ours": 1.0,
 }
 
 # Scale
 plt.xscale("function", functions=(np.sqrt, np.square))
 
 # Plotting order
-desired_order = ["Latest OLMo", "Previous OLMo", "Other fully open", "Partially open", "Open weights"]
+desired_order = [
+    "Ours",
+    # "Latest OLMo",
+    # "Previous OLMo",
+    "Other fully open",
+    "Partially open",
+    "Open weights",
+]
 for category in categories:
     mask = (df[CATEGORY_COLUMN_NAME] == category) & (df[FLOPS_COLUMN_NAME].notna())
     data = df[mask]
@@ -316,9 +337,12 @@ frontier_models = [
     "Amber-7B",
     "OLMo-0424-7B",
     "DCLM-7B",
-    "OLMo-2-7B",
-    "OLMo-2-13B",
-    "OLMo-2-32B",
+    # "OLMo-2-7B",
+    # "OLMo-2-13B",
+    # "OLMo-2-32B",
+    "AnonModel-7B",
+    "AnonModel-13B",
+    "AnonModel-32B",
     "Gemma-3-27B",
     "Qwen-2.5-32B",
 ]
