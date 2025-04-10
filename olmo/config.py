@@ -650,13 +650,13 @@ class CustomDatasetCollatorConfig(BaseConfig):
 @dataclass
 class CustomDatasetConfig(BaseConfig):
     name: str  #: The name of the custom dataset class or function that will be used to load the dataset.
-    module: Optional[str] = (
-        None  #: The module where the custom dataset class is defined. If not set, the module will be inferred from the class name.
-    )
+    module: Optional[
+        str
+    ] = None  #: The module where the custom dataset class is defined. If not set, the module will be inferred from the class name.
     args: Optional[Dict[str, Any]] = None  #: The arguments to pass to the custom dataset class or function
-    collate_fn: Optional[str] = (
-        None  #: The name of the collate function to use for the custom dataset. Assumes the collate function is defined in the same module as the custom dataset class unless specified otherwise using the full object path.
-    )
+    collate_fn: Optional[
+        str
+    ] = None  #: The name of the collate function to use for the custom dataset. Assumes the collate function is defined in the same module as the custom dataset class unless specified otherwise using the full object path.
     token_field: Optional[str] = None  #: The field in the dataset items that contains the tokenized text.
     collate_config: Optional[CustomDatasetCollatorConfig] = field(
         default_factory=CustomDatasetCollatorConfig
