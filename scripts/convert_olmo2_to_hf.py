@@ -8,7 +8,7 @@ import pickle
 import re
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import torch
 import yaml
@@ -51,12 +51,9 @@ tokenizer = AutoTokenizer.from_pretrained("/output/path")
 
 def decode_key(encoded_key):
     """Decode a base64-encoded pickled key."""
-    try:
-        decoded = base64.b64decode(encoded_key)
-        unpickled = pickle.loads(decoded)
-        return unpickled
-    except:
-        return encoded_key
+    decoded = base64.b64decode(encoded_key)
+    unpickled = pickle.loads(decoded)
+    return unpickled
 
 
 def compute_intermediate_size(n, ffn_dim_multiplier=1, multiple_of=256):
