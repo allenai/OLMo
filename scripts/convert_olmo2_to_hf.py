@@ -18,12 +18,24 @@ from transformers import Olmo2Config, Olmo2ForCausalLM
 from transformers.models.gpt2.tokenization_gpt2_fast import GPT2TokenizerFast
 
 """
-Sample usage:
+Sample Usage:
 
+1. Download the unsharded checkpoints from R2.
+
+2. To convert multiple checkpoints to Hugging Face format, run:
 ```
 python src/transformers/models/olmo2/convert_olmo2_weights_to_hf.py \
-    --input_base_dir /path/to/checkpoints/base/dir --output_base_dir /output/base/path \
-    --model_name olmo-13b-1124_stage2_ingredient1
+    --input_base_dir /path/to/checkpoints/base/dir \
+    --output_base_dir /output/base/path \
+    --folder_name olmo-13b-1124_stage2_ingredient1
+```
+
+3. To convert a single checkpoint to Hugging Face format, run:
+```
+python src/transformers/models/olmo2/convert_olmo2_weights_to_hf.py \
+    --input_base_dir /path/to/checkpoints/base/dir \
+    --output_base_dir /output/base/path \
+    --single_checkpoint olmo-13b-1124_stage2_ingredient1/step10000-unsharded
 ```
 
 Thereafter, models can be loaded via:
@@ -31,8 +43,8 @@ Thereafter, models can be loaded via:
 ```py
 from transformers import Olmo2ForCausalLM, AutoTokenizer
 
-model = Olmo2ForCausalLM.from_pretrained("/output/path/step1000_hf")
-tokenizer = AutoTokenizer.from_pretrained("/output/path/step1000_hf")
+model = Olmo2ForCausalLM.from_pretrained("/output/path")
+tokenizer = AutoTokenizer.from_pretrained("/output/path")
 ```
 """
 
@@ -284,14 +296,14 @@ def get_step_number(checkpoint_path):
 def process_all_checkpoints(
     input_base_dir,
     output_base_dir,
-    model_name,
+    folder_name,
     include_tokenizer=True,
     tokenizer_path=None,
     safe_serialization=True,
     fix_eos_token_id=True,
     tmp_cleanup=True,
 ):
-    checkpoint_pattern = os.path.join(input_base_dir, model_name, "step*-unsharded")
+    checkpoint_pattern = os.path.join(input_base_dir, folder_name, "step*-unsharded")
     checkpoints = glob.glob(checkpoint_pattern)
 
     if not checkpoints:
@@ -305,7 +317,7 @@ def process_all_checkpoints(
 
     for checkpoint in checkpoints:
         step_number = get_step_number(checkpoint)
-        output_dir = os.path.join(output_base_dir, f"{model_name}_hf", f"step{step_number}_hf")
+        output_dir = os.path.join(output_base_dir, f"{folder_name}_hf", f"step{step_number}_hf")
 
         print(f"\n\nProcessing checkpoint: {checkpoint}")
         print(f"Output directory: {output_dir}")
@@ -331,7 +343,7 @@ def main():
         help="Base directory containing checkpoint directories (e.g., /data/input/amanr/checkpoints13b_stage2/)",
     )
     parser.add_argument(
-        "--model_name",
+        "--folder_name",
         required=True,
         help="Model name (e.g., olmo-13b-1124_stage2_ingredient1)",
     )
@@ -379,9 +391,9 @@ def main():
     args = parser.parse_args()
 
     if args.single_checkpoint:
-        checkpoint_path = os.path.join(args.input_base_dir, args.model_name, args.single_checkpoint)
+        checkpoint_path = os.path.join(args.input_base_dir, args.folder_name, args.single_checkpoint)
         step_number = get_step_number(args.single_checkpoint)
-        output_dir = os.path.join(args.output_base_dir, f"{args.model_name}_hf", f"step{step_number}_hf")
+        output_dir = os.path.join(args.output_base_dir, f"{args.folder_name}_hf", f"step{step_number}_hf")
 
         print(f"Processing single checkpoint: {checkpoint_path}")
         print(f"Output directory: {output_dir}")
@@ -399,7 +411,7 @@ def main():
         process_all_checkpoints(
             input_base_dir=args.input_base_dir,
             output_base_dir=args.output_base_dir,
-            model_name=args.model_name,
+            folder_name=args.folder_name,
             include_tokenizer=args.include_tokenizer,
             tokenizer_path=args.tokenizer_json_path,
             safe_serialization=args.safe_serialization,
