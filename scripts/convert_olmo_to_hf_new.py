@@ -134,9 +134,11 @@ def write_model(
     # TODO: Deal with weight-tying
     state_dict = {
         "model.embed_tokens.weight": loaded["transformer.wte.weight"],
-        "lm_head.weight": loaded["transformer.ff_out.weight"]
-        if "transformer.ff_out.weight" in loaded
-        else loaded["transformer.wte.weight"],
+        "lm_head.weight": (
+            loaded["transformer.ff_out.weight"]
+            if "transformer.ff_out.weight" in loaded
+            else loaded["transformer.wte.weight"]
+        ),
     }
 
     for k, v in state_dict.items():

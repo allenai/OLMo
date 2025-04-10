@@ -792,6 +792,7 @@ class ConstantScheduler(Scheduler):
 @dataclass
 class CosLinearEnvelope(Scheduler):
     "Pointwise product of cosine schedule and linear decay; useful during annealing."
+
     warmup_steps: int
     alpha_f: float = 0.1
     t_max: Optional[int] = None

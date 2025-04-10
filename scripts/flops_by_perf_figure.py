@@ -23,7 +23,7 @@ CSV file of results should look like:
     Zamba-2-7B,,65.2,92.2,89.4,79.6,68.5,51.7,36.5,55.5,67.2,32.8,78.8
 
 Invocation looks like:
-    
+
     python scripts/flops_by_perf_figure.py /path/to/results.csv output/
 
 @kyleclo, @soldni

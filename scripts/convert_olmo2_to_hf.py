@@ -1,26 +1,18 @@
-# Copyright 2024 EleutherAI and The HuggingFace Inc. team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 import argparse
+import base64
 import gc
+import glob
 import json
 import os
+import pickle
+import re
 import shutil
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import torch
 import yaml
+from safetensors.torch import load_file
 from tokenizers import Tokenizer
 from transformers import Olmo2Config, Olmo2ForCausalLM
 from transformers.models.gpt2.tokenization_gpt2_fast import GPT2TokenizerFast
@@ -30,7 +22,8 @@ Sample usage:
 
 ```
 python src/transformers/models/olmo2/convert_olmo2_weights_to_hf.py \
-    --input_dir /path/to/downloaded/olmo2/weights --output_dir /output/path
+    --input_base_dir /path/to/checkpoints/base/dir --output_base_dir /output/base/path \
+    --model_name olmo-13b-1124_stage2_ingredient1
 ```
 
 Thereafter, models can be loaded via:
@@ -38,13 +31,20 @@ Thereafter, models can be loaded via:
 ```py
 from transformers import Olmo2ForCausalLM, AutoTokenizer
 
-model = Olmo2ForCausalLM.from_pretrained("/output/path")
-tokenizer = AutoTokenizer.from_pretrained("/output/path")
+model = Olmo2ForCausalLM.from_pretrained("/output/path/step1000_hf")
+tokenizer = AutoTokenizer.from_pretrained("/output/path/step1000_hf")
 ```
-
-Important note: you need to be able to host the whole model in RAM to execute this script (even if the biggest versions
-come in several checkpoints they each contain a part of each weight of the model, so we need to load them all in RAM).
 """
+
+
+def decode_key(encoded_key):
+    """Decode a base64-encoded pickled key."""
+    try:
+        decoded = base64.b64decode(encoded_key)
+        unpickled = pickle.loads(decoded)
+        return unpickled
+    except:
+        return encoded_key
 
 
 def compute_intermediate_size(n, ffn_dim_multiplier=1, multiple_of=256):
@@ -103,7 +103,26 @@ def write_model(
 
     # Not sharded
     # (The sharded implementation would also work, but this is simpler.)
-    loaded = torch.load(os.path.join(input_base_path, "model.pt"), map_location="cpu")
+    encoded_state_dict = load_file(os.path.join(input_base_path, "model.safetensors"), device="cpu")
+
+    loaded = {}
+    for encoded_key, value in encoded_state_dict.items():
+        decoded_key = decode_key(encoded_key)
+
+        # Handle the tuple format (('key',), False)
+        if (
+            isinstance(decoded_key, tuple)
+            and len(decoded_key) == 2
+            and isinstance(decoded_key[0], tuple)
+            and len(decoded_key[0]) == 1
+        ):
+            actual_key = decoded_key[0][0]
+            loaded[actual_key] = value
+        else:
+            loaded[decoded_key] = value
+
+    del encoded_state_dict
+    gc.collect()
 
     param_count = 0
     index_dict: Dict[str, Any] = {"weight_map": {}}
@@ -157,9 +176,11 @@ def write_model(
     state_dict = {
         "model.embed_tokens.weight": loaded["transformer.wte.weight"],
         "model.norm.weight": loaded["transformer.ln_f.weight"],
-        "lm_head.weight": loaded["transformer.ff_out.weight"]
-        if "transformer.ff_out.weight" in loaded
-        else loaded["transformer.wte.weight"],
+        "lm_head.weight": (
+            loaded["transformer.ff_out.weight"]
+            if "transformer.ff_out.weight" in loaded
+            else loaded["transformer.wte.weight"]
+        ),
     }
 
     for k, v in state_dict.items():
@@ -206,16 +227,18 @@ def write_model(
     if include_tokenizer:
         _write_tokenizer(model_path, config, input_base_path, tokenizer_path)
 
-    print("Loading the checkpoint in a OLMo2 model.")
+    print(f"Loading the checkpoint in a OLMo2 model from {tmp_model_path}.")
     model = Olmo2ForCausalLM.from_pretrained(tmp_model_path, torch_dtype=torch.float32, low_cpu_mem_usage=True)
     # Avoid saving this as part of the config.
     del model.config._name_or_path
-    print("Saving in the Transformers format.")
+    print(f"Saving in the Transformers format to {model_path}.")
     model.save_pretrained(model_path, safe_serialization=safe_serialization)
     if tmp_cleanup:
         # Make cleanup optional; attempting to `rmtree` the `tmp_model_path` causes
         # errors if using NFS.
         shutil.rmtree(tmp_model_path)
+
+    print(f"Successfully converted {input_base_path} to {model_path}")
 
 
 def _write_tokenizer(
@@ -250,12 +273,72 @@ def _write_tokenizer(
     tokenizer.save_pretrained(output_path)
 
 
+def get_step_number(checkpoint_path):
+    """Extract step number from checkpoint path."""
+    match = re.search(r"step(\d+)", os.path.basename(checkpoint_path))
+    if match:
+        return match.group(1)
+    return "unknown"
+
+
+def process_all_checkpoints(
+    input_base_dir,
+    output_base_dir,
+    model_name,
+    include_tokenizer=True,
+    tokenizer_path=None,
+    safe_serialization=True,
+    fix_eos_token_id=True,
+    tmp_cleanup=True,
+):
+    checkpoint_pattern = os.path.join(input_base_dir, model_name, "step*-unsharded")
+    checkpoints = glob.glob(checkpoint_pattern)
+
+    if not checkpoints:
+        print(f"No checkpoints found matching pattern: {checkpoint_pattern}")
+        return
+
+    checkpoints.sort(key=lambda x: int(get_step_number(x)))
+
+    print(f"Found {len(checkpoints)} checkpoints to process")
+    os.makedirs(output_base_dir, exist_ok=True)
+
+    for checkpoint in checkpoints:
+        step_number = get_step_number(checkpoint)
+        output_dir = os.path.join(output_base_dir, f"{model_name}_hf", f"step{step_number}_hf")
+
+        print(f"\n\nProcessing checkpoint: {checkpoint}")
+        print(f"Output directory: {output_dir}")
+
+        write_model(
+            model_path=output_dir,
+            input_base_path=checkpoint,
+            include_tokenizer=include_tokenizer,
+            tokenizer_path=tokenizer_path,
+            safe_serialization=safe_serialization,
+            fix_eos_token_id=fix_eos_token_id,
+            tmp_cleanup=tmp_cleanup,
+        )
+
+        print(f"Completed conversion for step{step_number}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--input_dir",
+        "--input_base_dir",
         required=True,
-        help="Location of OLMo2 weights, which contains config.yaml and model.pt.",
+        help="Base directory containing checkpoint directories (e.g., /data/input/amanr/checkpoints13b_stage2/)",
+    )
+    parser.add_argument(
+        "--model_name",
+        required=True,
+        help="Model name (e.g., olmo-13b-1124_stage2_ingredient1)",
+    )
+    parser.add_argument(
+        "--output_base_dir",
+        required=True,
+        help="Base directory where HF models will be written (e.g., /data/input/amanr/)",
     )
     parser.add_argument(
         "--no_tokenizer",
@@ -268,11 +351,6 @@ def main():
         type=Path,
         default=None,
         help="Location of OLMo2 tokenizer json file. Defaults to what is set in the config file.",
-    )
-    parser.add_argument(
-        "--output_dir",
-        required=True,
-        help="Location to write HF model and tokenizer",
     )
     parser.add_argument(
         "--no_fix_eos_token_id",
@@ -292,16 +370,42 @@ def main():
         dest="safe_serialization",
         help="Whether or not to save using `safetensors`.",
     )
-    args = parser.parse_args()
-    write_model(
-        model_path=args.output_dir,
-        input_base_path=args.input_dir,
-        safe_serialization=args.safe_serialization,
-        include_tokenizer=args.include_tokenizer,
-        tokenizer_path=args.tokenizer_json_path,
-        fix_eos_token_id=args.fix_eos_token_id,
-        tmp_cleanup=args.tmp_cleanup,
+    parser.add_argument(
+        "--single_checkpoint",
+        default=None,
+        help="Process only a specific step checkpoint (e.g., step1000-unsharded). If not provided, all checkpoints will be processed.",
     )
+
+    args = parser.parse_args()
+
+    if args.single_checkpoint:
+        checkpoint_path = os.path.join(args.input_base_dir, args.model_name, args.single_checkpoint)
+        step_number = get_step_number(args.single_checkpoint)
+        output_dir = os.path.join(args.output_base_dir, f"{args.model_name}_hf", f"step{step_number}_hf")
+
+        print(f"Processing single checkpoint: {checkpoint_path}")
+        print(f"Output directory: {output_dir}")
+
+        write_model(
+            model_path=output_dir,
+            input_base_path=checkpoint_path,
+            include_tokenizer=args.include_tokenizer,
+            tokenizer_path=args.tokenizer_json_path,
+            safe_serialization=args.safe_serialization,
+            fix_eos_token_id=args.fix_eos_token_id,
+            tmp_cleanup=args.tmp_cleanup,
+        )
+    else:
+        process_all_checkpoints(
+            input_base_dir=args.input_base_dir,
+            output_base_dir=args.output_base_dir,
+            model_name=args.model_name,
+            include_tokenizer=args.include_tokenizer,
+            tokenizer_path=args.tokenizer_json_path,
+            safe_serialization=args.safe_serialization,
+            fix_eos_token_id=args.fix_eos_token_id,
+            tmp_cleanup=args.tmp_cleanup,
+        )
 
 
 if __name__ == "__main__":
