@@ -10,7 +10,7 @@ gantry run \
   --workspace ai2/infini-llm \
   --budget ai2/oe-training \
   --beaker-image shanea/olmo-torch2.2-gantry \
-  --cluster ai2/jupiter-cirrascale-2 \
+  --cluster ai2/ceres-cirrascale \
   --priority high \
   --no-nfs \
   --weka oe-training-default:/weka/oe-training-default \
