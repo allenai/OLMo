@@ -244,6 +244,7 @@ class InfgramConfig(BaseConfig):
     method_train: Optional[int] = 2
     method_eval: Optional[int] = 2
     dtype: Optional[str] = 'u16'
+    warmup_steps: Optional[int] = 0
 
 
 @dataclass
@@ -717,7 +718,7 @@ class CompilerConfig(BaseConfig):
     dynamic: Optional[bool] = None
     """
     From the torch docs:
-    
+
     Use dynamic shape tracing. When this is True, we will up-front attempt to generate a kernel that is as dynamic
     as possible to avoid recompilations when sizes change. This may not always work as some
     operations/optimizations will force specialization; use TORCH_LOGS=dynamic to debug overspecialization. When

@@ -4,7 +4,7 @@ set -ex
 
 CONFIG_PATH=configs/annealing/peteish1-anneal_legal-whammy-2.yaml
 NUM_NODES=1
-RUN_NAME="v3.4_v3.2_anneal"
+RUN_NAME="v3.5_v3.4_infgram-50B"
 
 gantry run \
   --allow-dirty \
@@ -17,7 +17,6 @@ gantry run \
   --cluster ai2/jupiter-cirrascale-2 \
   --cluster ai2/ceres-cirrascale \
   --priority high \
-  --not-preemptible \
   --weka oe-training-default:/weka/oe-training-default \
   --gpus 8 \
   --shared-memory 10GiB \
@@ -51,4 +50,5 @@ gantry run \
         --wandb.project=hb-wolf-olmo-3 --wandb.entity=liujch1998 \
         --save_folder=/weka/oe-training-default/jiachengl/hb-wolf/ckpt/${RUN_NAME} --save_overwrite=true --load_path=\\\${path.last_checkpoint:/weka/oe-training-default/jiachengl/hb-wolf/ckpt/${RUN_NAME}} \
         --global_train_batch_size=1024 --device_train_microbatch_size=4 \
+        --infgram.index_dir=/weka/oe-training-default/jiachengl/hb-wolf/index/v5_dolmino-mix-1124-7b-50b_dolma2 --infgram.prefetch=true --model.separate_infgram_wte=false --infgram.method_train=7 --infgram.method_eval=7 --infgram.min_cnt=5 --infgram.dtype=u32 \
     "

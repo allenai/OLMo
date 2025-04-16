@@ -1252,6 +1252,7 @@ class OLMo(nn.Module):
         self,
         input_ids: torch.LongTensor,
         infgram_ntd: Optional[torch.LongTensor] = None,
+        infgram_weight: Optional[float] = None,
         input_embeddings: Optional[torch.FloatTensor] = None,
         attention_mask: Optional[torch.Tensor] = None,
         attention_bias: Optional[torch.Tensor] = None,
@@ -1321,7 +1322,9 @@ class OLMo(nn.Module):
                 infgram_emb = self.transformer.infgram_wte(infgram_ntd).mean(dim=-2)
             else:
                 infgram_emb = self.transformer.wte(infgram_ntd).mean(dim=-2)
-            x = x + infgram_emb
+            if infgram_weight is None:
+                infgram_weight = 1.0
+            x = x + infgram_weight * infgram_emb
 
         # Apply embedding layer norm.
         if self.config.embedding_layer_norm:

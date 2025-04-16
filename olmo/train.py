@@ -747,6 +747,7 @@ class Trainer:
             doc_lens=batch.get("doc_lens"),
             max_doc_lens=batch.get("max_doc_lens"),
             infgram_ntd=batch.get("infgram_ntd"),
+            infgram_weight=1.0 if self.global_step >= self.cfg.infgram.warmup_steps else (self.global_step + 1) / self.cfg.infgram.warmup_steps
         ).logits
         logits_for_loss = logits[..., :-1, :].contiguous()
         # shape: (batch_size * seq_len, vocab_size)
