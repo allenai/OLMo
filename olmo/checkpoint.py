@@ -1928,7 +1928,9 @@ class OlmoCoreCheckpointer(Checkpointer):
                 (checkpoint_dir / "train").mkdir(exist_ok=True, parents=True)
             barrier()
 
-            local_files_created = save_model_and_optim_state(checkpoint_dir, dist_model, optim, save_overwrite=self.cfg.save_overwrite)
+            local_files_created = save_model_and_optim_state(
+                checkpoint_dir, dist_model, optim, save_overwrite=self.cfg.save_overwrite
+            )
             if upload_to is not None:
                 for path in local_files_created:
                     path = Path(path)
