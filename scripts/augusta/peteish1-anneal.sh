@@ -9,6 +9,9 @@ shift
 BEAKER_REPLICA_RANK=$1
 shift
 
+SEED=$1
+shift
+
 # augusta specific environment
 export LD_LIBRARY_PATH="/var/lib/tcpxo/lib64:${LD_LIBRARY_PATH}"
 export NCCL_CROSS_NIC=0
@@ -50,6 +53,7 @@ export TORCH_DIST_INIT_BARRIER=1
 export PYTHONFAULTHANDLER=1
 
 NAME=${GANTRY_TASK_NAME// /_}
+NAME=$NAME-seed$SEED
 RUN_NAME=$NAME-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/data/$RUN_NAME
 mkdir -p $SAVE_FOLDER
@@ -66,6 +70,7 @@ torchrun \
     configs/annealing/peteish1-anneal.yaml \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
+      --seed=$SEED \
       --save_interval_ephemeral=1000 \
       --eval_interval=1000 \
       --fsdp.sharding_strategy=_HYBRID_SHARD_ZERO2 \

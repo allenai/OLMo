@@ -5,6 +5,9 @@ set -ex
 NUM_NODES=$1
 shift
 
+SEED=$1
+shift
+
 gantry run \
   --workspace ai2/OLMo-tiny \
   --task-name peteish1-augusta-anneal \
@@ -18,7 +21,6 @@ gantry run \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
-  --no-nfs \
   --propagate-failure \
   --propagate-preemption \
   --synchronized-start-timeout 15m \
@@ -34,4 +36,4 @@ gantry run \
   --timeout=0 \
   --allow-dirty \
   --retries 10 \
-  -- /bin/bash -c "scripts/augusta/peteish1-anneal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "scripts/augusta/peteish1-anneal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK $SEED"
