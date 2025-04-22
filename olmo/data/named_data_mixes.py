@@ -5127,7 +5127,7 @@ def build_collection_with_weights(corpora: List[str], weights: Dict[str, float]=
 DATA_PATHS["no_math"] = build_collection_include(['gutenberg_books', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
 DATA_PATHS["no_code"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'c4', 'reddit', 'falcon', 'web_rest'])
 DATA_PATHS["no_math_no_code"] = build_collection_include(['gutenberg_books', 'wikipedia_wikibooks', 'megawika', 'arxiv', 'tulu', 'cc_news', 'c4', 'reddit', 'falcon', 'web_rest'])
-DATA_PATHS["no_reddit"] = build_collection_exclude(["reddit"])
+# DATA_PATHS["no_reddit"] = build_collection_exclude(["reddit"])
 DATA_PATHS["no_reddit"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'falcon', 'web_rest'])
 DATA_PATHS["no_flan"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
 DATA_PATHS["dolma17"] = build_collection_include(['gutenberg_books', 'pes20_stem_papers', 'wikipedia_wikibooks', 'megawika', 'stackexchange', 'arxiv', 'algebraic_stack', 'openwebmath', 'tulu', 'cc_news', 'starcoder', 'c4', 'reddit', 'falcon', 'web_rest'])
@@ -5181,3 +5181,5 @@ DATA_PATHS['dolma17-25p'] = build_collection_include(['gutenberg_books', 'pes20_
 DATA_PATHS['dolma17-75p-DCLM-baseline-25p'] = DATA_PATHS['dolma17-75p'] + DATA_PATHS['DCLM-baseline-25p']
 DATA_PATHS['dolma17-50p-DCLM-baseline-50p'] = DATA_PATHS['dolma17-50p'] + DATA_PATHS['DCLM-baseline-50p']
 DATA_PATHS['dolma17-25p-DCLM-baseline-75p'] = DATA_PATHS['dolma17-25p'] + DATA_PATHS['DCLM-baseline-75p']
+
+print(DATA_PATHS["fineweb_edu_dedup"])

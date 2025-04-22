@@ -7,7 +7,11 @@ from huggingface_hub import HfApi
 from botocore.exceptions import ClientError
 from tqdm import tqdm
 
-from olmo.data.named_data_mixes import DATA_SOURCES
+from olmo.data.named_data_mixes import DATA_SOURCES, EXTRA_DATA_SOURCES
+import shutil
+
+assert set(DATA_SOURCES.keys()).intersection(EXTRA_DATA_SOURCES.keys()) == set(), "Named data mixes should not overlap with extra data sources"
+DATA_SOURCES.update(EXTRA_DATA_SOURCES)
 
 print_lock = threading.Lock()  # To keep print statements thread-safe
 
@@ -83,6 +87,11 @@ def main():
         repo_id=args.hf_repo_id,
         repo_type=args.hf_repo_type
     )
+
+    # Clean up the local directory after upload
+    if os.path.exists(args.local_dir):
+        os.system(f"rm -rf {args.local_dir}")
+    print(f"Deleted local directory: {args.local_dir}")
 
 if __name__ == "__main__":
     main()
