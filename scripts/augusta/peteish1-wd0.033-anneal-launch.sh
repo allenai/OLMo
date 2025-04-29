@@ -35,5 +35,4 @@ gantry run \
   --yes \
   --timeout=0 \
   --allow-dirty \
-  --retries 10 \
   -- /bin/bash -c "scripts/augusta/peteish1-wd0.033-anneal.sh \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK $SEED"
