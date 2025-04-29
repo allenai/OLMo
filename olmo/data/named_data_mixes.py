@@ -5181,5 +5181,3 @@ DATA_PATHS['dolma17-25p'] = build_collection_include(['gutenberg_books', 'pes20_
 DATA_PATHS['dolma17-75p-DCLM-baseline-25p'] = DATA_PATHS['dolma17-75p'] + DATA_PATHS['DCLM-baseline-25p']
 DATA_PATHS['dolma17-50p-DCLM-baseline-50p'] = DATA_PATHS['dolma17-50p'] + DATA_PATHS['DCLM-baseline-50p']
 DATA_PATHS['dolma17-25p-DCLM-baseline-75p'] = DATA_PATHS['dolma17-25p'] + DATA_PATHS['DCLM-baseline-75p']
-
-print(DATA_PATHS["fineweb_edu_dedup"])

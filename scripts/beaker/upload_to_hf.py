@@ -7,7 +7,7 @@ from huggingface_hub import HfApi
 from botocore.exceptions import ClientError
 from tqdm import tqdm
 
-from olmo.data.named_data_mixes import DATA_SOURCES, EXTRA_DATA_SOURCES
+from olmo.data.named_data_mixes import DATA_SOURCES, EXTRA_DATA_SOURCES, DOLMA_1_6_TO_1_7_DATA_SOURCES
 import shutil
 
 assert set(DATA_SOURCES.keys()).intersection(EXTRA_DATA_SOURCES.keys()) == set(), "Named data mixes should not overlap with extra data sources"
@@ -23,6 +23,7 @@ def parse_args():
     parser.add_argument("--hf-repo-id", required=True, help="Hugging Face repo ID (e.g. username/dataset)")
     parser.add_argument("--hf-repo-type", default="dataset", choices=["dataset", "model"], help="Type of Hugging Face repo")
     parser.add_argument("--num-download-workers", type=int, default=8, help="Number of threads to use for S3 download")
+    parser.add_argument("--dolma-1-6-bypass", action="store_true", help="Use Dolma 1.6 prefixes directly")
     return parser.parse_args()
 
 def should_download(s3_obj, local_dir):
@@ -73,6 +74,9 @@ def main():
     s3 = boto3.client("s3")
 
     prefixes = DATA_SOURCES[args.named_data_mix]
+
+    if args.dolma_1_6_bypass:
+        prefixes = [item for sublist in DOLMA_1_6_TO_1_7_DATA_SOURCES.values() for item in sublist]
 
     parallel_download_s3(
         bucket_name=args.s3_bucket,
