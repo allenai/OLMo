@@ -15,6 +15,7 @@ import wandb
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import ShardingStrategy
+from torch.distributed.elastic.multiprocessing.errors import record                          
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from olmo.config import (
@@ -50,7 +51,7 @@ from olmo.util import (
 
 log = logging.getLogger("train")
 
-
+@record
 def main(cfg: TrainConfig) -> None:
     # Ensure run name set.
     if cfg.run_name is None:
