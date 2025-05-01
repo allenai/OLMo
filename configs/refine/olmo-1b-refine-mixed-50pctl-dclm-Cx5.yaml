@@ -1,0 +1,480 @@
+run_name: olmo-1b-refine-mixed-50pctl-dclm-Cx5-20240925
+seed: 6198
+dry_run: false
+no_pre_train_checkpoint: true
+
+wandb:
+  name: ${run_name}
+  project: refine-train
+  group: ${run_name}
+
+model:
+  d_model: 2048
+  n_heads: 16
+  n_layers: 16
+  mlp_ratio: 8
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: true
+  attention_dropout: 0.0
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  attention_layer_norm: true
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 2048
+  vocab_size: 100278
+  embedding_size: 100352
+  eos_token_id: 100257
+  pad_token_id: 100277
+  init_device: cuda
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 0.002
+  eps: 1.0e-8
+  weight_decay: 0.05
+  decay_norm_and_bias: true
+  decay_embeddings: true
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 10
+
+scheduler:
+  name: cosine_with_warmup
+  units: tokens
+  t_warmup: 5e9
+  t_max: 130e9
+  alpha_f: 0.01
+
+tokenizer:
+  identifier: allenai/dolma2-tokenizer
+  truncate_direction: right
+
+save_folder: runs/${run_name}
+remote_save_folder: s3://ai2-llm/checkpoints/refine-1b/${run_name}
+save_overwrite: false
+
+save_interval: 5000
+save_num_checkpoints_to_keep: 12
+sharded_checkpointer: olmo_core
+
+save_interval_unsharded: null
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+max_duration: 130e9T # Match total token count
+stop_at: 61989 # 130e9 / (2048 * 1024) = 61_989
+global_train_batch_size: 1024
+device_train_microbatch_size: 4
+
+fused_loss: true
+
+ddp:
+  grad_sync_mode: batch
+  find_unused_params: false
+
+precision: amp_bf16
+
+distributed_strategy: ddp
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 1
+
+eval_interval: 2500
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  - label: all-small-ppl-validation
+    data:
+      num_workers: 0
+      drop_last: true
+      memmap_dtype: uint32
+      datasets:
+        c4_en-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/c4_en/val/part-0-00000.npy
+        dolma_books-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_books/val/part-0-00000.npy
+        dolma_common-crawl-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_common-crawl/val/part-0-00000.npy
+        dolma_pes2o-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_pes2o/val/part-0-00000.npy
+        dolma_reddit-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_reddit/val/part-0-00000.npy
+        dolma_stack-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_stack/val/part-0-00000.npy
+        dolma_wiki-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/dolma_wiki/val/part-0-00000.npy
+        ice-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/ice/val/part-0-00000.npy
+        m2d2_s2orc-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/m2d2_s2orc/val/part-0-00000.npy
+        pile-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/pile/val/part-0-00000.npy
+        wikitext_103-validation:
+          - s3://ai2-llm/eval-data/perplexity/v3_small_dolma2-tokenizer/wikitext_103/val/part-0-00000.npy
+
+  ##########################
+  # Downstream evaluations #
+  ##########################
+  - label: piqa
+    type: downstream
+
+  - label: hellaswag
+    type: downstream
+
+  - label: winogrande
+    type: downstream
+
+  - label: openbook_qa
+    type: downstream
+
+  - label: boolq
+    type: downstream
+
+  - label: sciq
+    type: downstream
+
+  - label: arc_easy
+    type: downstream
+
+  - label: arc_challenge
+    type: downstream
+
+  - label: copa
+    type: downstream
+
+  - label: commonsense_qa
+    type: downstream
+
+  - label: social_iqa
+    type: downstream
+
+  - label: mmlu_stem_var
+    type: downstream
+
+  - label: mmlu_humanities_var
+    type: downstream
+
+  - label: mmlu_social_sciences_var
+    type: downstream
+
+  - label: mmlu_other_var
+    type: downstream
+
+  - label: mmlu_stem_mc_5shot
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot
+    type: downstream
+
+  - label: mmlu_other_mc_5shot
+    type: downstream
+
+  - label: mmlu_stem_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_humanities_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_social_sciences_mc_5shot_test
+    type: downstream
+
+  - label: mmlu_other_mc_5shot_test
+    type: downstream
+
+data:
+  pad_direction: right
+  num_workers: 16
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 8
+  persistent_workers: true
+  timeout: 0
+  memmap_dtype: uint32
+  instance_filter:
+    repetition_max_period: 13
+    repetition_min_period: 1
+    repetition_max_count: 32
+  paths:
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-00-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-01-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-02-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-03-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-04-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-05-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-06-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-07-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-08-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-09-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-10-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-11-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-12-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-13-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-14-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-15-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-16-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-17-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-18-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-19-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-20-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-21-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-22-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-23-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-24-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-25-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-26-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-27-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-28-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-29-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-30-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-31-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-32-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-33-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-34-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-35-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-36-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-37-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-38-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-39-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-40-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-41-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-42-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-43-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-44-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-45-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-46-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-47-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-48-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-49-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-50-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-51-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-52-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-53-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-54-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-55-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-56-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-57-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-58-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-59-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-60-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-61-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-62-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-63-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-64-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-65-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-66-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-67-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-68-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-69-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-70-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-71-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-72-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-73-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-74-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-75-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-76-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-77-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-78-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-79-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-80-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-81-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-82-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-83-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-84-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-85-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-86-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-87-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-88-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-89-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-90-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-91-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-92-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-93-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-94-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0000/part-95-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-00-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-01-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-02-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-03-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-04-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-05-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-06-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-07-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-08-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-09-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-10-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-11-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-12-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-13-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-14-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-15-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-16-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-17-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-18-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-19-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-20-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-21-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-22-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-23-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-24-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-25-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-26-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-27-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-28-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-29-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-30-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-31-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-32-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-33-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-34-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-35-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-36-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-37-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-38-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-39-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-40-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-41-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-42-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-43-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-44-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-45-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-46-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-47-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-48-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-49-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-50-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-51-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-52-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-53-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-54-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-55-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-56-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-57-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-58-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-59-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-60-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-61-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-62-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-63-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-64-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-65-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-66-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-67-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-68-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-69-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-70-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-71-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-72-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-73-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-74-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-75-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-76-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-77-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-78-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-79-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-80-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-81-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-82-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-83-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-84-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-85-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-86-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-87-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-88-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-89-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-90-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-91-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-92-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-93-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-94-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0001/part-95-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-00-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-01-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-02-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-03-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-04-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-05-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-06-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-07-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-08-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-09-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-10-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-11-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-12-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-13-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-14-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-15-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-16-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-17-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-18-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-19-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-20-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-21-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-22-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-23-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-24-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-25-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-26-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-27-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-28-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-29-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-30-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-31-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-32-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-33-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-34-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-35-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-36-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-37-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-38-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-39-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-40-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-41-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-42-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-43-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-44-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-45-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-46-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-47-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-48-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-49-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-50-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-51-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-52-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-53-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-54-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-55-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-56-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-57-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-58-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-59-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-60-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-61-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-62-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-63-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-64-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-65-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-66-00000.npy
+    - s3://ai2-llm/preprocessed/dclm/samples/rewrite-dclm-ft-delta-50pctl/allenai/dolma2-tokenizer/0002/part-67-00000.npy
+
