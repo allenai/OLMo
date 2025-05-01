@@ -31,7 +31,7 @@ ENV PATH /opt/conda/bin:$PATH
 # Install torch with flash attention
 RUN conda install -y ninja pytorch==2.2.2 torchvision torchaudio pytorch-cuda=11.8 cuda-nvcc cuda-python -c pytorch -c nvidia
 RUN pip install --no-cache-dir --upgrade pip
-RUN FLASH_ATTENTION_FORCE_BUILD=TRUE pip install --no-cache-dir flash-attn==2.7.3 --no-build-isolation
+RUN FLASH_ATTENTION_FORCE_BUILD=TRUE pip install --no-cache-dir flash-attn==2.5.9.post1 --no-build-isolation
 RUN conda clean -ay
 
 COPY pyproject.toml .
