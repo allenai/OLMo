@@ -20,8 +20,10 @@ NSTEPS=$(echo $K $TOTAL_STEPS | awk '{print int($2 / $1)}')
 BSIZE=$(echo $K $BASE_BSIZE | awk '{print int($1 * $2)}')
 LR=$(echo $K $BASE_LR | awk '{print sqrt($1) * $2}')
 
-# Get the checkpoint that we should load from.
+# Used to form the name of the job.
 PREFIX=${PREFIX:-"peteish7"}
+# By default, prefix also sets the config file.
+CONFIG=${CONFIG:-"configs/$PREFIX-google.yaml"}
 LOAD_PATH=${LOAD_PATH:-"gs://ai2-llm/checkpoints/OLMo-medium/peteish7/step477000/"}
 step=$(echo $LOAD_PATH | grep -oP 'step\K\d+')
 name="$PREFIX-${K}xbsz-sqrt-from$step"
@@ -55,7 +57,7 @@ gantry run \
   --env OMP_NUM_THREADS=8 \
   --env OLMO_TASK=model \
   --env LOAD_PATH=$LOAD_PATH \
-  --env CONFIG=configs/$PREFIX-google.yaml \
+  --env CONFIG=$CONFIG \
   --env BSIZE=$BSIZE \
   --env NSTEPS=$NSTEPS \
   --env LR=$LR \
