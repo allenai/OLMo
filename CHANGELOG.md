@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add GSM8K to in-loop evals (BPB over correct continuation)
 - Support for specifying custom dataset objects in the `data` section of the config file.
+- Added OLMo2-0425-1B configs for public usage.
 
 ### Fixed
 
