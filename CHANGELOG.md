@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Changed a Union definition to be compatible with Python 3.9
+- Changed hf_olmo conversion to use backwards-compatible logic via `OLMo.from_checkpoint`.
 
 ## [v0.6.1](https://github.com/allenai/OLMo/releases/tag/v0.6.1) - 2025-01-22
 
