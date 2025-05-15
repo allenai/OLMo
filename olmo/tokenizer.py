@@ -183,7 +183,7 @@ class Tokenizer:
 
         # Check if the base tokenizer's encode_batch method supports add_special_tokens parameter
         if 'add_special_tokens' in inspect.signature(self.base_tokenizer.encode_batch).parameters:
-            batch_encoding = self.base_tokenizer.encode_batch(inputs, add_special_tokens=False)
+            batch_encoding = self.base_tokenizer.encode_batch(inputs, add_special_tokens=add_special_tokens)
         else:
             # Fallback to original behavior if the parameter isn't supported
             batch_encoding = self.base_tokenizer.encode_batch(inputs)
