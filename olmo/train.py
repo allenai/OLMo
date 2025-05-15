@@ -58,7 +58,7 @@ from .torch_util import (
     synchronize_value,
 )
 from .util import upload
-import olmo.tensorbard_logger as tblogger
+from olmo.tensorbard_logger import TBNewSummaryWriter, HAS_TENSORBOARD
 
 __all__ = ["SpeedMonitor", "LRMonitor", "Trainer"]
 
@@ -241,6 +241,15 @@ class Trainer:
                 self.loss_fn = fused_loss_fn
             else:
                 raise NameError("`fused_loss_fn` is not defined. Please ensure that `flash_attn` is installed.")
+        self.logger = None
+        if self.cfg.log_to_tensorbard:
+            if HAS_TENSORBARD:
+                log_dir = Path(cfg.log_to_tensorbard)
+                log_dir.mkdir(parents=True, exist_ok=True)
+                self.logger = TBNewSummaryWriter(log_dir=log_dir)
+                self.logger.write_args_to_tensorboard(self.cfg.asdict())
+            else:
+                logger.warn("Failed to import tensorbard writer, will not write tensorbard logs.")
 
     @property
     def dataset(self) -> IterableDataset:
@@ -1127,8 +1136,8 @@ class Trainer:
             eval_metrics = self.eval()
             if wandb.run is not None:
                 wandb.log(eval_metrics, step=self.global_step)
-            if tblogger.writer is not None:
-                tblogger.log(eval_metrics, global_step=self.global_step)
+            if self.logger is not None:
+                self.logger.log(eval_metrics, global_step=self.global_step)
 
         # Set model to 'train' mode.
         self.dist_model.train()
@@ -1144,8 +1153,8 @@ class Trainer:
             self.log_metrics_to_console("Pre-train system metrics", sys_metrics)
             if wandb.run is not None:
                 wandb.log(sys_metrics, step=0)
-            if tblogger.writer is not None:
-                tblogger.log(sys_metrics, global_step=0)
+            if self.logger is not None:
+                self.logger.log(sys_metrics, global_step=0)
 
         # Python Profiler stuff
         if self.cfg.python_profiling:
@@ -1256,8 +1265,8 @@ class Trainer:
                         and self.global_step % self.cfg.wandb.log_interval == 0
                     ):
                         wandb.log(metrics, step=self.global_step)
-                    if tblogger.writer is not None:
-                        tblogger.log(metrics, global_step=self.global_step)
+                    if self.logger is not None:
+                        self.logger.log(metrics, global_step=self.global_step)
 
                     # Check if/when run should be canceled.
                     if not cancel_initiated and self.global_step % self.cfg.canceled_check_interval == 0:
@@ -1324,8 +1333,8 @@ class Trainer:
                         # Log metrics to W&B.
                         if wandb.run is not None:
                             wandb.log(eval_metrics, step=self.global_step)
-                        if tblogger.writer is not None:
-                            tblogger.log(eval_metrics, global_step=self.global_step)
+                        if self.logger is not None:
+                            self.logger.log(eval_metrics, global_step=self.global_step)
 
                         # Reset speed monitor so that we don't count the time taken to run evaluations.
                         speed_monitor.reset()
@@ -1396,6 +1405,8 @@ class Trainer:
             gc.disable()
         if wandb.run is not None:
             wandb.finish(exit_code=exit_code, quiet=True)
+        if self.logger is not None:
+            self.logger.close()
 
     def __enter__(self) -> Trainer:
         return self

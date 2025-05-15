@@ -1,9 +1,17 @@
+import logging
 import os.path as osp
-from torch.utils.tensorboard import SummaryWriter
+
+logger = logging.getLogger(__name__)
+
+try:
+    from torch.utils.tensorboard import SummaryWriter
+    HAS_TENSORBOARD = True
+except ImportError:
+    HAS_TENSORBOARD = False
 
 
 # create a new class inheriting from SummaryWriter
-class NewSummaryWriter(SummaryWriter):
+class TBNewSummaryWriter(SummaryWriter):
 
     def __init__(self, log_dir=None, comment="", **kwargs):
         super().__init__(log_dir, comment, **kwargs)
@@ -19,38 +27,17 @@ class NewSummaryWriter(SummaryWriter):
             self.add_scalar(name, val, global_step)
 
 
-writer = None
+    def log(self, dictionary, global_step, tag=None):
+        self.add_scalar_dict(dictionary, global_step, tag)
 
 
-def init(log_dir=None):
-    global writer
-    writer = NewSummaryWriter(log_dir=log_dir)
-
-
-def log(dictionary, global_step, tag=None):
-    global writer
-    if writer is None:
-        return
-    writer.add_scalar_dict(dictionary, global_step, tag)
-
-
-def write_args_to_tensorboard(args, iteration, prefix=""):
-    """Write arguments to tensorboard."""
-    global writer
-    if writer:
+    def write_args_to_tensorboard(self, args, iteration, prefix=""):
+        """Write arguments to tensorboard."""
         if prefix:
             prefix = f"{prefix}."
         for arg in args.keys():
             arg_text = f"{prefix}{arg}"
             if isinstance(args[arg], dict):
-                write_args_to_tensorboard(args[arg], iteration, prefix=arg_text)
+                self.write_args_to_tensorboard(args[arg], iteration, prefix=arg_text)
             else:
-                writer.add_text(arg_text, str(args[arg]), global_step=iteration)
-
-
-def finish():
-    global writer
-    if writer is None:
-        return
-    writer.close()
-
+                self.add_text(arg_text, str(args[arg]), global_step=iteration)
