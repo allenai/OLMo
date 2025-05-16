@@ -1200,6 +1200,11 @@ class TrainConfig(BaseConfig):
     Weights & Biases configuration.
     """
 
+    log_to_tensorbard: Optional[str] = None
+    """
+    Path to tensorbard log output directory.
+    """
+
     speed_monitor: SpeedMonitorConfig = field(default_factory=SpeedMonitorConfig)
     """
     Speed monitor configuration.
