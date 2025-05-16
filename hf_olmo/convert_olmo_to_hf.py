@@ -17,6 +17,7 @@ from hf_olmo.modeling_olmo import OLMoForCausalLM
 from hf_olmo.tokenization_olmo_fast import OLMoTokenizerFast
 from olmo import ModelConfig, Tokenizer, TrainConfig
 from olmo.checkpoint import build_sharded_checkpointer
+from olmo.model import OLMo
 from olmo.util import _get_s3_client
 
 logger = logging.getLogger(__name__)
@@ -70,7 +71,8 @@ def write_model(checkpoint_dir: str, ignore_olmo_compatibility: bool = False):
     old_model_path = os.path.join(checkpoint_dir, "model.pt")
     new_model_path = os.path.join(checkpoint_dir, "pytorch_model.bin")
 
-    state_dict = torch.load(old_model_path, map_location="cpu")
+    # Loading the checkpoint using `OLMo.from_checkpoint`` handles backwards compatibility logic.
+    state_dict = OLMo.from_checkpoint(checkpoint_dir).state_dict()
 
     # this takes care of the case where the model was saved with a different prefix,
     # typically due to unsharding.
