@@ -60,7 +60,7 @@ def check_distribution(
 #################################################################################
 
 
-@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+@pytest.mark.parametrize("seed", [8, 42, 173])
 def test_olmo_block_init_normal(seed: int):
     seed_all(seed)
 
@@ -94,7 +94,7 @@ def test_olmo_block_init_normal(seed: int):
     check_distribution(block, 0.00, 0.02, 3.0 * 0.02, -3.0 * 0.02, diff=1e-3)
 
 
-@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+@pytest.mark.parametrize("seed", [8, 42, 173])
 def test_olmo_block_init_mitchell(seed: int):
     seed_all(seed)
 
@@ -118,7 +118,7 @@ def test_olmo_block_init_mitchell(seed: int):
         )
 
 
-@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+@pytest.mark.parametrize("seed", [8, 42, 173])
 def test_olmo_block_init_full_megatron(seed: int):
     seed_all(seed)
 
@@ -156,7 +156,7 @@ def test_olmo_block_init_full_megatron(seed: int):
 #################################################################################
 
 
-@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+@pytest.mark.parametrize("seed", [8, 42, 173])
 def test_olmo_sequential_block_init_normal(seed: int):
     seed_all(seed)
 
@@ -180,7 +180,7 @@ def test_olmo_sequential_block_init_normal(seed: int):
         check_distribution(block.ff_norm, 1.00, 0.00)
 
 
-@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+@pytest.mark.parametrize("seed", [8, 42, 173])
 def test_olmo_sequential_block_init_mitchell(seed: int):
     seed_all(seed)
 
@@ -208,7 +208,7 @@ def test_olmo_sequential_block_init_mitchell(seed: int):
         check_distribution(block.ff_norm, 1.00, 0.00)
 
 
-@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+@pytest.mark.parametrize("seed", [8, 42, 173])
 def test_olmo_sequential_block_init_full_megatron(seed: int):
     seed_all(seed)
 
@@ -242,7 +242,7 @@ def test_olmo_sequential_block_init_full_megatron(seed: int):
 #################################################################################
 
 
-@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+@pytest.mark.parametrize("seed", [8, 42, 173])
 def test_olmo_llama_block_init_normal(seed: int):
     seed_all(seed)
 
@@ -266,7 +266,7 @@ def test_olmo_llama_block_init_normal(seed: int):
         check_distribution(block.ff_norm, 1.00, 0.00)
 
 
-@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+@pytest.mark.parametrize("seed", [8, 42, 173])
 def test_olmo_llama_block_init_mitchell(seed: int):
     seed_all(seed)
 
@@ -294,7 +294,7 @@ def test_olmo_llama_block_init_mitchell(seed: int):
         check_distribution(block.ff_norm, 1.00, 0.00)
 
 
-@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+@pytest.mark.parametrize("seed", [8, 42, 173])
 def test_olmo_llama_block_init_full_megatron(seed: int):
     seed_all(seed)
 
@@ -330,8 +330,10 @@ def test_olmo_llama_block_init_full_megatron(seed: int):
 #################################################################################
 
 
-@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+@pytest.mark.parametrize("seed", [8, 42, 173])
 def test_olmo_init_normal(seed: int):
+    seed_all(seed)
+
     d_model = 1024
     n_heads = 2
     n_layers = 2
@@ -355,8 +357,10 @@ def test_olmo_init_normal(seed: int):
     check_distribution(module.transformer.ln_f, 1.00, 0.00)
 
 
-@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+@pytest.mark.parametrize("seed", [8, 42, 173])
 def test_olmo_init_mitchell(seed: int):
+    seed_all(seed)
+
     d_model = 1024
     n_heads = 2
     n_layers = 2
@@ -400,8 +404,10 @@ def test_olmo_init_mitchell(seed: int):
     check_distribution(module.transformer.wpe, 0.0, 1 / math.sqrt(d_model), diff=1e-3)
 
 
-@pytest.mark.parametrize("seed", list(torch.randint(1, 10000, (3,))))
+@pytest.mark.parametrize("seed", [8, 42, 173])
 def test_olmo_init_full_megatron(seed: int):
+    seed_all(seed)
+
     d_model = 1024
     n_heads = 2
     n_layers = 2
