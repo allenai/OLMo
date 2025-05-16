@@ -104,6 +104,7 @@ Stage 1 is the biggest stage, where we train on 4T or 5T tokens on largely web-b
 | Training config | [OLMo2-1B-stage1.yaml](configs/official-0425/OLMo2-1B-stage1.yaml) |[OLMo2-7B-stage1.yaml](configs/official-1124/OLMo2-7B-stage1.yaml)                                                | [OLMo2-13B-stage1.yaml](configs/official-1124/OLMo2-13B-stage1.yaml)                                               |                                              |
 | WandB           | [wandb.ai/OLMo2-1B](https://api.wandb.ai/links/ai2-llm/izdtrtu0)|[wandb.ai/OLMo2-7B](https://wandb.ai/ai2-llm/OLMo-2-1124-7B/reports/OLMo-2-7B-Nov-2024--VmlldzoxMDUzMzE1OA)       | [wandb.ai/OLMo2-13B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg) |
 
+You can find the .csv.gz files containing the training data [here](configs/official-1124/provenance.csv).
 
 ### Stage 2 for the 1B
 
@@ -142,7 +143,7 @@ on 300B high quality tokens. Then we average ("soup") the models.
 | random seed 2662, 300B | [stage2-ingredient4-step11931-tokens300B](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/stage2-ingredient4-step35773-tokens300B) | [OLMo2-13B-stage2-seed2662-300B.yaml](configs/official-1124/OLMo2-13B-stage2-seed2662-300B.yaml) | [wandb.ai/OLMo2-13B](https://wandb.ai/ai2-llm/OLMo-2-1124-13B/reports/OLMo-2-13B-Nov-2024--VmlldzoxMDUzMjQxNg) |
 | **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-1124-13B/tree/main)                                                                       | no config, we just averaged the weights in Python                                                | |
 
-The training configs linked here are set up to download the latest checkpoint after stage 1, and start training from there. You can find the .csv.gz files containing the training data [here](configs/official-1124/provenance.csv).
+The training configs linked here are set up to download the latest checkpoints after stage 1, and start training from there.
 
 > Note: You can find all the information about the 32B in the [OLMo-core](https://github.com/allenai/OLMo-core) repository.
 
