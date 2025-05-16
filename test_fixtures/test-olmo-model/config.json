@@ -44,7 +44,7 @@
   "rope_theta": 10000,
   "scale_emb_init": false,
   "scale_logits": false,
-  "transformers_version": "4.44.2",
+  "transformers_version": "4.52.0.dev0",
   "use_cache": true,
   "vocab_size": 50257,
   "weight_tying": true
