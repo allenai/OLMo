@@ -1,0 +1,7 @@
+2025-05-21 17:56:51.921	devbox:0	run_dataloader:123	INFO	multiprocessing start method set to 'spawn'
+BATCH_INPUT_IDS_SUM: 15380
+BATCH_INPUT_IDS_SUM: 15360
+BATCH_INPUT_IDS_SUM: 15350
+BATCH_INPUT_IDS_SUM: 15350
+BATCH_INPUT_IDS_SUM: 15370
+2025-05-21 17:56:58.477	devbox:0	run_dataloader:88	INFO	Reached MAX_BATCHES_TO_INSPECT (5), stopping.

@@ -8,8 +8,11 @@ import torch.multiprocessing as mp
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+import torch # Added for determinism test
 from olmo.config import TrainConfig
 from olmo.data import build_memmap_dataset
+# Added for determinism test
+from olmo.torch_util import get_global_rank
 from olmo.data.collator import DataCollator
 from olmo.data.iterable_dataset import IterableDataset
 from olmo.torch_util import seed_all
@@ -57,7 +60,15 @@ def main(cfg: TrainConfig, output_dir: Path) -> None:
     batches_read = 0
     name_to_batches: Dict[str, np.array] = {}
 
+    # Added for determinism test: limit batches and print sum
+    MAX_BATCHES_TO_INSPECT = 5
+    batches_inspected_count = 0
+
     for batch_number, batch in enumerate(tqdm(train_loader)):
+        if get_global_rank() == 0: # Should be rank 0 due to how script is run
+            if "input_ids" in batch:
+                print(f"BATCH_INPUT_IDS_SUM: {torch.sum(batch['input_ids']).item()}")
+
         for name, source_t in batch.items():
             source_t = source_t.numpy()
             if name == "input_ids":
@@ -70,6 +81,12 @@ def main(cfg: TrainConfig, output_dir: Path) -> None:
                 name_to_batches[name] = target_t
             target_t[batches_read] = source_t
         batches_read += 1
+
+        # Added for determinism test
+        batches_inspected_count += 1
+        if batches_inspected_count >= MAX_BATCHES_TO_INSPECT:
+            log.info(f"Reached MAX_BATCHES_TO_INSPECT ({MAX_BATCHES_TO_INSPECT}), stopping.")
+            break
 
         if batches_read >= batches_per_file:
             file_start = batch_number - batches_per_file + 1
@@ -84,18 +101,22 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="replay the dataloader and write batches out to files")
-    parser.add_argument("-o", type=str, help="output directory")
+    parser.add_argument("-o", type=str, help="output directory", required=True) # Made it required for clarity
     parser.add_argument("config_file", type=str, help="config file")
     args, other_args = parser.parse_known_args()
     output_dir = Path(args.o)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # Ensure output_dir is created *after* we know the run won't fail early from arg parsing
+    # output_dir.mkdir(parents=True, exist_ok=True) # Moved down
 
     try:
         mp.set_start_method("spawn", force=True)
     except RuntimeError as e:
         print(f"failed to set multiprocessing start method: {e}")
 
-    dist.init_process_group(backend="gloo", world_size=1, rank=0, store=dist.HashStore())
+    dist.init_process_group(backend="gloo", world_size=1, rank=0, store=dist.HashStore()) # ok for this script
+
+    # Create output_dir after arg parsing and basic setup
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     prepare_cli_environment()
 

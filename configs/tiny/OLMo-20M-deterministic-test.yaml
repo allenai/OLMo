@@ -1,0 +1,115 @@
+run_name: OLMo-20M-deterministic-test
+seed: 6198
+dry_run: false
+
+wandb: null
+
+model:
+  d_model: 256
+  n_heads: 8
+  n_layers: 8
+  mlp_ratio: 8
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: true
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  clip_qkv: null
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 4096
+  vocab_size: 50280
+  embedding_size: 50304
+  eos_token_id: 0
+  pad_token_id: 1
+  init_device: cuda
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3
+
+ddp:
+  grad_sync_mode: batch
+  find_unused_params: false
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 6.0e-4
+  weight_decay: 0.1
+  eps: 1e-8
+  decay_norm_and_bias: true
+  decay_embeddings: true
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 10
+
+scheduler:
+  name: cosine_with_warmup
+  t_warmup: 5000
+  alpha_f: 0.1
+  warmup_min_lr: 0
+
+tokenizer:
+  identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
+  truncate_direction: right
+
+save_folder: workspace/${run_name}
+remote_save_folder: null # Disable remote save for this test
+save_overwrite: true # Allow overwriting for repeated test runs
+save_data_indices: true # Enable saving data indices
+
+# Unsharded checkpoints (for ddp)
+save_interval_unsharded: 5000
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+max_duration: 20ba # Run for 20 batches
+stop_at: null # Don't stop at a specific step
+global_train_batch_size: 1024
+device_train_microbatch_size: 16
+
+precision: amp_bf16
+# Force single GPU for simplicity and to ensure rank0 file is generated as expected.
+# This will make the run slower but it's a short run anyway.
+# The alternative is to use torchrun but then I need to figure out how to make only rank 0
+# save the indices file, or read the file from the correct rank.
+# For now, this is simpler.
+distributed_strategy: single
+
+
+gen1_gc_interval: 1
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 20
+
+eval_interval: 100000 # Disable evaluation during the run
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators: [] # No evaluators
+
+data:
+  pad_direction: right
+  num_workers: 1 # Reduce workers to minimize potential sources of non-determinism
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 2 # Reduce prefetch factor
+  persistent_workers: false # Disable persistent workers
+  timeout: 0
+  instance_filter: null # Disable instance filter for simplicity
+  paths:
+    - test_fixtures/dummy_data.npy

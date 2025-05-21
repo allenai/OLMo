@@ -64,8 +64,8 @@ tokenizer:
 
 save_overwrite: false
 
-save_interval: 1000
-save_interval_ephemeral: 250
+save_interval: 100
+save_interval_ephemeral: 100 # Also reduce this to be <= save_interval
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: olmo_core
 
@@ -77,8 +77,8 @@ load_path: https://olmo-checkpoints.org/ai2-llm/peteish7/step928646-unsharded
 restore_dataloader: false
 no_pre_train_checkpoint: true
 
-max_duration: 50e9T
-stop_at: 11931                  # round(50e9 / (1024 * 4096)) + 10
+max_duration: 100 # Run for 100 steps (optimizer steps)
+# stop_at: 100 # End after 100 steps. removed as max_duration as int should handle it.
 global_train_batch_size: 1024
 device_train_microbatch_size: 2
 
@@ -96,7 +96,7 @@ speed_monitor:
 
 gen1_gc_interval: 1
 
-eval_interval: 1000
+eval_interval: 100
 eval_subset_num_batches: -1
 device_eval_batch_size: ${device_train_microbatch_size}
 evaluators:

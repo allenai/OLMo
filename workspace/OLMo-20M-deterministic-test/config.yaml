@@ -1,0 +1,158 @@
+run_name: OLMo-20M-deterministic-test
+seed: 6198
+epoch: null
+dry_run: false
+model:
+  d_model: 256
+  n_heads: 8
+  n_kv_heads: null
+  clip_qkv: null
+  n_layers: 8
+  mlp_ratio: 8
+  mlp_hidden_size: null
+  activation_type: swiglu
+  block_type: sequential
+  block_group_size: 1
+  alibi: false
+  alibi_bias_max: 8.0
+  rope: true
+  rope_full_precision: true
+  rope_theta: 10000
+  flash_attention: true
+  attention_dropout: 0.0
+  multi_query_attention: null
+  attention_layer_norm: false
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  embedding_layer_norm: false
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1.0e-06
+  attention_layer_norm_with_affine: false
+  max_sequence_length: 4096
+  include_bias: false
+  bias_for_layer_norm: false
+  scale_logits: false
+  vocab_size: 50280
+  embedding_size: 50304
+  weight_tying: false
+  eos_token_id: 0
+  pad_token_id: 1
+  init_device: cpu
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3.0
+  precision: amp_bf16
+  scale_emb_init: false
+  emb_init_std: null
+  norm_after: false
+optimizer:
+  name: adamw
+  learning_rate: 0.0006
+  weight_decay: 0.1
+  betas:
+  - 0.9
+  - 0.95
+  eps: 1.0e-08
+  no_decay_norm_and_bias: null
+  selective_updates: false
+  decay_norm_and_bias: true
+  decay_embeddings: true
+  metrics_log_interval: 10
+  record_update_metrics: false
+scheduler:
+  name: cosine_with_warmup
+  units: steps
+  t_warmup: 5000
+  t_max: null
+  alpha_f: 0.1
+  grad_clip_warmup_steps: null
+  grad_clip_warmup_factor: null
+  warmup_min_lr: 0.0
+data:
+  paths:
+  - test_fixtures/dummy_data.npy
+  memmap_dtype: uint16
+  datasets: null
+  label_mask_paths: null
+  pad_direction: right
+  generate_attention_mask: false
+  generate_doc_lengths: false
+  num_workers: 1
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 2
+  persistent_workers: false
+  timeout: 0
+  seed: null
+  instance_filter: null
+  custom_dataset: null
+restore_dataloader: true
+fast_forward_batches: null
+evaluators: []
+eval_interval: 100000
+tokenizer:
+  identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
+  truncate_direction: right
+save_folder: workspace/OLMo-20M-deterministic-test
+remote_save_folder: null
+canceled_check_interval: 50
+save_interval: 1000
+save_interval_unsharded: 5000
+save_interval_ephemeral: null
+save_num_checkpoints_to_keep: -1
+save_num_unsharded_checkpoints_to_keep: -1
+save_overwrite: true
+force_save_unsharded: false
+no_pre_train_checkpoint: false
+load_path: null
+load_path_sharded_checkpointer: null
+try_load_latest_save: false
+reset_optimizer_state: false
+reset_trainer_state: false
+sharded_checkpointer: torch_legacy
+new_style_checkpoints: null
+max_duration: 20ba
+global_train_batch_size: 1024
+device_train_batch_size: 1024
+device_train_microbatch_size: 16
+device_eval_batch_size: 16
+eval_subset_num_batches: -1
+eval_on_load: false
+device_train_grad_accum: 64
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+precision: amp_bf16
+wandb: null
+speed_monitor:
+  window_size: 20
+  gpu_flops_available: null
+console_log_interval: 1
+gen1_gc_interval: 1
+compile: null
+distributed_strategy: single
+fsdp:
+  use_orig_params: true
+  sharding_strategy: FULL_SHARD
+  wrapping_strategy: null
+  precision: pure
+  hybrid_sharding_num_model_replicas: null
+ddp:
+  grad_sync_mode: batch
+  find_unused_params: false
+single:
+  device: auto
+softmax_auxiliary_loss: false
+auxiliary_loss_multiplier: 0.0001
+time_limit: null
+extra_steps_after_cancel: 10
+early_stopping_factor: null
+save_data_indices: true
+python_profiling: false
+torch_profiling: false
+stop_at: null
+stop_after: null
+activation_checkpointing: null
+fused_loss: null
+hf_datasets_cache_dir: null
+module_outputs_save_steps: null

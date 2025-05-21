@@ -832,6 +832,9 @@ class Trainer:
     def train_step(self, batch: Dict[str, Any], reduce_global_loss: bool = True) -> Dict[str, float]:
         metrics: Dict[str, float] = {}
 
+        if get_global_rank() == 0:
+            print(f"RANK0_INPUT_IDS_SUM: {torch.sum(batch['input_ids']).item()}")
+
         # Write data-indices to file.
         if self.indices_file is not None and "index" in batch:
             indices = "\t".join(str(int(i)) for i in batch["index"])

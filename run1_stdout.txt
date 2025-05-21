@@ -1,0 +1,38 @@
+2025-05-21 17:50:36.585	devbox:0	train:417	INFO	CLI environment prepared
+2025-05-21 17:50:36.632	devbox:0	olmo.util:168	CRITICAL	Uncaught ScannerError: while scanning for the next token
+found character '`' that cannot start any token
+  in "/app/configs/tiny/OLMo-deterministic-test-final.yaml", line 114, column 1
+Traceback (most recent call last):
+  File "/app/scripts/train.py", line 426, in <module>
+    cfg = TrainConfig.load(yaml_path, [clean_opt(s) for s in args_list])
+  File "/home/swebot/.local/lib/python3.10/site-packages/olmo/config.py", line 139, in load
+    raw = om.load(str(path))
+  File "/home/swebot/.local/lib/python3.10/site-packages/omegaconf/omegaconf.py", line 190, in load
+    obj = yaml.load(f, Loader=get_yaml_loader())
+  File "/home/swebot/.local/lib/python3.10/site-packages/yaml/__init__.py", line 81, in load
+    return loader.get_single_data()
+  File "/home/swebot/.local/lib/python3.10/site-packages/yaml/constructor.py", line 49, in get_single_data
+    node = self.get_single_node()
+  File "/home/swebot/.local/lib/python3.10/site-packages/yaml/composer.py", line 36, in get_single_node
+    document = self.compose_document()
+  File "/home/swebot/.local/lib/python3.10/site-packages/yaml/composer.py", line 55, in compose_document
+    node = self.compose_node(None, None)
+  File "/home/swebot/.local/lib/python3.10/site-packages/yaml/composer.py", line 84, in compose_node
+    node = self.compose_mapping_node(anchor)
+  File "/home/swebot/.local/lib/python3.10/site-packages/yaml/composer.py", line 133, in compose_mapping_node
+    item_value = self.compose_node(node, item_key)
+  File "/home/swebot/.local/lib/python3.10/site-packages/yaml/composer.py", line 84, in compose_node
+    node = self.compose_mapping_node(anchor)
+  File "/home/swebot/.local/lib/python3.10/site-packages/yaml/composer.py", line 127, in compose_mapping_node
+    while not self.check_event(MappingEndEvent):
+  File "/home/swebot/.local/lib/python3.10/site-packages/yaml/parser.py", line 98, in check_event
+    self.current_event = self.state()
+  File "/home/swebot/.local/lib/python3.10/site-packages/yaml/parser.py", line 428, in parse_block_mapping_key
+    if self.check_token(KeyToken):
+  File "/home/swebot/.local/lib/python3.10/site-packages/yaml/scanner.py", line 116, in check_token
+    self.fetch_more_tokens()
+  File "/home/swebot/.local/lib/python3.10/site-packages/yaml/scanner.py", line 258, in fetch_more_tokens
+    raise ScannerError("while scanning for the next token", None,
+yaml.scanner.ScannerError: while scanning for the next token
+found character '`' that cannot start any token
+  in "/app/configs/tiny/OLMo-deterministic-test-final.yaml", line 114, column 1

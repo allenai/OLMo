@@ -1,35 +1,64 @@
-save_folder: "/tmp/olmo-train-tiny"
-model:
+# Using settings suitable for run_dataloader.py and determinism test
+save_folder: "/tmp/olmo-tiny-deterministic-test" # Not strictly used by run_dataloader but good practice
+seed: 42
+wandb: null # Not used by run_dataloader
+remote_save_folder: null # Not used by run_dataloader
+save_overwrite: true # Not strictly used by run_dataloader
+# save_data_indices: false # Removed, not used by run_dataloader for this test
+
+model: # These model params are mostly for train.py, but tokenizer uses some
   d_model: 128
   n_heads: 4
   n_layers: 4
   mlp_ratio: 4
-  alibi: false
-  alibi_bias_max: 8.0
-  attention_dropout: 0.1
-  attention_layer_norm: false
-  residual_dropout: 0.1
-  embedding_dropout: 0.1
-  max_sequence_length: 512
-  vocab_size: 50257
-  eos_token_id: 50256
-  pad_token_id: 50256
+  max_sequence_length: 256 # Important for data chunking
+  vocab_size: 50257       # From original train_tiny.yaml (GPT2 size)
+  eos_token_id: 50256     # From original train_tiny.yaml
+  pad_token_id: 50256     # From original train_tiny.yaml (gpt2 uses eos as pad)
   init_device: null
   init_std: 0.02
-optimizer:
+  # Fields from OLMo-20M that might be needed by config system, though run_dataloader.py might not use them all.
+  # Keeping them to ensure config loads without issues.
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: true
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  clip_qkv: null
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+
+optimizer: # Not used by run_dataloader.py
   learning_rate: 0.001
-scheduler:
+scheduler: # Not used by run_dataloader.py
   name: "cosine_with_warmup"
-  t_warmup: 10
+  t_warmup: 2
 data:
   paths:
-    - "/tmp/c4-sample.npy"
-  persistent_workers: false
-  num_workers: 0
-  prefetch_factor: null
+    - "/tmp/c4-sample.npy" # Using the copied minimal_data.npy
+  num_workers: 1 # For determinism
+  persistent_workers: false # For determinism
+  prefetch_factor: null # Should be None if num_workers is 0, but we have 1. Set to 2 for safety.
+  # prefetch_factor: 2 # Explicitly set if num_workers > 0
+  seed: ${seed} # Propagate top-level seed
+  drop_last: true # Ensure consistent batch sizes
+  # num_inspect_batches: 5 # This is not a standard TrainConfig field, handled in script mod
+  memmap_dtype: uint16 # Ensure this matches the data saved in /tmp/c4-sample.npy
 tokenizer:
-  identifier: "gpt2"
-save_overwrite: true
-max_duration: 4
-global_train_batch_size: 8
-device_train_microbatch_size: 4
+  identifier: "gpt2" # This is a standard tokenizer, should load fine
+# max_duration: 5ba # Not used by run_dataloader.py
+global_train_batch_size: 2 # Used by run_dataloader.py
+device_train_microbatch_size: 1 # Used by run_dataloader.py to calc grad_accum if build_train_dataloader was used
+# eval_interval: 1000 # Not used by run_dataloader.py
+# evaluators: [] # Not used by run_dataloader.py
+# distributed_strategy: single # run_dataloader.py initializes its own basic DDP
+# precision: bf16 # Not used by run_dataloader.py

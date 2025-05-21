@@ -1,0 +1,114 @@
+run_name: OLMo-deterministic-test-final
+seed: 1234
+dry_run: false
+
+wandb: null
+
+model:
+  # Using smaller model params from train_tiny.yaml for speed
+  d_model: 128
+  n_heads: 4
+  n_layers: 4
+  mlp_ratio: 4
+  max_sequence_length: 256  # Reduced to fit minimal_data.npy if it's small
+  vocab_size: 50280 # from OLMo-20M
+  embedding_size: 50304 # from OLMo-20M
+  eos_token_id: 0 # from OLMo-20M
+  pad_token_id: 1 # from OLMo-20M
+  init_device: cpu # Ensure CPU for CPU-only torch
+  # Other model params from OLMo-20M that are likely safe
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: true # Will be ignored if flash-attn not avail / on CPU
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  clip_qkv: null
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3
+
+optimizer:
+  name: adamw
+  learning_rate: 6.0e-4
+  weight_decay: 0.1
+  eps: 1e-8
+  decay_norm_and_bias: true
+  decay_embeddings: true
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 10000 # Effectively disable
+
+scheduler:
+  name: cosine_with_warmup
+  t_warmup: 50 # shorter warmup for a short run
+  alpha_f: 0.1
+  warmup_min_lr: 0
+
+tokenizer:
+  identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
+  truncate_direction: right
+
+save_folder: workspace/${run_name}
+remote_save_folder: null
+save_overwrite: true
+save_data_indices: true # This is key for the test
+
+load_path: null
+
+max_duration: 10ba # Run for 10 batches
+global_train_batch_size: 2 # Small batch size
+device_train_microbatch_size: 1 # Smallest microbatch
+
+precision: bf16 # Will use float32 on CPU
+distributed_strategy: single
+
+eval_interval: 100000 # Effectively disable evaluation
+eval_subset_num_batches: -1
+evaluators: []
+
+data:
+  paths:
+    - test_fixtures/minimal_data.npy
+  memmap_dtype: uint16 # Matches the dtype of minimal_data.npy
+  num_workers: 1
+  drop_last: true # Important for consistent batching
+  pin_memory: false # Not relevant for CPU
+  prefetch_factor: 2
+  persistent_workers: false
+  timeout: 0
+  instance_filter: null
+  seed: ${seed} # Explicitly use the global seed for data
+  # Make sure the dataset is compatible with the small model
+  # The dummy data has 50 tokens per sequence. max_sequence_length is 256.
+  # global_train_batch_size is 2. So each batch is 2 * 256 = 512 tokens.
+  # The dummy data has 1 sequence of 50 * 2048 = 102400 tokens.
+  # This should be enough for 10 batches.
+  # 10 batches * 512 tokens/batch = 5120 tokens needed. We have 102400.
+  # The IterableDataset will internally chunk this. With max_sequence_length 256,
+  # one row of minimal_data.npy (102400 tokens) will be split into 102400/256 = 400 instances.
+  # This is enough for 10 batches of global_batch_size 2 (needs 20 instances).
+  # The `build_memmap_dataset` in `olmo/data/__init__.py` might be relevant here.
+  # It seems `IterableDataset` directly uses the memmap_dataset.
+  # The `MemmapDataset` has a `__len__` which is calculated based on file size and chunk_size (max_sequence_length).
+  # And `IterableDataset` uses this len.
+  # The dummy data is `np.array([[10, 20, 30, 40, 50]*2048], dtype=np.uint16)`
+  # This array has shape (1, 10240).
+  # If this is treated as one single very long sequence, it will be chunked.
+  # If it's treated as 1 instance of 10240 tokens, that's fine.
+  # If it's treated as 10240 instances of 1 token, that's also fine.
+  # The important part is that the data loader can read it and produce batches.
+  # The `save_data_indices` relies on `dataset[index]` which means it should be indexable.
+  # `MemmapDataset` makes it indexable.
+```
