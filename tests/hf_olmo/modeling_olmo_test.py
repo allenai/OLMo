@@ -121,7 +121,7 @@ def test_save_pretrained(model_path: str):
         saved_hf_model = AutoModelForCausalLM.from_pretrained(tmp_dir)
         saved_hf_output = saved_hf_model(input_tensor)
 
-        torch.testing.assert_allclose(saved_hf_output.logits, hf_output.logits)
+        torch.testing.assert_close(saved_hf_output.logits, hf_output.logits)
 
 
 @pytest.mark.gpu
