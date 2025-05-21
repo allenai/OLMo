@@ -242,9 +242,9 @@ class Trainer:
             else:
                 raise NameError("`fused_loss_fn` is not defined. Please ensure that `flash_attn` is installed.")
         self.logger = None
-        if self.cfg.log_to_tensorbard:
+        if self.cfg.tensorboard_path:
             if HAS_TENSORBARD:
-                log_dir = Path(cfg.log_to_tensorbard)
+                log_dir = Path(self.cfg.tensorboard_path)
                 log_dir.mkdir(parents=True, exist_ok=True)
                 self.logger = TBNewSummaryWriter(log_dir=log_dir)
                 self.logger.write_args_to_tensorboard(self.cfg.asdict())

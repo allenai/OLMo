@@ -1200,7 +1200,7 @@ class TrainConfig(BaseConfig):
     Weights & Biases configuration.
     """
 
-    log_to_tensorbard: Optional[str] = None
+    tensorboard_path: Optional[str] = None
     """
     Path to tensorbard log output directory.
     """
