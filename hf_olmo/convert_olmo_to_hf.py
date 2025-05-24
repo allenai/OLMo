@@ -311,6 +311,10 @@ def main():
 
     print(f"Converted checkpoint saved to {args.destination_dir}")
 
+    # remove local dir copy
+    print(f"Removing temporary local dir: {local_checkpoint_dir}")
+    shutil.rmtree(local_checkpoint_dir)
+
 
 if __name__ == "__main__":
     main()
