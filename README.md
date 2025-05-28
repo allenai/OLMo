@@ -114,8 +114,8 @@ For the 1B model, we have trained three times with different data order on 50B h
 |------------------------|-------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|-------------|
 | random seed 42049         | [stage2-ingredient1-step23852-tokens50B](https://huggingface.co/allenai/OLMo-2-0425-1B/tree/stage2-ingredient1-step23852-tokens51B) | [OLMo2-1B-stage2-seed42069.yaml](configs/official-0425/OLMo2-1B-stage2-seed42069.yaml)       | [wandb.ai/OLMo2-1B](https://api.wandb.ai/links/ai2-llm/izdtrtu0) |
 | random seed 666      | [stage2-ingredient2-step23852-tokens50B](https://huggingface.co/allenai/OLMo-2-0425-1B/tree/stage2-ingredient2-step23852-tokens51B) | [OLMo2-1B-stage2-seed666.yaml](configs/official-0425/OLMo2-1B-stage2-seed666.yaml) | [wandb.ai/OLMo2-1B](https://api.wandb.ai/links/ai2-llm/izdtrtu0) |
-| random seed 42        | [stage2-ingredient3-step23852-tokens50B](https://huggingface.co/allenai/OLMo-2-0425-1B/tree/stage2-ingredient3-step23852-tokens51B) | [OLMo2-1B-stage2-seed42.yaml](configs/official-0425/OLMo2-1B-stage2-seed42.yaml)     | [wandb.ai/OLMo2-1B](https://api.wandb.ai/links/ai2-llm/izdtrtu0) |
-| **final souped model** | [main](https://huggingface.co/allenai/OLMo-2-0425-1B/tree/main) | no config, we just averaged the weights in Python |
+| random seed 42  (main)      | [stage2-ingredient3-step23852-tokens50B](https://huggingface.co/allenai/OLMo-2-0425-1B/tree/stage2-ingredient3-step23852-tokens51B) | [OLMo2-1B-stage2-seed42.yaml](configs/official-0425/OLMo2-1B-stage2-seed42.yaml)     | [wandb.ai/OLMo2-1B](https://api.wandb.ai/links/ai2-llm/izdtrtu0) |
+
 
 ### Stage 2 for the 7B
 
