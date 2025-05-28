@@ -108,7 +108,7 @@ You can find the .csv.gz files containing the training data [here](configs/offic
 
 ### Stage 2 for the 1B
 
-For the 1B model, we have trained three times with different data order on 50B high quality tokens, and then average ("soup") the models.
+For the 1B model, we have trained three times with different data order on 50B high quality tokens, used last checkpoint of seed 42 as final checkpoint.
 
 |                        | Checkpoint                                                                                                                          | Training config                                                                        | WandB       |
 |------------------------|-------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|-------------|
