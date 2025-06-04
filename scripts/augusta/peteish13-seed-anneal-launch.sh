@@ -11,13 +11,15 @@ shift
 SEED=$1
 shift
 
+# --cluster ai2/augusta-google-1 \
+
 gantry run \
   --workspace ai2/13B \
   --task-name $NAME \
   --description "Peteish13 annealing : $NAME with seed $SEED" \
   --priority normal \
   --preemptible \
-  --beaker-image dirkg/OLMo \
+  --beaker-image petew/olmo-torch23-gantry \
   --cluster ai2/augusta-google-1 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
