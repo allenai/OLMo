@@ -14,8 +14,10 @@ requires-python = ">=3.10"
 license = { file = "LICENSE" }
 dependencies = [
     "numpy<2",
-    "torch==2.3.0", # torch>=2.1
+    # "torch==2.3.0", # torch>=2.1
+    "torch==2.5.1", # dirkg/OLMo
     # "ai2-olmo-core>=1.8.0", 
+    # "ai2-olmo-core==0.1.0", # dirkg/OLMo
     "omegaconf",
     "rich",
     "boto3",
@@ -51,7 +53,8 @@ train = [
     "scikit-learn",
     "msgspec>=0.14.0",
     # "flash-attn>=2.7.4.post1"
-    "flash-attn==2.5.9.post1"
+    # "flash-attn==2.5.9.post1"
+    "flash-attn==2.6.3" # dirkg/OLMo
 ]
 all = [
     "ai2-olmo[dev,train]",
