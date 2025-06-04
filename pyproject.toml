@@ -52,8 +52,8 @@ train = [
     "datasets",
     "scikit-learn",
     "msgspec>=0.14.0",
-    # "flash-attn>=2.7.4.post1"
-    # "flash-attn==2.5.9.post1"
+    # "flash-attn==2.7.0.post2" # cuda 12.8 (for local install)
+    # "flash-attn==2.5.9.post1" # shane container
     "flash-attn==2.6.3" # dirkg/OLMo
 ]
 all = [
