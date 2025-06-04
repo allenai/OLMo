@@ -54,7 +54,7 @@ export TORCH_DIST_INIT_BARRIER=1
 export PYTHONFAULTHANDLER=1
 
 NAME=${GANTRY_TASK_NAME// /_}
-FILENAME=configs/annealing/$NAME-google.yaml
+FILENAME=configs/merge/$NAME-google.yaml
 NAME=$NAME-seed$SEED
 RUN_NAME=$NAME-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/data/$RUN_NAME
