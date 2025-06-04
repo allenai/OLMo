@@ -15,7 +15,7 @@ gantry run \
   --workspace ai2/13B \
   --task-name $NAME \
   --description "Peteish13 annealing : $NAME with seed $SEED" \
-  --priority urgent \
+  --priority normal \
   --preemptible \
   --beaker-image dirkg/OLMo \
   --cluster ai2/augusta-google-1 \
@@ -24,7 +24,6 @@ gantry run \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
-  --no-nfs \
   --propagate-failure \
   --propagate-preemption \
   --synchronized-start-timeout 15m \
