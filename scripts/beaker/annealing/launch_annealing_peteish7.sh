@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Launcher for peteish7 annealing runs on Jupiter.
+# Launcher for peteish7 annealing merged runs on Jupiter.
 
 set -ex
 
@@ -8,7 +8,7 @@ CONFIG_NAME=$1
 NUM_NODES=$2
 PRIORITY=$3
 
-CONFIG_DIR=configs/annealing
+CONFIG_DIR=configs/merge
 CONFIG_PATH=${CONFIG_DIR}/${CONFIG_NAME}.yaml
 
 gantry run \
