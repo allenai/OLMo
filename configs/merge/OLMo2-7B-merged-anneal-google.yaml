@@ -77,6 +77,10 @@ save_num_unsharded_checkpoints_to_keep: -1
 # load_path: gs://ai2-llm/checkpoints/davidh/OLMo-medium/peteish7-highlr/step880000-unsharded
 load_path: gs://ai2-llm/checkpoints/OLMo-medium/peteish7-highlr/step882000-unsharded
 
+# davidh: Add theese keys
+reset_trainer_state: true
+reset_optimizer_state: true
+
 restore_dataloader: false
 no_pre_train_checkpoint: true
 
