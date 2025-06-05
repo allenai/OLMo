@@ -339,7 +339,10 @@ def main(cfg: TrainConfig) -> None:
             # And they we verify that we can load it.
             log.info("Attempting to load pre-train checkpoint...")
             trainer.restore_checkpoint(
-                checkpoint_path, checkpoint_type=checkpoint_type, local_cache=local_checkpoint_cache
+                checkpoint_path, checkpoint_type=checkpoint_type, 
+                load_optimizer_state=not cfg.reset_optimizer_state,
+                load_trainer_state=not cfg.reset_trainer_state,
+                local_cache=local_checkpoint_cache
             )
             log.info("Checkpoint successfully loaded")
 
