@@ -787,7 +787,8 @@ class FullCheckpointer(Checkpointer):
             trainer_state = load_state_dict(load_path, "train.pt", local_cache=local_cache)
         except FileNotFoundError:
             # for backwards compatibility
-            trainer_state = load_state_dict(load_path, "other.pt", local_cache=local_cache)
+            # trainer_state = load_state_dict(load_path, "other.pt", local_cache=local_cache)
+            trainer_state = None
         barrier()
         return trainer_state
 
