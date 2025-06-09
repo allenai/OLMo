@@ -16,7 +16,7 @@ fi
 
 
 gantry run \
-  --workspace ai2/13B \
+  --workspace ai2/olmo-merge \
   --task-name $NAME \
   --description "Peteish7 annealing: $NAME" \
   --priority ${PRIORITY} \
