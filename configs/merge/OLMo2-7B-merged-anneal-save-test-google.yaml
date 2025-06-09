@@ -75,7 +75,7 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 # load_path: https://olmo-checkpoints.org/ai2-llm/peteish7/step928646-unsharded
 # load_path: gs://ai2-llm/checkpoints/OLMo-medium/peteish7-highlr/step928000-unsharded
-load_path: gs://ai2-llm/checkpoints/OLMo-medium/peteish7-highlr/save-test
+load_path: gs://ai2-llm/checkpoints/OLMo-medium/peteish7-highlr/save-test-unsharded
 
 # davidh: Add theese keys
 reset_trainer_state: true
