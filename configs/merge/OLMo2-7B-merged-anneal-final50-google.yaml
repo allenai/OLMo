@@ -1,4 +1,4 @@
-run_name: OLMo2-7B-stage2-seed42
+run_name: OLMo2-7B-stage2-seed42-final50-merged
 seed: 42
 dry_run: false
 
@@ -75,7 +75,8 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 # load_path: https://olmo-checkpoints.org/ai2-llm/peteish7/step928646-unsharded
 # load_path: gs://ai2-llm/checkpoints/OLMo-medium/peteish7-highlr/step928000-unsharded
-load_path: gs://ai2-llm/checkpoints/OLMo-medium/peteish7-highlr/save-test-unsharded
+# load_path: gs://ai2-llm/checkpoints/OLMo-medium/peteish7-highlr/save-test-unsharded
+load_path: gs://ai2-llm/checkpoints/OLMo-medium/peteish7-highlr/merged-final50-unsharded
 
 # davidh: Add theese keys
 reset_trainer_state: true
