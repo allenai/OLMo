@@ -74,11 +74,10 @@ save_num_unsharded_checkpoints_to_keep: -1
 
 # load_path: https://olmo-checkpoints.org/ai2-llm/peteish7/step928646-unsharded
 # load_path: /oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646
-load_path: /oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step900000
+# load_path: /oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step900000
 # load_path: /oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step900000-unsharded
 # load_path: /oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step928646-hf-unsharded
-
-# /oe-eval-default/ai2-llm/checkpoints/OLMo-medium/peteish13-highlr/step548000-unsharded
+load_path: /oe-eval-default/ai2-llm/checkpoints/OLMo-medium/peteish7-highlr/merge-test
 
 restore_dataloader: false
 no_pre_train_checkpoint: true
