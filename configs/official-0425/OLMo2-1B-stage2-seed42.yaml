@@ -48,7 +48,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 0.00036279
+  learning_rate: 0.000074487
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
@@ -56,7 +56,7 @@ optimizer:
   betas:
   - 0.9
   - 0.95
-  metrics_log_interval: 1
+  metrics_log_interval: 10
 
 scheduler:
   name: linear_with_warmup
@@ -71,7 +71,7 @@ save_folder: http://olmo-data.org/checkpoints/OLMo-small/${run_name}
 save_overwrite: false
 
 save_interval: 1000
-save_interval_ephemeral: 250
+save_interval_ephemeral: 1000
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: olmo_core
 
@@ -107,7 +107,7 @@ gen1_gc_interval: 10
 
 eval_interval: 1000
 eval_subset_num_batches: -1
-device_eval_batch_size: ${device_train_microbatch_size}
+device_eval_batch_size: 8
 evaluators:
   # - label: all-small-ppl-validation
   #   data:
