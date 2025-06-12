@@ -2,7 +2,6 @@
 
 import gzip
 import logging
-import os
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -51,9 +50,6 @@ log = logging.getLogger("train")
 
 
 def main(cfg: TrainConfig) -> None:
-    if not (os.path.exists(cfg.save_folder) or "anneal" in cfg.save_folder):
-        cfg.load_path = None
-
     # Ensure run name set.
     if cfg.run_name is None:
         raise OLMoConfigurationError("--run_name is required")
