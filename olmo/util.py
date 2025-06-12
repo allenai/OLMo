@@ -704,18 +704,31 @@ def _http_file_size(scheme: str, host_name: str, path: str) -> int:
 def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: int, num_bytes: int) -> bytes:
     import requests
 
-    response = requests.get(
-        f"{scheme}://{host_name}/{path}", headers={"Range": f"bytes={bytes_start}-{bytes_start+num_bytes-1}"}
+    max_retries = 5
+    attempt = 0
+    while attempt < max_retries:
+        try:
+            response = requests.get(
+                f"{scheme}://{host_name}/{path}",
+                headers={"Range": f"bytes={bytes_start}-{bytes_start+num_bytes-1}"},
+            )
+            result = response.content
+            if len(result) == num_bytes:
+                return result
+
+            log.warning(f"Expected {num_bytes} bytes, but got {len(result)}. Retrying...")
+
+        except requests.exceptions.RequestException as e:
+            log.warning(f"Attempt {attempt+1}/{max_retries}. Network error: {e}. Retrying...")
+        attempt += 1
+        time.sleep(2**attempt)
+    raise ValueError(
+        f"Failed to download {num_bytes} bytes from {scheme}://{host_name}/{path} after {max_retries} attempts."
     )
-    result = response.content
-    assert (
-        len(result) == num_bytes
-    ), f"expected {num_bytes} bytes, got {len(result)}"  # Some web servers silently ignore range requests and send everything
-    return result
 
 
 def save_hf_dataset_to_disk(
-    dataset: datasets.DatasetDict | datasets.Dataset,
+    dataset: Union[datasets.DatasetDict, datasets.Dataset],
     hf_path: str,
     name: Optional[str],
     split: str,

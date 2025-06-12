@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.8', '3.10']
+        python: ['3.10']
         task:
           - name: Lint
             run: |
@@ -98,7 +98,7 @@ jobs:
 
       - name: Upload package distribution files
         if: matrix.task.name == 'Build'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: package
           path: dist
@@ -147,8 +147,7 @@ jobs:
                   gpuCount: 1
                 constraints:
                   cluster:
-                    - ai2/general-cirrascale
-                    - ai2/allennlp-cirrascale
+                    - ai2/neptune-cirrascale
                 envVars:
                   - name: COMMIT_SHA
                     value: ${{ env.COMMIT_SHA }}
@@ -188,7 +187,7 @@ jobs:
           echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
       - name: Download package distribution files
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: package
           path: dist

@@ -28,8 +28,8 @@ from transformers.models.gpt_neox.tokenization_gpt_neox_fast import GPTNeoXToken
 """
 Sample usage:
 ```
-python src/transformers/models/olmo/convert_olmo_weights_to_hf.py \
-    --input_dir /path/to/downloaded/olmo/weights --model_size 7B --output_dir /output/path
+python scripts/convert_olmo_to_hf_new.py \
+    --input_dir /path/to/downloaded/olmo/weights --output_dir /output/path
 ```
 Thereafter, models can be loaded via:
 ```py
