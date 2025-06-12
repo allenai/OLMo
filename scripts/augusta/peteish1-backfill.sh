@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
-
 set -exuo pipefail
 IFS=$'\n\t'
-
-#BEAKER_LEADER_REPLICA_HOSTNAME=$1
-#shift
-
-#BEAKER_REPLICA_RANK=$1
-#shift
-
+BEAKER_LEADER_REPLICA_HOSTNAME=$1
+shift
+BEAKER_REPLICA_RANK=$1
+shift
 # augusta specific environment
 export LD_LIBRARY_PATH="/var/lib/tcpxo/lib64:${LD_LIBRARY_PATH}"
 export NCCL_CROSS_NIC=0
@@ -38,15 +34,10 @@ export NCCL_USE_SNAP=1
 export NCCL_FASTRAK_USE_LLCM=1
 export NCCL_FASTRAK_LLCM_DEVICE_DIRECTORY=/dev/aperture_devices
 
-# Install flash-attn
-#conda install -y pytorch-cuda==12.4 packaging ninja cccl cuda-nvcc libcusolver-dev cuda-profiler-api libcusparse-dev libcublas-dev -c pytorch -c nvidia
-#pip install flash-attn==2.5.9.post1 --no-build-isolation
 pip install '.[train]'
 pip freeze
 
-# Force processes to synchronize at init_process_group
 export TORCH_DIST_INIT_BARRIER=1
-# Better error handling from Python
 export PYTHONFAULTHANDLER=1
 
 NAME=${GANTRY_TASK_NAME// /_}
@@ -55,30 +46,26 @@ SAVE_FOLDER=/data/$RUN_NAME
 mkdir -p $SAVE_FOLDER
 
 torchrun \
-  #--nnodes "${BEAKER_REPLICA_COUNT}:${BEAKER_REPLICA_COUNT}" \
-  --nproc-per-node 1 \
-  --standalone \
-  #--rdzv_id 12348 \
-  #--rdzv_backend static \
-  #--rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
-  #--node_rank "${BEAKER_REPLICA_RANK}" \
-  #--rdzv_conf 'read_timeout=420' \
+  --nnodes "${BEAKER_REPLICA_COUNT}:${BEAKER_REPLICA_COUNT}" \
+  --nproc-per-node 8 \
+  --rdzv_id 12348 \
+  --rdzv_backend static \
+  --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
+  --node_rank "${BEAKER_REPLICA_RANK}" \
+  --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
     configs/peteish1-google.yaml \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
       --save_interval_ephemeral=1000 \
+      --save_interval_unsharded=1000 \
       --eval_interval=1000 \
-	  --fsdp.sharding_strategy=FULL_SHARD \
-	  --save_folder=/weka/oe-training-default/ai2-llm/checkpoints/peteish1-backfill-1k \
-	  --remote_save_folder=gs://ai2-llm/checkpoints/OLMo-medium/peteish1-backfill-1k/ \
-	  --load_path=https://olmo-checkpoints.org/ai2-llm/peteish1/step0-unsharded/ \
-      #--fsdp.sharding_strategy=_HYBRID_SHARD_ZERO2 \
-      #--fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
-      #--fsdp.wrapping_strategy=by_block_and_size \
-      #--save_folder=$SAVE_FOLDER \
-      #--remote_save_folder="gs://ai2-llm/checkpoints/OLMo-medium/$NAME/" \
-      --try_load_latest_save \
+      --fsdp.sharding_strategy=_HYBRID_SHARD_ZERO2 \
+      --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
+      --fsdp.wrapping_strategy=by_block_and_size \
+      --save_folder=/weka/oe-training-default/ai2-llm/checkpoints/peteish1-backfill-1k \
+      --remote_save_folder=gs://ai2-llm/checkpoints/OLMo-medium/peteish1-backfill-1k/ \
+      --load_path=https://olmo-checkpoints.org/ai2-llm/peteish1/step0-unsharded/ \
       --save_overwrite \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=4 \
