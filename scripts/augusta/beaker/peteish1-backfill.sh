@@ -11,6 +11,8 @@ This script has been modified from the original peteish1.sh for the purpose of r
       --save_interval_unsharded=1000
       --sharding_strategy=FULL_SHARD
       --sharded_checkpointer=torch
+  - Checkpoints are named with "-backfill" suffix to avoid overwriting
+      - remove --save_overwrite, for now
 """
 
 set -exuo pipefail
@@ -56,7 +58,7 @@ export TORCH_DIST_INIT_BARRIER=1
 export PYTHONFAULTHANDLER=1
 
 NAME=${GANTRY_TASK_NAME// /_}
-RUN_NAME=$NAME-$(date -u +"%Y%m%d_%H%M%S")
+RUN_NAME=$NAME-backfill-$(date -u +"%Y%m%d_%H%M%S")
 SAVE_FOLDER=/data/$RUN_NAME
 mkdir -p $SAVE_FOLDER
 
@@ -81,7 +83,6 @@ torchrun \
       --save_folder=/weka/oe-training-default/ai2-llm/checkpoints/peteish1-backfill \
       --remote_save_folder=gs://ai2-llm/checkpoints/OLMo-medium/peteish1-backfill/ \
       --load_path=https://olmo-checkpoints.org/ai2-llm/peteish1/step0-unsharded/ \
-      --save_overwrite \
       --sharded_checkpointer=torch \
       --device_train_microbatch_size=4 \
       --device_eval_batch_size=8 \
