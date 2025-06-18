@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 
-"""
-This script has been modified from the original peteish1-launch.sh for the purpose of resuming training from step0 through 10k, saving every 1k.
-It currently lives in /augusta/beaker but should eventually be moved to scripts/beaker/peteish1.
-"""
+# This script has been modified from the original peteish1-launch.sh for the purpose of resuming training from step0 through 10k, saving every 1k.
+# It currently lives in /augusta/beaker but should eventually be moved to scripts/beaker/peteish1.
+
 
 set -ex
 NUM_NODES=$1
