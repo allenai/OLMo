@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 """
 This script has been modified from the original peteish1.sh for the purpose of resuming training from step0 through 20k, saving every 1k.
   - Loading in checkpoint at step 0 (https://olmo-checkpoints.org/ai2-llm/peteish1/step0-unsharded)
@@ -68,7 +69,7 @@ torchrun \
   --rdzv_id 12348 \
   --rdzv_backend static \
   --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
-  --node_rank 0 \
+  --node_rank ${BEAKER_REPLICA_RANK} \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
     configs/peteish1-weka.yaml \
