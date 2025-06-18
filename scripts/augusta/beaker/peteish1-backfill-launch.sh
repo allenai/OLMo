@@ -22,7 +22,6 @@ gantry run \
   --budget ai2/oe-training \
   --propagate-failure \
   --propagate-preemption \
-  --synchronized-start-timeout 15m \
   --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
