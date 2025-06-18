@@ -15,7 +15,7 @@ gantry run \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
   --cluster ai2/titan-cirrascale \
-  --gpus 6 \
+  --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
