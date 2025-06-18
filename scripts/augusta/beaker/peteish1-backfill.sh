@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-
 """
 This script has been modified from the original peteish1.sh for the purpose of resuming training from step0 through 20k, saving every 1k.
   - Loading in checkpoint at step 0 (https://olmo-checkpoints.org/ai2-llm/peteish1/step0-unsharded)
   - Training will stop at 10k, then will resume either with the backfill 10k checkpoint or the original, through 20k
-    - --stop_at 10000
+      --stop_at 10000
   - Using 1 node instead of 8 (hardcoded --nnodes 1)
   - Subbing in peteish1-weka.yaml (augusta not available)
   - Saving directly as unsharded
+      --save_interval_ephemeral=null
+      --save_interval_unsharded=1000
+      --sharding_strategy=FULL_SHARD
+      --sharded_checkpointer=torch
 """
 
 set -exuo pipefail
@@ -16,6 +19,7 @@ BEAKER_LEADER_REPLICA_HOSTNAME=$1
 shift
 BEAKER_REPLICA_RANK=$1
 shift
+
 # augusta specific environment
 export LD_LIBRARY_PATH="/var/lib/tcpxo/lib64:${LD_LIBRARY_PATH}"
 export NCCL_CROSS_NIC=0
@@ -62,24 +66,23 @@ torchrun \
   --rdzv_id 12348 \
   --rdzv_backend static \
   --rdzv_endpoint "${BEAKER_LEADER_REPLICA_HOSTNAME}:29400" \
-  --node_rank "${BEAKER_REPLICA_RANK}" \
+  --node_rank 0 \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
     configs/peteish1-weka.yaml \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
-      --save_interval_ephemeral=1000 \
+      --save_interval_ephemeral=null \
       --save_interval_unsharded=1000 \
       --eval_interval=1000 \
-      --fsdp.sharding_strategy=_HYBRID_SHARD_ZERO2 \
-      --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
+      --fsdp.sharding_strategy=FULL_SHARD \
       --fsdp.wrapping_strategy=by_block_and_size \
       --try_load_latest_save \
       --save_folder=/weka/oe-training-default/ai2-llm/checkpoints/peteish1-backfill \
       --remote_save_folder=gs://ai2-llm/checkpoints/OLMo-medium/peteish1-backfill/ \
       --load_path=https://olmo-checkpoints.org/ai2-llm/peteish1/step0-unsharded/ \
       --save_overwrite \
-      --sharded_checkpointer=olmo_core \
+      --sharded_checkpointer=torch \
       --device_train_microbatch_size=4 \
       --device_eval_batch_size=8 \
       --compile.fullgraph=false \
