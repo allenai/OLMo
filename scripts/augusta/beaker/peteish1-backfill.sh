@@ -1,20 +1,19 @@
 #!/usr/bin/env bash
 
-"""
-This script has been modified from the original peteish1.sh for the purpose of resuming training from step0 through 20k, saving every 1k.
-  - Loading in checkpoint at step 0 (https://olmo-checkpoints.org/ai2-llm/peteish1/step0-unsharded)
-  - Training will stop at 10k, then will resume either with the backfill 10k checkpoint or the original, through 20k
-      --stop_at 10000
-  - Using 1 node instead of 8 (hardcoded --nnodes 1)
-  - Subbing in peteish1-weka.yaml (augusta not available)
-  - Saving directly as unsharded
-      --save_interval_ephemeral=null
-      --save_interval_unsharded=1000
-      --sharding_strategy=FULL_SHARD
-      --sharded_checkpointer=torch
-  - Checkpoints are named with "-backfill" suffix to avoid overwriting
-      - remove --save_overwrite, for now
-"""
+# This script has been modified from the original peteish1.sh for the purpose of resuming training from step0 through 20k, saving every 1k.
+#   - Loading in checkpoint at step 0 (https://olmo-checkpoints.org/ai2-llm/peteish1/step0-unsharded)
+#   - Training will stop at 10k, then will resume either with the backfill 10k checkpoint or the original, through 20k
+#       --stop_at 10000
+#   - Using 1 node instead of 8 (hardcoded --nnodes 1)
+#   - Subbing in peteish1-weka.yaml (augusta not available)
+#   - Saving directly as unsharded
+#       --save_interval_ephemeral=null
+#       --save_interval_unsharded=1000
+#       --sharding_strategy=FULL_SHARD
+#       --sharded_checkpointer=torch
+#   - Checkpoints are named with "-backfill" suffix to avoid overwriting
+#       - remove --save_overwrite, for now
+
 
 set -exuo pipefail
 IFS=$'\n\t'
