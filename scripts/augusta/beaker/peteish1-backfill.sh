@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+
+"""
+This script has been modified from the original peteish1.sh for the purpose of resuming training from step0 through 20k, saving every 1k.
+  - Loading in checkpoint at step 0 (https://olmo-checkpoints.org/ai2-llm/peteish1/step0-unsharded)
+  - Training will stop at 10k, then will resume either with the backfill 10k checkpoint or the original, through 20k
+    - --stop_at 10000
+  - Using 1 node instead of 8 (hardcoded --nnodes 1)
+  - Subbing in peteish1-weka.yaml (augusta not available)
+  - Saving directly as unsharded
+"""
+
 set -exuo pipefail
 IFS=$'\n\t'
 BEAKER_LEADER_REPLICA_HOSTNAME=$1
@@ -46,7 +57,7 @@ SAVE_FOLDER=/data/$RUN_NAME
 mkdir -p $SAVE_FOLDER
 
 torchrun \
-  --nnodes "${BEAKER_REPLICA_COUNT}:${BEAKER_REPLICA_COUNT}" \
+  --nnodes 1 \
   --nproc-per-node 8 \
   --rdzv_id 12348 \
   --rdzv_backend static \
@@ -54,7 +65,7 @@ torchrun \
   --node_rank "${BEAKER_REPLICA_RANK}" \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/peteish1-google.yaml \
+    configs/peteish1-weka.yaml \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
       --save_interval_ephemeral=1000 \
@@ -63,8 +74,9 @@ torchrun \
       --fsdp.sharding_strategy=_HYBRID_SHARD_ZERO2 \
       --fsdp.hybrid_sharding_num_model_replicas="${BEAKER_REPLICA_COUNT}" \
       --fsdp.wrapping_strategy=by_block_and_size \
-      --save_folder=/weka/oe-training-default/ai2-llm/checkpoints/peteish1-backfill-1k \
-      --remote_save_folder=gs://ai2-llm/checkpoints/OLMo-medium/peteish1-backfill-1k/ \
+      --try_load_latest_save \
+      --save_folder=/weka/oe-training-default/ai2-llm/checkpoints/peteish1-backfill \
+      --remote_save_folder=gs://ai2-llm/checkpoints/OLMo-medium/peteish1-backfill/ \
       --load_path=https://olmo-checkpoints.org/ai2-llm/peteish1/step0-unsharded/ \
       --save_overwrite \
       --sharded_checkpointer=olmo_core \
@@ -76,4 +88,4 @@ torchrun \
       --data.num_workers=8 \
       --optimizer.metrics_log_interval=10 \
       --data.prefetch_factor=8 \
-      --stop_at=20000
+      --stop_at=10000
