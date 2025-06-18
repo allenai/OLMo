@@ -16,7 +16,7 @@ gantry run \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
   --cluster ai2/titan-cirrascale \
   --gpus 6 \
-  --replicas 1 \
+  --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
