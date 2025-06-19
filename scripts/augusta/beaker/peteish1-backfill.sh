@@ -5,7 +5,7 @@
 #   - Training will stop at 10k, then will resume either with the backfill 10k checkpoint or the original, through 20k
 #       --stop_at 10000
 #   - Using 1 node instead of 8 (hardcoded --nnodes 1)
-#   - Subbing in peteish1-weka.yaml (augusta not available)
+#   - Subbing in peteish1-weka.yaml (if augusta not available)
 #   - Saving directly as unsharded
 #       --save_interval_ephemeral=null
 #       --save_interval_unsharded=1000
@@ -71,7 +71,7 @@ torchrun \
   --node_rank ${BEAKER_REPLICA_RANK} \
   --rdzv_conf 'read_timeout=420' \
   scripts/train.py \
-    configs/peteish1-weka.yaml \
+    configs/peteish1-google.yaml \
       --run_name=$RUN_NAME \
       --wandb.group=$NAME \
       --save_interval_ephemeral=null \
