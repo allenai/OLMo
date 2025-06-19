@@ -54,6 +54,12 @@ export NCCL_FASTRAK_USE_LLCM=1
 pip install '.[train]'
 pip freeze
 
+# Try adding these
+## Move AWS credentials from env to relevant files
+mkdir -p ~/.aws
+printenv AWS_CONFIG > ~/.aws/config
+printenv AWS_CREDENTIALS > ~/.aws/credentials
+
 export TORCH_DIST_INIT_BARRIER=1
 export PYTHONFAULTHANDLER=1
 
