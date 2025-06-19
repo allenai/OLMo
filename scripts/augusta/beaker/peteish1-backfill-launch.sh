@@ -29,11 +29,11 @@ gantry run \
   --env R2_PROFILE=R2 \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
-  --env-secret AWS_CONFIG=BAILEYK_AWS_CONFIG \
-  --env-secret AWS_CREDENTIALS=BAILEYK_AWS_CREDENTIALS \
   --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
   --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
   --env-secret WANDB_API_KEY=BAILEYK_WANDB_API_KEY \
+  --env-secret AWS_ACCESS_KEY_ID=BAILEYK_AWS_ACCESS_KEY_ID \
+  --env-secret AWS_SECRET_ACCESS_KEY=BAILEYK_AWS_SECRET_ACCESS_KEY \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
