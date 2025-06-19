@@ -3,7 +3,7 @@
 # This script has been modified from the original peteish1.sh for the purpose of resuming training from step0 through 20k, saving every 1k.
 #   - Loading in checkpoint at step 0 (https://olmo-checkpoints.org/ai2-llm/peteish1/step0-unsharded)
 #   - Training will stop at 10k, then will resume either with the backfill 10k checkpoint or the original, through 20k
-#       --stop_at 10000
+#       --stop_after 10000
 #   - Using 1 node instead of 8 (hardcoded --nnodes 1)
 #   - Subbing in peteish1-weka.yaml (if augusta not available)
 #   - Saving directly as unsharded
@@ -92,4 +92,4 @@ torchrun \
       --data.num_workers=8 \
       --optimizer.metrics_log_interval=10 \
       --data.prefetch_factor=8 \
-      --stop_at=10000
+      --stop_after=10000
