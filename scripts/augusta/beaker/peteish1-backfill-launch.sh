@@ -14,14 +14,16 @@ gantry run \
   --priority normal \
   --preemptible \
   --beaker-image michalg/cuda11.8-ubuntu20.04-arb \
-  --cluster ai2/titan-cirrascale \
+  --cluster ai2/augusta-google-1 \
   --gpus 8 \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
   --budget ai2/oe-training \
+  --no-nfs \
   --propagate-failure \
   --propagate-preemption \
+  --synchronized-start-timeout 15m \
   --no-python \
   --env LOG_FILTER_TYPE=local_rank0_only \
   --env OMP_NUM_THREADS=8 \
