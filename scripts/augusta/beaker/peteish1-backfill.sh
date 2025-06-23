@@ -89,7 +89,7 @@ torchrun \
       --save_folder=/weka/oe-training-default/ai2-llm/checkpoints/peteish1-backfill \
       --remote_save_folder=gs://ai2-llm/checkpoints/OLMo-medium/peteish1-backfill/ \
       --load_path=https://olmo-checkpoints.org/ai2-llm/peteish1/step0-unsharded/ \
-      --sharded_checkpointer=local \
+      --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=4 \
       --device_eval_batch_size=8 \
       --compile.fullgraph=false \
