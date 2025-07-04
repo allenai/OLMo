@@ -29,8 +29,8 @@ gantry run \
   --env R2_PROFILE=R2 \
   --env S3_PROFILE=S3 \
   --env WEKA_PROFILE=WEKA \
-  --env-secret AWS_CONFIG=dirkg_AWS_CONFIG \
-  --env-secret AWS_CREDENTIALS=dirkg_AWS_CREDENTIALS \
+  --env-secret AWS_CONFIG=PETEW_AWS_CONFIG \
+  --env-secret AWS_CREDENTIALS=PETEW_AWS_CREDENTIALS \
   --env-secret R2_ENDPOINT_URL=R2_ENDPOINT_URL \
   --env-secret WEKA_ENDPOINT_URL=WEKA_ENDPOINT_URL \
   --env-secret WANDB_API_KEY=dirkg_WANDB_API_KEY \
