@@ -64,6 +64,6 @@ torchrun \
       --scheduler.alpha_f=0.0 \
       --fsdp.sharding_strategy=HYBRID_SHARD \
       --fsdp.hybrid_sharding_num_model_replicas=2 \
-      --save_interval_ephemereral=500 \
+      --save_interval_ephemeral=500 \
       --save_interval=10000 \
       --save_num_checkpoints_to_keep=2
