@@ -66,4 +66,5 @@ torchrun \
       --fsdp.hybrid_sharding_num_model_replicas=2 \
       --save_interval_ephemeral=500 \
       --save_interval=10000 \
-      --save_num_checkpoints_to_keep=2
+      --save_num_checkpoints_to_keep=2 \
+      --save_overwrite
