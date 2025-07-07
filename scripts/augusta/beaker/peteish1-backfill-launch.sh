@@ -19,7 +19,7 @@ gantry run \
   --replicas "${NUM_NODES}" \
   --leader-selection \
   --host-networking \
-  --budget ai2/oe-training \
+  --budget ai2/oe-base \
   --propagate-failure \
   --propagate-preemption \
   --no-python \
