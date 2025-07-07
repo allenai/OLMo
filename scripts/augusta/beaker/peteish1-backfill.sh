@@ -88,7 +88,7 @@ torchrun \
       --try_load_latest_save \
       --save_folder=/weka/oe-training-default/ai2-llm/checkpoints/peteish1-backfill \
       --remote_save_folder=gs://ai2-llm/checkpoints/OLMo-medium/peteish1-backfill/ \
-      --load_path=https://olmo-checkpoints.org/ai2-llm/peteish1/step0-unsharded/ \
+      --load_path=gs://ai2-llm/checkpoints/OLMo-medium/peteish1-backfill/step10000 \
       --sharded_checkpointer=olmo_core \
       --device_train_microbatch_size=4 \
       --device_eval_batch_size=8 \
@@ -98,4 +98,4 @@ torchrun \
       --data.num_workers=8 \
       --optimizer.metrics_log_interval=10 \
       --data.prefetch_factor=8 \
-      --stop_after=10000
+      --stop_after=20000
