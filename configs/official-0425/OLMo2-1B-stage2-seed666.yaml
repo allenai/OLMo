@@ -72,7 +72,7 @@ save_overwrite: false
 
 save_interval: 1000
 save_interval_ephemeral: 250
-save_num_checkpoints_to_keep: -1
+save_num_checkpoints_to_keep: 0
 sharded_checkpointer: olmo_core
 
 save_interval_unsharded: 1000

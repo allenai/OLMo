@@ -62,10 +62,10 @@ tokenizer:
   truncate_direction: right
 
 save_interval: 1000
-save_num_checkpoints_to_keep: -1
+save_num_checkpoints_to_keep: 0
 sharded_checkpointer: olmo_core
 
-save_interval_unsharded: null
+save_interval_unsharded: 1000
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: https://olmo-checkpoints.org/ai2-llm/peteish13/step596057-unsharded
