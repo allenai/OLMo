@@ -64,9 +64,8 @@ You can find *all* the checkpoints, at minimum every 1000 training steps in OLMo
 To reproduce any of the training processes described below, run this:
 
 ```bash
-torchrun --nproc_per_node=8 scripts/train.py {path_to_train_config} --force_save_unsharded=True
+torchrun --nproc_per_node=8 scripts/train.py {path_to_train_config}
 ```
-> Please use `--force_save_unsharded=True` argument to save checkpoints in unsharded format.
 
 For the training config, use any of the configs listed below.
 
