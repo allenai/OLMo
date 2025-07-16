@@ -78,7 +78,7 @@ sharded_checkpointer: olmo_core
 save_interval_unsharded: 1000
 save_num_unsharded_checkpoints_to_keep: -1
 
-load_path: null
+load_path: https://olmo-checkpoints.org/ai2-llm/peteish1/step1907359-unsharded/
 
 restore_dataloader: false
 no_pre_train_checkpoint: true
@@ -107,7 +107,7 @@ gen1_gc_interval: 10
 
 eval_interval: 1000
 eval_subset_num_batches: -1
-device_eval_batch_size: ${device_train_microbatch_size}
+device_eval_batch_size: 8
 evaluators:
   # - label: all-small-ppl-validation
   #   data:
