@@ -48,7 +48,7 @@ compile: null
 
 optimizer:
   name: adamw
-  learning_rate: 0.00036279
+  learning_rate: 0.000074487
   weight_decay: 0.1
   eps: 1e-8
   decay_norm_and_bias: true
@@ -75,7 +75,7 @@ save_interval_ephemeral: 250
 save_num_checkpoints_to_keep: -1
 sharded_checkpointer: olmo_core
 
-save_interval_unsharded: null
+save_interval_unsharded: 1000
 save_num_unsharded_checkpoints_to_keep: -1
 
 load_path: null
