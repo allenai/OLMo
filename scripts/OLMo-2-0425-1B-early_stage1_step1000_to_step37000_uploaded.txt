@@ -1,0 +1,74 @@
+1000	→ stage1-step1000-tokens3B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+10000	→ stage1-step10000-tokens21B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+11000	→ stage1-step11000-tokens24B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+12000	→ stage1-step12000-tokens26B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+13000	→ stage1-step13000-tokens28B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+14000	→ stage1-step14000-tokens30B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+15000	→ stage1-step15000-tokens32B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+16000	→ stage1-step16000-tokens34B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+17000	→ stage1-step17000-tokens36B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+18000	→ stage1-step18000-tokens38B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+19000	→ stage1-step19000-tokens40B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+2000	→ stage1-step2000-tokens5B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+20000	→ stage1-step20000-tokens42B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+21000	→ stage1-step21000-tokens45B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+22000	→ stage1-step22000-tokens47B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+23000	→ stage1-step23000-tokens49B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+24000	→ stage1-step24000-tokens51B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+25000	→ stage1-step25000-tokens53B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+26000	→ stage1-step26000-tokens55B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+27000	→ stage1-step27000-tokens57B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+28000	→ stage1-step28000-tokens59B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+29000	→ stage1-step29000-tokens61B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+3000	→ stage1-step3000-tokens7B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+30000	→ stage1-step30000-tokens63B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+31000	→ stage1-step31000-tokens66B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+32000	→ stage1-step32000-tokens68B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+33000	→ stage1-step33000-tokens70B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+34000	→ stage1-step34000-tokens72B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+35000	→ stage1-step35000-tokens74B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+36000	→ stage1-step36000-tokens76B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+37000	→ main
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+4000	→ stage1-step4000-tokens9B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+5000	→ stage1-step5000-tokens11B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+6000	→ stage1-step6000-tokens13B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+7000	→ stage1-step7000-tokens15B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+8000	→ stage1-step8000-tokens17B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
+9000	→ stage1-step9000-tokens19B
+  Files: config.json, generation_config.json, merges.txt, model-00001-of-00002.safetensors, model-00002-of-00002.safetensors, model.safetensors.index.json, special_tokens_map.json, tokenizer.json, tokenizer_config.json, vocab.json
