@@ -29,7 +29,7 @@ from transformers.models.gpt2.tokenization_gpt2_fast import GPT2TokenizerFast
 Sample usage:
 
 ```
-python src/transformers/models/olmo2/convert_olmo2_weights_to_hf.py \
+python scripts/convert_olmo2_weights_to_hf.py \
     --input_dir /path/to/downloaded/olmo2/weights --output_dir /output/path
 ```
 

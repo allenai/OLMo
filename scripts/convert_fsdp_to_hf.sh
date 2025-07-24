@@ -1,23 +1,23 @@
 #!/bin/bash
 
-# Usage: ./convert_fsdp_to_hf.sh <input_checkpoint_dir> <output_hf_dir> <max_sequence_length>
+# Usage: ./convert_fsdp_to_hf.sh <input_checkpoint_dir>
 
 set -e
 
-if [ $# -ne 3 ]; then
-    echo "Usage: $0 <input_checkpoint_dir> <output_hf_dir> <max_sequence_length>"
-    echo "Example: $0 ../step1000002-c ../hf-converted 4096"
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <input_checkpoint_dir>"
+    echo "Example: $0 ../step1000002-c"
     exit 1
 fi
 
 INPUT_DIR="$1"
-OUTPUT_DIR="$2"
-MAX_SEQ_LEN="$3"
+# OUTPUT_DIR="$2"
+# MAX_SEQ_LEN="$3"
 
 echo "Converting FSDP checkpoint to HuggingFace format..."
 echo "Input: $INPUT_DIR"
-echo "Output: $OUTPUT_DIR"
-echo "Max sequence length: $MAX_SEQ_LEN"
+# echo "Output: $OUTPUT_DIR"
+# echo "Max sequence length: $MAX_SEQ_LEN"
 
 if [ ! -d "$INPUT_DIR" ]; then
     echo "Error: Input directory $INPUT_DIR does not exist"
@@ -29,10 +29,10 @@ if [ ! -d "$INPUT_DIR/model_and_optim" ]; then
     exit 1
 fi
 
-if [ ! -f "$INPUT_DIR/config.json" ]; then
-    echo "Error: $INPUT_DIR/config.json not found"
-    exit 1
-fi
+# if [ ! -f "$INPUT_DIR/config.json" ]; then
+#     echo "Error: $INPUT_DIR/config.json not found"
+#     exit 1
+# fi
 
 if ls "$INPUT_DIR/model_and_optim"/*.distcp 1> /dev/null 2>&1; then
     echo "Step 1: Backing up original FSDP checkpoint..."
@@ -71,32 +71,32 @@ else
     echo "No .distcp files found, assuming checkpoint is already unsharded"
 fi
 
-echo "Step 4: Converting to HuggingFace format..."
-mkdir -p "$OUTPUT_DIR"
+# echo "Step 4: Converting to HuggingFace format..."
+# mkdir -p "$OUTPUT_DIR"
 
-DEVICE_ARG=""
-if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
-    echo "CUDA detected, using GPU"
-    DEVICE_ARG="--device cuda"
-else
-    echo "CUDA not available, using CPU"
-    DEVICE_ARG="--device cpu"
-fi
+# DEVICE_ARG=""
+# if command -v nvidia-smi &> /dev/null && nvidia-smi &> /dev/null; then
+#     echo "CUDA detected, using GPU"
+#     DEVICE_ARG="--device cuda"
+# else
+#     echo "CUDA not available, using CPU"
+#     DEVICE_ARG="--device cpu"
+# fi
 
-python scripts/convert_checkpoint_to_hf.py \
-    -i "$INPUT_DIR" \
-    -o "$OUTPUT_DIR" \
-    -s "$MAX_SEQ_LEN" \
-    $DEVICE_ARG \
-    --skip-validation
+# python scripts/convert_checkpoint_to_hf.py \
+#     -i "$INPUT_DIR" \
+#     -o "$OUTPUT_DIR" \
+#     -s "$MAX_SEQ_LEN" \
+#     $DEVICE_ARG \
+#     --skip-validation
 
-echo "Conversion completed successfully!"
-echo "HuggingFace model saved to: $OUTPUT_DIR"
-echo ""
-echo "You can now use the model with:"
-echo "  from transformers import AutoModel, AutoTokenizer"
-echo "  model = AutoModel.from_pretrained('$OUTPUT_DIR')"
-echo ""
-echo "To restore the original FSDP checkpoint:"
-echo "  rm -rf $INPUT_DIR/model_and_optim"
-echo "  mv $INPUT_DIR/model_and_optim_fsdp_backup $INPUT_DIR/model_and_optim"
+echo "Unsharding completed successfully!"
+# echo "HuggingFace model saved to: $OUTPUT_DIR"
+# echo ""
+# echo "You can now use the model with:"
+# echo "  from transformers import AutoModel, AutoTokenizer"
+# echo "  model = AutoModel.from_pretrained('$OUTPUT_DIR')"
+# echo ""
+# echo "To restore the original FSDP checkpoint:"
+# echo "  rm -rf $INPUT_DIR/model_and_optim"
+# echo "  mv $INPUT_DIR/model_and_optim_fsdp_backup $INPUT_DIR/model_and_optim"
