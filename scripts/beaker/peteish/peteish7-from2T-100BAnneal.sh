@@ -54,6 +54,7 @@ torchrun \
     configs/peteish7-weka.yaml \
       --run_name="${GANTRY_TASK_NAME}" \
       --load_path='/weka/oe-training-default/ai2-llm/checkpoints/OLMo-medium/peteish7/step477000/' \
+      '--load_path=${path.last_checkpoint:${save_folder}}' \
       --optimizer.learning_rate=0.00020706866074094522 \
       --scheduler.name=linear_with_warmup \
       --scheduler.units=steps \
