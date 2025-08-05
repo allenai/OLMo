@@ -34,7 +34,7 @@ For training and fine-tuning, we recommend installing from source:
 ```bash
 git clone https://github.com/allenai/OLMo.git
 cd OLMo
-pip install -e .[all]
+pip install -e ".[all]"
 ```
 You can also install from PyPI with:
 ```bash
