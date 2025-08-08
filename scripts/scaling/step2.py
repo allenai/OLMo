@@ -29,7 +29,7 @@ from olmo.scaling.scaling_laws.utils import (
     tasks,
 )
 
-FONTSIZE = 10
+FONTSIZE = 9
 
 
 def parse_args():
@@ -178,6 +178,8 @@ def plot_step2(
     plotted_y_upper = plotted_predicted_data["ys"] + 1.96 * std_errors
     unsigned_rel_errs = []
 
+    ax.fill_between(plotted_predicted_data["xs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.8)
+
     num_eval_annotation = 0
     eval_num = 0
     eval_points = sum(model['mode'] == 'eval' for model in data_by_name.values())
@@ -250,8 +252,6 @@ def plot_step2(
         linestyle="--",
         linewidth=1.5,
     )
-
-    ax.fill_between(plotted_predicted_data["xs"], plotted_y_lower, plotted_y_upper, color="pink", alpha=0.3)
 
     if len(texts) > 0:
         # Adjust text annotations to not overlap with each other

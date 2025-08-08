@@ -321,6 +321,7 @@ if __name__ == "__main__":
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-760M-10xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/760M-10xC.csv --eval-only
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-final-eval-1B-10xC' -y validation-and-downstream-v2 -o wandb/peteish-final-eval/1B-10xC.csv --eval-only
 
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-small/peteish1-eval-20250126_060132' -y validation-and-downstream-v2-mc -o scripts/scaling/data/peteish-moreeval/peteish1_eval_final.csv --eval-only
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish7-eval' -y validation-and-downstream-v2-mc -o scripts/scaling/data/peteish-moreeval/peteish7_eval_full.csv --eval-only
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish7-anneal-from-928646-50B-no-warmup-eval' -y validation-and-downstream-v2-mc -o scripts/scaling/data/peteish-moreeval/peteish7_eval_anneal.csv --eval-only
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-medium/peteish13-eval' -y validation-and-downstream-v2-mc -o scripts/scaling/data/peteish-moreeval/peteish13_eval_final.csv --eval-only
@@ -361,6 +362,43 @@ if __name__ == "__main__":
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-760M-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/760M-10xC.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-1B-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/1B-10xC.csv
     # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-3B-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval/3B-10xC.csv
+
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-const-190M-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-const/190M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-const-370M-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-const/370M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-const-760M-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-const/760M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-const-1B-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-const/1B-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-const-3B-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-const/3B-10xC.csv
+
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-190M-0.5xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/190M-0.5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-370M-0.5xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/370M-0.5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-760M-0.5xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/760M-0.5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-1B-0.5xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/1B-0.5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-3B-0.5xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/3B-0.5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-190M-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/190M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-370M-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/370M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-760M-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/760M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-1B-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/1B-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-3B-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/3B-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-190M-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/190M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-370M-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/370M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-760M-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/760M-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-1B-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/1B-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-3B-1xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/3B-1xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-190M-2xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/190M-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-370M-2xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/370M-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-760M-2xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/760M-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-1B-2xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/1B-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-3B-2xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/3B-2xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-190M-5xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/190M-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-370M-5xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/370M-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-760M-5xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/760M-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-1B-5xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/1B-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-3B-5xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/3B-5xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-190M-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/190M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-370M-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/370M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-760M-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/760M-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-1B-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/1B-10xC.csv
+    # python olmo/scaling/scaling_laws/download_wandb_logs.py -n 'ai2-llm/olmo-ladder/peteish-moreeval-decay-3B-10xC' -y validation-and-downstream-v2 -o scripts/scaling/data/peteish-moreeval-decay/3B-10xC.csv
 
     args = parse_args()
     print(args)

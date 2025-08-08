@@ -1,0 +1,67 @@
+{
+    "190M": {
+        "paths": [
+            "scripts/scaling/data/peteish-moreeval-const/190M-10xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/190M-0.5xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/190M-1xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/190M-2xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/190M-5xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/190M-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 190354176,
+        "label": "190M",
+        "color": "darkred"
+    },
+    "370M": {
+        "paths": [
+            "scripts/scaling/data/peteish-moreeval-const/370M-10xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/370M-0.5xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/370M-1xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/370M-2xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/370M-5xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/370M-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 371262464,
+        "label": "370M",
+        "color": "darkorange"
+    },
+    "760M": {
+        "paths": [
+            "scripts/scaling/data/peteish-moreeval-const/760M-10xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/760M-0.5xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/760M-1xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/760M-2xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/760M-5xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/760M-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 758220288,
+        "label": "760M",
+        "color": "darkgreen"
+    },
+    "1.3B": {
+        "paths": [
+            "scripts/scaling/data/peteish-moreeval-const/1B-10xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/1B-0.5xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/1B-1xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/1B-2xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/1B-5xC.csv",
+            "scripts/scaling/data/peteish-moreeval-decay/1B-10xC.csv"
+        ],
+        "mode": "train",
+        "n": 1279395840,
+        "label": "1.3B",
+        "color": "teal"
+    },
+    "3.2B": {
+        "paths": [
+            "scripts/scaling/data/peteish-moreeval-decay/3B-10xC.csv"
+        ],
+        "mode": "eval",
+        "n": 3169537280,
+        "label": "3.2B",
+        "color": "darkblue"
+    }
+}
