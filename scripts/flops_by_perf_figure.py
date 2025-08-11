@@ -103,6 +103,12 @@ df = df[df[MODEL_COLUMN_NAME] != "Meta-Llama-3-70B"]
 # remove 70B
 df = df[df[MODEL_COLUMN_NAME] != "Llama-3.1-70B"]
 
+# remove smaller models
+df = df[df[MODEL_COLUMN_NAME] != "OLMo-2-1B"]
+df = df[df[MODEL_COLUMN_NAME] != "SmolLM-2-1.7B"]
+df = df[df[MODEL_COLUMN_NAME] != "Qwen-2.5-1.5B"]
+df = df[df[MODEL_COLUMN_NAME] != "Gemma-2-2B"]
+
 model_name_to_open_status = {
     "Amber-7B": "Other fully open",
     "DCLM-7B": "Other fully open",
@@ -132,6 +138,9 @@ model_name_to_open_status = {
     "Qwen-2.5-7B": "Open weights",
     "Qwen-2.5-32B": "Open weights",
     "StableLM-2-12B": "Partially open",
+    "Qwen-2.5-1.5B": "Open weights",
+    "Gemma-2-2B": "Open weights",
+    "SmolLM-2-1.7B": "Other fully open",
 }
 
 # Add a column for model category based on the groupings
@@ -176,17 +185,21 @@ model_name_to_label_offset = {
     "OLMo-2-0324-32B": [-20, 10],
     "OLMo-2-1124-13B": [-20, 10],
     "OLMo-2-1124-7B": [-35, 10],
-    "OLMo-2-1B": [-45, 10],
-    "AnonModel-32B": [-45, 10],
-    "AnonModel-13B": [-45, 10],
-    "AnonModel-7B": [-45, 10],
+    "OLMo-2-1B": [-17, 10],
+    "OLMo-2-32B": [-45, 10],
+    "OLMo-2-13B": [-45, 10],
+    "OLMo-2-7B": [-45, 10],
     "Qwen-2.5-14B": [-40, -15],
     "Qwen-2.5-7B": [5, -10],
     "Qwen-2.5-32B": [10, -10],
     "StableLM-2-12B": [-15, -15],
+    "Qwen-2.5-1.5B": [-15, -15],
+    "Gemma-2-2B": [-15, -15],
+    "SmolLM-2-1.7B": [10, -5],
 }
 
-df[OFFSET_COLUMN_NAME] = df[MODEL_COLUMN_NAME].map(model_name_to_label_offset)
+# Add default offset for any model not in the dictionary
+df[OFFSET_COLUMN_NAME] = df[MODEL_COLUMN_NAME].map(lambda x: model_name_to_label_offset.get(x, [10, -2]))
 
 # markers
 category_to_marker = {
@@ -254,23 +267,27 @@ for category in categories:
         s=category_to_marker_size[category],
     )
 
-# Add labels for each point with Manrope Medium
+# Only annotate models that have defined offsets
 FONTSIZE = 9
 for idx, row in df[df[FLOPS_COLUMN_NAME].notna()].iterrows():
-    plt.annotate(
-        row[MODEL_COLUMN_NAME],
-        (row[FLOPS_COLUMN_NAME], row[METRIC_COLUMN_NAME]),
-        xytext=(row[OFFSET_COLUMN_NAME]),
-        textcoords="offset points",
-        fontsize=FONTSIZE,
-        alpha=1.0,
-        font="Manrope",
-        weight="medium",
-        color=category_to_text_color[model_name_to_open_status[row[MODEL_COLUMN_NAME]]],
-    )
+    if row[MODEL_COLUMN_NAME] in model_name_to_label_offset:
+        plt.annotate(
+            row[MODEL_COLUMN_NAME],
+            (row[FLOPS_COLUMN_NAME], row[METRIC_COLUMN_NAME]),
+            xytext=(row[OFFSET_COLUMN_NAME]),
+            textcoords="offset points",
+            fontsize=FONTSIZE,
+            alpha=1.0,
+            font="Manrope",
+            weight="medium",
+            color=category_to_text_color[model_name_to_open_status[row[MODEL_COLUMN_NAME]]],
+        )
 
 # x axis tick marks
-tick_locations = [4e22, 6e22, 8e22, 1e23, 2e23, 4e23, 6e23, 8e23, 1e24, 2e24, 4e24, 6e24]
+tick_locations = [
+    # 6e21, 2e22, 4e22, 
+    6e22, 8e22, 1e23, 2e23, 4e23, 6e23, 8e23, 1e24, 2e24, 4e24, 6e24
+]
 
 
 def format_scientific(x):
@@ -283,11 +300,12 @@ tick_labels = [format_scientific(x) for x in tick_locations]
 plt.xticks(tick_locations, tick_labels, rotation=45, ha="right", fontsize=8)
 
 # y axis tick marks
-plt.yticks(fontsize=8)
+plt.ylim(30, 75)
+plt.yticks(np.arange(30, 85, 5), fontsize=8)
 
 # Customize the plot with Manrope Medium
 plt.xlabel("Approximate FLOPs", fontsize=10, font="Manrope", weight="medium")
-plt.ylabel(f"Avg Performance ({num_datasets} Benchmarks)", fontsize=10, font="Manrope", weight="medium")
+plt.ylabel(f"Avg Performance (10 Benchmarks)", fontsize=10, font="Manrope", weight="medium")
 
 
 # Add grid with custom colors
@@ -336,18 +354,18 @@ ymin, ymax = plt.gca().get_ylim()
 # Convert frontier points to polygon vertices
 # MODIFIED: Changed "Qwen-2.5-14B" to "OLMo-2-32B" and added "Qwen2.5-32B"
 frontier_models = [
-    "Amber-7B",
-    "OLMo-0424-7B",
+    "OLMo-2-1B",
+    # "Amber-7B",
+    # "OLMo-0424-7B",
     "DCLM-7B",
     "OLMo-2-7B",
     "OLMo-2-13B",
     "OLMo-2-32B",
-    "OLMo-2-1B",
     # "AnonModel-7B",
     # "AnonModel-13B",
     # "AnonModel-32B",
     "Gemma-3-27B",
-    "Qwen-2.5-32B",
+    # "Qwen-2.5-32B",
 ]
 frontier_df = df[df[MODEL_COLUMN_NAME].isin(frontier_models)]
 frontier_df = frontier_df.set_index(MODEL_COLUMN_NAME)
