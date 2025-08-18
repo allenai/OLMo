@@ -25,6 +25,8 @@ dependencies = [
     "cached_path>=1.6.2",
     "transformers",
     "importlib_resources",
+    "beaker-gantry",
+    "datasets"
 ]
 
 [project.optional-dependencies]
