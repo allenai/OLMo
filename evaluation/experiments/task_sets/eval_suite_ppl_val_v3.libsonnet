@@ -4,7 +4,8 @@ local task_utils = import 'task_utils.libsonnet';
 local common_kwargs = {
     task_name: "ppl_custom",
     task_kwargs: {
-        keep_instance_fields: ["orig_file_name", "source", "subdomain"],
+        keep_all_instance_fields_except: ["text", "tokens"],
+        detailed_output: true,
     },
     prediction_kwargs: {
         split: "validation",
