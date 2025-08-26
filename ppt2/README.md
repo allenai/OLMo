@@ -28,4 +28,4 @@ Beaker error messages are now more informative around why things don't launch. B
 
 * `ai2/willm-ppt2` has max priority Normal
 * `ai2/oe-base` instead of `ai2/oe-training`
-* Clusters: `ai2/neptune-cirrascale`, `ai2/jupiter-cirrascale-2`, etc.
+* Clusters: `ai2/titan-cirrascale` is B200s, `ai2/neptune-cirrascale`, `ai2/jupiter-cirrascale-2`, etc.

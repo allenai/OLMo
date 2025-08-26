@@ -41,4 +41,4 @@ gantry run \
   --shared-memory 10GiB \
   --yes \
   --timeout=-1 \
-  -- /bin/bash -c "ppt2/scripts/peteish1.sh ${NODES} ${CONFIG_PATH} \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK"
+  -- /bin/bash -c "ppt2/scripts/peteish1.sh ${NODES} ${GPUS} ${CONFIG_PATH} \$BEAKER_LEADER_REPLICA_HOSTNAME \$BEAKER_REPLICA_RANK"

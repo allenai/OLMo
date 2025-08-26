@@ -10,6 +10,9 @@ echo $1
 NUM_NODES=$1
 shift
 
+NUM_GPUS=$1
+shift
+
 echo $1
 
 CONFIG_PATH=$1
@@ -58,7 +61,7 @@ export NCCL_SOCKET_IFNAME=ib
 
 torchrun \
   --nnodes "${NUM_NODES}:${NUM_NODES}" \
-  --nproc-per-node 8 \
+  --nproc-per-node "${NUM_GPUS}" \
   scripts/train.py \
     "${CONFIG_PATH}" \
       --run_name="${GANTRY_TASK_NAME}" \
