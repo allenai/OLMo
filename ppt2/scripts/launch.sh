@@ -17,7 +17,7 @@ gantry run \
   --task-name ppt2-control \
   --description "PPT2 control" \
   --priority normal \
-  --cluster ai2/neptune-cirrascale \
+  --cluster ai2/jupiter-cirrascale-2 \
   --preemptible \
   --beaker-image petew/olmo-torch23-gantry \
   --gpus $GPUS \

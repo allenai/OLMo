@@ -30,8 +30,10 @@ conda shell.bash activate base
 # Install flash-attn
 #conda install -y -c nvidia cuda-python
 pip install packaging ninja
-export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
-pip install flash-attn==2.5.9.post1 --no-build-isolation
+### TODO: don't install
+# export FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
+# pip install flash-attn==2.5.9.post1 --no-build-isolation
+###
 # pip install awscli
 pip install '.[train]'
 pip freeze

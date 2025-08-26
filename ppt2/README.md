@@ -24,8 +24,9 @@ scripts/launch.sh ppt2/configs/peteish1-phase0.yaml
 scripts/launch.sh ppt2/configs/peteish1-phase1.yaml
 ```
 
-Beaker error messages are now more informative around why things don't launch. Budget issues, etc.
+Observations from running:
 
-* `ai2/willm-ppt2` has max priority Normal
-* `ai2/oe-base` instead of `ai2/oe-training`
-* Clusters: `ai2/titan-cirrascale` is B200s, `ai2/neptune-cirrascale`, `ai2/jupiter-cirrascale-2`, etc.
+* Beaker error messages are now more informative around why things don't launch. Budget issues, etc.
+* The workspace `ai2/willm-ppt2` currently has max priority Normal.
+* Note `ai2/oe-training` was renamed `ai2/oe-base`.
+* Clusters: `ai2/titan-cirrascale` is B200s, `ai2/ceres-cirrascale`, `ai2/neptune-cirrascale`, `ai2/jupiter-cirrascale-2`, etc.
