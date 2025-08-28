@@ -595,7 +595,7 @@ def _file_upload(
 
         shutil.copyfile(source, target)
     except:
-        raise OLMoNetworkError(f"Failed to upload to {source}")
+        raise OLMoNetworkError(f"Failed to upload to {target}")
 
 
 def _s3_upload(
