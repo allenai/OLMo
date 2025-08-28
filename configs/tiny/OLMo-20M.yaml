@@ -67,7 +67,7 @@ tokenizer:
   truncate_direction: right
 
 save_folder: workspace/${run_name}  # doesn't matter since we'll upload to S3
-remote_save_folder: s3://ai2-llm/checkpoints/olmo-tiny/${run_name}
+remote_save_folder: workspace/${run_name}/checkpoints # store locally
 save_overwrite: false
 
 # Unsharded checkpoints (for ddp)
@@ -218,7 +218,7 @@ data:
   paths:
     ######### NON WEB DATA #########
     # ~> GUTENBERG BOOKS (5.256 GT)
-    - s3://ai2-llm/preprocessed/olmo-mix/v1_6-decontaminated/books/gpt-neox-olmo-dolma-v1_5/part-0-00000.npy
+    - https://olmo-data.org/preprocessed/olmo-mix/v1_6-decontaminated/books/gpt-neox-olmo-dolma-v1_5/part-0-00000.npy
     - https://olmo-data.org/preprocessed/olmo-mix/v1_6-decontaminated/books/gpt-neox-olmo-dolma-v1_5/part-1-00000.npy
     - https://olmo-data.org/preprocessed/olmo-mix/v1_6-decontaminated/books/gpt-neox-olmo-dolma-v1_5/part-2-00000.npy
     # ~> PES2O STEM PAPERS (57.21 GT)

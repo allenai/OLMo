@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import socket
 import sys
 import time
@@ -361,6 +362,8 @@ def upload(source: PathOrStr, target: str, save_overwrite: bool = False):
         _gcs_upload(source, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
     elif parsed.scheme in ("s3", "r2", "weka"):
         _s3_upload(source, parsed.scheme, parsed.netloc, parsed.path.strip("/"), save_overwrite=save_overwrite)
+    elif parsed.scheme in (""):
+        _file_upload(source, target, save_overwrite=save_overwrite)
     else:
         raise NotImplementedError(f"Upload not implemented for '{parsed.scheme}' scheme")
 
@@ -577,6 +580,22 @@ def _get_s3_client(scheme: str):
 
 def _wait_before_retry(attempt: int):
     time.sleep(min(0.5 * 2**attempt, 3.0))
+
+
+def _file_upload(
+    source: Path, target: str, save_overwrite: bool = False
+):
+    target_path = Path(target)
+
+    if not save_overwrite and target_path.exists():
+        raise FileExistsError(f"{target} already exists. Use save_overwrite to overwrite it.")
+
+    try:
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+
+        shutil.copyfile(source, target)
+    except:
+        raise OLMoNetworkError(f"Failed to upload to {target}")
 
 
 def _s3_upload(
