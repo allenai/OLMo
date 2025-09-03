@@ -23,7 +23,7 @@ Each unsharded checkpoint directory consists of:
 - `config.yaml`: the config at that training step.
 - `model.safetensors`, `optim.safetensors`, `train.pt`: model, optimizer and training state at that training step. Checkpoints of older OLMo releases use the `.pt` extension instead.
 
-URLs to checkpoints at intermediate steps of our official models' trainings can be found in the csv files under [`checkpoints/official/`](https://github.com/allenai/OLMo/blob/main/checkpoints/official). These 'directory' URLs cannot currently be directly accessed, but files within the directory are publicly accessible.
+URLs to checkpoints at intermediate steps of our official models' trainings can be found in the csv files under the official directory for the respective model under [`configs/`](https://github.com/allenai/OLMo/blob/main/configs). For example, the 1B model can be found under [`configs/official-0425`](https://github.com/allenai/OLMo/tree/main/configs/official-0425). These 'directory' URLs cannot currently be directly accessed, but files within the directory are publicly accessible.
 
 #### Sharded OLMo Checkpoints
 
