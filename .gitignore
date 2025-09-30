@@ -55,3 +55,6 @@ site/
 /wandb/
 /scratch/
 core
+
+/logs/
+/checkpoints/
