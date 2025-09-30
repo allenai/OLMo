@@ -1,0 +1,65 @@
+/var/spool/slurmd/job1065276/slurm_script: line 26: .venv/bin/activate: No such file or directory
+/home/tt6444/ssm-attention-routing/OLMo/OLMo-base/lib/python3.13/site-packages/transformers/utils/hub.py:111: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+wandb: Tracking run with wandb version 0.22.1
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in /scratch/gpfs/EHAZAN/tharuntk/OLMo-data/checkpoints/OLMo-small/OLMo2-1B-stage1-10B-tokens/wandb/wandb/offline-run-20250929_223600-itx36cic
+Traceback (most recent call last):
+  File "/home/tt6444/ssm-attention-routing/OLMo/scripts/train.py", line 436, in <module>
+    main(cfg)
+    ~~~~^^^^^
+  File "/home/tt6444/ssm-attention-routing/OLMo/scripts/train.py", line 250, in main
+    with Trainer(
+         ~~~~~~~^
+        cfg=cfg,
+        ^^^^^^^^
+    ...<8 lines>...
+        indices_file=indices_file,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ) as trainer:
+    ^
+  File "<string>", line 26, in __init__
+  File "/home/tt6444/ssm-attention-routing/OLMo/olmo/train.py", line 242, in __post_init__
+    raise NameError("`fused_loss_fn` is not defined. Please ensure that `flash_attn` is installed.")
+NameError: `fused_loss_fn` is not defined. Please ensure that `flash_attn` is installed.
+E0929 22:37:12.308000 2027385 torch/distributed/elastic/multiprocessing/api.py:874] failed (exitcode: 1) local_rank: 0 (pid: 2027389) of binary: /home/tt6444/ssm-attention-routing/OLMo/OLMo-base/bin/python3
+Traceback (most recent call last):
+  File "/home/tt6444/ssm-attention-routing/OLMo/OLMo-base/bin/torchrun", line 10, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/home/tt6444/ssm-attention-routing/OLMo/OLMo-base/lib/python3.13/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 357, in wrapper
+    return f(*args, **kwargs)
+  File "/home/tt6444/ssm-attention-routing/OLMo/OLMo-base/lib/python3.13/site-packages/torch/distributed/run.py", line 901, in main
+    run(args)
+    ~~~^^^^^^
+  File "/home/tt6444/ssm-attention-routing/OLMo/OLMo-base/lib/python3.13/site-packages/torch/distributed/run.py", line 892, in run
+    elastic_launch(
+    ~~~~~~~~~~~~~~~
+        config=config,
+        ~~~~~~~~~~~~~~
+        entrypoint=cmd,
+        ~~~~~~~~~~~~~~~
+    )(*cmd_args)
+    ~^^^^^^^^^^^
+  File "/home/tt6444/ssm-attention-routing/OLMo/OLMo-base/lib/python3.13/site-packages/torch/distributed/launcher/api.py", line 143, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/home/tt6444/ssm-attention-routing/OLMo/OLMo-base/lib/python3.13/site-packages/torch/distributed/launcher/api.py", line 277, in launch_agent
+    raise ChildFailedError(
+    ...<2 lines>...
+    )
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+scripts/train.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2025-09-29_22:37:12
+  host      : della-l04g2
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 2027389)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
