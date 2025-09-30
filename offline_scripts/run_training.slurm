@@ -23,11 +23,9 @@ cd /home/tt6444/ssm-attention-routing/OLMo || exit 1
 
 # Activate the uv environment
 echo "Activating uv environment: OLMo-base"
-source .venv/bin/activate  # Adjust this path if your uv env is elsewhere
+source OLMo-base/bin/activate 
 # If using uv to run, you could alternatively use: uv run --env OLMo-base <command>
 
-# Set environment variables for better performance
-export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 # Note: Your config has num_workers=32 but we only requested 12 CPUs.
 # The dataloader will use available CPUs. If you get CPU bottlenecks,
