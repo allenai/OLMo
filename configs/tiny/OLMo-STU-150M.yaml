@@ -1,0 +1,103 @@
+run_name: OLMo-STU-150M
+seed: 6198
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: olmo-tiny-stu
+
+model:
+  d_model: 768
+  n_heads: 12
+  n_layers: 12
+  mlp_ratio: 8
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: true
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  clip_qkv: null
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 4096
+  vocab_size: 50280
+  embedding_size: 50304
+  eos_token_id: 0
+  pad_token_id: 1
+  init_device: cuda
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3
+  
+  # STU-specific configuration
+  stu_layer_schedule: alternating  # Options: null, "all", "alternating", "attention_last"
+  stu_num_eigh: 24                  # Number of eigenvectors (K)
+  stu_use_hankel_L: false           # Use L variant of Hankel matrix
+  stu_use_approx: true              # Use approximation variant (faster)
+
+ddp:
+  grad_sync_mode: batch
+  find_unused_params: false
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 6.0e-4
+  weight_decay: 0.1
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 10
+
+scheduler:
+  name: cosine_with_warmup
+  t_warmup: 2000
+  alpha_f: 0.1
+
+tokenizer:
+  identifier: tokenizers/allenai_eleuther-ai-gpt-neox-20b-pii-special.json
+  truncate_direction: right
+
+save_folder: /tmp/checkpoints/${run_name}
+save_overwrite: false
+save_interval: 1000
+save_num_checkpoints_to_keep: 2
+
+load_path: null
+
+max_duration: 10000
+global_train_batch_size: 512
+device_train_microbatch_size: 4
+
+precision: amp_bf16
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 20
+
+eval_interval: ${save_interval}
+eval_subset_num_batches: -1
+device_eval_batch_size: ${device_train_microbatch_size}
+
+data:
+  pad_direction: right
+  num_workers: 0
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 1
+  persistent_workers: false
+  timeout: 0
+  paths: []
+

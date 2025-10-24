@@ -1,0 +1,158 @@
+run_name: OLMo-STU-20M-sandwich-1B-tokens
+seed: 6198
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: olmo-tiny-stu
+  entity: tharuntk-princeton-princeton-university
+  group: ${run_name}
+
+model:
+  d_model: 256
+  n_heads: 4
+  n_layers: 6
+  mlp_ratio: 4
+  weight_tying: false
+  alibi: false
+  rope: true
+  rope_theta: 500000
+  flash_attention: true
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  clip_qkv: null
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 2048
+  vocab_size: 100278
+  embedding_size: 100352
+  eos_token_id: 100257
+  pad_token_id: 100277
+  init_device: meta
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3
+  
+  # STU-specific configuration
+  stu_layer_schedule: alternating  # Options: null, "all", "alternating", "attention_last"
+  stu_num_eigh: 16                  # Number of eigenvectors (K) - reduced for smaller model
+  stu_use_hankel_L: false           # Use L variant of Hankel matrix
+  stu_use_approx: true              # Use approximation variant (faster)
+  
+  # MLP Sandwich configuration (NEW)
+  # This wraps the STU with an MLP projection: d_model -> hidden -> STU -> d_model
+  stu_enable_mlp_sandwich: true     # Enable MLP sandwich around STU blocks
+  stu_mlp_hidden_size: null         # null = use mlp_ratio * d_model (1024 for this config)
+                                    # With SwiGLU, STU will operate on 512-dim space
+
+softmax_auxiliary_loss: true
+auxiliary_loss_multiplier: 1e-5
+fused_loss: false
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 6.0e-4
+  weight_decay: 0.1
+  eps: 1e-8
+  decay_norm_and_bias: true
+  decay_embeddings: false
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 1
+
+scheduler:
+  name: cosine_with_warmup
+  units: tokens
+  t_warmup: 1e8
+  t_max: 1e9
+  alpha_f: 0.1
+  warmup_min_lr: 0.0
+
+tokenizer:
+  identifier: tokenizers/allenai_dolma2.json
+  truncate_direction: right
+
+save_folder: /scratch/gpfs/EHAZAN/tharuntk/OLMo-data/checkpoints/OLMo-STU/${run_name}
+save_overwrite: false
+
+save_interval: 100
+save_interval_ephemeral: 1000
+save_num_checkpoints_to_keep: 0
+sharded_checkpointer: olmo_core
+
+save_interval_unsharded: 1000
+save_num_unsharded_checkpoints_to_keep: -1
+
+load_path: null
+
+max_duration: 1e9T
+global_train_batch_size: 32
+device_train_microbatch_size: 4
+
+precision: amp_bf16
+
+fsdp:
+  wrapping_strategy: null
+  sharding_strategy: SHARD_GRAD_OP
+  precision: mixed
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 1
+
+gen1_gc_interval: 10
+
+eval_interval: 1000
+eval_subset_num_batches: 100
+device_eval_batch_size: ${device_train_microbatch_size}
+
+data:
+  pad_direction: right
+  num_workers: 8
+  drop_last: true
+  pin_memory: true
+  prefetch_factor: 2
+  persistent_workers: true
+  memmap_dtype: uint32
+  timeout: 0
+  instance_filter:
+    repetition_max_period: 13
+    repetition_min_period: 1
+    repetition_max_count: 32
+  paths:
+    # ProofPile 2: Algebraic Stack Data
+    - /scratch/gpfs/EHAZAN/tharuntk/OLMo-data/preprocessed/proof-pile-2/v0_decontaminated/algebraic-stack/train/allenai/dolma2-tokenizer/part-00-00000.npy
+
+    # ProofPile 2: Arxiv Data
+    - /scratch/gpfs/EHAZAN/tharuntk/OLMo-data/preprocessed/proof-pile-2/v0_decontaminated/arxiv/train/allenai/dolma2-tokenizer/part-00-00000.npy
+
+    # ProofPile 2: Open Web Math Data
+    - /scratch/gpfs/EHAZAN/tharuntk/OLMo-data/preprocessed/proof-pile-2/v0_decontaminated/open-web-math/train/allenai/dolma2-tokenizer/part-00-00000.npy
+
+    # Pes2o Data
+    - /scratch/gpfs/EHAZAN/tharuntk/OLMo-data/preprocessed/pes2o/allenai/dolma2-tokenizer/part-00-00000.npy
+
+    # Starcoder Data
+    - /scratch/gpfs/EHAZAN/tharuntk/OLMo-data/preprocessed/starcoder/v1-decon-100_to_20k-2star-top_token_030/allenai/dolma2-tokenizer/part-000-00000.npy
+
+    # DCLM Data
+    - /scratch/gpfs/EHAZAN/tharuntk/OLMo-data/preprocessed/dclm/text_openhermes_reddit_eli5_vs_rw_v2_bigram_200k_train/allenai/dolma2-tokenizer/part-000-00000.npy
+
+    # Wikipedia
+    - /scratch/gpfs/EHAZAN/tharuntk/OLMo-data/preprocessed/olmo-mix/danyh-compiled-v1_7/documents/wiki/allenai/dolma2-tokenizer/part-0-00000.npy
+
+
+

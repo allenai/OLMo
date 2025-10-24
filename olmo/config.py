@@ -199,6 +199,12 @@ class BlockType(StrEnum):
     implementations of operations like attention to imitate the behavior of Llama.
     """
 
+    stu = "stu"
+    """
+    Spectral Transform Unit (STU) block that uses spectral convolutions
+    instead of attention.
+    """
+
 
 class InitFnType(StrEnum):
     mitchell = "mitchell"
@@ -472,6 +478,44 @@ class ModelConfig(BaseConfig):
     norm_after: bool = False
     """
     Apply norm after the attention/feedforward layers rather than before, as introduced in the Swin transformer paper (Liu et al).
+    """
+
+    stu_use_hankel_L: bool = False
+    """
+    Use the L variant of the Hankel matrix for STU blocks.
+    """
+
+    stu_num_eigh: int = 24
+    """
+    Number of eigenvectors (K) to use in STU spectral decomposition.
+    """
+
+    stu_use_approx: bool = True
+    """
+    Use the approximation variant of STU (projects then convolves) instead of
+    the full variant (convolves then projects).
+    """
+
+    stu_enable_mlp_sandwich: bool = False
+    """
+    When ``True``, insert an MLP around the STU block that up-projects inputs
+    before the spectral transform and projects them back to ``d_model``
+    afterwards.
+    """
+
+    stu_mlp_hidden_size: Optional[int] = None
+    """
+    Hidden size (pre-activation width) for the STU sandwich MLP. Defaults to
+    ``mlp_hidden_size`` if set, otherwise ``mlp_ratio * d_model``.
+    """
+
+    stu_layer_schedule: Optional[str] = None
+    """
+    Schedule for placing STU layers. Options:
+    - None: No STU layers (default, use attention blocks)
+    - "all": All layers are STU
+    - "alternating": Alternate between STU and attention (even layers are STU)
+    - "attention_last": STU for all layers except the last one
     """
 
     @property

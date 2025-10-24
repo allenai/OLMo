@@ -1,5 +1,6 @@
 from .config import *
 from .model import *
+from .stu import *
 from .tokenizer import *
 
 

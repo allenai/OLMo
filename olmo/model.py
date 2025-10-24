@@ -666,11 +666,19 @@ class OLMoBlock(nn.Module):
         raise NotImplementedError
 
     @classmethod
-    def build(cls, layer_id: int, config: ModelConfig, cache: BufferCache) -> OLMoBlock:
+    def build(cls, layer_id: int, config: ModelConfig, cache: BufferCache, **kwargs) -> OLMoBlock:
         if config.block_type == BlockType.sequential:
             return OLMoSequentialBlock(layer_id, config, cache)
         elif config.block_type == BlockType.llama:
             return OLMoLlamaBlock(layer_id, config, cache)
+        elif config.block_type == BlockType.stu:
+            # STU blocks need phi and n parameters
+            from .stu import OLMoSTUBlock
+            phi = kwargs.get('phi')
+            n = kwargs.get('n')
+            if phi is None or n is None:
+                raise ValueError("STU blocks require 'phi' and 'n' parameters")
+            return OLMoSTUBlock(layer_id, config, phi, n)
         else:
             raise NotImplementedError(f"Unknown block type: '{config.block_type}'")
 
@@ -1112,7 +1120,33 @@ class OLMo(nn.Module):
             )
         )
 
-        blocks = [OLMoBlock.build(i, config, self.__cache) for i in range(config.n_layers)]
+        # Initialize STU filters if needed
+        self.__stu_phi = None
+        self.__stu_n = None
+        if config.stu_layer_schedule is not None:
+            from .stu import get_spectral_filters, nearest_power_of_two
+            self.__stu_n = nearest_power_of_two(config.max_sequence_length * 2 - 1, round_up=True)
+            self.__stu_phi = get_spectral_filters(
+                config.max_sequence_length,
+                config.stu_num_eigh,
+                config.stu_use_hankel_L,
+                device=_non_meta_init_device(config),
+                dtype=torch.bfloat16 if config.precision is None else getattr(torch, config.precision.split('_')[-1], torch.float32),
+            )
+
+        # Build blocks according to the schedule
+        blocks = []
+        for i in range(config.n_layers):
+            should_use_stu = self._should_use_stu_layer(i)
+            if should_use_stu:
+                # Temporarily override block_type for STU layers
+                original_block_type = config.block_type
+                config.block_type = BlockType.stu
+                blocks.append(OLMoBlock.build(i, config, self.__cache, phi=self.__stu_phi, n=self.__stu_n))
+                config.block_type = original_block_type
+            else:
+                blocks.append(OLMoBlock.build(i, config, self.__cache))
+        
         if self.config.block_group_size > 1:
             block_groups = [
                 OLMoBlockGroup(config, i, blocks[i : i + config.block_group_size])
@@ -1150,6 +1184,21 @@ class OLMo(nn.Module):
         if self.config.alibi:
             get_causal_attention_bias(self.__cache, config.max_sequence_length, _non_meta_init_device(config))
             self.get_alibi_attention_bias(config.max_sequence_length, _non_meta_init_device(config))
+
+    def _should_use_stu_layer(self, layer_idx: int) -> bool:
+        """Determine if a layer should use STU based on the schedule."""
+        if self.config.stu_layer_schedule is None:
+            return False
+        elif self.config.stu_layer_schedule == "all":
+            return True
+        elif self.config.stu_layer_schedule == "alternating":
+            return layer_idx % 2 == 0
+        elif self.config.stu_layer_schedule == "attention_last":
+            return layer_idx < self.config.n_layers - 1
+        else:
+            raise OLMoConfigurationError(
+                f"Unknown STU layer schedule: '{self.config.stu_layer_schedule}'"
+            )
 
     def set_activation_checkpointing(
         self, strategy: Optional[ActivationCheckpointingStrategy], checkpoint_func: Optional[Callable] = None

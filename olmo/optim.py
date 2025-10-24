@@ -13,6 +13,7 @@ from torch.optim.optimizer import Optimizer as OptimizerBase
 
 from . import LayerNormBase
 from .config import OptimizerType, SchedulerConfig, SchedulerType, TrainConfig
+from .stu import STU
 from .torch_util import get_default_device, is_distributed
 
 __all__ = [
@@ -869,6 +870,9 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
                     decay.add(fpn)
                 else:
                     no_decay.add(fpn)
+            elif isinstance(m, STU) and pn in ("M_inputs", "M_filters", "M_phi_plus", "M_phi_minus"):
+                # STU module parameters - treat like Linear weights with decay
+                decay.add(fpn)
 
     # Validate that we've considered every parameter
     inter_params = decay & no_decay
