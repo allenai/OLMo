@@ -8,7 +8,8 @@
 #SBATCH --cpus-per-task=12             # CPUs per GPU on 80GB nodes (max 12 per GPU)
 #SBATCH --mem=200G                     # Memory (80GB nodes have 240GB per GPU)
 #SBATCH --gres=gpu:1                   # Number of GPUs
-#SBATCH --constraint=gpu80             # Request A100 80GB GPUs (Intel CPUs)
+#SBATCH --partition=pli
+#SBATCH --account=hazan_intern
 
 # Print job information
 echo "Starting job $SLURM_JOB_ID on $(hostname) at $(date)"
