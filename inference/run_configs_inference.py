@@ -120,6 +120,7 @@ def generate_for_model(
     prompts: List[str],
     max_steps: int = 50,
     top_p: float = 0.95,
+    temperature: float = 1.0,
     device: str = "cuda"
 ) -> List[Dict[str, str]]:
     """Generate completions for a model."""
@@ -131,7 +132,7 @@ def generate_for_model(
         input_tensor = torch.tensor([input_ids], device=device, dtype=torch.long)
         
         with torch.inference_mode():
-            sampler = TopPSampler(p=top_p) if top_p < 1.0 else None
+            sampler = TopPSampler(p=top_p, temperature=temperature) if top_p < 1.0 else None
             output = model.generate(
                 input_tensor,
                 max_steps=max_steps,
@@ -200,6 +201,12 @@ Example:
         type=float,
         default=0.95,
         help="Top-p sampling (default: 0.95)"
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=1.0,
+        help="Sampling temperature (default: 1.0)"
     )
     parser.add_argument(
         "--device",
@@ -300,6 +307,7 @@ Example:
                 prompts=args.prompts,
                 max_steps=args.max_tokens,
                 top_p=args.top_p,
+                temperature=args.temperature,
                 device=args.device
             )
             
@@ -335,6 +343,7 @@ Example:
             "prompts": args.prompts,
             "max_tokens": args.max_tokens,
             "top_p": args.top_p,
+            "temperature": args.temperature,
             "device": args.device,
             "checkpoint_type": args.checkpoint_type,
             "models": all_results

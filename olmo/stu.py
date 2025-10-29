@@ -113,12 +113,12 @@ def convolve(
 
     if use_approx:
         _, d_out = v.shape
-        v = v.view(1, -1, d_out, 1).to(torch.float32)
+        v = v.reshape(1, -1, d_out, 1).to(torch.float32)
     else:
         _, K = v.shape
         sgn = sgn.unsqueeze(-1)
-        v = v.view(1, -1, K, 1, 1).to(torch.float32)
-        u = u.view(bsz, -1, 1, d_in).expand(bsz, -1, K, d_in)
+        v = v.reshape(1, -1, K, 1, 1).to(torch.float32)
+        u = u.reshape(bsz, -1, 1, d_in).expand(bsz, -1, K, d_in)
 
     # FFT-based convolution
     v = torch.fft.rfft(v, n=n, dim=1)
@@ -156,7 +156,8 @@ class STU(nn.Module):
         """
         super().__init__()
         self.config = config
-        self.phi = phi
+        # Register phi as a buffer so it moves with the model to different devices
+        self.register_buffer('phi', phi, persistent=False)
         self.n = n
         self.K = config.stu_num_eigh
         self.d_model = feature_dim or config.d_model

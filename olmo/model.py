@@ -1633,6 +1633,31 @@ class OLMo(nn.Module):
             )
         return sum(p.numel() for _, p in params)
 
+    def load_state_dict(self, state_dict, strict=True):
+        """
+        Override load_state_dict to ensure STU phi buffers match the dtype of loaded parameters.
+        """
+        # Call parent load_state_dict
+        result = super().load_state_dict(state_dict, strict=strict)
+        
+        # After loading, sync the dtype of phi buffers in STU blocks to match model parameters
+        # Get the dtype from the first parameter we can find
+        model_dtype = None
+        for param in self.parameters():
+            model_dtype = param.dtype
+            break
+        
+        if model_dtype is not None:
+            # Convert all phi buffers in STU blocks to the model's dtype
+            for name, module in self.named_modules():
+                if hasattr(module, 'phi') and isinstance(module.phi, torch.Tensor):
+                    if module.phi.dtype != model_dtype:
+                        # Properly update the buffer using _buffers dict and ensure it's contiguous
+                        phi_converted = module.phi.to(dtype=model_dtype).contiguous()
+                        module._buffers['phi'] = phi_converted
+        
+        return result
+
     @property
     def num_fwd_flops(self):
         if self.__num_fwd_flops:

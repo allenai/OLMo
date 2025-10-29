@@ -60,3 +60,4 @@ core
 /checkpoints/
 OLMo-base/
 flash-stu/
+inference_output/
