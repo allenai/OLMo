@@ -1,4 +1,4 @@
-run_name: OLMo-STU-20M-all-layers-1B-tokens
+run_name: OLMo-STU-20M-sandwich-all-layers-1B-tokens
 seed: 6198
 dry_run: false
 
@@ -41,10 +41,16 @@ model:
   init_cutoff_factor: 3
   
   # STU-specific configuration
-  stu_layer_schedule: alternating  # Enable STU on ALL layers instead of alternating
+  stu_layer_schedule: all  # Enable STU on ALL layers instead of alternating
   stu_num_eigh: 16         # Number of eigenvectors (K)
   stu_use_hankel_L: false  # Use L variant of Hankel matrix
   stu_use_approx: true     # Use approximation variant (faster)
+  
+  # MLP Sandwich configuration
+  # This wraps the STU with an MLP projection: d_model -> hidden -> STU -> d_model
+  stu_enable_mlp_sandwich: true  # Enable MLP sandwich around STU blocks
+  stu_mlp_hidden_size: 1024      # Explicit hidden size (4x d_model)
+                                 # With SwiGLU, STU will operate on 512-dim space
 
 softmax_auxiliary_loss: true
 auxiliary_loss_multiplier: 1e-5
@@ -82,6 +88,7 @@ tokenizer:
 
 save_folder: /scratch/gpfs/EHAZAN/tharuntk/OLMo-data/checkpoints/OLMo-STU/${run_name}
 save_overwrite: false
+
 
 # Unsharded checkpoints (for ddp)
 save_interval_unsharded: 5000
@@ -133,7 +140,7 @@ evaluators:
 
   - label: openbook_qa
     type: downstream
-
+ 
   - label: sciq
     type: downstream
 
@@ -215,5 +222,3 @@ data:
     # ~> WIKIPEDIA & WIKIBOOKS (3.689 GT)
     - /scratch/gpfs/EHAZAN/tharuntk/OLMo-data/preprocessed/olmo-mix/v1_6-decontaminated/wiki/gpt-neox-olmo-dolma-v1_5/part-0-00000.npy
     - /scratch/gpfs/EHAZAN/tharuntk/OLMo-data/preprocessed/olmo-mix/v1_6-decontaminated/wiki/gpt-neox-olmo-dolma-v1_5/part-1-00000.npy
-
-

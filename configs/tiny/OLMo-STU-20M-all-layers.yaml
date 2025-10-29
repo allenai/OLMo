@@ -1,4 +1,4 @@
-run_name: OLMo-STU-20M-all-layers-1B-tokens
+run_name: OLMo-STU-20M-non-alternating-1B-tokens
 seed: 6198
 dry_run: false
 
@@ -41,7 +41,7 @@ model:
   init_cutoff_factor: 3
   
   # STU-specific configuration
-  stu_layer_schedule: alternating  # Enable STU on ALL layers instead of alternating
+  stu_layer_schedule: all  # Enable STU on ALL layers instead of alternating
   stu_num_eigh: 16         # Number of eigenvectors (K)
   stu_use_hankel_L: false  # Use L variant of Hankel matrix
   stu_use_approx: true     # Use approximation variant (faster)
