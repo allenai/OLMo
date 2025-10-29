@@ -1354,7 +1354,12 @@ class OLMo(nn.Module):
         if past_key_values is None:
             past_length = 0
         else:
-            past_length = past_key_values[0][0].size(-2)
+            # Find first non-None entry (STU layers have None)
+            past_length = 0
+            for kv in past_key_values:
+                if kv is not None:
+                    past_length = kv[0].size(-2)
+                    break
 
         max_doc_len: Optional[int] = None
         cu_doc_lens: Optional[torch.Tensor] = None
@@ -1413,7 +1418,11 @@ class OLMo(nn.Module):
             if attention_mask is not None:
                 mask_len = attention_mask.shape[-1]
             elif past_key_values is not None:
-                mask_len = past_key_values[0][0].shape[-2] + seq_len
+                # Find first non-None entry (STU layers have None)
+                for kv in past_key_values:
+                    if kv is not None:
+                        mask_len = kv[0].shape[-2] + seq_len
+                        break
             attention_bias = attention_bias[:, :, :mask_len, :mask_len].to(dtype=torch.float)
 
             # Add in the masking bias.
@@ -1460,8 +1469,12 @@ class OLMo(nn.Module):
                     )
 
                 if attn_key_values is not None:
-                    assert cache is not None
-                    attn_key_values.append(cache)
+                    # STU blocks return None for cache, so only append if cache exists
+                    if cache is not None:
+                        attn_key_values.append(cache)
+                    else:
+                        # For STU blocks, append None to maintain index alignment
+                        attn_key_values.append(None)
         else:
             for group_idx, block_group in enumerate(self.transformer.block_groups):
                 if output_hidden_states:
@@ -1707,9 +1720,12 @@ class OLMo(nn.Module):
             past_key_values: List[Tuple[torch.Tensor, torch.Tensor]],
         ) -> Dict[str, torch.Tensor]:
             out = {}
-            for i, (key, value) in enumerate(past_key_values):
-                out[f"past_key_{i}"] = key
-                out[f"past_value_{i}"] = value
+            for i, kv in enumerate(past_key_values):
+                # Skip None values (from STU layers)
+                if kv is not None:
+                    key, value = kv
+                    out[f"past_key_{i}"] = key
+                    out[f"past_value_{i}"] = value
             return out
 
         def unflatten_past_key_values(
@@ -1717,9 +1733,14 @@ class OLMo(nn.Module):
         ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
             out = []
             for i in range(self.config.n_layers):
-                past_key = past_key_values[f"past_key_{i}"]
-                past_value = past_key_values[f"past_value_{i}"]
-                out.append((past_key, past_value))
+                # Check if this layer has cached keys (STU layers don't)
+                if f"past_key_{i}" in past_key_values:
+                    past_key = past_key_values[f"past_key_{i}"]
+                    past_value = past_key_values[f"past_value_{i}"]
+                    out.append((past_key, past_value))
+                else:
+                    # STU layer - append None
+                    out.append(None)
             return out
 
         def step(
