@@ -5,8 +5,11 @@ A Python script to automatically generate and submit SLURM jobs for OLMo trainin
 ## Quick Start
 
 ```bash
-# Submit a job directly
+# Submit a job for a single config file
 python offline_scripts/run_slurm_job_config.py --config configs/stu-ablations/OLMo-STU-All-150M.yaml
+
+# Submit jobs for all configs in a folder
+python offline_scripts/run_slurm_job_config.py --config configs/stu-ablations/
 
 # Preview what will be generated (dry run)
 python offline_scripts/run_slurm_job_config.py --config configs/tiny/OLMo-STU-20M.yaml --dry-run
@@ -17,6 +20,7 @@ python offline_scripts/run_slurm_job_config.py --config configs/tiny/OLMo-STU-20
 
 ## Features
 
+- **Single file or folder**: Submit jobs for a single config file or all YAML files in a folder
 - **Automatic inference**: Job name, memory requirements, and other parameters are inferred from the config file
 - **Flexible overrides**: All SLURM parameters can be overridden via command-line arguments
 - **Safe defaults**: Based on the most recent SLURM job templates (run_stu_sandwich_all_layers.slurm)
@@ -25,9 +29,18 @@ python offline_scripts/run_slurm_job_config.py --config configs/tiny/OLMo-STU-20
 
 ## Usage Examples
 
-### Basic submission
+### Basic submission (single config)
 ```bash
 python offline_scripts/run_slurm_job_config.py --config configs/stu-ablations/OLMo-STU-All-150M.yaml
+```
+
+### Submit all configs in a folder
+```bash
+# Submit jobs for all YAML files in a folder
+python offline_scripts/run_slurm_job_config.py --config configs/stu-ablations/
+
+# With custom settings for all configs in the folder
+python offline_scripts/run_slurm_job_config.py --config configs/stu-wide-depth-ablations/ --gpus 2 --time 48:00:00
 ```
 
 ### Multi-GPU training
@@ -68,7 +81,7 @@ python offline_scripts/run_slurm_job_config.py \
 ## Command-line Arguments
 
 ### Required
-- `--config`: Path to the config YAML file
+- `--config`: Path to a config YAML file or folder containing YAML files
 
 ### Optional SLURM Parameters
 - `--job-name`: Override job name (default: inferred from config's `run_name`)

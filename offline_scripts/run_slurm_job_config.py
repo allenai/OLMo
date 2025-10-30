@@ -3,9 +3,14 @@
 Automatically generate and submit SLURM jobs for OLMo training configs.
 
 Usage:
+    # Single config file
     python run_slurm_job_config.py --config configs/tiny/OLMo-STU-20M.yaml
     python run_slurm_job_config.py --config configs/stu-ablations/OLMo-STU-All-150M.yaml --gpus 2
     python run_slurm_job_config.py --config configs/tiny/OLMo-STU-20M.yaml --dry-run
+    
+    # All configs in a folder
+    python run_slurm_job_config.py --config configs/stu-ablations/
+    python run_slurm_job_config.py --config configs/stu-wide-depth-ablations/ --gpus 2
 """
 
 import argparse
@@ -25,7 +30,7 @@ def parse_args():
         "--config",
         type=str,
         required=True,
-        help="Path to the config YAML file (e.g., configs/tiny/OLMo-STU-20M.yaml)",
+        help="Path to a config YAML file or folder containing YAML files (e.g., configs/tiny/OLMo-STU-20M.yaml or configs/stu-ablations/)",
     )
     parser.add_argument(
         "--job-name",
@@ -105,6 +110,21 @@ def parse_args():
     )
     
     return parser.parse_args()
+
+
+def find_yaml_files(path):
+    """Find all YAML files in a directory or return single file if path is a file."""
+    path_obj = Path(path)
+    
+    if path_obj.is_file():
+        return [path_obj]
+    elif path_obj.is_dir():
+        # Find all .yaml and .yml files in the directory (not recursive)
+        yaml_files = list(path_obj.glob("*.yaml")) + list(path_obj.glob("*.yml"))
+        yaml_files.sort()  # Sort for consistent ordering
+        return yaml_files
+    else:
+        return []
 
 
 def read_config_yaml(config_path):
@@ -242,47 +262,46 @@ echo "Job finished at $(date)"
     return script
 
 
-def main():
-    args = parse_args()
-    
-    # Check if config file exists
-    if not os.path.exists(args.config):
-        print(f"Error: Config file not found: {args.config}")
-        sys.exit(1)
-    
+def process_single_config(config_path, args):
+    """Process a single config file: generate and optionally submit SLURM job."""
     # Read config file
-    print(f"Reading config: {args.config}")
-    config = read_config_yaml(args.config)
+    print(f"\nProcessing config: {config_path}")
+    config = read_config_yaml(config_path)
+    
+    # Create a copy of args with the specific config path
+    single_args = argparse.Namespace(**vars(args))
+    single_args.config = str(config_path)
     
     # Generate SLURM script
-    script = generate_slurm_script(args, config)
+    script = generate_slurm_script(single_args, config)
     
     # Handle dry-run mode
-    if args.dry_run:
+    if single_args.dry_run:
         print("\n" + "="*80)
-        print("Generated SLURM script (dry-run mode):")
+        print(f"Generated SLURM script for {config_path.name} (dry-run mode):")
         print("="*80)
         print(script)
         print("="*80)
-        return
+        return True
     
     # Determine if we should save the script
-    if args.no_submit and not args.save_script:
+    save_script_path = single_args.save_script
+    if single_args.no_submit and not save_script_path:
         # Auto-generate a save path
-        job_name = args.job_name or infer_job_name(args.config, config)
-        args.save_script = f"offline_scripts/generated_{job_name}.slurm"
+        job_name = single_args.job_name or infer_job_name(str(config_path), config)
+        save_script_path = f"offline_scripts/generated_{job_name}.slurm"
     
     # Save or submit the script
-    if args.save_script:
+    if save_script_path:
         # Save to specified path
-        save_path = Path(args.save_script)
+        save_path = Path(save_script_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
         with open(save_path, 'w') as f:
             f.write(script)
         os.chmod(save_path, 0o755)  # Make executable
         print(f"SLURM script saved to: {save_path}")
         
-        if not args.no_submit:
+        if not single_args.no_submit:
             # Submit the saved script
             print(f"Submitting job with sbatch...")
             result = subprocess.run(
@@ -293,7 +312,7 @@ def main():
             print(result.stdout)
             if result.returncode != 0:
                 print(f"Error submitting job: {result.stderr}", file=sys.stderr)
-                sys.exit(result.returncode)
+                return False
     else:
         # Create temporary file and submit
         with tempfile.NamedTemporaryFile(mode='w', suffix='.slurm', delete=False) as f:
@@ -311,13 +330,59 @@ def main():
             print(result.stdout)
             if result.returncode != 0:
                 print(f"Error submitting job: {result.stderr}", file=sys.stderr)
-                sys.exit(result.returncode)
+                return False
         finally:
             # Clean up temp file
             try:
                 os.unlink(temp_script)
             except:
                 pass
+    
+    return True
+
+
+def main():
+    args = parse_args()
+    
+    # Check if config path exists
+    if not os.path.exists(args.config):
+        print(f"Error: Config path not found: {args.config}")
+        sys.exit(1)
+    
+    # Find all YAML files (single file or directory)
+    yaml_files = find_yaml_files(args.config)
+    
+    if not yaml_files:
+        print(f"Error: No YAML files found in: {args.config}")
+        sys.exit(1)
+    
+    # Report what we found
+    if len(yaml_files) == 1:
+        print(f"Found 1 config file: {yaml_files[0].name}")
+    else:
+        print(f"Found {len(yaml_files)} config files in {args.config}:")
+        for yaml_file in yaml_files:
+            print(f"  - {yaml_file.name}")
+    
+    # Process each config file
+    successful = 0
+    failed = 0
+    
+    for yaml_file in yaml_files:
+        success = process_single_config(yaml_file, args)
+        if success:
+            successful += 1
+        else:
+            failed += 1
+    
+    # Summary
+    if len(yaml_files) > 1:
+        print("\n" + "="*80)
+        print(f"Summary: {successful} successful, {failed} failed out of {len(yaml_files)} total")
+        print("="*80)
+    
+    if failed > 0:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
