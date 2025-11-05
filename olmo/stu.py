@@ -20,6 +20,7 @@ __all__ = [
     "OLMoSTUBlock",
     "get_spectral_filters",
     "get_hankel",
+    "nearest_power_of_two",
 ]
 
 
@@ -257,6 +258,7 @@ class OLMoSTUBlock(nn.Module):
 
         # Import here to avoid circular imports
         from .model import Activation, Dropout, LayerNormBase
+        from .usp import UniversalSequencePreconditioner
 
         # Dropout
         self.dropout = Dropout(config.residual_dropout)
@@ -267,6 +269,18 @@ class OLMoSTUBlock(nn.Module):
 
         # STU module
         self.stu_mlp_enabled = config.stu_enable_mlp_sandwich
+
+        # USP (Universal Sequence Preconditioning) module
+        self.usp_enabled = config.usp_enable and self.stu_mlp_enabled
+        if self.usp_enabled:
+            self.usp = UniversalSequencePreconditioner(
+                config=config,
+                degree=config.usp_degree,
+                lambda_init=config.usp_lambda_init,
+                alpha_init=config.usp_alpha_init,
+                apply_layer_norm=config.usp_apply_layer_norm,
+                learnable_params=config.usp_learnable_params,
+            )
 
         if self.stu_mlp_enabled:
             self.stu_mlp_hidden_size = (
@@ -331,6 +345,11 @@ class OLMoSTUBlock(nn.Module):
         self.ff_norm.reset_parameters()
         self.stu.reset_parameters()
 
+        # Initialize USP if enabled
+        if self.usp_enabled:
+            # USP initialization is handled in the USP module itself
+            pass
+
         # Initialize projections based on config
         if self.config.init_fn == "normal":
             std = self.config.init_std
@@ -384,6 +403,10 @@ class OLMoSTUBlock(nn.Module):
         else:
             self._activation_checkpoint_fn = None
 
+        # Propagate activation checkpointing to USP module
+        if self.usp_enabled:
+            self.usp.set_activation_checkpointing(strategy, checkpoint_func)
+
     def forward(
         self,
         x: torch.Tensor,
@@ -401,21 +424,39 @@ class OLMoSTUBlock(nn.Module):
         """
         # STU path with residual connection
         if not self.config.norm_after:
-            if self._activation_checkpoint_fn is not None:
-                h = self._activation_checkpoint_fn(self.stu_norm, x)
+            if self.usp_enabled:
+                # USP handles layer normalization internally if configured
+                if self._activation_checkpoint_fn is not None:
+                    h = self._activation_checkpoint_fn(self.usp, x)
+                else:
+                    h = self.usp(x)
             else:
-                h = self.stu_norm(x)
+                # Standard layer normalization
+                if self._activation_checkpoint_fn is not None:
+                    h = self._activation_checkpoint_fn(self.stu_norm, x)
+                else:
+                    h = self.stu_norm(x)
         else:
-            h = x
+            # For norm_after=True, we still apply USP if enabled, but without layer norm
+            if self.usp_enabled:
+                # Configure USP to not apply layer norm in this case
+                if self._activation_checkpoint_fn is not None:
+                    h = self._activation_checkpoint_fn(self.usp.filter, x)
+                else:
+                    h = self.usp.filter(x)
+            else:
+                h = x
 
-        # Apply STU
+        # Apply STU sandwich architecture
         stu_input = h
         if self.stu_mlp_enabled:
+            # MLP input projection: d_model → stu_mlp_hidden_size
             if self._activation_checkpoint_fn is not None:
                 stu_input = self._activation_checkpoint_fn(self.stu_mlp_in_proj, stu_input)
             else:
                 stu_input = self.stu_mlp_in_proj(stu_input)
 
+            # Nonlinearity (SwiGLU activation)
             if self._activation_checkpoint_fn is not None:
                 stu_input = self._activation_checkpoint_fn(self.stu_mlp_act, stu_input)
             else:
@@ -469,4 +510,18 @@ class OLMoSTUBlock(nn.Module):
 
         # Return None for cache to match OLMoBlock interface
         return x, None
+
+    def reset_streaming_state(self):
+        """Reset streaming state for inference (USP ring buffers)."""
+        if self.usp_enabled:
+            self.usp.reset_streaming_state()
+
+    def get_usp_analysis(self, x: torch.Tensor) -> Optional[dict]:
+        """Get USP analysis for debugging and monitoring."""
+        if not self.usp_enabled:
+            return None
+
+        # Apply USP with analysis enabled
+        _, analysis = self.usp(x, return_analysis=True)
+        return analysis
 

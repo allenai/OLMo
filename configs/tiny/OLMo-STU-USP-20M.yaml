@@ -1,0 +1,141 @@
+run_name: OLMo-STU-USP-20M-1B-tokens
+seed: 6198
+dry_run: false
+
+wandb:
+  name: ${run_name}
+  project: olmo-tiny-stu-usp
+  entity: tharuntk-princeton-princeton-university
+  group: ${run_name}
+
+model:
+  d_model: 288
+  n_heads: 6
+  n_layers: 16
+  mlp_ratio: 4
+  weight_tying: false
+  alibi: false
+  rope: true
+  flash_attention: true
+  attention_dropout: 0.0
+  attention_layer_norm: false
+  clip_qkv: null
+  include_bias: false
+  block_type: sequential
+  layer_norm_type: rms
+  layer_norm_with_affine: true
+  layer_norm_eps: 1e-6
+  bias_for_layer_norm: false
+  attention_layer_norm_with_affine: false
+  activation_type: swiglu
+  residual_dropout: 0.0
+  embedding_dropout: 0.0
+  max_sequence_length: 2048
+  vocab_size: 50280
+  embedding_size: 50304
+  eos_token_id: 0
+  pad_token_id: 1
+  init_device: cuda
+  init_fn: normal
+  init_std: 0.02
+  init_cutoff_factor: 3
+
+  # STU-specific configuration
+  stu_layer_schedule: all  # Enable STU in all layers for tiny model
+  stu_num_eigh: 12         # Smaller for efficiency in tiny model
+  stu_use_hankel_L: false  # Use standard Hankel matrix
+  stu_use_approx: true     # Use approximation variant for speed
+
+  # MLP Sandwich configuration
+  stu_enable_mlp_sandwich: true  # Enable MLP sandwich around STU blocks
+  stu_mlp_hidden_size: 512       # Explicit hidden size for tiny model
+
+  # USP (Universal Sequence Preconditioning) configuration
+  # Optimized for small-scale experimentation and debugging
+  usp_enable: true              # Enable USP preconditioning
+  usp_degree: 2                 # Lower degree for tiny model (less aggressive)
+  usp_lambda_init: 0.3          # Conservative initial values
+  usp_alpha_init: 0.05          # Gentle preconditioning strength
+  usp_learnable_params: true    # Enable learning
+  usp_apply_layer_norm: true    # Standard layer norm before USP
+  usp_warmup_steps: 500         # Shorter warmup for tiny model
+
+softmax_auxiliary_loss: true
+auxiliary_loss_multiplier: 1e-5
+fused_loss: false
+
+ddp:
+  grad_sync_mode: batch
+  find_unused_params: false
+
+compile: null
+
+optimizer:
+  name: adamw
+  learning_rate: 3.0e-4  # Lower LR for tiny model
+  weight_decay: 0.1
+  eps: 1e-8
+  decay_norm_and_bias: true
+  decay_embeddings: true
+  betas:
+  - 0.9
+  - 0.95
+  metrics_log_interval: 10
+
+scheduler:
+  name: cosine_with_warmup
+  t_warmup: 2000  # Shorter warmup
+  alpha_f: 0.1
+  warmup_min_lr: 0
+
+tokenizer:
+  identifier: tokenizers/allenai_gpt-neox-olmo-dolma-v1_5.json
+  truncate_direction: right
+
+save_folder: /tmp/OLMo-20M-USP/${run_name}
+save_overwrite: true
+
+# Unsharded checkpoints (for ddp)
+save_interval_unsharded: 1000
+save_num_unsharded_checkpoints_to_keep: 3
+
+load_path: null
+
+max_duration: 1977
+global_train_batch_size: 512
+device_train_microbatch_size: 16
+
+precision: amp_bf16
+distributed_strategy: ddp
+
+gen1_gc_interval: 1
+
+max_grad_norm: 1.0
+max_grad_norm_ratio: null
+
+speed_monitor:
+  window_size: 20
+
+eval_interval: 1000
+eval_subset_num_batches: 10
+device_eval_batch_size: ${device_train_microbatch_size}
+evaluators:
+  - label: c4-validation
+    data:
+      num_workers: 0
+      drop_last: true
+      datasets:
+        c4-en-validation:
+          - /tmp/c4-validation.npy
+
+data:
+  pad_direction: right
+  num_workers: 0
+  drop_last: true
+  pin_memory: false
+  prefetch_factor: 2
+  persistent_workers: false
+  timeout: 0
+  paths:
+    # Tiny dataset for fast experimentation
+    - /tmp/c4-train.npy

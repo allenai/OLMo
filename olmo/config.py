@@ -518,6 +518,94 @@ class ModelConfig(BaseConfig):
     - "attention_last": STU for all layers except the last one
     """
 
+    # USP (Universal Sequence Preconditioning) configuration for STU sandwich layers
+    usp_enable: bool = False
+    """
+    Enable Universal Sequence Preconditioning (USP) in STU sandwich layers.
+    USP applies causal polynomial preconditioning using monic Chebyshev polynomials
+    to suppress low-frequency modes and improve optimization stability.
+    Only effective when stu_enable_mlp_sandwich=True.
+    """
+
+    usp_degree: int = 3
+    """
+    Degree of the Chebyshev polynomial for USP preconditioning (typically 2-4).
+    Higher degrees provide more aggressive spectral shaping but may over-dampen
+    intermediate frequencies. Degree 3 offers good balance of low-frequency
+    suppression and computational efficiency.
+    """
+
+    usp_lambda_init: float = 0.5
+    """
+    Initial value for the USP residual gate parameter λ ∈ [0,1].
+    Controls the blending between identity and preconditioned signal:
+    G = I - λα Σ c_i S^i. Engineering choice for training stability.
+    Larger values increase preconditioning strength.
+    """
+
+    usp_alpha_init: float = 0.1
+    """
+    Initial value for the USP preconditioner strength parameter α.
+    Combined with λ, determines the effective filtering strength.
+    Engineering choice for training stability and gradual preconditioning ramp-up.
+    """
+
+    usp_learnable_params: bool = True
+    """
+    Whether USP parameters λ and α are learnable during training.
+    When True, allows adaptive tuning of preconditioning strength.
+    When False, uses fixed values for consistent spectral behavior.
+    Engineering choice - not required by paper but can improve training.
+    """
+
+    usp_apply_layer_norm: bool = True
+    """
+    Whether to apply layer normalization before USP filtering.
+    When True (recommended), follows the standard: G(LN(h))
+    When False, applies USP directly: G(h)
+    """
+
+    usp_warmup_steps: int = 0
+    """
+    Number of training steps to freeze USP parameters (warmup period).
+    During warmup, λ and α remain at their initial values to allow
+    the model to stabilize before enabling adaptive preconditioning.
+    0 means no warmup (parameters learnable from start).
+    Engineering choice for training stability.
+    """
+
+    def validate_usp_config(self):
+        """Validate USP configuration parameters."""
+        if self.usp_enable:
+            if not self.stu_enable_mlp_sandwich:
+                raise OLMoConfigurationError(
+                    "USP can only be enabled when stu_enable_mlp_sandwich=True"
+                )
+
+            if not (1 <= self.usp_degree <= 10):
+                raise OLMoConfigurationError(
+                    f"usp_degree must be in [1, 10], got {self.usp_degree}"
+                )
+
+            if not (0.0 <= self.usp_lambda_init <= 1.0):
+                raise OLMoConfigurationError(
+                    f"usp_lambda_init must be in [0, 1], got {self.usp_lambda_init}"
+                )
+
+            if not (-1.0 <= self.usp_alpha_init <= 1.0):
+                raise OLMoConfigurationError(
+                    f"usp_alpha_init should be in [-1, 1] for stability, got {self.usp_alpha_init}"
+                )
+
+            if self.usp_warmup_steps < 0:
+                raise OLMoConfigurationError(
+                    f"usp_warmup_steps must be >= 0, got {self.usp_warmup_steps}"
+                )
+
+            # Note: For asymmetric LDS support, eigenvalue bounds must be checked at runtime:
+            # max_j |arg(λ_j)| ≤ 1/(32 log²(2T³/d_out))²
+            # This cannot be validated here as it depends on the actual system being modeled.
+
     @property
     def effective_n_kv_heads(self) -> int:
         if self.n_kv_heads is None:
@@ -538,6 +626,11 @@ class ModelConfig(BaseConfig):
                 raise OLMoConfigurationError(
                     "You can't set `multi_query_attention` and `n_kv_heads` at the same time."
                 )
+
+    def __post_init__(self):
+        """Validate configuration after initialization."""
+        # Validate USP configuration
+        self.validate_usp_config()
 
 
 class OptimizerType(StrEnum):
