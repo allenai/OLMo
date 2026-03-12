@@ -696,14 +696,14 @@ class Trainer:
             trace_save_folder = Path(self.cfg.save_folder) / f"traces/step{self.global_step}"
             trace_save_folder.mkdir(parents=True, exist_ok=True)
 
-            module_occurence_num = 0
+            module_occurrence_num = 0
             while (
-                module_input_filepath := trace_save_folder / f"{module_name}_{module_occurence_num}_input.pt"
+                module_input_filepath := trace_save_folder / f"{module_name}_{module_occurrence_num}_input.pt"
             ).exists():
-                module_occurence_num += 1
+                module_occurrence_num += 1
             torch.save(module_input, module_input_filepath)
 
-            module_output_filepath = trace_save_folder / f"{module_name}_{module_occurence_num}_output.pt"
+            module_output_filepath = trace_save_folder / f"{module_name}_{module_occurrence_num}_output.pt"
             torch.save(output, module_output_filepath)
 
         output_hooks = []
