@@ -1528,9 +1528,9 @@ class OEEvalTask(ICLMultiChoiceTaskDataset):
                     continue
                 if doc_id > max_doc_id:
                     max_doc_id = doc_id
-                assert (
-                    request["request_type"] == "loglikelihood"
-                ), f"Unsupported request type: {request['request_type']}"
+                assert request["request_type"] == "loglikelihood", (
+                    f"Unsupported request type: {request['request_type']}"
+                )
 
                 # from EAI harness
                 # how this all works:

@@ -315,9 +315,9 @@ def make_source_and_target(
     random.shuffle(exploded_src)
 
     if paths_per_worker > 1:
-        assert (
-            len(exploded_src) >= paths_per_worker
-        ), f"Number of paths ({len(exploded_src)}) must be >= paths_per_worker ({paths_per_worker})"
+        assert len(exploded_src) >= paths_per_worker, (
+            f"Number of paths ({len(exploded_src)}) must be >= paths_per_worker ({paths_per_worker})"
+        )
 
         # group the paths into chunks of paths_per_worker
         exploded_src = [
@@ -325,7 +325,7 @@ def make_source_and_target(
         ]
 
     # determine the destination paths
-    exploded_dst = [f'{output.rstrip("/")}/{i:0{output_digits}d}' for i in range(len(exploded_src))]
+    exploded_dst = [f"{output.rstrip('/')}/{i:0{output_digits}d}" for i in range(len(exploded_src))]
 
     return tuple(exploded_src), tuple(exploded_dst)
 

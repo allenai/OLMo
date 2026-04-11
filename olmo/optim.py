@@ -393,9 +393,9 @@ class LionW(Optimizer):
     def get_post_step_metrics(
         self, module: nn.Module, process_group: Optional[dist.ProcessGroup] = None
     ) -> Dict[str, torch.Tensor]:
-        assert isinstance(
-            module, FSDP
-        ), "`get_post_step_metrics` expects module to be FSDP and will not work with other `distributed_strategy`."
+        assert isinstance(module, FSDP), (
+            "`get_post_step_metrics` expects module to be FSDP and will not work with other `distributed_strategy`."
+        )
 
         update_total_dot_prod = self._update_total_dot_prod
         update_total_norm = self._update_total_norm
@@ -792,6 +792,7 @@ class ConstantScheduler(Scheduler):
 @dataclass
 class CosLinearEnvelope(Scheduler):
     "Pointwise product of cosine schedule and linear decay; useful during annealing."
+
     warmup_steps: int
     alpha_f: float = 0.1
     t_max: Optional[int] = None
@@ -874,9 +875,9 @@ def get_param_groups(cfg: TrainConfig, model: nn.Module) -> List[Dict[str, Any]]
     inter_params = decay & no_decay
     union_params = decay | no_decay
     assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
-    assert (
-        len(all_params.keys() - union_params) == 0
-    ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
+    assert len(all_params.keys() - union_params) == 0, (
+        f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
+    )
 
     # Create the pytorch optimizer groups.
     decay_sorted = sorted(list(decay))

@@ -6,7 +6,7 @@ Examples:
 
     Comparing Peteish7 to Amberish7
     - python scripts/compare_wandb_configs.py https://wandb.ai/ai2-llm/olmo-medium/runs/cej4ya39 https://wandb.ai/ai2-llm/olmo-medium/runs/ij4ls6v2
-    
+
 
 """
 

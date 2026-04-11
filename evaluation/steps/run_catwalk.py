@@ -242,9 +242,9 @@ class PredictAndCalculateMetricsStep(Step):
             instance_id = guess_instance_id(instance, idx=idx)  # dict
 
             if keep_instance_fields or keep_all_instance_fields_except:
-                assert (
-                    keep_instance_fields is None or keep_all_instance_fields_except is None
-                ), "Can't use both keep_instance_fields and keep_all_instance_fields_except"
+                assert keep_instance_fields is None or keep_all_instance_fields_except is None, (
+                    "Can't use both keep_instance_fields and keep_all_instance_fields_except"
+                )
                 for field in instance:
                     if keep_instance_fields and field not in keep_instance_fields:
                         continue

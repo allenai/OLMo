@@ -31,8 +31,6 @@ dependencies = [
 dev = [
     "ruff",
     "mypy>=1.0,<1.4",
-    "black>=23.1,<24.0",
-    "isort>=5.12,<5.13",
     "pytest",
     "pytest-sphinx",
     "twine>=1.11.0",
@@ -90,29 +88,6 @@ exclude = [
     "inference.*",
 ]
 
-[tool.black]
-line-length = 115
-include = '\.pyi?$'
-exclude = '''
-(
-      __pycache__
-    | \.git
-    | \.mypy_cache
-    | \.pytest_cache
-    | \.vscode
-    | \.venv
-    | \bdist\b
-    | \bdoc\b
-    | pretrain_data/
-    | inference/
-)
-'''
-
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-extend_skip = ["pretrain_data", "tokenizer"]
-
 [tool.ruff]
 line-length = 115
 lint.ignore = ["F403", "F405", "E501"]
@@ -144,6 +119,9 @@ exclude = [
 
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
+
+[tool.ruff.format]
+# ruff format is black-compatible by default
 
 [tool.pyright]
 reportPrivateImportUsage = false
