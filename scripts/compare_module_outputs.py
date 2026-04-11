@@ -4,7 +4,7 @@ different training run steps (of the same or different runs).
 
 This script is useful for identifying where model activations start to differ
 within 2 forward passes that should yield identical results. In turn, detecting
-regressions can be a lot quicker/easier. 
+regressions can be a lot quicker/easier.
 
 This script requires that traces containing submodule outputs have been collected
 during training. The traces can be saved using

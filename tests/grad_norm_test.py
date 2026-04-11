@@ -62,9 +62,9 @@ def _init_torch_optim(cfg, model):
     inter_params = decay & no_decay
     union_params = decay | no_decay
     assert len(inter_params) == 0, f"parameters {inter_params} made it into both decay/no_decay sets!"
-    assert (
-        len(all_params.keys() - union_params) == 0
-    ), f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
+    assert len(all_params.keys() - union_params) == 0, (
+        f"parameters {all_params.keys() - union_params} were not separated into either decay/no_decay set!"
+    )
 
     # Create the pytorch optimizer groups.
     optim_groups = [
@@ -215,9 +215,9 @@ def _naive_train_loop(
             # params set by observing grads for the two cases on a cpu run
             assert total_grad_diff < 1e-4, "model gradients diverged during optimization"
             assert total_param_diff < 1e-2, "model parameters diverged during optimization"
-            assert (
-                torch.abs(torch_grad_norm - olmo_grad_norm) < 1e-6
-            ), "grad norms computed by torch and OLMo codebase are different"
+            assert torch.abs(torch_grad_norm - olmo_grad_norm) < 1e-6, (
+                "grad norms computed by torch and OLMo codebase are different"
+            )
 
             if step_count == max_iterations:
                 break

@@ -512,7 +512,7 @@ def _gcs_find_latest_checkpoint(bucket_name: str, prefix: str) -> Optional[str]:
             or (step == latest_step and latest_checkpoint is not None and latest_checkpoint.endswith("-unsharded"))
         ):
             latest_step = step
-            latest_checkpoint = f"gs://{bucket_name}/{blob.name[:-len(suffix)]}"
+            latest_checkpoint = f"gs://{bucket_name}/{blob.name[: -len(suffix)]}"
 
     return latest_checkpoint
 
@@ -710,7 +710,7 @@ def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: i
         try:
             response = requests.get(
                 f"{scheme}://{host_name}/{path}",
-                headers={"Range": f"bytes={bytes_start}-{bytes_start+num_bytes-1}"},
+                headers={"Range": f"bytes={bytes_start}-{bytes_start + num_bytes - 1}"},
             )
             result = response.content
             if len(result) == num_bytes:
@@ -719,7 +719,7 @@ def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: i
             log.warning(f"Expected {num_bytes} bytes, but got {len(result)}. Retrying...")
 
         except requests.exceptions.RequestException as e:
-            log.warning(f"Attempt {attempt+1}/{max_retries}. Network error: {e}. Retrying...")
+            log.warning(f"Attempt {attempt + 1}/{max_retries}. Network error: {e}. Retrying...")
         attempt += 1
         time.sleep(2**attempt)
     raise ValueError(
@@ -910,7 +910,7 @@ class WekaClient(SchemeClient):
 
     def get_bytes_range(self, index: int, length: int) -> bytes:
         response = self.s3.get_object(
-            Bucket=self.bucket_name, Key=self.path, Range=f"bytes={index}-{index+length-1}"
+            Bucket=self.bucket_name, Key=self.path, Range=f"bytes={index}-{index + length - 1}"
         )
         return response["Body"].read()
 
