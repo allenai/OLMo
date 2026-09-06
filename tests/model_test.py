@@ -473,6 +473,25 @@ def test_layer_norm(train_config: TrainConfig, elementwise_affine: bool, include
     torch.testing.assert_close(y_actual, y_expected)
 
 
+def test_num_params_uses_fsdp_unpadded_size(train_config: TrainConfig):
+    train_config.model.d_model = 16
+    train_config.model.n_heads = 2
+    train_config.model.n_layers = 1
+    train_config.model.vocab_size = 32
+    train_config.model.embedding_size = 32
+    train_config.model.max_sequence_length = 16
+
+    model = OLMo(train_config.model, init_params=False)
+    expected_num_params = model.num_params()
+
+    param = next(model.parameters())
+    padded_numel = param.numel() + 8
+    param.data = torch.empty(padded_numel)
+    param._unpadded_unsharded_size = torch.Size([padded_numel - 8])  # type: ignore[attr-defined]
+
+    assert model.num_params() == expected_num_params
+
+
 def test_block_groups():
     model_with_block_groups = OLMo(ModelConfig(d_model=128, n_heads=2, n_layers=9, block_group_size=3)).eval()
     model_without_block_groups = OLMo(ModelConfig(d_model=128, n_heads=2, n_layers=9, block_group_size=1)).eval()

@@ -1569,7 +1569,14 @@ class OLMo(nn.Module):
                 lambda np: ".wte." not in np[0] and ".wpe." not in np[0],
                 params,
             )
-        return sum(p.numel() for _, p in params)
+        total = 0
+        for _, p in params:
+            unpadded_size = getattr(p, "_unpadded_unsharded_size", None)
+            if unpadded_size is not None:
+                total += unpadded_size.numel()
+            else:
+                total += p.numel()
+        return total
 
     @property
     def num_fwd_flops(self):
