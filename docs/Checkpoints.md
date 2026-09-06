@@ -48,6 +48,20 @@ python scripts/convert_olmo2_to_hf.py --input_dir /path/to/olmo/checkpoint --out
 
 *Warning*: As we continue to develop and improve OLMo, our implementation in this repo may become incompatible with the implementation in the Transformer library. During these periods, OLMo checkpoints may not be convertible to Transformers checkpoint. At present, all OLMo checkpoints of our officially released models are convertible to Transformers checkpoints.
 
+Once a checkpoint has been converted to Transformers format, it can be evaluated with
+[OLMES](https://github.com/allenai/olmes) by passing the local or remote checkpoint path directly to
+`--model`. For example:
+
+```bash
+olmes --model /path/to/hf/checkpoint --task gsm8k::olmes --output-dir /path/to/eval-results
+```
+
+The in-training evaluation code in this repository is optimized for quick perplexity-style measurements over
+prepared continuations, so tasks such as GSM8K may appear there as multiple-choice or continuation-scoring tasks.
+Canonical generative evaluations, including GSM8K answer generation and extraction, should be run offline with
+OLMES. Custom OLMo-based checkpoints need to be converted first so the converted directory contains the
+Transformers files expected by OLMES, including a `config.json` with a supported `model_type`.
+
 HF OLMo checkpoints
 ---
 

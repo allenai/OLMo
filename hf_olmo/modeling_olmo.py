@@ -4,7 +4,6 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import torch
 from transformers import GenerationMixin, PreTrainedModel
-from transformers.cache_utils import Cache
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.auto import AutoModelForCausalLM
 
@@ -48,6 +47,7 @@ class OLMoForCausalLM(PreTrainedModel, GenerationMixin):
     _no_split_modules = ["OLMoBlock"]
     _supports_flash_attn_2 = True
     _supports_sdpa = True
+    _supports_cache_class = False
     supports_gradient_checkpointing = True
 
     def __init__(self, config: OLMoConfig, model: Optional[OLMo] = None, init_params: bool = False):
@@ -93,10 +93,11 @@ class OLMoForCausalLM(PreTrainedModel, GenerationMixin):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
-        cache_position: Optional[
-            Cache
-        ] = None,  # This is a hack mitigation of an issue in transformers `4.39.x` https://github.com/huggingface/transformers/issues/29426
+        cache_position: Optional[torch.LongTensor] = None,
+        position_ids: Optional[torch.LongTensor] = None,
     ) -> Union[Tuple, CausalLMOutputWithPast]:
+        del cache_position, position_ids
+
         if use_cache is None:
             use_cache = self.config.use_cache
 
