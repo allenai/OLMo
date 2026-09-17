@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed a Union definition to be compatible with Python 3.9
 - Changed hf_olmo conversion to use backwards-compatible logic via `OLMo.from_checkpoint`.
 - fix save_overwrite pass
+- Added retries with backoff to `_http_file_size()` so a transient network error while sizing a remote (e.g. olmo-data.org) data file no longer crashes dataset construction outright.
 
 ## [v0.6.1](https://github.com/allenai/OLMo/releases/tag/v0.6.1) - 2025-01-22
 

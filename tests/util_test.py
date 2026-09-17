@@ -1,4 +1,10 @@
+from unittest.mock import Mock
+
+import pytest
+import requests
+
 from olmo import util
+from olmo.exceptions import OLMoNetworkError
 
 
 def test_dir_is_empty(tmp_path):
@@ -40,3 +46,25 @@ def test_flatten_dict():
         "b.f": 1,
         "c": 2,
     }
+
+
+def test_http_file_size_retries_transient_errors(monkeypatch):
+    # Should recover from a transient connection error on the first attempt.
+    monkeypatch.setattr(util.time, "sleep", lambda _: None)
+    response = Mock(headers={"content-length": "123"})
+    mock_head = Mock(side_effect=[requests.exceptions.ConnectionError("Network is unreachable"), response])
+    monkeypatch.setattr(requests, "head", mock_head)
+
+    assert util._http_file_size("https", "olmo-data.org", "foo.npy") == 123
+    assert mock_head.call_count == 2
+
+
+def test_http_file_size_raises_olmo_network_error_after_exhausting_retries(monkeypatch):
+    # Should give up and raise `OLMoNetworkError` after `max_retries` failed attempts.
+    monkeypatch.setattr(util.time, "sleep", lambda _: None)
+    mock_head = Mock(side_effect=requests.exceptions.ConnectionError("Network is unreachable"))
+    monkeypatch.setattr(requests, "head", mock_head)
+
+    with pytest.raises(OLMoNetworkError):
+        util._http_file_size("https", "olmo-data.org", "foo.npy", max_retries=3)
+    assert mock_head.call_count == 3

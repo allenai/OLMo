@@ -694,11 +694,21 @@ def _s3_find_latest_checkpoint(scheme: str, bucket_name: str, prefix: str) -> Op
     return latest_checkpoint
 
 
-def _http_file_size(scheme: str, host_name: str, path: str) -> int:
+def _http_file_size(scheme: str, host_name: str, path: str, max_retries: int = 5) -> int:
     import requests
 
-    response = requests.head(f"{scheme}://{host_name}/{path}", allow_redirects=True)
-    return int(response.headers.get("content-length"))
+    err: Optional[Exception] = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = requests.head(f"{scheme}://{host_name}/{path}", allow_redirects=True)
+            return int(response.headers.get("content-length"))
+        except requests.exceptions.RequestException as e:
+            err = e
+            if attempt < max_retries:
+                log.warning(f"Attempt {attempt}/{max_retries}. Network error: {e}. Retrying...")
+                time.sleep(2**attempt)
+
+    raise OLMoNetworkError(f"Failed to get file size from {scheme}://{host_name}/{path}") from err
 
 
 def _http_get_bytes_range(scheme: str, host_name: str, path: str, bytes_start: int, num_bytes: int) -> bytes:
