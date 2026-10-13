@@ -22,6 +22,10 @@
   </a>
 </p>
 
+<p align="center">
+  <b>English</b> · <a href="https://github.com/allenai/OLMo/blob/main/README.zh.md">简体中文</a>
+</p>
+
 # ⚠️ NOTICE ⚠️ This repository is out of date with our more recent releases and is no longer active. For the latest Olmo releases and updates, please visit: https://github.com/allenai/OLMo-core/ 
 
 OLMo is a repository for training and using AI2's state-of-the-art open language models. It is designed by scientists, for scientists.
