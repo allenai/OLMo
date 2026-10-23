@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Report incomplete downstream evaluation documents with a skipped-document metric.
 - Add GSM8K to in-loop evals (BPB over correct continuation)
 - Support for specifying custom dataset objects in the `data` section of the config file.
 - Added OLMo2-0425-1B configs for public usage.

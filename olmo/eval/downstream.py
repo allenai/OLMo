@@ -34,6 +34,7 @@ class ICLMetric(Metric):
         super().__init__(sync_on_compute=True)
 
         self.metric_type = metric_type
+        self.skipped_docs = 0
 
         self.add_state("loglikelihoods", default=[], dist_reduce_fx=None)
         self.add_state("labels", default=[], dist_reduce_fx=None)
@@ -43,6 +44,7 @@ class ICLMetric(Metric):
     ):
         self.loglikelihoods = []
         self.labels = []
+        self.skipped_docs = 0
 
     def update(self, batch: Dict[str, Any], lm_logits: torch.Tensor, dc_lm_logits=None):
         lm_logits = F.log_softmax(lm_logits, dim=-1)
@@ -121,6 +123,7 @@ class ICLMetric(Metric):
 
         # compute acc
         correct = []
+        skipped_docs = 0
         preds: Optional[List[float]] = None
         labels: Optional[List[int]] = None
         if self.metric_type == "f1":
@@ -142,6 +145,7 @@ class ICLMetric(Metric):
                     break
 
             if skip_document:
+                skipped_docs += 1
                 continue
             if self.metric_type in ["ce_loss", "bpb"]:
                 correct.append(loglikelihoods[0])  # Only one answer is scored
@@ -162,6 +166,7 @@ class ICLMetric(Metric):
         else:
             score = sum(correct) / len(correct)
 
+        self.skipped_docs = skipped_docs
         return torch.tensor(score)
 
 
