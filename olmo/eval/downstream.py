@@ -34,6 +34,7 @@ class ICLMetric(Metric):
         super().__init__(sync_on_compute=True)
 
         self.metric_type = metric_type
+        self.num_skipped_docs: int = 0
 
         self.add_state("loglikelihoods", default=[], dist_reduce_fx=None)
         self.add_state("labels", default=[], dist_reduce_fx=None)
@@ -43,6 +44,7 @@ class ICLMetric(Metric):
     ):
         self.loglikelihoods = []
         self.labels = []
+        self.num_skipped_docs = 0
 
     def update(self, batch: Dict[str, Any], lm_logits: torch.Tensor, dc_lm_logits=None):
         lm_logits = F.log_softmax(lm_logits, dim=-1)
@@ -127,40 +129,55 @@ class ICLMetric(Metric):
             preds = []
             labels = []
 
-        for doc_id in loglikelihood_dict:
-            # each doc_id might have a different number of continuation
-            num_continuations = len(loglikelihood_dict[doc_id].keys())
-            loglikelihoods = torch.tensor([-float("inf")] * num_continuations)
+        skipped_docs = 0
+        for doc_id, cont_dict in loglikelihood_dict.items():
+            max_cont_id = max(cont_dict.keys())
+            label = label_dict.get(doc_id)
+            num_continuations = max_cont_id + 1
+            if label is not None and label >= num_continuations:
+                num_continuations = label + 1
 
-            skip_document = False
-            for cont_id in loglikelihood_dict[doc_id]:
-                try:
-                    loglikelihoods[cont_id] = loglikelihood_dict[doc_id][cont_id]
-                except IndexError:
-                    # We didn't process all of the continuations, so skip this document.
-                    skip_document = True
-                    break
-
-            if skip_document:
+            # Check if all continuations from 0 to num_continuations - 1 were gathered
+            if len(cont_dict) < num_continuations or any(i not in cont_dict for i in range(num_continuations)):
+                log.warning(
+                    f"Skipping doc_id {doc_id}: incomplete continuations gathered "
+                    f"({sorted(cont_dict.keys())} vs expected {list(range(num_continuations))})"
+                )
+                skipped_docs += 1
                 continue
+
+            loglikelihoods = torch.tensor([-float("inf")] * num_continuations)
+            for cont_id, ll in cont_dict.items():
+                loglikelihoods[cont_id] = ll
+
             if self.metric_type in ["ce_loss", "bpb"]:
                 correct.append(loglikelihoods[0])  # Only one answer is scored
             else:
-                correct.append(1.0 if torch.argmax(loglikelihoods).item() == label_dict[doc_id] else 0.0)
+                correct.append(1.0 if torch.argmax(loglikelihoods).item() == label else 0.0)
 
             if self.metric_type == "f1":
                 assert preds is not None
                 assert labels is not None
                 preds.append(torch.argmax(loglikelihoods).item())
-                labels.append(label_dict[doc_id])
+                labels.append(label)
+
+        self.num_skipped_docs = skipped_docs
+        if skipped_docs > 0:
+            log.warning(f"ICLMetric: {skipped_docs} documents skipped due to incomplete continuations.")
 
         if self.metric_type == "f1":
             assert preds is not None
             assert labels is not None
-            # for NLI tasks, continuations are yes, no, neither, so idx=0 assigned to pos label
-            score = f1_score(labels, preds, pos_label=0)
+            if len(labels) == 0:
+                score = 0.0
+            else:
+                # for NLI tasks, continuations are yes, no, neither, so idx=0 assigned to pos label
+                score = f1_score(labels, preds, pos_label=0)
         else:
-            score = sum(correct) / len(correct)
+            if len(correct) == 0:
+                score = 0.0
+            else:
+                score = sum(correct) / len(correct)
 
         return torch.tensor(score)
 

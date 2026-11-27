@@ -33,7 +33,10 @@ class Evaluator:
             key = f"eval/downstream/{self.label}_{self.eval_metric.metric_type}"
             if self.eval_metric.metric_type in ["ce_loss", "bpb"]:
                 key = key.replace("/downstream/", f"/downstream_{self.eval_metric.metric_type}/")
-            return {key: value}
+            res = {key: value}
+            if getattr(self.eval_metric, "num_skipped_docs", 0) > 0:
+                res[f"eval/downstream/{self.label}_skipped_docs"] = float(self.eval_metric.num_skipped_docs)
+            return res
         elif self.type == EvaluatorType.lm:
             # Metric(s) = cross entropy loss
             metrics: Dict[str, Metric]

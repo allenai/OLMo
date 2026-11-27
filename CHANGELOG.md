@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a .csv file of olmo-mix1124 csvgz files. 
 ### Fixed
 
+- Fixed `ICLMetric.compute()` improperly sizing continuation tensors and silently dropping under-gathered documents on IndexError.
 - Changed a Union definition to be compatible with Python 3.9
 - Changed hf_olmo conversion to use backwards-compatible logic via `OLMo.from_checkpoint`.
 - fix save_overwrite pass
